@@ -66,16 +66,26 @@ export async function POST(req: NextRequest) {
       },
     };
 
-    if (body.promotionCode) {
+    // Build discounts logic
+    const isGrowthMonthly = (String((body.tier || '').toLowerCase()) === 'growth') && (String((body.billing || 'monthly').toLowerCase()) === 'monthly');
+    const autoPromo = process.env.STRIPE_PROMOTION_CODE_GROWTH_10 || '0RJ7GpdK';
+
+    const createWithDiscounts = async (discounts: Stripe.Checkout.SessionCreateParams.Discount[] | undefined) => {
       try {
-        session = await stripe.checkout.sessions.create({
+        return await stripe.checkout.sessions.create({
           ...basePayload,
-          discounts: [{ promotion_code: body.promotionCode }],
+          ...(discounts && discounts.length ? { discounts } : {}),
         });
-      } catch {
+      } catch (err) {
         // Fallback without discount on any error
-        session = await stripe.checkout.sessions.create(basePayload);
+        return await stripe.checkout.sessions.create(basePayload);
       }
+    };
+
+    if (body.promotionCode) {
+      session = await createWithDiscounts([{ promotion_code: body.promotionCode }]);
+    } else if (isGrowthMonthly && autoPromo) {
+      session = await createWithDiscounts([{ promotion_code: autoPromo }]);
     } else {
       session = await stripe.checkout.sessions.create(basePayload);
     }
