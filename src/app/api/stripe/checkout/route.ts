@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { cookies } from "next/headers";
 import Stripe from "stripe";
 
 export async function POST(req: NextRequest) {
@@ -43,6 +44,12 @@ export async function POST(req: NextRequest) {
     const userId = req.headers.get("x-user-id") || undefined;
     const userEmail = req.headers.get("x-user-email") || undefined;
 
+    // Read DataFast cookies for attribution
+    // If you're using Next.js 15+, `cookies()` may need to be awaited; current version works sync
+    const cookieStore = cookies();
+    const datafastVisitorId = cookieStore.get('datafast_visitor_id')?.value;
+    const datafastSessionId = cookieStore.get('datafast_session_id')?.value;
+
     // Try with discount if provided, otherwise fallback without discount if coupon doesn't apply
     let session: Stripe.Checkout.Session | null = null;
     const basePayload: Stripe.Checkout.SessionCreateParams = {
@@ -52,7 +59,11 @@ export async function POST(req: NextRequest) {
       line_items: [ { price: priceId, quantity: 1 } ],
       client_reference_id: userId || undefined,
       customer_email: userEmail || undefined,
-      metadata: userId ? { userId } : undefined,
+      metadata: {
+        ...(userId ? { userId } : {}),
+        ...(datafastVisitorId ? { datafast_visitor_id: datafastVisitorId } : {}),
+        ...(datafastSessionId ? { datafast_session_id: datafastSessionId } : {}),
+      },
     };
 
     if (body.promotionCode) {
