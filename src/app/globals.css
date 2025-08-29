@@ -1,0 +1,107 @@
+@import "tailwindcss";
+@source "../**/*.{ts,tsx}";
+@plugin "tailwindcss-animate";
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+
+
+/* Tailwind v4 theme tokens to support shadcn color utilities like bg-primary, text-muted-foreground, border-border, etc. */
+@theme inline {
+  --color-border: hsl(var(--border));
+  --color-input: hsl(var(--input));
+  --color-ring: hsl(var(--ring));
+  --color-background: hsl(var(--background));
+  --color-foreground: hsl(var(--foreground));
+  --color-primary: hsl(var(--primary));
+  --color-primary-foreground: hsl(var(--primary-foreground));
+  --color-secondary: hsl(var(--secondary));
+  --color-secondary-foreground: hsl(var(--secondary-foreground));
+  --color-destructive: hsl(var(--destructive));
+  --color-destructive-foreground: hsl(var(--destructive-foreground));
+  --color-muted: hsl(var(--muted));
+  --color-muted-foreground: hsl(var(--muted-foreground));
+  --color-accent: hsl(var(--accent));
+  --color-accent-foreground: hsl(var(--accent-foreground));
+  --color-popover: hsl(var(--popover));
+  --color-popover-foreground: hsl(var(--popover-foreground));
+  --color-card: hsl(var(--card));
+  --color-card-foreground: hsl(var(--card-foreground));
+}
+
+@layer base {
+  :root {
+    --background: 0 0% 8%;
+    --foreground: 0 0% 95%;
+    --card: 0 0% 12%;
+    --card-foreground: 0 0% 95%;
+    --popover: 0 0% 12%;
+    --popover-foreground: 0 0% 95%;
+    --primary: 259 100% 65%;
+    --primary-foreground: 0 0% 95%;
+    --secondary: 0 0% 15%;
+    --secondary-foreground: 0 0% 95%;
+    --muted: 0 0% 15%;
+    --muted-foreground: 0 0% 60%;
+    --accent: 259 100% 65%;
+    --accent-foreground: 0 0% 95%;
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 95%;
+    --border: 0 0% 20%;
+    --input: 0 0% 20%;
+    --ring: 259 100% 65%;
+    --radius: 0.5rem;
+  }
+}
+
+@layer base {
+  .theme-app {
+    /* Primary background and text */
+    --background: 0 0% 1%; /* approx #020105 */
+    --foreground: 0 0% 95%;
+    /* Brand primary */
+    --primary: 257 96% 58%; /* approx #522ef9 */
+    --primary-foreground: 0 0% 100%;
+    /* Secondary accents (buttons) */
+    --accent: 293 90% 63%; /* #b54af3 */
+    --accent-foreground: 0 0% 100%;
+    --ring: 6 94% 66%; /* #f96553 */
+  }
+  * {
+    @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground font-sans;
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  }
+}
+
+.gradient-text {
+  @apply bg-gradient-to-r from-purple-400 to-violet-400 bg-clip-text text-transparent;
+}
+
+.purple-glow {
+  box-shadow: 0 0 20px rgba(139, 92, 246, 0.3);
+}
+
+@keyframes scrollDownContained {
+  0% { transform: translateY(0); }
+  100% { transform: translateY(-50%); }
+}
+
+@keyframes scrollUpContained {
+  0% { transform: translateY(-50%); }
+  100% { transform: translateY(0); }
+}
+
+.animate-scroll-down-contained { animation: scrollDownContained 15s linear infinite; }
+.animate-scroll-up-contained { animation: scrollUpContained 15s linear infinite; }
+.animate-scroll-down-contained:hover,
+.animate-scroll-up-contained:hover { animation-play-state: paused; }
+
+.tool-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 25px rgba(139, 92, 246, 0.15);
+}
