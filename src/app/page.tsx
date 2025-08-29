@@ -7,10 +7,12 @@ import PricingSection from "@/components/PricingSection";
 import FaqSection from "@/components/FaqSection";
 import JoinMembersSection from "@/components/JoinMembersSection";
 import Footer from "@/components/Footer";
+import AuthHashRedirector from "@/components/AuthHashRedirector";
 
 export default function Home() {
   return (
     <div className="min-h-screen bg-black">
+      <AuthHashRedirector />
       <NewNavbar />
       <NewHeroSection />
       {/* <NewDashboardPreview /> */}
