@@ -57,6 +57,7 @@ export async function POST(req: NextRequest) {
       success_url: `${origin}/app`,
       cancel_url: `${origin}/pricing`,
       line_items: [ { price: priceId, quantity: 1 } ],
+      allow_promotion_codes: true,
       client_reference_id: userId || undefined,
       customer_email: userEmail || undefined,
       metadata: {
