@@ -68,7 +68,7 @@ const SignUp = () => {
         options: {
           // After email verification, open the app directly
           emailRedirectTo: `${window.location.origin}/app`,
-          data: { first_name: firstName, last_name: lastName, plan: 'starter' }
+          data: { first_name: firstName, last_name: lastName, plan: 'free' }
         }
       });
 

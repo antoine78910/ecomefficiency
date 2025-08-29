@@ -38,7 +38,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "missing_price_id", details: { tier: body.tier || 'growth', billing: body.billing || 'monthly' } }, { status: 400 });
     }
 
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-07-30.basil" });
+    // Use a stable Stripe API version compatible with the SDK
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2024-06-20" });
 
     const origin = req.headers.get("origin") || process.env.APP_URL || "http://localhost:3000";
     const userId = req.headers.get("x-user-id") || undefined;
@@ -72,14 +73,9 @@ export async function POST(req: NextRequest) {
           ...basePayload,
           discounts: [{ promotion_code: body.promotionCode }],
         });
-      } catch (err: any) {
-        const code = err?.code || err?.raw?.code;
-        if (code === 'coupon_applies_to_nothing' || code === 'invalid_request_error') {
-          // Fallback without discount
-          session = await stripe.checkout.sessions.create(basePayload);
-        } else {
-          throw err;
-        }
+      } catch {
+        // Fallback without discount on any error
+        session = await stripe.checkout.sessions.create(basePayload);
       }
     } else {
       session = await stripe.checkout.sessions.create(basePayload);

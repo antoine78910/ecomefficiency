@@ -52,10 +52,6 @@ const PricingSection = () => {
 
 	const handleCheckout = async (planName: string) => {
 		const tier = planName.toLowerCase().includes('start') ? 'starter' : 'growth';
-		const priceId = billing === 'monthly'
-			? (tier === 'starter' ? process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_STARTER_MONTHLY : process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_GROWTH_MONTHLY)
-			: (tier === 'starter' ? process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_STARTER_YEARLY : process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_GROWTH_YEARLY);
-
 		const { data: { user } } = await supabase.auth.getUser();
 		if (!user) {
 			window.location.href = '/sign-in?next=/pricing';
@@ -63,11 +59,10 @@ const PricingSection = () => {
 		}
 		const headers: Record<string, string> = { 'Content-Type': 'application/json', 'x-user-id': user.id };
 		if (user.email) headers['x-user-email'] = user.email;
-
 		const res = await fetch('/api/stripe/checkout', {
 			method: 'POST',
 			headers,
-			body: JSON.stringify({ tier, billing, promotionCode: 'promo_1S125vLCLqnM14mKvI6487s8', priceId }),
+			body: JSON.stringify({ tier, billing }),
 		});
 		const data = await res.json();
 		if (data?.url) window.location.href = data.url;
