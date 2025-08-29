@@ -68,7 +68,25 @@ export async function POST(req: NextRequest) {
 
     // Build discounts logic
     const isGrowthMonthly = (String((body.tier || '').toLowerCase()) === 'growth') && (String((body.billing || 'monthly').toLowerCase()) === 'monthly');
-    const autoPromo = process.env.STRIPE_PROMOTION_CODE_GROWTH_10 || '0RJ7GpdK';
+    const autoPromoInput = process.env.STRIPE_PROMOTION_CODE_GROWTH_10 || 'FIRSTMONTH';
+
+    const resolvePromotionCodeId = async (input?: string | null): Promise<string | null> => {
+      try {
+        const val = (input || '').trim();
+        if (!val) return null;
+        if (/^promo_/.test(val)) return val; // already a promotion_code id
+        if (/^coupon_/.test(val)) {
+          // find an active promotion code tied to this coupon
+          const found = await stripe.promotionCodes.list({ coupon: val, active: true, limit: 1 });
+          return found.data?.[0]?.id || null;
+        }
+        // treat as the human redeemable code (e.g., "FIRSTMONTH")
+        const listed = await stripe.promotionCodes.list({ code: val, active: true, limit: 1 });
+        return listed.data?.[0]?.id || null;
+      } catch {
+        return null;
+      }
+    };
 
     const createWithDiscounts = async (discounts: Stripe.Checkout.SessionCreateParams.Discount[] | undefined) => {
       try {
@@ -83,9 +101,11 @@ export async function POST(req: NextRequest) {
     };
 
     if (body.promotionCode) {
-      session = await createWithDiscounts([{ promotion_code: body.promotionCode }]);
-    } else if (isGrowthMonthly && autoPromo) {
-      session = await createWithDiscounts([{ promotion_code: autoPromo }]);
+      const resolved = await resolvePromotionCodeId(body.promotionCode);
+      session = await createWithDiscounts(resolved ? [{ promotion_code: resolved }] : undefined);
+    } else if (isGrowthMonthly && autoPromoInput) {
+      const resolved = await resolvePromotionCodeId(autoPromoInput);
+      session = await createWithDiscounts(resolved ? [{ promotion_code: resolved }] : undefined);
     } else {
       session = await stripe.checkout.sessions.create(basePayload);
     }
