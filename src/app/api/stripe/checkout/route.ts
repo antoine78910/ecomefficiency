@@ -45,8 +45,8 @@ export async function POST(req: NextRequest) {
     const userEmail = req.headers.get("x-user-email") || undefined;
 
     // Read DataFast cookies for attribution
-    // If you're using Next.js 15+, `cookies()` may need to be awaited; current version works sync
-    const cookieStore = cookies();
+    // Next.js 15+ returns a Promise from cookies()
+    const cookieStore = await cookies();
     const datafastVisitorId = cookieStore.get('datafast_visitor_id')?.value;
     const datafastSessionId = cookieStore.get('datafast_session_id')?.value;
 
