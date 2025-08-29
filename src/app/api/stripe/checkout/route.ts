@@ -69,7 +69,7 @@ export async function POST(req: NextRequest) {
 
     // Build discounts logic
     const isGrowthMonthly = (String((body.tier || '').toLowerCase()) === 'growth') && (String((body.billing || 'monthly').toLowerCase()) === 'monthly');
-    const autoPromoInput = process.env.STRIPE_PROMOTION_CODE_GROWTH_10 || 'FIRSTMONTH';
+    const autoPromoInput = process.env.STRIPE_PROMOTION_CODE_GROWTH_10 || 'promo_1S1ZqOLCLqnM14mK1IXSV2Zl';
 
     const resolvePromotionCodeId = async (input?: string | null): Promise<string | null> => {
       try {
