@@ -66,20 +66,17 @@ const App = () => {
     })()
   }, [])
 
-  // Bottom-right IP/country/currency badge for debugging currency decision
-  const [ipInfo, setIpInfo] = React.useState<{ ip?: string|null, country?: string|null, currency?: 'EUR'|'USD' } | null>(null)
+  // Bottom-right server country/currency badge for debugging currency decision
+  const [ipInfo, setIpInfo] = React.useState<{ country?: string|null, currency?: 'EUR'|'USD' } | null>(null)
   React.useEffect(() => {
     let active = true
     ;(async () => {
       try {
-        // Browser IP
-        const b = await fetch('/api/ip', { cache: 'no-store' }).then(r=>r.json()).catch(()=>({}))
-        // Server currency
         const s = await fetch('/api/ip-region', { cache: 'no-store' }).then(r=>r.json()).catch(()=>({}))
         if (!active) return
-        const country = (b?.country || s?.country || null) as string|null
+        const country = (s?.country || null) as string|null
         const currency = (s?.currency === 'EUR' ? 'EUR' : 'USD') as 'EUR'|'USD'
-        setIpInfo({ ip: b?.ip || null, country, currency })
+        setIpInfo({ country, currency })
       } catch {}
     })()
     return () => { active = false }
@@ -96,7 +93,7 @@ const App = () => {
         </div>
             {ipInfo ? (
               <div className="fixed bottom-3 right-3 z-40 text-[10px] md:text-xs text-gray-300 bg-black/60 border border-white/10 rounded-md px-2 py-1">
-                <span>{ipInfo.country || '—'} · {ipInfo.currency} · {ipInfo.ip || '—'}</span>
+                <span>{ipInfo.country || '—'} · {ipInfo.currency}</span>
               </div>
             ) : null}
       </div>

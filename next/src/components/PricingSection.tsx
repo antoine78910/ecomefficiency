@@ -69,7 +69,7 @@ const PricingSection = () => {
 
   // Ensure checkout uses the same currency as the detector (server/app popup already patched)
   React.useEffect(() => {
-    // nothing here; currency kept in state and passed through callback below
+    // currency kept in state and passed through callback below
   }, [currency])
 
 	const handleCheckout = async (planName: string) => {
@@ -116,18 +116,9 @@ const PricingSection = () => {
         setIsReady(true);
       } else {
         try {
-          const [serverRes, browserRes] = await Promise.allSettled([
-            fetch('/api/ip-region', { cache: 'no-store' }).then(r => r.json()).catch(() => ({})),
-            fetch('https://ipapi.co/json/', { cache: 'no-store' }).then(r => r.json()).catch(() => ({})),
-          ]);
-          let useEur = false;
-          if (serverRes.status === 'fulfilled' && serverRes.value?.currency === 'EUR') useEur = true;
-          if (!useEur && browserRes.status === 'fulfilled') {
-            const cc = String(browserRes.value?.country || '').toUpperCase();
-            if (cc && isEUCountry(cc)) useEur = true;
-          }
-          if (useEur) {
-            setCurrency('EUR');
+          const server = await fetch('/api/ip-region', { cache: 'no-store' }).then(r => r.json()).catch(() => ({}));
+          if (server?.currency === 'EUR' || server?.currency === 'USD') {
+            setCurrency(server.currency);
           } else {
             try {
               const locale = Intl.DateTimeFormat().resolvedOptions().locale || navigator.language || 'en-US';
@@ -155,10 +146,7 @@ const PricingSection = () => {
   if (!isReady) {
     return (
       <section className="py-24 bg-black flex items-center justify-center">
-        <div className="flex items-center gap-3 text-gray-300 text-sm">
-          <div className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-          <span>Preparing localized pricing…</span>
-        </div>
+        <div className="h-8 w-8 rounded-full border-2 border-white/30 border-t-white animate-spin" />
       </section>
     );
   }
