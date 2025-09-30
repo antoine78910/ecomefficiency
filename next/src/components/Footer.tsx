@@ -123,39 +123,20 @@ const Footer = () => {
 };
 
 function CurrentIpBadge() {
-  const [info, setInfo] = React.useState<{ ip?: string | null; country?: string | null } | null>(null)
   const [browserIp, setBrowserIp] = React.useState<string | null>(null)
-  const [browserCountry, setBrowserCountry] = React.useState<string | null>(null)
   React.useEffect(() => {
     let mounted = true
     ;(async () => {
       try {
-        const res = await fetch('/api/ip', { cache: 'no-store' })
-        const j = await res.json().catch(() => ({}))
-        if (mounted) setInfo(j)
-      } catch {}
-      try {
-        // Get browser visible IP
         const r = await fetch('https://api.ipify.org?format=json', { cache: 'no-store' })
         const j = await r.json().catch(() => ({}))
         if (j?.ip && mounted) setBrowserIp(j.ip)
-      } catch {}
-      try {
-        // Get browser-visible country via a public geo API
-        const g = await fetch('https://ipapi.co/json/', { cache: 'no-store' })
-        const gj = await g.json().catch(() => ({}))
-        if (gj?.country && mounted) setBrowserCountry(String(gj.country).toUpperCase())
       } catch {}
     })()
     return () => { mounted = false }
   }, [])
   return (
-    <div className="text-[10px] md:text-xs text-gray-500">
-      Server IP: <span className="text-gray-300">{info?.ip || 'unknown'}</span>{info?.country ? (<span> · {info.country}</span>) : null}
-      {browserIp ? (
-        <span className="ml-2">| Browser IP: <span className="text-gray-300">{browserIp}</span>{browserCountry ? (<span> · {browserCountry}</span>) : null}</span>
-      ) : null}
-    </div>
+    <div className="text-[10px] md:text-xs text-gray-500">ip: <span className="text-gray-300">{browserIp || '—'}</span></div>
   )
 }
 
