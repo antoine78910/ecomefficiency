@@ -1,0 +1,40 @@
+{
+  "manifest_version": 3,
+  "name": "EcomEfficiency Access Codes",
+  "version": "1.0.0",
+  "description": "Redeem one-time access codes for Pipiads and ElevenLabs.",
+  "action": {
+    "default_title": "EcomEfficiency Access",
+    "default_popup": "popup.html"
+  },
+  "permissions": [
+    "storage"
+  ],
+  "host_permissions": [
+    "http://localhost:3000/*",
+    "http://localhost:5000/*",
+    "https://ecomefficeincy.com/*",
+    "https://ecomefficiency.site/*"
+  ],
+  "background": {
+    "service_worker": "background.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://ecomefficiency.site/pipiads2*",
+        "http://localhost:3000/pipiads2*",
+        "http://localhost:5000/pipiads2*",
+        "https://ecomefficeincy.com/pipiads2*"
+      ],
+      "exclude_matches": [
+        "*://*/proxy/*"
+      ],
+      "js": ["content.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
+
+

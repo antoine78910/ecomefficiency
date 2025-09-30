@@ -1,0 +1,46 @@
+<!doctype html>
+<html>
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>EcomEfficiency Access</title>
+    <style>
+      body { font-family: system-ui, -apple-system, Segoe UI, Roboto, sans-serif; margin: 0; padding: 12px; width: 320px; background: #0b0b0f; color: #e5e7eb; }
+      .row { margin-bottom: 8px; }
+      input, select { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #2a2a35; background: #111119; color: #e5e7eb; }
+      button { width: 100%; padding: 8px; border-radius: 8px; border: 1px solid #7c3aed; background: #5b21b6; color: white; cursor: pointer; }
+      button[disabled] { opacity: .6; cursor: not-allowed; }
+      .muted { color: #9ca3af; font-size: 12px; }
+      .success { color: #34d399; font-size: 12px; }
+      .error { color: #fca5a5; font-size: 12px; }
+      .flex { display: flex; gap: 8px; }
+      .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; }
+    </style>
+  </head>
+  <body>
+    <div class="row">
+      <label class="muted">App Base URL</label>
+      <input id="baseUrl" placeholder="https://ecomefficeincy.com" />
+      <div class="muted">Include protocol. Example: https://ecomefficeincy.com</div>
+    </div>
+    <div class="row">
+      <label class="muted">Service</label>
+      <select id="service">
+        <option value="pipiads">Pipiads</option>
+        <option value="elevenlabs">ElevenLabs</option>
+      </select>
+    </div>
+    <div class="row">
+      <label class="muted">One‑time code</label>
+      <input id="code" class="mono" placeholder="paste your code" />
+    </div>
+    <div class="row flex">
+      <button id="redeem">Redeem code</button>
+      <button id="copyGrant" disabled>Copy grant</button>
+    </div>
+    <div id="status" class="muted"></div>
+    <script type="module" src="popup.js"></script>
+  </body>
+  </html>
+
+
