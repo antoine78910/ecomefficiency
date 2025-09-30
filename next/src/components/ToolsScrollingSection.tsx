@@ -28,7 +28,7 @@ const ToolsScrollingSection = () => {
               const data = row === 0 ? leftColumn : row === 1 ? middleColumn : rightColumn;
               return (
               <div key={`row-${row}`} className="relative overflow-x-hidden">
-                <div className={`${row % 2 === 0 ? 'animate-scroll-left-contained' : 'animate-scroll-right-contained'} inline-flex gap-3 pr-2 whitespace-nowrap w-max`}>
+                <div className={`${row % 2 === 0 ? 'animate-scroll-left-contained' : 'animate-scroll-right-contained'} inline-flex gap-3 pr-2 whitespace-nowrap w-max [animation-play-state:running] motion-reduce:animate-none`}>
                   {[...data, ...data].map((tool, index) => (
                     <div 
                       key={`mobile-${row}-${index}`}

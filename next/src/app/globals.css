@@ -103,6 +103,8 @@
 
 .animate-scroll-left-contained { animation: scrollLeft 12s linear infinite; }
 .animate-scroll-right-contained { animation: scrollRight 12s linear infinite; }
+.animate-scroll-left-contained:where(:hover),
+.animate-scroll-right-contained:where(:hover) { animation-play-state: paused; }
 .animate-scroll-left-contained:hover,
 .animate-scroll-right-contained:hover { animation-play-state: paused; }
 
