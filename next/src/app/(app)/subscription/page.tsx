@@ -145,7 +145,7 @@ export default function SubscriptionPage() {
         </button>
 
         {(plan === 'starter' || plan === 'free') && (
-          <UpgradeButton email={email} customerId={customerId} />
+          <UpgradeButton email={email} customerId={customerId} plan={plan} />
         )}
       </div>
     </div>
@@ -153,7 +153,7 @@ export default function SubscriptionPage() {
 }
 
 
-function UpgradeButton({ email, customerId }: { email?: string; customerId?: string }) {
+function UpgradeButton({ email, customerId, plan }: { email?: string; customerId?: string; plan: 'free'|'starter'|'pro' }) {
   const [pending, setPending] = React.useState(false)
   return (
     <button
@@ -162,9 +162,19 @@ function UpgradeButton({ email, customerId }: { email?: string; customerId?: str
         if (pending) return
         setPending(true)
         try {
-          // If checkout price envs are missing, open billing portal upgrade flow as fallback
-          if (customerId) {
-            const portal = await fetch('/api/stripe/portal', { method: 'POST', headers: { 'x-stripe-customer-id': customerId, 'Content-Type': 'application/json' }, body: JSON.stringify({ priceId: (process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_MONTHLY_EUR || process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_MONTHLY_USD || '') }) })
+          // Prefer PORTAL upgrade (handles proration automatically) when user already has a Starter plan
+          if ((plan === 'starter') && customerId) {
+            // Detect currency and pick price id for Pro
+            let eur = true
+            try { const r = await fetch('/api/ip-region', { cache: 'no-store' }); const j = await r.json().catch(()=>({})); eur = (j?.currency === 'EUR'); } catch {}
+            const proEur = (process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_MONTHLY_EUR as any) as string | undefined
+            const proUsd = (process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_MONTHLY_USD as any) as string | undefined
+            const priceId = eur ? (proEur || '') : (proUsd || proEur || '')
+            const portal = await fetch('/api/stripe/portal', {
+              method: 'POST',
+              headers: { 'x-stripe-customer-id': customerId, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ priceId })
+            })
             const pj = await portal.json().catch(()=>({}))
             if (pj?.url) { window.location.href = pj.url; return }
           }
