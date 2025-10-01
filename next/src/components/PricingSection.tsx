@@ -193,13 +193,9 @@ const PricingSection = () => {
 									{/* Price row */}
                   <div className="mb-2 flex items-end gap-3">
                     {isYearly ? (
-                      <>
-                        <span className="text-5xl font-extrabold text-white drop-shadow-[0_0_20px_rgba(139,92,246,0.15)] antialiased tabular-nums font-sans">{formatPrice(plan.name==='Starter'?11.99:17.99, currency)}</span>
-                      </>
+                      <span className="text-5xl font-bold text-white antialiased tabular-nums font-sans drop-shadow-none">{formatPrice(plan.name==='Starter'?11.99:17.99, currency)}</span>
                     ) : (
-                      <>
-                        <span className="text-5xl font-extrabold text-white drop-shadow-[0_0_20px_rgba(139,92,246,0.15)] antialiased tabular-nums font-sans">{formatPrice(plan.baseMonthly, currency)}</span>
-                      </>
+                      <span className="text-5xl font-bold text-white antialiased tabular-nums font-sans drop-shadow-none">{formatPrice(plan.baseMonthly, currency)}</span>
                     )}
                     <span className="text-sm text-gray-400 mb-2">/mo</span>
                   </div>

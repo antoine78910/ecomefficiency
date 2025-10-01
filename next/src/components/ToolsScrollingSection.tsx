@@ -112,10 +112,10 @@ const ToolsScrollingSection = () => {
           <div className="flex-1 w-2/3 max-w-5xl">
             <div className="grid grid-cols-3 gap-6 h-[480px] overflow-hidden relative">
               
-              {/* Left Column - Scrolling Down */}
+              {/* Left Column - Scrolling Down (start slightly above) */}
               <div className="relative overflow-hidden">
-                <div className="animate-scroll-down-contained space-y-4">
-                  {[...leftColumn, ...leftColumn].map((tool, index) => (
+                <div className="animate-scroll-down-contained space-y-4" style={{ marginTop: '-15%' }}>
+                  {[...leftColumn, ...leftColumn, ...leftColumn].map((tool, index) => (
                     <div 
                       key={`left-${index}`}
                       className="tool-card bg-gray-900 rounded-2xl p-4 transition-all duration-300 relative overflow-hidden min-h-[200px] flex flex-col items-center text-center"
@@ -180,10 +180,10 @@ const ToolsScrollingSection = () => {
                 </div>
               </div>
 
-              {/* Right Column - Scrolling Down (same as left) */}
+              {/* Right Column - Scrolling Down (same as left, with slight offset) */}
               <div className="relative overflow-hidden">
-                <div className="animate-scroll-down-contained space-y-4">
-                  {[...rightColumn, ...rightColumn].map((tool, index) => (
+                <div className="animate-scroll-down-contained space-y-4" style={{ marginTop: '-10%' }}>
+                  {[...rightColumn, ...rightColumn, ...rightColumn].map((tool, index) => (
                     <div 
                       key={`right-${index}`}
                       className="tool-card bg-gray-900 rounded-2xl p-4 transition-all duration-300 relative overflow-hidden min-h-[200px] flex flex-col items-center text-center"
