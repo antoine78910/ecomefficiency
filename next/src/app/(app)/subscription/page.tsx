@@ -136,8 +136,13 @@ export default function SubscriptionPage() {
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <button
           onClick={async () => {
-            // Direct Stripe billing portal login page as requested
-            window.location.href = 'https://billing.stripe.com/p/login/fZu9AU1HlfYGfKO2CvbjW00'
+            try {
+              if (!customerId) { window.location.href = 'https://billing.stripe.com/p/login/fZu9AU1HlfYGfKO2CvbjW00'; return }
+              const r = await fetch('/api/stripe/portal', { method: 'POST', headers: { 'x-stripe-customer-id': customerId } })
+              const j = await r.json().catch(()=>({}))
+              if (j?.url) { window.location.href = j.url; return }
+              window.location.href = 'https://billing.stripe.com/p/login/fZu9AU1HlfYGfKO2CvbjW00'
+            } catch { window.location.href = 'https://billing.stripe.com/p/login/fZu9AU1HlfYGfKO2CvbjW00' }
           }}
           className="px-4 py-2 rounded-md border border-white/20 text-white hover:bg-white/10 cursor-pointer"
         >
@@ -162,8 +167,8 @@ function UpgradeButton({ email, customerId, plan }: { email?: string; customerId
         if (pending) return
         setPending(true)
         try {
-          // Prefer PORTAL upgrade (handles proration automatically) when user already has a Starter plan
-          if ((plan === 'starter') && customerId) {
+          // Prefer PORTAL upgrade (handles proration automatically). If no customer, fallback to portal login.
+          if (customerId) {
             // Detect currency and pick price id for Pro
             let eur = true
             try { const r = await fetch('/api/ip-region', { cache: 'no-store' }); const j = await r.json().catch(()=>({})); eur = (j?.currency === 'EUR'); } catch {}
@@ -178,12 +183,7 @@ function UpgradeButton({ email, customerId, plan }: { email?: string; customerId
             const pj = await portal.json().catch(()=>({}))
             if (pj?.url) { window.location.href = pj.url; return }
           }
-          // Otherwise try checkout
-          let currency: 'EUR'|'USD' = 'EUR'
-          try { const r = await fetch('/api/ip-region', { cache: 'no-store' }); const j = await r.json().catch(()=>({})); if (j?.currency === 'USD') currency = 'USD' } catch {}
-          const res = await fetch('/api/stripe/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(email ? { 'x-user-email': email } : {}) }, body: JSON.stringify({ tier: 'pro', billing: 'monthly', currency }) })
-          const data = await res.json().catch(()=>({}))
-          if (data?.url) { window.location.href = data.url; return }
+          window.location.href = 'https://billing.stripe.com/p/login/fZu9AU1HlfYGfKO2CvbjW00'
         } catch {}
         setPending(false)
       }}
