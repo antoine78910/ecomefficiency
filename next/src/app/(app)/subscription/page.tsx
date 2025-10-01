@@ -53,6 +53,14 @@ export default function SubscriptionPage() {
       if (p==='starter' || p==='pro' || p==='growth') setPlan((p==='growth'?'pro':p) as any)
       else setPlan('free')
     }
+    // Force EUR symbol for billing labels when EU IP
+    try {
+      const res = await fetch('/api/ip-region', { cache: 'no-store' })
+      const j = await res.json().catch(()=>({}))
+      const eur = j?.currency === 'EUR'
+      const nodes = document.querySelectorAll('[data-eur-label]')
+      nodes.forEach(n => { try { n.textContent = eur ? '€' : '$' } catch {} })
+    } catch {}
   }, [])
 
   React.useEffect(() => {

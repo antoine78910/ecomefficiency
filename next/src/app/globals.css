@@ -96,8 +96,8 @@
   100% { transform: translateY(0); }
 }
 
-.animate-scroll-down-contained { animation: scrollDownContained 24s linear infinite; }
-.animate-scroll-up-contained { animation: scrollUpContained 24s linear infinite; }
+.animate-scroll-down-contained { animation: scrollDownContained 32s linear infinite; }
+.animate-scroll-up-contained { animation: scrollUpContained 32s linear infinite; }
 .animate-scroll-down-contained:hover,
 .animate-scroll-up-contained:hover { animation-play-state: paused; }
 
