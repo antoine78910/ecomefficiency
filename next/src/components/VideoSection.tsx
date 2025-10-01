@@ -21,7 +21,8 @@ const VideoSection = () => {
             playsInline
             muted
             autoPlay
-            preload="metadata"
+            preload="auto"
+            controls={false}
           />
           {/* Overlay intentionally removed as requested */}
         </div>

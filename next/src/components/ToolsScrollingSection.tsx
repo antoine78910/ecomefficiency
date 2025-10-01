@@ -27,9 +27,14 @@ const ToolsScrollingSection = () => {
             {[0,1,2].map((row) => {
               const data = row === 0 ? leftColumn : row === 1 ? middleColumn : rightColumn;
               return (
-              <div key={`row-${row}`} className="relative overflow-x-hidden">
-                <div className={`${row % 2 === 0 ? 'animate-scroll-left-contained' : 'animate-scroll-right-contained'} inline-flex gap-3 pr-2 whitespace-nowrap w-max [animation-play-state:running]`}>
-                  {[...data, ...data].map((tool, index) => (
+              <div key={`row-${row}`} className="relative overflow-x-hidden touch-pan-x">
+                <div
+                  className={`${row % 2 === 0 ? 'animate-scroll-left-contained' : 'animate-scroll-right-contained'} inline-flex gap-3 pr-2 whitespace-nowrap w-max [animation-play-state:running]`}
+                  onTouchStart={(e)=>{ try { (e.currentTarget as any).style.animationPlayState = 'paused'; } catch {} }}
+                  onTouchEnd={(e)=>{ try { (e.currentTarget as any).style.animationPlayState = 'running'; } catch {} }}
+                  onTouchCancel={(e)=>{ try { (e.currentTarget as any).style.animationPlayState = 'running'; } catch {} }}
+                >
+                  {[...data, ...data, ...data].map((tool, index) => (
                     <div 
                       key={`mobile-${row}-${index}`}
                       className="tool-card bg-gray-900 rounded-xl p-3 transition-all duration-300 relative overflow-hidden inline-flex flex-col items-center text-center border border-white/10 align-top"
