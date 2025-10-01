@@ -11,25 +11,49 @@ function RouteLoaderProvider({ children }: { children: ReactNode }) {
   const pathname = usePathname();
   useEffect(() => {
     let timeout: any;
-    const start = () => { clearTimeout(timeout); setLoading(true); };
-    const stop = () => { timeout = setTimeout(() => setLoading(false), 150); };
+    let failSafe: any;
+    const start = () => {
+      clearTimeout(timeout);
+      clearTimeout(failSafe);
+      setLoading(true);
+      // Fail‑safe: never keep loader forever
+      failSafe = setTimeout(() => setLoading(false), 2500);
+    };
+    const stop = () => {
+      clearTimeout(failSafe);
+      timeout = setTimeout(() => setLoading(false), 120);
+    };
     const onPop = () => start();
     const onLoad = () => stop();
+    const onPageShow = () => stop();
+    const onVisibility = () => { if (document.visibilityState === 'visible') stop(); };
     if (typeof window !== 'undefined') {
       window.addEventListener('beforeunload', start);
       window.addEventListener('popstate', onPop);
       window.addEventListener('load', onLoad);
+      window.addEventListener('pageshow', onPageShow);
+      document.addEventListener('visibilitychange', onVisibility);
       const handler = (e: any) => {
         const a = e.target?.closest?.('a');
-        if (a && a.href && a.target !== '_blank' && a.origin === location.origin) start();
+        if (a && a.href && a.target !== '_blank' && a.origin === location.origin) {
+          // Skip same-hash or same-path anchors
+          try {
+            const url = new URL(a.href);
+            if (url.pathname === location.pathname && url.hash) return;
+          } catch {}
+          start();
+        }
       };
       document.addEventListener('click', handler, true);
       return () => {
         window.removeEventListener('beforeunload', start);
         window.removeEventListener('popstate', onPop);
         window.removeEventListener('load', onLoad);
+        window.removeEventListener('pageshow', onPageShow);
+        document.removeEventListener('visibilitychange', onVisibility);
         document.removeEventListener('click', handler, true);
         clearTimeout(timeout);
+        clearTimeout(failSafe);
       };
     }
   }, []);
@@ -38,7 +62,7 @@ function RouteLoaderProvider({ children }: { children: ReactNode }) {
   // including when landing on /sign-in or any other page.
   useEffect(() => {
     // Small defer to avoid flicker during immediate hydration of the new route
-    const t = setTimeout(() => setLoading(false), 100);
+    const t = setTimeout(() => setLoading(false), 80);
     return () => clearTimeout(t);
   }, [pathname]);
 
