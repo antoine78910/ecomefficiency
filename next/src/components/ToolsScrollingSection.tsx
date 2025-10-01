@@ -146,10 +146,10 @@ const ToolsScrollingSection = () => {
                 </div>
               </div>
 
-              {/* Middle Column - Scrolling Up */}
+              {/* Middle Column - Scrolling Up (start offset so it begins mid-list) */}
               <div className="relative overflow-hidden">
-                <div className="animate-scroll-up-contained space-y-4">
-                  {[...middleColumn, ...middleColumn].map((tool, index) => (
+                <div className="animate-scroll-up-contained space-y-4" style={{ marginTop: '-25%' }}>
+                  {[...middleColumn.slice(Math.floor(middleColumn.length/2)), ...middleColumn, ...middleColumn.slice(0, Math.floor(middleColumn.length/2))].map((tool, index) => (
                     <div 
                       key={`middle-${index}`}
                       className="tool-card bg-gray-900 rounded-2xl p-4 transition-all duration-300 relative overflow-hidden min-h-[200px] flex flex-col items-center text-center"

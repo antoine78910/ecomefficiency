@@ -96,13 +96,13 @@
   100% { transform: translateY(0); }
 }
 
-.animate-scroll-down-contained { animation: scrollDownContained 15s linear infinite; }
-.animate-scroll-up-contained { animation: scrollUpContained 15s linear infinite; }
+.animate-scroll-down-contained { animation: scrollDownContained 24s linear infinite; }
+.animate-scroll-up-contained { animation: scrollUpContained 24s linear infinite; }
 .animate-scroll-down-contained:hover,
 .animate-scroll-up-contained:hover { animation-play-state: paused; }
 
-.animate-scroll-left-contained { animation: scrollLeft 16s linear infinite; }
-.animate-scroll-right-contained { animation: scrollRight 16s linear infinite; }
+.animate-scroll-left-contained { animation: scrollLeft 28s linear infinite; }
+.animate-scroll-right-contained { animation: scrollRight 28s linear infinite; }
 .animate-scroll-left-contained:where(:hover),
 .animate-scroll-right-contained:where(:hover) { animation-play-state: paused; }
 .animate-scroll-left-contained:hover,

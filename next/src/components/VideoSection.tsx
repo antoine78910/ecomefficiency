@@ -23,30 +23,7 @@ const VideoSection = () => {
             autoPlay
             preload="metadata"
           />
-          {/* Overlay headline and mini billing showcase */}
-          <div className="absolute inset-0 flex flex-col items-center justify-end p-4 sm:p-6 md:p-8 pointer-events-none">
-            <div className="text-center mb-3 md:mb-4">
-              <h3 className="text-white text-lg md:text-2xl font-bold">Save Big with Ecom Efficiency</h3>
-              <p className="text-gray-300 text-xs md:text-sm">Access 50+ tools for the price of one</p>
-            </div>
-            <div className="w-full max-w-md grid grid-cols-3 gap-2 text-center text-[10px] md:text-xs text-gray-200 bg-black/40 rounded-lg border border-white/10 p-2">
-              <div className="bg-white/5 rounded-md p-2">
-                <div className="text-white font-semibold">Starter</div>
-                <div className="text-purple-300 font-bold">€11.99</div>
-                <div className="text-gray-400">/mo (annual)</div>
-              </div>
-              <div className="bg-white/5 rounded-md p-2">
-                <div className="text-white font-semibold">Pro</div>
-                <div className="text-purple-300 font-bold">€17.99</div>
-                <div className="text-gray-400">/mo (annual)</div>
-              </div>
-              <div className="bg-white/5 rounded-md p-2">
-                <div className="text-white font-semibold">Monthly</div>
-                <div className="text-purple-300 font-bold">€19.99+</div>
-                <div className="text-gray-400">flexible</div>
-              </div>
-            </div>
-          </div>
+          {/* Overlay intentionally removed as requested */}
         </div>
       </div>
     </section>

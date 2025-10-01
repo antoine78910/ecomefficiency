@@ -161,7 +161,7 @@ const PricingSection = () => {
 					</div>
 				</div>
 				
-        <h2 className="text-3xl md:text-4xl font-bold text-center mb-6 text-white font-sans">
+        <h2 className="text-3xl md:text-4xl font-bold text-center mb-6 text-white font-sans tracking-normal">
 					Simple and Flexible Pricing
 				</h2>
 
@@ -176,7 +176,7 @@ const PricingSection = () => {
 					{plans.map((plan) => (
             <div key={plan.name} className={`relative rounded-2xl border group/card ${plan.highlight ? 'bg-[linear-gradient(180deg,#1c1826_0%,#121019_100%)] border-purple-500/25 shadow-[0_0_0_1px_rgba(139,92,246,0.18)]' : 'bg-[#0d0e12] border-white/10'} flex flex-col`}>
               <div className="p-7 flex flex-col h-full">
-              <h3 className="text-2xl font-bold text-[#ab63ff] drop-shadow-[0_0_12px_rgba(171,99,255,0.35)] mb-1 transition-all group-hover/card:text-[#b774ff] group-hover/card:drop-shadow-[0_0_16px_rgba(171,99,255,0.45)] font-sans">
+              <h3 className="text-2xl font-bold text-[#ab63ff] drop-shadow-[0_0_12px_rgba(171,99,255,0.35)] mb-1 transition-all group-hover/card:text-[#b774ff] group-hover/card:drop-shadow-[0_0_16px_rgba(171,99,255,0.45)] font-sans tracking-normal">
                   {plan.name}
 									{isYearly ? (
                     <span className="ml-2 align-middle text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">-40%</span>
