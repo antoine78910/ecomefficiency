@@ -1050,7 +1050,7 @@ function BrainCredsCard({ disabled }: { disabled?: boolean }) {
   return (
     <div onClick={() => { if (!disabled) setOpen(true) }} className={`relative bg-gray-900 border border-white/10 rounded-2xl p-2 md:p-3 flex flex-col ${disabled ? 'opacity-60 pointer-events-none' : 'cursor-pointer hover:border-white/20'}`}>
       <div className="w-full rounded-xl bg-[#000000] border border-white/10 overflow-hidden relative" style={{ aspectRatio: '16 / 9' }}>
-        <Image src="/tools-logos/brain.png" alt="Brain.fm logo" fill className="object-contain p-2" sizes="(max-width: 768px) 100vw, 50vw" />
+        <Image src="/tools-logos/brain.png" alt="Brain.fm logo" fill className="object-contain p-2 bg-[#000000]" sizes="(max-width: 768px) 100vw, 50vw" />
       </div>
       <div className="mt-2">
         <div className="text-white font-semibold text-sm md:text-base">Brain.fm</div>
@@ -1102,7 +1102,7 @@ function CanvaFlipCard({ inviteLink, disabled }: { inviteLink?: string | null; d
   return (
     <div onClick={() => { if (!disabled && inviteLink) window.open(inviteLink, '_blank', 'noreferrer') }} className={`relative bg-gray-900 border border-white/10 rounded-2xl p-2 md:p-3 flex flex-col ${disabled ? 'opacity-60 pointer-events-none' : 'cursor-pointer hover:border-white/20'}`}>
       <div className="w-full rounded-xl bg-[#000000] border border-white/10 overflow-hidden relative" style={{ aspectRatio: '16 / 9' }}>
-        <Image src="/tools-logos/canva.png" alt="Canva logo" fill className="object-contain p-2" sizes="(max-width: 768px) 100vw, 50vw" />
+        <Image src="/tools-logos/canva.png" alt="Canva logo" fill className="object-contain p-2 bg-[#000000]" sizes="(max-width: 768px) 100vw, 50vw" />
       </div>
       <div className="mt-2">
         <div className="text-white font-semibold text-sm md:text-base">Canva</div>
