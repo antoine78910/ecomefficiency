@@ -53,11 +53,21 @@ export default function SubscriptionPage() {
       if (p==='starter' || p==='pro' || p==='growth') setPlan((p==='growth'?'pro':p) as any)
       else setPlan('free')
     }
-    // Force EUR symbol for billing labels when EU IP
+    // Use browser IP to decide symbol for billing labels
     try {
-      const res = await fetch('/api/ip-region', { cache: 'no-store' })
-      const j = await res.json().catch(()=>({}))
-      const eur = j?.currency === 'EUR'
+      let eur = false
+      try {
+        const b = await fetch('https://ipapi.co/json/', { cache: 'no-store' })
+        const bj = await b.json().catch(()=>({}))
+        const cc = String(bj?.country || '').toUpperCase()
+        const eurCC = new Set(['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE'])
+        eur = eurCC.has(cc)
+      } catch {}
+      if (!eur) {
+        const s = await fetch('/api/ip-region', { cache: 'no-store' })
+        const sj = await s.json().catch(()=>({}))
+        eur = (sj?.currency === 'EUR')
+      }
       const nodes = document.querySelectorAll('[data-eur-label]')
       nodes.forEach(n => { try { n.textContent = eur ? '€' : '$' } catch {} })
     } catch {}

@@ -116,16 +116,25 @@ const PricingSection = () => {
         setIsReady(true);
       } else {
         try {
-          const server = await fetch('/api/ip-region', { cache: 'no-store' }).then(r => r.json()).catch(() => ({}));
-          if (server?.currency === 'EUR' || server?.currency === 'USD') {
-            setCurrency(server.currency);
+          // 1) Browser IP first
+          const browser = await fetch('https://ipapi.co/json/', { cache: 'no-store' }).then(r => r.json()).catch(() => ({}));
+          if (browser?.country) {
+            const cc = String(browser.country).toUpperCase();
+            const eurCC = new Set(['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE']);
+            setCurrency(eurCC.has(cc) ? 'EUR' : 'USD');
           } else {
-            try {
-              const locale = Intl.DateTimeFormat().resolvedOptions().locale || navigator.language || 'en-US';
-              const regionMatch = locale.match(/[-_]([A-Z]{2})/);
-              const region = regionMatch ? regionMatch[1] : 'US';
-              setCurrency(isEUCountry(region) ? 'EUR' : 'USD');
-            } catch { setCurrency('USD'); }
+            // 2) Server IP fallback
+            const server = await fetch('/api/ip-region', { cache: 'no-store' }).then(r => r.json()).catch(() => ({}));
+            if (server?.currency === 'EUR' || server?.currency === 'USD') setCurrency(server.currency);
+            else {
+              // 3) Locale fallback
+              try {
+                const locale = Intl.DateTimeFormat().resolvedOptions().locale || navigator.language || 'en-US';
+                const regionMatch = locale.match(/[-_]([A-Z]{2})/);
+                const region = regionMatch ? regionMatch[1] : 'US';
+                setCurrency(isEUCountry(region) ? 'EUR' : 'USD');
+              } catch { setCurrency('USD'); }
+            }
           }
         } finally {
           setIsReady(true);
