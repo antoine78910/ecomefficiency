@@ -145,7 +145,7 @@ export default function SubscriptionPage() {
         </button>
 
         {(plan === 'starter' || plan === 'free') && (
-          <UpgradeButton email={email} />
+          <UpgradeButton email={email} customerId={customerId} />
         )}
       </div>
     </div>
@@ -153,7 +153,7 @@ export default function SubscriptionPage() {
 }
 
 
-function UpgradeButton({ email }: { email?: string }) {
+function UpgradeButton({ email, customerId }: { email?: string; customerId?: string }) {
   const [pending, setPending] = React.useState(false)
   return (
     <button
@@ -162,18 +162,16 @@ function UpgradeButton({ email }: { email?: string }) {
         if (pending) return
         setPending(true)
         try {
-          // Prefer EUR on EU IP from server; fallback locale
+          // If checkout price envs are missing, open billing portal upgrade flow as fallback
+          if (customerId) {
+            const portal = await fetch('/api/stripe/portal', { method: 'POST', headers: { 'x-stripe-customer-id': customerId, 'Content-Type': 'application/json' }, body: JSON.stringify({ priceId: (process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_MONTHLY_EUR || process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_MONTHLY_USD || '') }) })
+            const pj = await portal.json().catch(()=>({}))
+            if (pj?.url) { window.location.href = pj.url; return }
+          }
+          // Otherwise try checkout
           let currency: 'EUR'|'USD' = 'EUR'
-          try {
-            const r = await fetch('/api/ip-region', { cache: 'no-store' })
-            const j = await r.json().catch(()=>({}))
-            if (j?.currency === 'USD') currency = 'USD'
-          } catch {}
-          const res = await fetch('/api/stripe/checkout', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...(email ? { 'x-user-email': email } : {}) },
-            body: JSON.stringify({ tier: 'pro', billing: 'monthly', currency })
-          })
+          try { const r = await fetch('/api/ip-region', { cache: 'no-store' }); const j = await r.json().catch(()=>({})); if (j?.currency === 'USD') currency = 'USD' } catch {}
+          const res = await fetch('/api/stripe/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json', ...(email ? { 'x-user-email': email } : {}) }, body: JSON.stringify({ tier: 'pro', billing: 'monthly', currency }) })
           const data = await res.json().catch(()=>({}))
           if (data?.url) { window.location.href = data.url; return }
         } catch {}
