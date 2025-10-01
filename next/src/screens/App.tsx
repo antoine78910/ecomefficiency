@@ -560,6 +560,7 @@ function CredentialsPanel() {
   const [banner, setBanner] = React.useState<string | null>(null)
   const [showBilling, setShowBilling] = React.useState(false)
   const [customerId, setCustomerId] = React.useState<string | null>(null)
+  const [email, setEmail] = React.useState<string | null>(null)
   const [seoModalOpen, setSeoModalOpen] = React.useState(false)
   React.useEffect(() => {
     ;(async () => {
@@ -568,6 +569,7 @@ function CredentialsPanel() {
         const { data } = await mod.supabase.auth.getUser()
         const user = data.user
         const email = user?.email
+        setEmail(email || null)
         const meta = (user?.user_metadata as any) || {}
         setCustomerId(meta.stripe_customer_id || null)
         const res = await fetch('/api/stripe/verify', {
@@ -659,7 +661,11 @@ function CredentialsPanel() {
             <span>{banner}</span>
             <div className="flex items-center gap-2">
               <button onClick={() => setShowBilling(true)} className="px-3 py-1 rounded-md bg-[#9541e0] hover:bg-[#8636d2] text-white">Subscribe</button>
-              <button onClick={openPortal} className="px-3 py-1 rounded-md border border-white/20 text-white hover:bg-white/10">Manage billing</button>
+              <form method="POST" action="/create-customer-portal-session">
+                <input type="hidden" name="customerId" value={customerId || ''} />
+                <input type="hidden" name="email" value={email || ''} />
+                <button type="submit" className="px-3 py-1 rounded-md border border-white/20 text-white hover:bg-white/10">Manage billing</button>
+              </form>
             </div>
           </div>
         ) : null}
@@ -781,7 +787,11 @@ function CredentialsPanel() {
           <p className="text-gray-400 text-xs mb-3 text-center">Subscribe to unlock all features.</p>
           <PricingCardsModal onSelect={(tier, billing)=>{ try { postGoal('pricing_cta_click', { plan: tier, billing }); } catch {}; startCheckout(tier, billing) }} onOpenSeoModal={()=>setSeoModalOpen(true)} />
           <div className="flex items-center justify-end mt-1">
-            <button onClick={() => { window.location.href = '/subscription' }} className="text-white/80 underline cursor-pointer text-xs">Manage billing</button>
+            <form method="POST" action="/create-customer-portal-session">
+              <input type="hidden" name="customerId" value={customerId || ''} />
+              <input type="hidden" name="email" value={email || ''} />
+              <button type="submit" className="text-white/80 underline cursor-pointer text-xs">Manage billing</button>
+            </form>
           </div>
         </div>
       </div>
