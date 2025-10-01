@@ -134,20 +134,11 @@ export default function SubscriptionPage() {
       <p className="text-sm text-gray-500 mt-3">If you upgraded just now, it may take a few seconds after payment for your account to reflect the new plan.</p>
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
-        <button
-          onClick={async () => {
-            try {
-              if (!customerId) { window.location.href = 'https://billing.stripe.com/p/login/fZu9AU1HlfYGfKO2CvbjW00'; return }
-              const r = await fetch('/api/stripe/portal', { method: 'POST', headers: { 'x-stripe-customer-id': customerId } })
-              const j = await r.json().catch(()=>({}))
-              if (j?.url) { window.location.href = j.url; return }
-              window.location.href = 'https://billing.stripe.com/p/login/fZu9AU1HlfYGfKO2CvbjW00'
-            } catch { window.location.href = 'https://billing.stripe.com/p/login/fZu9AU1HlfYGfKO2CvbjW00' }
-          }}
-          className="px-4 py-2 rounded-md border border-white/20 text-white hover:bg-white/10 cursor-pointer"
-        >
-          Manage billing
-        </button>
+        <form method="POST" action="/create-customer-portal-session">
+          <input type="hidden" name="customerId" value={customerId || ''} />
+          <input type="hidden" name="email" value={email || ''} />
+          <button type="submit" className="px-4 py-2 rounded-md border border-white/20 text-white hover:bg-white/10 cursor-pointer">Manage billing</button>
+        </form>
 
         {(plan === 'starter' || plan === 'free') && (
           <UpgradeButton email={email} customerId={customerId} plan={plan} />
@@ -161,35 +152,11 @@ export default function SubscriptionPage() {
 function UpgradeButton({ email, customerId, plan }: { email?: string; customerId?: string; plan: 'free'|'starter'|'pro' }) {
   const [pending, setPending] = React.useState(false)
   return (
-    <button
-      disabled={pending}
-      onClick={async () => {
-        if (pending) return
-        setPending(true)
-        try {
-          // Prefer PORTAL upgrade (handles proration automatically). If no customer, fallback to portal login.
-          if (customerId) {
-            // Detect currency and pick price id for Pro
-            let eur = true
-            try { const r = await fetch('/api/ip-region', { cache: 'no-store' }); const j = await r.json().catch(()=>({})); eur = (j?.currency === 'EUR'); } catch {}
-            const proEur = (process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_MONTHLY_EUR as any) as string | undefined
-            const proUsd = (process.env.NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_MONTHLY_USD as any) as string | undefined
-            const priceId = eur ? (proEur || '') : (proUsd || proEur || '')
-            const portal = await fetch('/api/stripe/portal', {
-              method: 'POST',
-              headers: { 'x-stripe-customer-id': customerId, 'Content-Type': 'application/json' },
-              body: JSON.stringify({ priceId })
-            })
-            const pj = await portal.json().catch(()=>({}))
-            if (pj?.url) { window.location.href = pj.url; return }
-          }
-          window.location.href = 'https://billing.stripe.com/p/login/fZu9AU1HlfYGfKO2CvbjW00'
-        } catch {}
-        setPending(false)
-      }}
-      className={`px-4 py-2 rounded-md ${pending ? 'bg-gray-700 text-gray-300' : 'bg-[#9541e0] hover:bg-[#8636d2] text-white'} cursor-pointer`}
-    >
-      {pending ? 'Redirecting…' : 'Upgrade to Pro'}
-    </button>
+    <form method="POST" action="/create-customer-portal-session">
+      <input type="hidden" name="customerId" value={customerId || ''} />
+      <input type="hidden" name="email" value={email || ''} />
+      <input type="hidden" name="action" value="upgrade" />
+      <button type="submit" className={`px-4 py-2 rounded-md bg-[#9541e0] hover:bg-[#8636d2] text-white cursor-pointer`}>Upgrade to Pro</button>
+    </form>
   )
 }
