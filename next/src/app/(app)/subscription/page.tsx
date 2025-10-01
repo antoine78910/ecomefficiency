@@ -137,36 +137,7 @@ export default function SubscriptionPage() {
         </button>
 
         {(plan === 'starter' || plan === 'free') && (
-          <button
-            onClick={async () => {
-              // Create a checkout session for Pro (monthly) with simple EUR detection
-              const detectCurrency = async (): Promise<'EUR' | 'USD'> => {
-                try {
-                  const r = await fetch('/api/ip-region', { cache: 'no-store' })
-                  const j = await r.json().catch(() => ({}))
-                  if (j?.currency === 'EUR') return 'EUR'
-                } catch {}
-                try {
-                  const loc = Intl.DateTimeFormat().resolvedOptions().locale.toUpperCase()
-                  const euRE = /(AT|BE|BG|HR|CY|CZ|DK|EE|FI|FR|DE|GR|HU|IE|IT|LV|LT|LU|MT|NL|PL|PT|RO|SK|SI|ES|SE)/
-                  return euRE.test(loc) ? 'EUR' : 'USD'
-                } catch { return 'EUR' }
-              }
-              const currency = await detectCurrency()
-              try {
-                const res = await fetch('/api/stripe/checkout', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ tier: 'pro', billing: 'monthly', currency })
-                })
-                const data = await res.json().catch(()=>({}))
-                if (data?.url) { window.location.href = data.url; return }
-              } catch {}
-            }}
-            className="px-4 py-2 rounded-md bg-[#9541e0] hover:bg-[#8636d2] text-white cursor-pointer"
-          >
-            Upgrade to Pro
-          </button>
+          <UpgradeButton email={email} />
         )}
       </div>
     </div>
@@ -174,3 +145,35 @@ export default function SubscriptionPage() {
 }
 
 
+function UpgradeButton({ email }: { email?: string }) {
+  const [pending, setPending] = React.useState(false)
+  return (
+    <button
+      disabled={pending}
+      onClick={async () => {
+        if (pending) return
+        setPending(true)
+        try {
+          // Prefer EUR on EU IP from server; fallback locale
+          let currency: 'EUR'|'USD' = 'EUR'
+          try {
+            const r = await fetch('/api/ip-region', { cache: 'no-store' })
+            const j = await r.json().catch(()=>({}))
+            if (j?.currency === 'USD') currency = 'USD'
+          } catch {}
+          const res = await fetch('/api/stripe/checkout', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...(email ? { 'x-user-email': email } : {}) },
+            body: JSON.stringify({ tier: 'pro', billing: 'monthly', currency })
+          })
+          const data = await res.json().catch(()=>({}))
+          if (data?.url) { window.location.href = data.url; return }
+        } catch {}
+        setPending(false)
+      }}
+      className={`px-4 py-2 rounded-md ${pending ? 'bg-gray-700 text-gray-300' : 'bg-[#9541e0] hover:bg-[#8636d2] text-white'} cursor-pointer`}
+    >
+      {pending ? 'Redirecting…' : 'Upgrade to Pro'}
+    </button>
+  )
+}
