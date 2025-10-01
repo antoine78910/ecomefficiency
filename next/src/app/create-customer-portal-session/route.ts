@@ -29,7 +29,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Optional upgrade flow via flow_data
-    let flow: Stripe.BillingPortal.SessionCreateParams.FlowData | undefined
+    let flow: any | undefined
     if (action === 'upgrade') {
       // Detect currency (best-effort): prefer EU
       let currency: 'EUR'|'USD' = 'EUR'
@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
         flow = {
           type: 'subscription_update',
           subscription_update: { default_items: [{ price: priceId }] }
-        }
+        } as any
       }
     }
 
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
     try {
       session = await stripe.billingPortal.sessions.create(args)
     } catch {
-      // Fallback: create without flow (user can switch plan manually in portal)
+      // Fallback: create without flow (user peut changer de plan ensuite)
       try {
         const fallback: Stripe.BillingPortal.SessionCreateParams = {
           customer: customerId,
