@@ -120,12 +120,17 @@ export default function SubscriptionPage() {
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <button
           onClick={async () => {
-            if (!customerId) return
-            const res = await fetch('/api/stripe/portal', { method: 'POST', headers: { 'x-stripe-customer-id': customerId } })
-            const data = await res.json()
-            if (data?.url) window.location.href = data.url
+            try {
+              if (!customerId) { window.location.href = 'https://billing.stripe.com/p/session'; return }
+              const res = await fetch('/api/stripe/portal', { method: 'POST', headers: { 'x-stripe-customer-id': customerId } })
+              const data = await res.json().catch(()=>({}))
+              if (data?.url) { window.location.href = data.url; return }
+              window.location.href = 'https://billing.stripe.com/p/session'
+            } catch {
+              window.location.href = 'https://billing.stripe.com/p/session'
+            }
           }}
-          className="px-4 py-2 rounded-md border border:white/20 text-white hover:bg-white/10 cursor-pointer"
+          className="px-4 py-2 rounded-md border border-white/20 text-white hover:bg-white/10 cursor-pointer"
         >
           Manage billing
         </button>
