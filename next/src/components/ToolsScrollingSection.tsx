@@ -30,6 +30,7 @@ const ToolsScrollingSection = () => {
               <div key={`row-${row}`} className="relative overflow-x-hidden touch-pan-x">
                 <div
                   className={`${row % 2 === 0 ? 'animate-scroll-left-contained' : 'animate-scroll-right-contained'} inline-flex gap-3 pr-2 whitespace-nowrap w-max [animation-play-state:running]`}
+                  style={{ animationDuration: '32s' }}
                   onTouchStart={(e)=>{ try { (e.currentTarget as any).style.animationPlayState = 'paused'; } catch {} }}
                   onTouchEnd={(e)=>{ try { (e.currentTarget as any).style.animationPlayState = 'running'; } catch {} }}
                   onTouchCancel={(e)=>{ try { (e.currentTarget as any).style.animationPlayState = 'running'; } catch {} }}
@@ -119,7 +120,7 @@ const ToolsScrollingSection = () => {
               
               {/* Left Column - Scrolling Down (start slightly above) */}
               <div className="relative overflow-hidden">
-                <div className="animate-scroll-down-contained space-y-4" style={{ marginTop: '-15%' }}>
+                <div className="animate-scroll-down-contained space-y-4" style={{ marginTop: '-15%', animationDuration: '32s' }}>
                   {[...leftColumn, ...leftColumn].map((tool, index) => (
                     <div 
                       key={`left-${index}`}
@@ -153,7 +154,7 @@ const ToolsScrollingSection = () => {
 
               {/* Middle Column - Scrolling Up (start offset so it begins mid-list) */}
               <div className="relative overflow-hidden">
-                <div className="animate-scroll-up-contained space-y-4" style={{ marginTop: '-25%' }}>
+                <div className="animate-scroll-up-contained space-y-4" style={{ marginTop: '-25%', animationDuration: '32s' }}>
                   {[...middleColumn.slice(Math.floor(middleColumn.length/2)), ...middleColumn].map((tool, index) => (
                     <div 
                       key={`middle-${index}`}
@@ -187,7 +188,7 @@ const ToolsScrollingSection = () => {
 
               {/* Right Column - Scrolling Down (same as left, with slight offset) */}
               <div className="relative overflow-hidden">
-                <div className="animate-scroll-down-contained space-y-4" style={{ marginTop: '-10%' }}>
+                <div className="animate-scroll-down-contained space-y-4" style={{ marginTop: '-10%', animationDuration: '32s' }}>
                   {[...rightColumn, ...rightColumn].map((tool, index) => (
                     <div 
                       key={`right-${index}`}
