@@ -162,11 +162,25 @@ export default function SubscriptionPage() {
 function UpgradeButton({ email, customerId, plan }: { email?: string; customerId?: string; plan: 'free'|'starter'|'pro' }) {
   const [pending, setPending] = React.useState(false)
   return (
-    <form method="POST" action="/create-customer-portal-session">
-      <input type="hidden" name="customerId" value={customerId || ''} />
-      <input type="hidden" name="email" value={email || ''} />
-      <input type="hidden" name="action" value="upgrade" />
-      <button type="submit" className={`px-4 py-2 rounded-md bg-[#9541e0] hover:bg-[#8636d2] text-white cursor-pointer`}>Upgrade to Pro</button>
-    </form>
+    <button
+      onClick={async ()=>{
+        try {
+          let currency: 'EUR'|'USD' = 'EUR'
+          try { const r = await fetch('/api/ip-region', { cache: 'no-store' }); const j = await r.json().catch(()=>({})); if (j?.currency === 'USD') currency = 'USD' } catch {}
+          const res = await fetch('/api/stripe/upgrade', { method:'POST', headers: { 'Content-Type':'application/json', ...(customerId? {'x-stripe-customer-id': customerId}: {}), ...(email? {'x-user-email': email}: {}) }, body: JSON.stringify({ billing: 'monthly', currency }) })
+          const j = await res.json().catch(()=>({}))
+          if (j?.ok) { window.location.href = '/subscription'; return }
+          // Fallback: open portal upgrade flow if direct update fails
+          const f = document.createElement('form'); f.method='POST'; f.action='/create-customer-portal-session';
+          const c = document.createElement('input'); c.type='hidden'; c.name='customerId'; c.value = customerId || '';
+          const e = document.createElement('input'); e.type='hidden'; e.name='email'; e.value = email || '';
+          const a = document.createElement('input'); a.type='hidden'; a.name='action'; a.value='upgrade';
+          f.appendChild(c); f.appendChild(e); f.appendChild(a); document.body.appendChild(f); f.submit();
+        } catch {}
+      }}
+      className={`px-4 py-2 rounded-md bg-[#9541e0] hover:bg-[#8636d2] text-white cursor-pointer`}
+    >
+      Upgrade to Pro
+    </button>
   )
 }
