@@ -6,6 +6,7 @@ export function middleware(req: NextRequest) {
   const pathname = url.pathname
   const hostHeader = (req.headers.get('host') || '')
   const hostname = hostHeader.toLowerCase().split(':')[0]
+  const bareHostname = hostname.replace(/^www\./, '')
   const hasAuth = Boolean(
     req.cookies.get('sb-access-token') ||
     req.cookies.get('sb:token') ||
@@ -40,7 +41,7 @@ export function middleware(req: NextRequest) {
   }
 
   // tools subdomain legacy routes => redirect to main tools page
-  if (hostname === 'tools.localhost') {
+  if (hostname === 'tools.localhost' || bareHostname.startsWith('tools.')) {
     if (pathname === '/' || pathname === '' || pathname.startsWith('/pro') || pathname.startsWith('/starter')) {
       const r = url.clone(); r.pathname = '/tools';
       return NextResponse.rewrite(r)
@@ -54,7 +55,7 @@ export function middleware(req: NextRequest) {
   }
 
   // app subdomain => serve dashboard content directly on root (no rewrite to /app), protect it
-  if (hostname === 'app.localhost' || hostHeader.startsWith('app.')) {
+  if (hostname === 'app.localhost' || bareHostname.startsWith('app.')) {
     // IMPORTANT: Allow unauthenticated access to root '/' so Supabase auth hash can be processed client-side.
     // Otherwise we lose the #access_token fragment on redirect and the user can't be auto-logged in after email verification.
     if (!hasAuth && pathname !== '/' && pathname !== '' && pathname.startsWith('/app')) {
@@ -73,14 +74,14 @@ export function middleware(req: NextRequest) {
   }
 
   // If user is signed-in on main domain, send to app subdomain root (robust for localhost and custom ports)
-  if (hasAuth && !(hostname === 'app.localhost' || hostHeader.startsWith('app.'))) {
+  if (hasAuth && !(hostname === 'app.localhost' || bareHostname.startsWith('app.'))) {
     const r = url.clone();
     if (hostname === 'localhost') {
       r.hostname = 'app.localhost';
       r.pathname = '/';
       return NextResponse.redirect(r)
     }
-    r.hostname = 'app.' + hostname.replace(/^app\./, '')
+    r.hostname = 'app.' + bareHostname.replace(/^app\./, '')
     r.pathname = '/';
     return NextResponse.redirect(r)
   }

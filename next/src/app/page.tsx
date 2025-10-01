@@ -41,7 +41,7 @@ export default function Home() {
         const port = window.location.port ? `:${window.location.port}` : ''
         const appOrigin = host === 'localhost'
           ? `http://app.localhost${port}`
-          : `${window.location.protocol}//app.${host.replace(/^app\./, '')}`
+          : `${window.location.protocol}//app.${host.replace(/^(app\.|www\.)/, '')}`
         console.log('[landing] probe start', { host, port, appOrigin })
         // First: if a Supabase session exists on this origin, redirect immediately
         try {
