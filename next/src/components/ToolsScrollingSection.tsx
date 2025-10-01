@@ -120,7 +120,7 @@ const ToolsScrollingSection = () => {
               {/* Left Column - Scrolling Down (start slightly above) */}
               <div className="relative overflow-hidden">
                 <div className="animate-scroll-down-contained space-y-4" style={{ marginTop: '-15%' }}>
-                  {[...leftColumn, ...leftColumn, ...leftColumn].map((tool, index) => (
+                  {[...leftColumn, ...leftColumn].map((tool, index) => (
                     <div 
                       key={`left-${index}`}
                       className="tool-card bg-gray-900 rounded-2xl p-4 transition-all duration-300 relative overflow-hidden min-h-[200px] flex flex-col items-center text-center"
@@ -154,7 +154,7 @@ const ToolsScrollingSection = () => {
               {/* Middle Column - Scrolling Up (start offset so it begins mid-list) */}
               <div className="relative overflow-hidden">
                 <div className="animate-scroll-up-contained space-y-4" style={{ marginTop: '-25%' }}>
-                  {[...middleColumn.slice(Math.floor(middleColumn.length/2)), ...middleColumn, ...middleColumn.slice(0, Math.floor(middleColumn.length/2))].map((tool, index) => (
+                  {[...middleColumn.slice(Math.floor(middleColumn.length/2)), ...middleColumn].map((tool, index) => (
                     <div 
                       key={`middle-${index}`}
                       className="tool-card bg-gray-900 rounded-2xl p-4 transition-all duration-300 relative overflow-hidden min-h-[200px] flex flex-col items-center text-center"
@@ -188,7 +188,7 @@ const ToolsScrollingSection = () => {
               {/* Right Column - Scrolling Down (same as left, with slight offset) */}
               <div className="relative overflow-hidden">
                 <div className="animate-scroll-down-contained space-y-4" style={{ marginTop: '-10%' }}>
-                  {[...rightColumn, ...rightColumn, ...rightColumn].map((tool, index) => (
+                  {[...rightColumn, ...rightColumn].map((tool, index) => (
                     <div 
                       key={`right-${index}`}
                       className="tool-card bg-gray-900 rounded-2xl p-4 transition-all duration-300 relative overflow-hidden min-h-[200px] flex flex-col items-center text-center"
