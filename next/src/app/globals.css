@@ -100,13 +100,21 @@
 .animate-scroll-up-contained { animation: scrollUpContained 32s linear infinite; }
 .animate-scroll-down-contained:hover,
 .animate-scroll-up-contained:hover { animation-play-state: paused; }
+@media (hover: none) and (pointer: coarse) {
+  .animate-scroll-down-contained:hover,
+  .animate-scroll-up-contained:hover { animation-play-state: running; }
+}
 
-.animate-scroll-left-contained { animation: scrollLeft 28s linear infinite; }
-.animate-scroll-right-contained { animation: scrollRight 28s linear infinite; }
+.animate-scroll-left-contained { animation: scrollLeft 20s linear infinite; }
+.animate-scroll-right-contained { animation: scrollRight 20s linear infinite; }
 .animate-scroll-left-contained:where(:hover),
 .animate-scroll-right-contained:where(:hover) { animation-play-state: paused; }
 .animate-scroll-left-contained:hover,
 .animate-scroll-right-contained:hover { animation-play-state: paused; }
+@media (hover: none) and (pointer: coarse) {
+  .animate-scroll-left-contained:hover,
+  .animate-scroll-right-contained:hover { animation-play-state: running; }
+}
 
 @keyframes scrollLeft {
   0% { transform: translateX(0); }

@@ -984,8 +984,8 @@ function ToolCard({ service, title, description }: { service: 'pipiads'|'elevenl
     <div className={`relative bg-gray-900 border border-white/10 rounded-2xl p-4 flex flex-col ${unlocked ? '' : 'opacity-60'}`}>
 
 
-      {/* Logo zone: full width, 3:2 aspect, rounded corners */}
-      <div className="w-full aspect-[3/2] rounded-xl bg-black/30 border border-white/10 overflow-hidden flex items-center justify-center">
+      {/* Logo zone: full width, 3:2 aspect, rounded corners; enforce pure black background for square logos */}
+      <div className="w-full aspect-[3/2] rounded-xl bg-[#000000] border border-white/10 overflow-hidden flex items-center justify-center">
         <picture>
           <source srcSet={logoPng} type="image/png" />
           <img src={logoSvg} alt={`${title} logo`} className="w-full h-full object-contain" />
@@ -1024,7 +1024,7 @@ function ToolCard({ service, title, description }: { service: 'pipiads'|'elevenl
 function InfoToolCard({ img, title, description, link, note, cover, disabled, small }: { img: string; title: string; description: string; link?: string; note?: string; cover?: boolean; disabled?: boolean; small?: boolean }) {
   return (
     <div className={`relative bg-gray-900 border border-white/10 rounded-2xl p-3 flex flex-col ${disabled ? 'opacity-60' : ''}`}>
-      <div className="w-full rounded-xl bg-black/30 border border-white/10 overflow-hidden relative" style={{ aspectRatio: small ? '16 / 9' : '3 / 2' }}>
+      <div className="w-full rounded-xl bg-[#000000] border border-white/10 overflow-hidden relative" style={{ aspectRatio: small ? '16 / 9' : '3 / 2' }}>
         <Image src={img} alt={`${title} logo`} fill className={`${cover ? 'object-cover' : 'object-contain'}`} sizes="(max-width: 768px) 100vw, 50vw" />
       </div>
       <div className="mt-4">
@@ -1049,7 +1049,7 @@ function BrainCredsCard({ disabled }: { disabled?: boolean }) {
   const [open, setOpen] = React.useState(false)
   return (
     <div onClick={() => { if (!disabled) setOpen(true) }} className={`relative bg-gray-900 border border-white/10 rounded-2xl p-2 md:p-3 flex flex-col ${disabled ? 'opacity-60 pointer-events-none' : 'cursor-pointer hover:border-white/20'}`}>
-      <div className="w-full rounded-xl bg-black/30 border border-white/10 overflow-hidden relative" style={{ aspectRatio: '16 / 9' }}>
+      <div className="w-full rounded-xl bg-[#000000] border border-white/10 overflow-hidden relative" style={{ aspectRatio: '16 / 9' }}>
         <Image src="/tools-logos/brain.png" alt="Brain.fm logo" fill className="object-contain p-2" sizes="(max-width: 768px) 100vw, 50vw" />
       </div>
       <div className="mt-2">
@@ -1101,7 +1101,7 @@ function CanvaFlipCard({ inviteLink, disabled }: { inviteLink?: string | null; d
   const [open, setOpen] = React.useState(false)
   return (
     <div onClick={() => { if (!disabled && inviteLink) window.open(inviteLink, '_blank', 'noreferrer') }} className={`relative bg-gray-900 border border-white/10 rounded-2xl p-2 md:p-3 flex flex-col ${disabled ? 'opacity-60 pointer-events-none' : 'cursor-pointer hover:border-white/20'}`}>
-      <div className="w-full rounded-xl bg-black/30 border border-white/10 overflow-hidden relative" style={{ aspectRatio: '16 / 9' }}>
+      <div className="w-full rounded-xl bg-[#000000] border border-white/10 overflow-hidden relative" style={{ aspectRatio: '16 / 9' }}>
         <Image src="/tools-logos/canva.png" alt="Canva logo" fill className="object-contain p-2" sizes="(max-width: 768px) 100vw, 50vw" />
       </div>
       <div className="mt-2">
