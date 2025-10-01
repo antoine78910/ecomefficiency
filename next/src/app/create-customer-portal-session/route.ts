@@ -50,11 +50,27 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const session = await stripe.billingPortal.sessions.create({
+    let session: Stripe.BillingPortal.Session
+    const args: Stripe.BillingPortal.SessionCreateParams = {
       customer: customerId,
       return_url: `${origin}/subscription`,
       ...(flow ? { flow_data: flow } : {})
-    })
+    }
+
+    try {
+      session = await stripe.billingPortal.sessions.create(args)
+    } catch {
+      // Fallback: create without flow (user can switch plan manually in portal)
+      try {
+        const fallback: Stripe.BillingPortal.SessionCreateParams = {
+          customer: customerId,
+          return_url: `${origin}/subscription`,
+        }
+        session = await stripe.billingPortal.sessions.create(fallback)
+      } catch {
+        return NextResponse.redirect(new URL('/subscription?err=portal', req.url), { status: 303 })
+      }
+    }
 
     return NextResponse.redirect(session.url, { status: 303 })
   } catch {
