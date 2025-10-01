@@ -120,15 +120,8 @@ export default function SubscriptionPage() {
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <button
           onClick={async () => {
-            try {
-              if (!customerId) { window.location.href = 'https://billing.stripe.com/p/session'; return }
-              const res = await fetch('/api/stripe/portal', { method: 'POST', headers: { 'x-stripe-customer-id': customerId } })
-              const data = await res.json().catch(()=>({}))
-              if (data?.url) { window.location.href = data.url; return }
-              window.location.href = 'https://billing.stripe.com/p/session'
-            } catch {
-              window.location.href = 'https://billing.stripe.com/p/session'
-            }
+            // Direct Stripe billing portal login page as requested
+            window.location.href = 'https://billing.stripe.com/p/login/fZu9AU1HlfYGfKO2CvbjW00'
           }}
           className="px-4 py-2 rounded-md border border-white/20 text-white hover:bg-white/10 cursor-pointer"
         >
@@ -137,7 +130,31 @@ export default function SubscriptionPage() {
 
         {(plan === 'starter' || plan === 'free') && (
           <button
-            onClick={() => { window.location.href = '/pricing' }}
+            onClick={async () => {
+              // Create a checkout session for Pro (monthly) with simple EUR detection
+              const detectCurrency = async (): Promise<'EUR' | 'USD'> => {
+                try {
+                  const r = await fetch('/api/ip-region', { cache: 'no-store' })
+                  const j = await r.json().catch(() => ({}))
+                  if (j?.currency === 'EUR') return 'EUR'
+                } catch {}
+                try {
+                  const loc = Intl.DateTimeFormat().resolvedOptions().locale.toUpperCase()
+                  const euRE = /(AT|BE|BG|HR|CY|CZ|DK|EE|FI|FR|DE|GR|HU|IE|IT|LV|LT|LU|MT|NL|PL|PT|RO|SK|SI|ES|SE)/
+                  return euRE.test(loc) ? 'EUR' : 'USD'
+                } catch { return 'EUR' }
+              }
+              const currency = await detectCurrency()
+              try {
+                const res = await fetch('/api/stripe/checkout', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ tier: 'pro', billing: 'monthly', currency })
+                })
+                const data = await res.json().catch(()=>({}))
+                if (data?.url) { window.location.href = data.url; return }
+              } catch {}
+            }}
             className="px-4 py-2 rounded-md bg-[#9541e0] hover:bg-[#8636d2] text-white cursor-pointer"
           >
             Upgrade to Pro
