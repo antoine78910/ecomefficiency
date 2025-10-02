@@ -577,6 +577,7 @@ function CredentialsPanel() {
   const [showBilling, setShowBilling] = React.useState(false)
   const [customerId, setCustomerId] = React.useState<string | null>(null)
   const [email, setEmail] = React.useState<string | null>(null)
+  const [userId, setUserId] = React.useState<string | null>(null)
   const [seoModalOpen, setSeoModalOpen] = React.useState(false)
   React.useEffect(() => {
     ;(async () => {
@@ -586,6 +587,7 @@ function CredentialsPanel() {
         const user = data.user
         const email = user?.email
         setEmail(email || null)
+        setUserId(user?.id || null)
         const meta = (user?.user_metadata as any) || {}
         setCustomerId(meta.stripe_customer_id || null)
         const res = await fetch('/api/stripe/verify', {
@@ -649,7 +651,11 @@ function CredentialsPanel() {
     }
     const currency = await detectCurrency()
     try {
-      const res = await fetch('/api/stripe/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ tier, billing, currency }) })
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (email) headers['x-user-email'] = email
+      if (userId) headers['x-user-id'] = userId
+      if (customerId) headers['x-stripe-customer-id'] = customerId
+      const res = await fetch('/api/stripe/checkout', { method: 'POST', headers, body: JSON.stringify({ tier, billing, currency }) })
       const data = await res.json()
       if (data?.url) window.location.href = data.url
     } catch {}
