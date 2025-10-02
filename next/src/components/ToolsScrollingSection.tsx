@@ -16,7 +16,7 @@ const ToolsScrollingSection = () => {
     <div className="bg-black py-20 overflow-hidden relative">
       <div className="max-w-7xl mx-auto px-6 lg:px-8 relative z-10">
         {/* Mobile layout: title + paragraph above a horizontal carousel */}
-        <div className="md:hidden">
+        <div className="md:hidden ee-mobile-rows">
           <h2 className="text-3xl font-bold text-white mb-2">
             The only subscription
             <br />
@@ -30,7 +30,7 @@ const ToolsScrollingSection = () => {
               <div key={`row-${row}`} className="relative overflow-x-hidden touch-pan-x">
                 <div
                   className={`${row % 2 === 0 ? 'animate-scroll-left-contained' : 'animate-scroll-right-contained'} inline-flex gap-3 pr-2 whitespace-nowrap w-max [animation-play-state:running]`}
-                  style={{ animationDuration: '32s' }}
+                  style={{ animationDuration: '6.7s' }}
                   onTouchStart={(e)=>{ try { (e.currentTarget as any).style.animationPlayState = 'paused'; } catch {} }}
                   onTouchEnd={(e)=>{ try { (e.currentTarget as any).style.animationPlayState = 'running'; } catch {} }}
                   onTouchCancel={(e)=>{ try { (e.currentTarget as any).style.animationPlayState = 'running'; } catch {} }}
@@ -120,7 +120,7 @@ const ToolsScrollingSection = () => {
               
               {/* Left Column - Scrolling Down (start slightly above) */}
               <div className="relative overflow-hidden">
-                <div className="animate-scroll-down-contained space-y-4" style={{ marginTop: '-15%', animationDuration: '32s' }}>
+                <div className="animate-scroll-down-contained space-y-4" style={{ marginTop: '-15%', animationDuration: '10.7s' }}>
                   {[...leftColumn, ...leftColumn].map((tool, index) => (
                     <div 
                       key={`left-${index}`}
@@ -154,7 +154,7 @@ const ToolsScrollingSection = () => {
 
               {/* Middle Column - Scrolling Up (start offset so it begins mid-list) */}
               <div className="relative overflow-hidden">
-                <div className="animate-scroll-up-contained space-y-4" style={{ marginTop: '-25%', animationDuration: '32s' }}>
+                <div className="animate-scroll-up-contained space-y-4" style={{ marginTop: '-25%', animationDuration: '10.7s' }}>
                   {[...middleColumn.slice(Math.floor(middleColumn.length/2)), ...middleColumn].map((tool, index) => (
                     <div 
                       key={`middle-${index}`}
@@ -188,7 +188,7 @@ const ToolsScrollingSection = () => {
 
               {/* Right Column - Scrolling Down (same as left, with slight offset) */}
               <div className="relative overflow-hidden">
-                <div className="animate-scroll-down-contained space-y-4" style={{ marginTop: '-10%', animationDuration: '32s' }}>
+                <div className="animate-scroll-down-contained space-y-4" style={{ marginTop: '-10%', animationDuration: '10.7s' }}>
                   {[...rightColumn, ...rightColumn].map((tool, index) => (
                     <div 
                       key={`right-${index}`}

@@ -96,8 +96,8 @@
   100% { transform: translateY(0); }
 }
 
-.animate-scroll-down-contained { animation: scrollDownContained 32s linear infinite; }
-.animate-scroll-up-contained { animation: scrollUpContained 32s linear infinite; }
+.animate-scroll-down-contained { animation: scrollDownContained 10.7s linear infinite; }
+.animate-scroll-up-contained { animation: scrollUpContained 10.7s linear infinite; }
 .animate-scroll-down-contained:hover,
 .animate-scroll-up-contained:hover { animation-play-state: paused; }
 @media (hover: none) and (pointer: coarse) {
@@ -105,8 +105,8 @@
   .animate-scroll-up-contained:hover { animation-play-state: running; }
 }
 
-.animate-scroll-left-contained { animation: scrollLeft 20s linear infinite; }
-.animate-scroll-right-contained { animation: scrollRight 20s linear infinite; }
+.animate-scroll-left-contained { animation: scrollLeft 6.7s linear infinite; }
+.animate-scroll-right-contained { animation: scrollRight 6.7s linear infinite; }
 .animate-scroll-left-contained:where(:hover),
 .animate-scroll-right-contained:where(:hover) { animation-play-state: paused; }
 .animate-scroll-left-contained:hover,
@@ -115,6 +115,10 @@
   .animate-scroll-left-contained:hover,
   .animate-scroll-right-contained:hover { animation-play-state: running; }
 }
+
+/* Ensure horizontal rows (mobile layout) never pause on hover, even on desktop */
+.ee-mobile-rows .animate-scroll-left-contained:hover,
+.ee-mobile-rows .animate-scroll-right-contained:hover { animation-play-state: running; }
 
 @keyframes scrollLeft {
   0% { transform: translateX(0); }
