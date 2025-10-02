@@ -16,18 +16,34 @@ const App = () => {
     (async () => {
       if (typeof window === 'undefined') return
       const hash = window.location.hash || ''
-      if (!hash) return
-      const params = new URLSearchParams(hash.replace(/^#/, ''))
-      const accessToken = params.get('access_token')
-      const refreshToken = params.get('refresh_token')
-      if (accessToken && refreshToken) {
-        try {
-          const mod = await import("@/integrations/supabase/client")
-          await mod.supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
-          try { await fetch('/api/auth/flag', { method: 'POST' }) } catch {}
-          try { history.replaceState(null, '', window.location.pathname + window.location.search) } catch {}
-        } catch {}
-      }
+      const url = new URL(window.location.href)
+      const code = url.searchParams.get('code')
+      const hasHashTokens = /access_token=|refresh_token=/.test(hash)
+
+      try {
+        const mod = await import("@/integrations/supabase/client")
+        if (hasHashTokens) {
+          const params = new URLSearchParams(hash.replace(/^#/, ''))
+          const accessToken = params.get('access_token')
+          const refreshToken = params.get('refresh_token')
+          if (accessToken && refreshToken) {
+            await mod.supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+            try { await fetch('/api/auth/flag', { method: 'POST' }) } catch {}
+            try { history.replaceState(null, '', window.location.pathname + window.location.search) } catch {}
+            return
+          }
+        }
+        // Handle code-based redirects (magic link / email confirm that returns ?code=...)
+        if (code) {
+          try {
+            await mod.supabase.auth.exchangeCodeForSession(window.location.href)
+            try { await fetch('/api/auth/flag', { method: 'POST' }) } catch {}
+          } catch {}
+          // Clean URL (remove code/state)
+          try { history.replaceState(null, '', window.location.pathname) } catch {}
+          return
+        }
+      } catch {}
     })()
   }, [])
   React.useEffect(() => {
