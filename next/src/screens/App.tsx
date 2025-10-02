@@ -202,7 +202,19 @@ function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'sta
           return
         }
       } catch {}
-      // Try server-assisted region first
+      // Prefer browser IP first for consistency with checkout
+      try {
+        const g = await fetch('https://ipapi.co/json/', { cache: 'no-store' })
+        const gj = await g.json().catch(() => ({} as any))
+        const cc = String(gj?.country || '').toUpperCase()
+        const eu = new Set(['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE'])
+        if (cc) {
+          if (!cancelled) setCurrency(eu.has(cc) ? 'EUR' : 'USD')
+          setReady(true)
+          return
+        }
+      } catch {}
+      // Fallback to server IP
       try {
         const r = await fetch('/api/ip-region', { cache: 'no-store' })
         const j = await r.json().catch(() => ({} as any))
@@ -211,16 +223,6 @@ function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'sta
           setReady(true)
           return
         }
-      } catch {}
-      // Fallback: external IP geolocation
-      try {
-        const g = await fetch('https://ipapi.co/json/', { cache: 'no-store' })
-        const gj = await g.json().catch(() => ({} as any))
-        const cc = String(gj?.country || '').toUpperCase()
-        const eu = new Set(['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE'])
-        if (!cancelled) setCurrency(eu.has(cc) ? 'EUR' : 'USD')
-        setReady(true)
-        return
       } catch {}
       // Fallback: locale
       try {
