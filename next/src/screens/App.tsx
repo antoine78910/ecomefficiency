@@ -109,7 +109,7 @@ const App = () => {
         </div>
             {ipInfo ? (
               <div className="fixed bottom-3 right-3 z-40 text-[10px] md:text-xs text-gray-300 bg-black/60 border border-white/10 rounded-md px-2 py-1">
-                <span>{ipInfo.country || '—'} · {ipInfo.currency}</span>
+                <span>{ipInfo.country || '—'}</span>
               </div>
             ) : null}
       </div>

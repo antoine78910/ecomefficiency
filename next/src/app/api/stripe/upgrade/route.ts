@@ -50,8 +50,8 @@ export async function POST(req: NextRequest) {
       proration_behavior: 'none',
       cancel_at_period_end: false,
     })
-
-    return NextResponse.json({ ok: true, subscription: { id: updated.id, status: updated.status, current_period_end: updated.current_period_end } })
+    const u: any = updated as any
+    return NextResponse.json({ ok: true, subscription: { id: u.id, status: u.status, current_period_end: u.current_period_end } })
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || 'unknown_error' }, { status: 500 })
   }
