@@ -292,7 +292,7 @@ function Faq() {
     },
     {
       q: 'Need more help?',
-      a: 'If you have any more questions, you can ask Hugo by email at admin@ecomefficiency.com',
+      a: 'If you have any more questions, you can ask Antoine by email at admin@ecomefficiency.com',
     },
   ];
   const [open, setOpen] = React.useState<number | null>(0);
@@ -316,15 +316,29 @@ function Faq() {
 function ShareDiagram() {
   return (
     <div className="relative flex items-center justify-center mb-6">
-      {/* Lines */}
-      <div className="absolute top-8 left-1/2 -translate-x-1/2 h-24 w-px bg-white/10" />
-      <div className="absolute bottom-8 left-[20%] right-1/2 h-px bg-white/10" />
-      <div className="absolute bottom-8 left-1/2 right-[20%] h-px bg-white/10" />
+      {/* Smooth curved violet connections */}
+      <svg className="absolute inset-0" width="100%" height="100%" viewBox="0 0 600 260" preserveAspectRatio="xMidYMid meet">
+        <defs>
+          <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="2.5" result="coloredBlur" />
+            <feMerge>
+              <feMergeNode in="coloredBlur" />
+              <feMergeNode in="SourceGraphic" />
+            </feMerge>
+          </filter>
+        </defs>
+        {/* Center -> Bottom */}
+        <path d="M300,80 C300,140 300,140 300,200" stroke="rgba(149,65,224,0.55)" strokeWidth="2.5" fill="none" filter="url(#glow)" />
+        {/* Left -> Bottom */}
+        <path d="M120,180 C220,200 240,200 300,200" stroke="rgba(149,65,224,0.55)" strokeWidth="2.5" fill="none" filter="url(#glow)" />
+        {/* Right -> Bottom */}
+        <path d="M480,180 C380,200 360,200 300,200" stroke="rgba(149,65,224,0.55)" strokeWidth="2.5" fill="none" filter="url(#glow)" />
+      </svg>
 
-      {/* Center label */}
+      {/* Titles */}
       <div className="absolute top-0 text-sm text-gray-300">Short</div>
 
-      {/* Platforms */}
+      {/* Nodes */}
       <div className="absolute top-10">
         <div className="w-24 h-24 rounded-full border border-white/10 bg-[#0d0f14] flex items-center justify-center">
           <Instagram className="w-10 h-10 text-pink-400" />
