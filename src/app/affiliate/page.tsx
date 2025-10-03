@@ -150,7 +150,7 @@ export default function AffiliatePage() {
         <div className="max-w-6xl mx-auto px-6">
           <div className="grid md:grid-cols-[1.2fr_.8fr] gap-8 md:gap-12 items-start">
             <div>
-              <h2 className="text-4xl md:text-5xl font-extrabold mb-4">Who the affiliate program is for?</h2>
+              <h2 className="text-4xl md:text-5xl font-extrabold mb-4">Who the affiliate program is for ?</h2>
               <p className="text-gray-300 text-base max-w-2xl">Our affiliate program is designed for creators, coaches, and ecom experts who want to earn while helping others grow their brand.</p>
             </div>
             <div>

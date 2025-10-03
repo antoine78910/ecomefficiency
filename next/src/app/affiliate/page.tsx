@@ -86,7 +86,7 @@ export default function AffiliatePage() {
         </div>
         {/* bottom radial arc gradient for a smoother fade */}
         <div
-          className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 h-40 w-[70rem] blur-[42px]"
+          className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 h-32 w-[70rem] blur-[42px]"
           aria-hidden
           style={{
             background: `radial-gradient( ellipse at 50% 100%, rgba(147,51,234,0.18) 0%, rgba(147,51,234,0.12) 40%, rgba(147,51,234,0.06) 62%, transparent 78% )`
@@ -104,7 +104,7 @@ export default function AffiliatePage() {
               </div>
               <div className="relative select-none">
                 {(() => {
-                  const max = 500; const pct = Math.max(0, Math.min(100, (referrals / max) * 100));
+                  const max = 1000; const pct = Math.max(0, Math.min(100, (referrals / max) * 100));
                   return (
                     <>
                       <input
@@ -125,7 +125,7 @@ export default function AffiliatePage() {
                         style={{ left: `calc(${pct}% - 16px)` }}
                       >{referrals}</div>
                       <div className="flex justify-between text-[10px] text-gray-500 mt-2">
-                        <span>0</span><span>100</span><span>200</span><span>300</span><span>400</span><span>500</span>
+                        <span>0</span><span>200</span><span>400</span><span>600</span><span>800</span><span>1000</span>
                       </div>
                     </>
                   )
@@ -149,42 +149,46 @@ export default function AffiliatePage() {
       </section>
 
       {/* How it works / referral examples (photo1) */}
-      <section className="py-12 md:py-16 border-t border-white/10">
+      <section className="py-12 md:py-16">
         <div className="max-w-6xl mx-auto px-6">
           <div className="grid md:grid-cols-3 gap-8">
             <div>
               <div className="text-sm text-gray-400 mb-2">Your referral link</div>
-              <div className="rounded-xl border border-white/10 bg-black shadow-[0_6px_28px_rgba(0,0,0,0.45),inset_0_0_0_1px_rgba(255,255,255,0.04)] px-0 py-0 flex items-center">
+              <div className="rounded-xl border border-white/10 bg-black shadow-[0_6px_28px_rgba(0,0,0,0.45),inset_0_0_0_1px_rgba(255,255,255,0.04)] px-0 py-0 flex items-center mt-3 mb-8">
                 <div className="flex-1 text-white/90 text-sm font-mono whitespace-nowrap overflow-x-auto hide-scrollbar px-3 py-2">
                   https://ecomefficiency.com/
                   <span className="align-middle ml-1 inline-block text-[11px] px-2 py-1 rounded-md bg-purple-400/25 text-purple-100 border border-purple-400/40 font-mono">via?=you</span>
                 </div>
               </div>
-              <h3 className="mt-6 font-semibold text-lg">Create your affiliate account</h3>
+              <h3 className="mt-8 font-semibold text-lg">Create your affiliate account</h3>
               <p className="text-sm text-gray-400 mt-2">Takes less than 2 minutes. You’ll get a custom link and tracking code instantly.</p>
             </div>
             <div>
-              <ShareDiagram />
-              <h3 className="font-semibold text-lg">Share your affiliate link</h3>
-              <p className="text-sm text-gray-400 mt-2">Share your custom affiliate link with your audience, followers, friends, customers.</p>
+              <div className="-mt-6 mb-0">
+                <ShareDiagram />
+              </div>
+              <h3 className="mt-8 font-semibold text-lg">Share your affiliate link</h3>
+              <p className="text-sm text-gray-400 mt-4">Share your custom affiliate link with your audience, followers, friends, customers.</p>
             </div>
             <div>
-              <div className="rounded-2xl border border-white/10 bg-[#0d0f14] p-4 mb-4">
-                <div className="flex items-center justify-between text-xs text-gray-400">
-                  <span>Pending</span>
-                  <span>Available</span>
-                </div>
-                <div className="mt-2 grid grid-cols-2 gap-3 items-end">
-                  <div className="rounded-xl bg-black/40 border border-white/10 p-3 flex items-center justify-between">
+              <div className="rounded-2xl border border-white/10 bg-[#0d0f14] p-3 md:p-4 mb-7 -mt-6">
+                <div className="grid grid-cols-2 gap-3 items-stretch">
+                  {/* Pending card */}
+                  <div className="rounded-xl bg-black/40 border border-purple-500/30 p-3">
+                    <div className="text-[11px] text-gray-400 mb-1">Pending</div>
                     <div className="text-gray-300 text-sm">{format(45, currency)}</div>
                   </div>
-                  <div className="rounded-xl bg-black/40 border border-white/10 p-3 flex items-center justify-between">
-                    <div className="text-gray-300 text-sm">{format(1623, currency)}</div>
-                    <button className="ml-3 px-3 py-1.5 rounded-full bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] border border-[#9541e0] text-white text-xs cursor-pointer">Payout</button>
+                  {/* Available card + external payout button */}
+                  <div className="flex items-stretch gap-2">
+                    <div className="flex-1 rounded-xl bg-black/40 border border-purple-500/30 p-3">
+                      <div className="text-[11px] text-gray-400 mb-1">Available</div>
+                      <div className="text-gray-300 text-sm">{format(1623, currency)}</div>
+                    </div>
+                    <button className="self-center h-8 px-3 rounded-full bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] border border-[#9541e0] text-white text-xs cursor-pointer whitespace-nowrap">Payout</button>
                   </div>
                 </div>
               </div>
-              <h3 className="font-semibold text-lg">Earn every month, for life</h3>
+              <h3 className="-mt-0 font-semibold text-lg">Earn every month, for life</h3>
               <p className="text-sm text-gray-400 mt-2">Get 30% of every subscription you generate, as long as your referral stays active. No cap, no fuss.</p>
             </div>
           </div>
@@ -192,11 +196,11 @@ export default function AffiliatePage() {
       </section>
 
       {/* Who is it for (photo2) */}
-      <section className="py-14 md:py-20 border-t border-white/10 bg-[#0a0b0f]">
+      <section className="py-14 md:py-20 bg-black">
         <div className="max-w-6xl mx-auto px-6">
           <div className="grid md:grid-cols-[1.2fr_.8fr] gap-8 md:gap-12 items-start">
             <div>
-              <h2 className="text-4xl md:text-5xl font-bold font-sans mb-4">Who the affiliate program is for?</h2>
+              <h2 className="text-4xl md:text-5xl font-bold font-sans mb-4">Who the affiliate program is for ?</h2>
               <p className="text-gray-300 text-base max-w-2xl">Our affiliate program is designed for creators, coaches, and ecom experts who want to earn while helping others grow their brand.</p>
             </div>
             <div>
@@ -243,7 +247,7 @@ export default function AffiliatePage() {
       </section>
 
       {/* FAQ (photo3) */}
-      <section className="py-14 md:py-20 border-t border-white/10">
+      <section className="py-14 md:py-20">
         <div className="max-w-6xl mx-auto px-6">
           <div className="grid md:grid-cols-[0.9fr_1.1fr] gap-8 md:gap-12">
             <div>
@@ -280,7 +284,7 @@ function Faq() {
     },
     {
       q: 'Does a promo code track sales without the affiliate link?',
-      a: "Yes, absolutely. If a customer purchases a subscription using your promo code without going through your affiliate link, the sale will be credited to your affiliate account just as if they had used your affiliate link. So, you can promote Trendtrack on your videos and tell your audience to subscribe using your discount code to get affiliate sales.",
+      a: "Yes, absolutely. If a customer purchases a subscription using your promo code without going through your affiliate link, the sale will be credited to your affiliate account just as if they had used your affiliate link. So, you can promote Ecom Efficiency on your videos and tell your audience to subscribe using your discount code to get affiliate sales.",
     },
     {
       q: 'Are paid ads allowed?',
@@ -315,33 +319,46 @@ function Faq() {
 
 function ShareDiagram() {
   return (
-    <div className="relative mb-3 h-40 md:h-44">
-      {/* Curved violet connections under icons */}
-      <svg className="absolute inset-0 z-0" width="100%" height="100%" viewBox="0 0 600 240" preserveAspectRatio="none">
+    <div className="relative mb-2 h-20 md:h-24">
+      {/* Shallow convex violet connections (bottom to top) */}
+      <svg className="absolute inset-0 z-0" width="100%" height="100%" viewBox="0 0 600 120" preserveAspectRatio="none">
         <defs>
           <filter id="glow2" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="2" result="blur" />
+            <feGaussianBlur stdDeviation="1.8" result="blur" />
             <feMerge>
               <feMergeNode in="blur" />
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
         </defs>
-        {/* Icons along a uniform top arc -> center bottom */}
-        <path d="M90,40 C200,90 260,130 300,170" stroke="rgba(149,65,224,0.6)" strokeWidth="2.25" fill="none" filter="url(#glow2)" />
-        <path d="M210,40 C250,90 270,120 300,170" stroke="rgba(149,65,224,0.6)" strokeWidth="2.25" fill="none" filter="url(#glow2)" />
-        <path d="M390,40 C350,90 330,120 300,170" stroke="rgba(149,65,224,0.6)" strokeWidth="2.25" fill="none" filter="url(#glow2)" />
-        <path d="M510,40 C400,90 340,130 300,170" stroke="rgba(149,65,224,0.6)" strokeWidth="2.25" fill="none" filter="url(#glow2)" />
+        {/* Four VERY shallow convex curves (smile), start horizontal then round up, end near-vertical at icons */}
+        <path d="M300,100 C240,100 180,100 96,28" stroke="rgba(149,65,224,0.62)" strokeWidth="2.1" fill="none" filter="url(#glow2)" />
+        <path d="M300,100 C276,100 252,98 228,28" stroke="rgba(149,65,224,0.62)" strokeWidth="2.1" fill="none" filter="url(#glow2)" />
+        <path d="M300,100 C324,100 348,98 372,28" stroke="rgba(149,65,224,0.62)" strokeWidth="2.1" fill="none" filter="url(#glow2)" />
+        <path d="M300,100 C360,100 420,100 492,28" stroke="rgba(149,65,224,0.62)" strokeWidth="2.1" fill="none" filter="url(#glow2)" />
       </svg>
 
-      {/* Social logos positioned uniformly, no circles */}
-      <Image src="/tools-logos/insta.png" alt="Instagram" width={36} height={36} className="absolute z-10" style={{ left: '15%', top: 10, transform: 'translateX(-50%)' }} />
-      <Image src="/tools-logos/tik.png" alt="TikTok" width={36} height={36} className="absolute z-10" style={{ left: '35%', top: 10, transform: 'translateX(-50%)' }} />
-      <Image src="/tools-logos/x.png" alt="X" width={34} height={34} className="absolute z-10" style={{ left: '65%', top: 10, transform: 'translateX(-50%)' }} />
-      <Image src="/tools-logos/discord.png" alt="Discord" width={36} height={36} className="absolute z-10" style={{ left: '85%', top: 10, transform: 'translateX(-50%)' }} />
+      {/* Social logos aligned horizontally (no circles), non-uniform spread */}
+      <div className="absolute z-10" style={{ left: '16%', top: 4, transform: 'translateX(-50%)' }}>
+        <Image src="/tools-logos/insta.png" alt="Instagram" width={30} height={30} />
+      </div>
+      <div className="absolute z-10" style={{ left: '38%', top: 4, transform: 'translateX(-50%)' }}>
+        <Image src="/tools-logos/tik.png" alt="TikTok" width={30} height={30} />
+      </div>
+      <div className="absolute z-10" style={{ left: '62%', top: 4, transform: 'translateX(-50%)' }}>
+        <Image src="/tools-logos/x.png" alt="X" width={28} height={28} />
+      </div>
+      <div className="absolute z-10" style={{ left: '82%', top: 4, transform: 'translateX(-50%)' }}>
+        <Image src="/tools-logos/discord.png" alt="Discord" width={30} height={30} />
+      </div>
 
       {/* Bottom app logo centered */}
-      <Image src="/favicon.png" alt="EcomEfficiency" width={44} height={44} className="absolute z-10 left-1/2" style={{ bottom: 4, transform: 'translateX(-50%)' }} />
+      <div className="absolute z-10 left-1/2" style={{ bottom: 0, transform: 'translateX(-50%)' }}>
+        <div className="relative">
+          <span className="absolute inset-0 rounded-full border border-white/15" style={{ width: 54, height: 54, left: -7, top: -7 }} />
+          <Image src="/favicon.png" alt="EcomEfficiency" width={40} height={40} />
+        </div>
+      </div>
     </div>
   )
 }
