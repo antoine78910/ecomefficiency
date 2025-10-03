@@ -154,9 +154,11 @@ export default function AffiliatePage() {
           <div className="grid md:grid-cols-3 gap-8">
             <div>
               <div className="text-sm text-gray-400 mb-2">Your referral link</div>
-              <div className="rounded-xl border border-white/10 bg-black shadow-[0_6px_28px_rgba(0,0,0,0.45),inset_0_0_0_1px_rgba(255,255,255,0.04)] px-3 py-2 flex items-center gap-2">
-                <div className="flex-1 text-white/90 text-sm font-mono whitespace-nowrap overflow-x-auto hide-scrollbar">https://ecomefficiency.com/</div>
-                <span className="text-[11px] px-2 py-1 rounded-md bg-purple-400/25 text-purple-100 border border-purple-400/40 font-mono">via?=you</span>
+              <div className="rounded-xl border border-white/10 bg-black shadow-[0_6px_28px_rgba(0,0,0,0.45),inset_0_0_0_1px_rgba(255,255,255,0.04)] px-0 py-0 flex items-center">
+                <div className="flex-1 text-white/90 text-sm font-mono whitespace-nowrap overflow-x-auto hide-scrollbar px-3 py-2">
+                  https://ecomefficiency.com/
+                  <span className="align-middle ml-1 inline-block text-[11px] px-2 py-1 rounded-md bg-purple-400/25 text-purple-100 border border-purple-400/40 font-mono">via?=you</span>
+                </div>
               </div>
               <h3 className="mt-6 font-semibold text-lg">Create your affiliate account</h3>
               <p className="text-sm text-gray-400 mt-2">Takes less than 2 minutes. You’ll get a custom link and tracking code instantly.</p>
