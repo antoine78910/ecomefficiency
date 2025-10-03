@@ -50,16 +50,32 @@ const SavingsComparisonSection = () => {
   const [currency, setCurrency] = React.useState<Currency>('USD');
 
   React.useEffect(() => {
-    const url = new URL(window.location.href);
-    const override = url.searchParams.get('currency');
-    if (override === 'EUR' || override === 'USD') {
-      setCurrency(override);
-      return;
-    }
-    const locale = Intl.DateTimeFormat().resolvedOptions().locale || navigator.language || 'en-US';
-    const regionMatch = locale.match(/[-_]([A-Z]{2})/);
-    const region = regionMatch ? regionMatch[1] : 'US';
-    setCurrency(isEUCountry(region) ? 'EUR' : 'USD');
+    (async () => {
+      const url = new URL(window.location.href);
+      const override = url.searchParams.get('currency');
+      if (override === 'EUR' || override === 'USD') { setCurrency(override as Currency); return }
+      // Prefer browser IP first (works reliably with user proxies)
+      try {
+        const browser = await fetch('https://ipapi.co/json/', { cache: 'no-store' }).then(r=>r.json()).catch(()=>({} as any))
+        if (browser?.country) {
+          const cc = String(browser.country).toUpperCase()
+          const eur = new Set(['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE'])
+          setCurrency(eur.has(cc) ? 'EUR' : 'USD')
+          return
+        }
+      } catch {}
+      // Server IP fallback
+      try {
+        const r = await fetch('/api/ip-region', { cache: 'no-store' })
+        const j = await r.json().catch(() => ({}))
+        if (j?.currency === 'EUR' || j?.currency === 'USD') { setCurrency(j.currency as Currency); return }
+      } catch {}
+      // Locale fallback
+      const locale = Intl.DateTimeFormat().resolvedOptions().locale || navigator.language || 'en-US';
+      const regionMatch = locale.match(/[-_]([A-Z]{2})/);
+      const region = regionMatch ? regionMatch[1] : 'US';
+      setCurrency(isEUCountry(region) ? 'EUR' : 'USD');
+    })()
   }, []);
 
   const retail = tools.reduce((sum, t) => sum + t.price, 0);

@@ -116,7 +116,7 @@ const PricingSection = () => {
         setIsReady(true);
       } else {
         try {
-          // 1) Browser IP first
+          // 1) Browser IP (works with user proxies)
           const browser = await fetch('https://ipapi.co/json/', { cache: 'no-store' }).then(r => r.json()).catch(() => ({}));
           if (browser?.country) {
             const cc = String(browser.country).toUpperCase();
@@ -140,7 +140,7 @@ const PricingSection = () => {
           setIsReady(true);
         }
       }
-
+      
       // After currency is set once, handle intent (no flicker)
       const intentTier = url.searchParams.get('checkout');
       const returnBilling = url.searchParams.get('billing') as 'monthly'|'yearly'|null;
@@ -198,18 +198,18 @@ const PricingSection = () => {
 										) : null}
 
                 {/* Price + summary wrapper with fixed height */}
-                <div className="min-h-[140px]">
+                <div className="min-h-[120px]">
 									{/* Price row */}
-                  <div className="mb-2 flex items-end gap-3">
+                  <div className="mb-1 flex items-end gap-3">
                     {isYearly ? (
                       <span className="text-5xl font-bold text-white antialiased tabular-nums font-sans drop-shadow-none">{formatPrice(plan.name==='Starter'?11.99:17.99, currency)}</span>
                     ) : (
                       <span className="text-5xl font-bold text-white antialiased tabular-nums font-sans drop-shadow-none">{formatPrice(plan.baseMonthly, currency)}</span>
                     )}
-                    <span className="text-sm text-gray-400 mb-2">/mo</span>
+                    <span className="text-sm text-gray-400 mb-1.5">/mo</span>
                   </div>
 
-									 <div className="text-xs text-gray-300 mb-1">
+                 <div className="text-xs text-gray-300 -mt-0.5">
 											{plan.name === 'Starter' && 'Access to 40 Ecom tools'}
 											{plan.name === 'Pro' && 'Access to +50 Ecom tools'}
 										</div>

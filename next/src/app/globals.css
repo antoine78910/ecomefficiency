@@ -96,14 +96,11 @@
   100% { transform: translateY(0); }
 }
 
-.animate-scroll-down-contained { animation: scrollDownContained 10.7s linear infinite; }
-.animate-scroll-up-contained { animation: scrollUpContained 10.7s linear infinite; }
+.animate-scroll-down-contained { animation: scrollDownContained 18s linear infinite; }
+.animate-scroll-up-contained { animation: scrollUpContained 18s linear infinite; }
+/* Never pause on hover/touch for mobile rows */
 .animate-scroll-down-contained:hover,
-.animate-scroll-up-contained:hover { animation-play-state: paused; }
-@media (hover: none) and (pointer: coarse) {
-  .animate-scroll-down-contained:hover,
-  .animate-scroll-up-contained:hover { animation-play-state: running; }
-}
+.animate-scroll-up-contained:hover { animation-play-state: running; }
 
 .animate-scroll-left-contained { animation: scrollLeft 6.7s linear infinite; }
 .animate-scroll-right-contained { animation: scrollRight 6.7s linear infinite; }

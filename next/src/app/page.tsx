@@ -53,18 +53,7 @@ export default function Home() {
             return;
           }
         } catch {}
-        // Fallback: ask app.* if user is logged in (will work if cookies are sendable cross-site)
-        try {
-          console.log('[landing] fetching app auth status...')
-          const res = await fetch(`${appOrigin}/api/auth/status`, { credentials: 'include' })
-          const j = await res.json().catch(() => ({}))
-          console.log('[landing] app auth status', j)
-          if (j?.loggedIn) {
-            console.log('[landing] redirect via app auth status')
-            window.location.href = `${appOrigin}/`
-            return;
-          }
-        } catch {}
+        // Removed cross-origin cookie probe: stay on landing unless a session exists on this origin
         console.log('[landing] no redirect conditions met')
       } catch {}
     })()

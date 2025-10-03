@@ -6,18 +6,7 @@ import Link from "next/link";
 import Image from "next/image";
 
 const NewNavbar = () => {
-  const handlePricingClick = () => {
-    // Si on est sur la page d'accueil, scroll vers la section pricing
-    if (window.location.pathname === '/') {
-      const pricingSection = document.getElementById('pricing');
-      if (pricingSection) {
-        pricingSection.scrollIntoView({ behavior: 'smooth' });
-      }
-    } else {
-      // Si on est sur une autre page, rediriger vers la page d'accueil avec l'ancre pricing
-      window.location.href = '/#pricing';
-    }
-  };
+  const handlePricingClick = () => { window.location.href = '/pricing'; };
 
   const handleDiscordClick = () => {
     // Open Discord community link
@@ -42,31 +31,28 @@ const NewNavbar = () => {
           {/* Logo */}
           <div className="flex items-center space-x-3">
             <div className="rounded-xl overflow-hidden">
-              <Image 
-                src="/ecomefficiency.png" 
-                alt="Ecom Efficiency Logo" 
-                width={140}
-                height={56}
-                className="h-14 w-auto rounded-xl mix-blend-screen"
-                priority
-              />
+              <Link href="/">
+                <Image 
+                  src="/ecomefficiency.png" 
+                  alt="Ecom Efficiency Logo" 
+                  width={140}
+                  height={56}
+                  className="h-14 w-auto rounded-xl mix-blend-screen cursor-pointer"
+                  priority
+                />
+              </Link>
             </div>
           </div>
 
           {/* Navigation Links */}
           <div className="hidden md:flex items-center justify-center space-x-8">
-            <Link href="/" className="text-white hover:text-purple-400 transition-colors">Home</Link>
+            <Link href="/tools" className="text-gray-400 hover:text-white transition-colors">Tools</Link>
+            <Link href="/affiliate" className="text-gray-400 hover:text-white transition-colors">Affiliate</Link>
             <button 
               onClick={handlePricingClick}
               className="text-gray-400 hover:text-white transition-colors bg-transparent border-none cursor-pointer"
             >
               Pricing
-            </button>
-            <button 
-              onClick={handleFaqClick}
-              className="text-gray-400 hover:text-white transition-colors bg-transparent border-none cursor-pointer"
-            >
-              FAQ
             </button>
           </div>
 

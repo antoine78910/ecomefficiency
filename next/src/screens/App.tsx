@@ -573,7 +573,7 @@ function CredentialsPanel() {
 
   // Intentionally left empty: copying handled by CopyButton below
 
-  // Determine plan from Stripe in real-time; if inactive/unpaid, show banner and redirect option
+  // Determine plan from Stripe in real-time; if inactive/unpaid/incomplete, show banner and restrict access
   const [plan, setPlan] = React.useState<'checking'|'inactive'|'starter'|'pro'>('checking')
   const [banner, setBanner] = React.useState<string | null>(null)
   const [showBilling, setShowBilling] = React.useState(false)
@@ -605,7 +605,7 @@ function CredentialsPanel() {
           setPlan('inactive')
           const st = json?.status as string | undefined
           if (st && (st === 'past_due' || st === 'unpaid' || st === 'incomplete' || st === 'incomplete_expired')) {
-            setBanner('Payment failed. Please resume your subscription to access features.')
+            setBanner('Payment incomplete or failed. Please resume your subscription to access features.')
           } else {
             setBanner('No active subscription. Go to Pricing to subscribe.')
           }

@@ -130,7 +130,7 @@ export default function AppTopNav() {
               <span className="font-medium">{email || ''}</span>
             </div>
             <DropdownMenuItem className="hover:bg-[#5c3dfa]/20 focus:bg-[#5c3dfa]/20 cursor-pointer">
-              <Link href="/subscription" className="w-full">Subscriptions</Link>
+              <Link href="/subscription" className="w-full">Subscription</Link>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleLogout} className="hover:bg-[#5c3dfa]/20 focus:bg-[#5c3dfa]/20 cursor-pointer text-red-400">
               Log out

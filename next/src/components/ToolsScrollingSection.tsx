@@ -30,10 +30,7 @@ const ToolsScrollingSection = () => {
               <div key={`row-${row}`} className="relative overflow-x-hidden touch-pan-x">
                 <div
                   className={`${row % 2 === 0 ? 'animate-scroll-left-contained' : 'animate-scroll-right-contained'} inline-flex gap-3 pr-2 whitespace-nowrap w-max [animation-play-state:running]`}
-                  style={{ animationDuration: '6.7s' }}
-                  onTouchStart={(e)=>{ try { (e.currentTarget as any).style.animationPlayState = 'paused'; } catch {} }}
-                  onTouchEnd={(e)=>{ try { (e.currentTarget as any).style.animationPlayState = 'running'; } catch {} }}
-                  onTouchCancel={(e)=>{ try { (e.currentTarget as any).style.animationPlayState = 'running'; } catch {} }}
+                  style={{ animationDuration: '18s' }}
                 >
                   {[...data, ...data, ...data].map((tool, index) => (
                     <div 

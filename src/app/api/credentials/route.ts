@@ -54,6 +54,10 @@ export async function GET(req: NextRequest) {
     if (!email && !customerIdHeader) {
       return NextResponse.json({}, { status: 200 })
     }
+    // Fail-closed: if Stripe is not configured, never return any credentials
+    if (!process.env.STRIPE_SECRET_KEY) {
+      return NextResponse.json({}, { status: 200 })
+    }
     if (process.env.STRIPE_SECRET_KEY) {
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-07-30.basil' })
       let customerId = customerIdHeader

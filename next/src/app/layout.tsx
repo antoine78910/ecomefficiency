@@ -21,6 +21,9 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full" suppressHydrationWarning>
       <head>
+        {/* FirstPromoter main tracking */}
+        <Script src="/fprmain.js" strategy="afterInteractive" />
+        <Script src="https://cdn.firstpromoter.com/fpr.js" strategy="afterInteractive" />
         <Script
           id="datafast"
           defer

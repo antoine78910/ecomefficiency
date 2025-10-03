@@ -85,8 +85,9 @@ const Footer = () => {
               {!isHomePage && (
                 <li><a href="/tools" className="text-gray-400 hover:text-white transition-colors">All Tools</a></li>
               )}
-              <li><a href="#pricing" className="text-gray-400 hover:text-white transition-colors">Pricing</a></li>
-              <li><a href="#faq" className="text-gray-400 hover:text-white transition-colors">FAQ</a></li>
+              <li><a href="/pricing" className="text-gray-400 hover:text-white transition-colors">Pricing</a></li>
+              <li><a href="/affiliate" className="text-gray-400 hover:text-white transition-colors">Affiliate</a></li>
+              <li><a href="/tools" className="text-gray-400 hover:text-white transition-colors">Tools</a></li>
             </ul>
           </div>
 

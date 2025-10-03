@@ -7,18 +7,7 @@ import Image from "next/image";
 
 const NewNavbar = () => {
   const [menuOpen, setMenuOpen] = React.useState(false);
-  const handlePricingClick = () => {
-    // Si on est sur la page d'accueil, scroll vers la section pricing
-    if (window.location.pathname === '/') {
-      const pricingSection = document.getElementById('pricing');
-      if (pricingSection) {
-        pricingSection.scrollIntoView({ behavior: 'smooth' });
-      }
-    } else {
-      // Si on est sur une autre page, rediriger vers la page d'accueil avec l'ancre pricing
-      window.location.href = '/#pricing';
-    }
-  };
+  const handlePricingClick = () => { window.location.href = '/pricing'; };
 
   const handleDiscordClick = () => {
     // Open Discord community link
@@ -43,31 +32,28 @@ const NewNavbar = () => {
           {/* Logo */}
           <div className="flex items-center justify-start space-x-3 pl-2 md:pl-3">
             <div className="flex items-center">
-              <Image 
-                src="/ecomefficiency.png" 
-                alt="Ecom Efficiency Logo" 
-                width={140}
-                height={56}
-                className="h-12 md:h-14 w-auto object-contain mix-blend-screen"
-                priority
-              />
+              <Link href="/">
+                <Image 
+                  src="/ecomefficiency.png" 
+                  alt="Ecom Efficiency Logo" 
+                  width={140}
+                  height={56}
+                  className="h-12 md:h-14 w-auto object-contain mix-blend-screen cursor-pointer"
+                  priority
+                />
+              </Link>
             </div>
           </div>
 
           {/* Navigation Links */}
           <div className="hidden md:flex items-center justify-center space-x-8">
-            <Link href="/" className="text-white hover:text-purple-400 transition-colors">Home</Link>
+            <Link href="/tools" className="text-gray-400 hover:text-white transition-colors">Tools</Link>
+            <Link href="/affiliate" className="text-gray-400 hover:text-white transition-colors">Affiliate</Link>
             <button 
               onClick={handlePricingClick}
               className="text-gray-400 hover:text-white transition-colors bg-transparent border-none cursor-pointer"
             >
               Pricing
-            </button>
-            <button 
-              onClick={handleFaqClick}
-              className="text-gray-400 hover:text-white transition-colors bg-transparent border-none cursor-pointer"
-            >
-              FAQ
             </button>
           </div>
 
@@ -120,7 +106,10 @@ const NewNavbar = () => {
         </div>
 
         {menuOpen && (
-          <div className="md:hidden absolute right-0 top-16 w-48 bg-[#0d0e12] border border-white/10 rounded-lg shadow-xl z-[60]">
+          <div className="md:hidden absolute right-0 top-16 w-56 bg-[#0d0e12] border border-white/10 rounded-lg shadow-xl z-[60]">
+            <Link href="/tools" className="block px-4 py-2 text-sm text-white hover:bg-white/10">Tools</Link>
+            <Link href="/affiliate" className="block px-4 py-2 text-sm text-white hover:bg-white/10">Affiliate</Link>
+            <button onClick={handlePricingClick} className="w-full text-left px-4 py-2 text-sm text-white hover:bg-white/10 cursor-pointer">Pricing</button>
             <button onClick={handleDiscordClick} className="w-full text-left px-4 py-2 text-sm text-white hover:bg-white/10 cursor-pointer">Join Community</button>
             <Link href="/sign-in" className="block px-4 py-2 text-sm text-white hover:bg-white/10">Sign In</Link>
           </div>

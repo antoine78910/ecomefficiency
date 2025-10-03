@@ -318,7 +318,7 @@ function CredentialsPanel() {
 
   // Intentionally left empty: copying handled by CopyButton below
 
-  // Determine plan from Stripe in real-time; if inactive/unpaid, show banner and redirect option
+  // Determine plan from Stripe in real-time; if inactive/unpaid/incomplete, show banner and restrict access
   const [plan, setPlan] = React.useState<'checking'|'inactive'|'starter'|'pro'>('checking')
   const [banner, setBanner] = React.useState<string | null>(null)
   const [showBilling, setShowBilling] = React.useState(false)
@@ -345,7 +345,7 @@ function CredentialsPanel() {
           setPlan('inactive')
           const st = json?.status as string | undefined
           if (st && (st === 'past_due' || st === 'unpaid' || st === 'incomplete' || st === 'incomplete_expired')) {
-            setBanner('Payment failed. Please resume your subscription to access features.')
+            setBanner('Payment incomplete or failed. Please resume your subscription to access features.')
           } else {
             setBanner('No active subscription. Go to Pricing to subscribe.')
           }
@@ -406,6 +406,29 @@ function CredentialsPanel() {
           <p className="text-gray-400 text-sm">Loading…</p>
         ) : error ? (
           <p className="text-red-400 text-sm">{error}</p>
+        ) : plan === 'inactive' ? (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <p className="text-xs text-gray-400 mb-1">Email</p>
+              <div className="group flex items-center gap-2">
+                <span className={`break-all text-white filter blur-sm select-none`}>••••••••</span>
+                <CopyButton value={undefined} label="Copy email" disabled={true} />
+              </div>
+            </div>
+            <div>
+              <p className="text-xs text-gray-400 mb-1">Password</p>
+              <div className="group flex items-center gap-2">
+                <span className={`break-all text-white filter blur-sm select-none`}>••••••••</span>
+                <CopyButton value={undefined} label="Copy password" disabled={true} />
+              </div>
+            </div>
+            <div className="md:col-span-2">
+              <div className="mt-2 text-sm text-gray-400 flex items-center gap-2">
+                <span>How to access the tools?</span>
+                <button onClick={() => { try { (window as any).__eeOpenHowTo?.(); window.dispatchEvent(new CustomEvent('ee-open-howto')); const el = document.getElementById('howto-modal-open') as HTMLButtonElement | null; el?.click(); } catch {} }} className="underline text-purple-300 hover:text-purple-200 cursor-pointer">Open the 3‑step demo</button>
+              </div>
+            </div>
+          </div>
         ) : creds && ((plan==='pro' && (creds.adspower_pro_email || creds.adspower_pro_password)) || (plan!=='pro' && (creds.adspower_email || creds.adspower_password || creds.adspower_starter_email || creds.adspower_starter_password))) ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>

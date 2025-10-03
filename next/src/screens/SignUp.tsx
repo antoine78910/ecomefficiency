@@ -124,6 +124,9 @@ const SignUp = () => {
             lastName || undefined,
           );
         }
+        // Send lead to FirstPromoter for referral attribution (if available)
+        try { (window as any).fpr && (window as any).fpr('referral', { email }); } catch {}
+
         // Redirect to persistent verification page on the current origin (respect dev/prod)
         const origin = (typeof window !== 'undefined') ? window.location.origin : '';
         const url = new URL(origin);
