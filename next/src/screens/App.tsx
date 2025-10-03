@@ -126,8 +126,11 @@ const App = () => {
               <span className="font-semibold text-white">Earn 30% for life</span> by helping your friends save thousands on tools.
             </div>
             <a href="/affiliate" className="shrink-0">
-              <button className="cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_24px_rgba(149,65,224,0.45)] px-4 md:px-6 h-9 md:h-10 rounded-xl border border-[#9541e0] text-white text-xs md:text-sm font-medium">
-                Become an affiliate
+              <button className="cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_32px_0_rgba(149,65,224,0.70)] px-6 py-3 rounded-xl border-[1px] border-[#9541e0] text-white font-medium group w-[220px] h-[48px]">
+                <div className="relative overflow-hidden">
+                  <p className="group-hover:-translate-y-7 duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)]">Become an affiliate</p>
+                  <p className="absolute top-7 left-0 group-hover:top-0 duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)]">Become an affiliate</p>
+                </div>
               </button>
             </a>
             <div className="pointer-events-none absolute -bottom-10 -right-10 h-40 w-40 bg-purple-600/20 blur-3xl" aria-hidden />
