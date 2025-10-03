@@ -49,14 +49,14 @@ export async function POST(req: NextRequest) {
       }
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
-        // Only process active or trialing subscriptions
+        // Process subscription status transitions
         const subscription = (event as any).data?.object;
         const subscriptionStatus = subscription?.status;
-        
-        if (subscriptionStatus === 'active' || subscriptionStatus === 'trialing') {
-          const clientRef = subscription?.metadata?.userId;
-          const customerId = subscription?.customer;
-          if (clientRef && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL) {
+        const clientRef = subscription?.metadata?.userId;
+        const customerId = subscription?.customer;
+
+        if (clientRef && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL) {
+          if (subscriptionStatus === 'active' || subscriptionStatus === 'trialing') {
             await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users/${clientRef}`, {
               method: 'PUT',
               headers: {
@@ -65,12 +65,21 @@ export async function POST(req: NextRequest) {
               },
               body: JSON.stringify({ user_metadata: { plan: 'growth', stripe_customer_id: customerId } })
             });
+          } else {
+            // Any non-active state should be downgraded to free
+            await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users/${clientRef}`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+              },
+              body: JSON.stringify({ user_metadata: { plan: 'free', stripe_customer_id: customerId } })
+            });
           }
         }
         break;
       }
-      case 'customer.subscription.deleted':
-      case 'customer.subscription.cancelled': {
+      case 'customer.subscription.deleted': {
         // Downgrade user to free plan when subscription ends
         const subscription = (event as any).data?.object;
         const customerId = subscription?.customer;
@@ -88,12 +97,11 @@ export async function POST(req: NextRequest) {
         }
         break;
       }
-      case 'invoice.payment_failed':
-      case 'customer.subscription.past_due': {
-        // Suspend access for failed payments or past due subscriptions
-        const subscription = (event as any).data?.object;
-        const customerId = subscription?.customer || (event as any).data?.object?.customer;
-        const clientRef = subscription?.metadata?.userId;
+      case 'invoice.payment_failed': {
+        // Suspend access for failed payments
+        const invoice = (event as any).data?.object;
+        const customerId = invoice?.customer;
+        const clientRef = invoice?.metadata?.userId;
         
         if (clientRef && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL) {
           await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users/${clientRef}`, {
