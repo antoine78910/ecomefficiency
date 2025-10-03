@@ -84,8 +84,14 @@ export default function AffiliatePage() {
             </a>
           </div>
         </div>
-        {/* bottom gradient fade (softer) */}
-        <div className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 h-36 w-[64rem] bg-gradient-to-t from-purple-600/20 via-purple-500/10 to-transparent blur-[48px]" aria-hidden />
+        {/* bottom radial arc gradient for a smoother fade */}
+        <div
+          className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 h-40 w-[70rem] blur-[42px]"
+          aria-hidden
+          style={{
+            background: `radial-gradient( ellipse at 50% 100%, rgba(147,51,234,0.18) 0%, rgba(147,51,234,0.12) 40%, rgba(147,51,234,0.06) 62%, transparent 78% )`
+          }}
+        />
       </section>
 
       {/* Simulator */}
@@ -95,28 +101,6 @@ export default function AffiliatePage() {
             <div>
               <div className="flex items-center justify-between mb-2">
                 <div className="text-sm text-gray-300">{referrals} referrals</div>
-                <div className="flex items-center gap-2">
-                  <button
-                    aria-label="Decrease"
-                    onClick={() => setReferrals(v => Math.max(0, v - 10))}
-                    className="cursor-pointer px-2 py-1 rounded-md border border-white/10 text-white/80 hover:bg-white/10 text-xs"
-                  >−10</button>
-                  <button
-                    aria-label="Decrease"
-                    onClick={() => setReferrals(v => Math.max(0, v - 1))}
-                    className="cursor-pointer px-2 py-1 rounded-md border border-white/10 text-white/80 hover:bg-white/10 text-xs"
-                  >−1</button>
-                  <button
-                    aria-label="Increase"
-                    onClick={() => setReferrals(v => Math.min(500, v + 1))}
-                    className="cursor-pointer px-2 py-1 rounded-md border border-white/10 text-white/80 hover:bg-white/10 text-xs"
-                  >+1</button>
-                  <button
-                    aria-label="Increase"
-                    onClick={() => setReferrals(v => Math.min(500, v + 10))}
-                    className="cursor-pointer px-2 py-1 rounded-md border border-white/10 text-white/80 hover:bg-white/10 text-xs"
-                  >+10</button>
-                </div>
               </div>
               <div className="relative select-none">
                 {(() => {
@@ -170,11 +154,9 @@ export default function AffiliatePage() {
           <div className="grid md:grid-cols-3 gap-8">
             <div>
               <div className="text-sm text-gray-400 mb-2">Your referral link</div>
-              <div className="rounded-2xl border border-white/10 bg-black p-2 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_10px_30px_rgba(0,0,0,0.45)]">
-                <div className="flex items-center gap-2">
-                  <div className="flex-1 text-white/90 text-sm px-3 py-2 font-mono">https://ecomefficiency.com/</div>
-                  <span className="text-[11px] px-2 py-1 rounded-md bg-purple-400/25 text-purple-100 border border-purple-400/40">via?=yourname</span>
-                </div>
+              <div className="rounded-xl border border-white/10 bg-black shadow-[0_6px_28px_rgba(0,0,0,0.45),inset_0_0_0_1px_rgba(255,255,255,0.04)] px-3 py-2 flex items-center gap-2">
+                <div className="flex-1 text-white/90 text-sm font-mono whitespace-nowrap overflow-x-auto hide-scrollbar">https://ecomefficiency.com/</div>
+                <span className="text-[11px] px-2 py-1 rounded-md bg-purple-400/25 text-purple-100 border border-purple-400/40 font-mono">via?=you</span>
               </div>
               <h3 className="mt-6 font-semibold text-lg">Create your affiliate account</h3>
               <p className="text-sm text-gray-400 mt-2">Takes less than 2 minutes. You’ll get a custom link and tracking code instantly.</p>
@@ -197,11 +179,11 @@ export default function AffiliatePage() {
                   <span>Available</span>
                 </div>
                 <div className="mt-2 grid grid-cols-2 gap-3 items-end">
-                  <div className="rounded-xl bg-black/40 border border-white/10 p-3">
-                    <div className="text-gray-300 text-sm">$56</div>
+                  <div className="rounded-xl bg-black/40 border border-white/10 p-3 flex items-center justify-between">
+                    <div className="text-gray-300 text-sm">{format(45, currency)}</div>
                   </div>
                   <div className="rounded-xl bg-black/40 border border-white/10 p-3 flex items-center justify-between">
-                    <div className="text-gray-300 text-sm">$1,674</div>
+                    <div className="text-gray-300 text-sm">{format(1623, currency)}</div>
                     <button className="ml-3 px-3 py-1.5 rounded-full bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] border border-[#9541e0] text-white text-xs cursor-pointer">Payout</button>
                   </div>
                 </div>
