@@ -91,12 +91,12 @@ const SignIn = () => {
         } catch {}
 
         toast({ title: "Sign in successful!", description: "Welcome to Ecom Efficiency" });
-        // Default: send to app root on current base domain
+        // Default: send to app root on current base domain (no /app path)
         const baseHost = window.location.hostname.split(':')[0];
         if (!baseHost.startsWith('app.')) {
           window.location.href = `http://app.${baseHost}:5000/`;
         } else {
-          window.location.href = '/app';
+          window.location.href = '/';
         }
       }
     } catch (error: any) {
@@ -126,7 +126,7 @@ const SignIn = () => {
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/app`
+          redirectTo: `${window.location.origin}/`
         }
       });
 

@@ -33,6 +33,7 @@ export async function POST(req: NextRequest) {
     }
 
     const status = latest.status; // active, trialing, past_due, unpaid, canceled, incomplete...
+    // Only allow access for truly active subscriptions - block incomplete, past_due, unpaid, etc.
     const active = status === "active" || status === "trialing";
 
     // Map price IDs to plan name; with robust fallbacks
@@ -64,7 +65,12 @@ export async function POST(req: NextRequest) {
       } catch {}
     }
 
-    const result = { ok: true, active, status, plan: (plan==='growth' ? 'pro' : plan) };
+    // SECURITY: Block access if we can't identify the plan, even if subscription appears active
+    const finalPlan = (plan==='growth' ? 'pro' : plan);
+    const isValidAccess = active && finalPlan; // Must be both active AND have a valid plan
+    
+    const result = { ok: true, active: isValidAccess, status, plan: finalPlan };
+    console.log('[VERIFY] Subscription check:', { customerId, status, active: isValidAccess, plan: finalPlan, rawActive: active });
     return NextResponse.json(result);
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || "unknown_error" }, { status: 500 });

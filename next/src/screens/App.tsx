@@ -59,7 +59,7 @@ const App = () => {
         const res = await fetch('/api/credentials', { headers, cache: 'no-store' })
         const json = await res.json().catch(() => ({}))
         if (json?.canva_invite_url) setCanvaInvite(String(json.canva_invite_url))
-        // Determine user plan at app level
+        // Determine user plan at app level - SECURITY: Only trust active subscriptions
         try {
           const verifyHeaders: Record<string, string> = { 'Content-Type': 'application/json' }
           if (email) verifyHeaders['x-user-email'] = email
@@ -67,16 +67,16 @@ const App = () => {
           const vr = await fetch('/api/stripe/verify', { method: 'POST', headers: verifyHeaders, body: JSON.stringify({ email }) })
           const vj = await vr.json().catch(() => ({}))
           const p = (vj?.plan as string)?.toLowerCase()
-          if (vj?.ok && vj?.active && (p === 'starter' || p === 'growth' || p === 'pro')) setAppPlan((p==='growth' ? 'pro' : p) as any)
-          else {
-            const metaPlan = ((data.user?.user_metadata as any)?.plan as string)?.toLowerCase()
-            if (metaPlan === 'starter' || metaPlan === 'growth' || metaPlan === 'pro') setAppPlan((metaPlan==='growth' ? 'pro' : metaPlan) as any)
-            else setAppPlan('free')
+          // SECURITY: Only allow access if subscription is both OK and ACTIVE
+          if (vj?.ok && vj?.active === true && (p === 'starter' || p === 'growth' || p === 'pro')) {
+            setAppPlan((p==='growth' ? 'pro' : p) as any)
+          } else {
+            // SECURITY: Don't trust user_metadata alone, always default to free for inactive subscriptions
+            setAppPlan('free')
           }
         } catch {
-          const metaPlan = ((data.user?.user_metadata as any)?.plan as string)?.toLowerCase()
-          if (metaPlan === 'starter' || metaPlan === 'growth' || metaPlan === 'pro') setAppPlan((metaPlan==='growth' ? 'pro' : metaPlan) as any)
-          else setAppPlan('free')
+          // SECURITY: On any error, default to free plan
+          setAppPlan('free')
         }
       } catch {}
     })()
@@ -685,11 +685,7 @@ function CredentialsPanel() {
             <span>{banner}</span>
             <div className="flex items-center gap-2">
               <button onClick={() => setShowBilling(true)} className="px-3 py-1 rounded-md bg-[#9541e0] hover:bg-[#8636d2] text-white">Subscribe</button>
-              <form method="POST" action="/create-customer-portal-session">
-                <input type="hidden" name="customerId" value={customerId || ''} />
-                <input type="hidden" name="email" value={email || ''} />
-                <button type="submit" className="px-3 py-1 rounded-md border border-white/20 text-white hover:bg-white/10">Manage billing</button>
-              </form>
+              <button onClick={openPortal} className="px-3 py-1 rounded-md border border-white/20 text-white hover:bg-white/10">Manage billing</button>
             </div>
           </div>
         ) : null}
@@ -738,7 +734,7 @@ function CredentialsPanel() {
               </div>
             </div>
           </div>
-        ) : creds && ((plan==='pro' && (creds.adspower_pro_email || creds.adspower_pro_password)) || (plan==='starter' && (creds.adspower_email || creds.adspower_password || creds.adspower_starter_email || creds.adspower_starter_password))) ? (
+        ) : (plan === 'starter' || plan === 'pro') && creds && ((plan==='pro' && (creds.adspower_pro_email || creds.adspower_pro_password)) || (plan==='starter' && (creds.adspower_email || creds.adspower_password || creds.adspower_starter_email || creds.adspower_starter_password))) ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <p className="text-xs text-gray-400 mb-1">Email</p>
@@ -1082,13 +1078,17 @@ function InfoToolCard({ img, title, description, link, note, cover, disabled, sm
 function BrainCredsCard({ disabled }: { disabled?: boolean }) {
   const [open, setOpen] = React.useState(false)
   return (
-    <div onClick={() => { if (!disabled) setOpen(true) }} className={`relative bg-gray-900 border border-white/10 rounded-2xl p-2 md:p-3 flex flex-col ${disabled ? 'opacity-60 pointer-events-none' : 'cursor-pointer hover:border-white/20'}`}>
+    <div onClick={() => { if (!disabled) setOpen(true) }} className={`relative bg-gray-900 border border-white/10 rounded-2xl p-2 md:p-3 flex flex-col ${disabled ? 'opacity-60' : 'cursor-pointer hover:border-white/20'}`}>
       <div className="w-full rounded-xl bg-[#000000] border border-white/10 overflow-hidden relative" style={{ aspectRatio: '16 / 9' }}>
         <Image src="/tools-logos/brain.png" alt="Brain.fm logo" fill className="object-contain p-2 bg-[#000000]" sizes="(max-width: 768px) 100vw, 50vw" />
       </div>
       <div className="mt-2">
         <div className="text-white font-semibold text-sm md:text-base">Brain.fm</div>
-        <div className="text-[11px] text-gray-400">Tap to reveal login credentials</div>
+        {disabled ? (
+          <div className="text-[11px] text-gray-400">Subscribe to access</div>
+        ) : (
+          <div className="text-[11px] text-gray-400">Tap to reveal login credentials</div>
+        )}
       </div>
       {open && (
         <div className="fixed inset-0 z-[70] bg-black/70 flex items-center justify-center p-4" onClick={()=>setOpen(false)}>
@@ -1134,13 +1134,17 @@ function BrainCredsCard({ disabled }: { disabled?: boolean }) {
 function CanvaFlipCard({ inviteLink, disabled }: { inviteLink?: string | null; disabled?: boolean }) {
   const [open, setOpen] = React.useState(false)
   return (
-    <div onClick={() => { if (!disabled && inviteLink) window.open(inviteLink, '_blank', 'noreferrer') }} className={`relative bg-gray-900 border border-white/10 rounded-2xl p-2 md:p-3 flex flex-col ${disabled ? 'opacity-60 pointer-events-none' : 'cursor-pointer hover:border-white/20'}`}>
+    <div onClick={() => { if (!disabled && inviteLink) window.open(inviteLink, '_blank', 'noreferrer') }} className={`relative bg-gray-900 border border-white/10 rounded-2xl p-2 md:p-3 flex flex-col ${disabled ? 'opacity-60' : 'cursor-pointer hover:border-white/20'}`}>
       <div className="w-full rounded-xl bg-[#000000] border border-white/10 overflow-hidden relative" style={{ aspectRatio: '16 / 9' }}>
         <Image src="/tools-logos/canva.png" alt="Canva logo" fill className="object-contain p-2 bg-[#000000]" sizes="(max-width: 768px) 100vw, 50vw" />
       </div>
       <div className="mt-2">
         <div className="text-white font-semibold text-sm md:text-base">Canva</div>
-        <div className="text-[11px] text-gray-400">Click to open the invite and connect on your account</div>
+        {disabled ? (
+          <div className="text-[11px] text-gray-400">Subscribe to access</div>
+        ) : (
+          <div className="text-[11px] text-gray-400">Click to open the invite and connect on your account</div>
+        )}
       </div>
     </div>
   )

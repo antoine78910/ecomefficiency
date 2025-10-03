@@ -24,12 +24,58 @@ export async function POST(req: NextRequest) {
 
   try {
     switch (event.type) {
-      case 'checkout.session.completed':
+      case 'checkout.session.completed': {
+        // Only process completed checkouts with successful payment
+        const session = (event as any).data?.object;
+        const paymentStatus = session?.payment_status;
+        const status = session?.status;
+        
+        // Only upgrade plan if payment is actually completed
+        if (paymentStatus === 'paid' && status === 'complete') {
+          const clientRef = session?.client_reference_id || session?.metadata?.userId;
+          const customerId = session?.customer;
+          if (clientRef && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL) {
+            await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users/${clientRef}`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+              },
+              body: JSON.stringify({ user_metadata: { plan: 'growth', stripe_customer_id: customerId } })
+            });
+          }
+        }
+        break;
+      }
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
-        // Mark user as Growth
-        const clientRef = (event as any).data?.object?.client_reference_id || (event as any).data?.object?.metadata?.userId;
-        const customerId = (event as any).data?.object?.customer;
+        // Only process active or trialing subscriptions
+        const subscription = (event as any).data?.object;
+        const subscriptionStatus = subscription?.status;
+        
+        if (subscriptionStatus === 'active' || subscriptionStatus === 'trialing') {
+          const clientRef = subscription?.metadata?.userId;
+          const customerId = subscription?.customer;
+          if (clientRef && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL) {
+            await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users/${clientRef}`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+              },
+              body: JSON.stringify({ user_metadata: { plan: 'growth', stripe_customer_id: customerId } })
+            });
+          }
+        }
+        break;
+      }
+      case 'customer.subscription.deleted':
+      case 'customer.subscription.cancelled': {
+        // Downgrade user to free plan when subscription ends
+        const subscription = (event as any).data?.object;
+        const customerId = subscription?.customer;
+        const clientRef = subscription?.metadata?.userId;
+        
         if (clientRef && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL) {
           await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users/${clientRef}`, {
             method: 'PUT',
@@ -37,15 +83,28 @@ export async function POST(req: NextRequest) {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
             },
-            body: JSON.stringify({ user_metadata: { plan: 'growth', stripe_customer_id: customerId } })
+            body: JSON.stringify({ user_metadata: { plan: 'free', stripe_customer_id: customerId } })
           });
         }
         break;
       }
-      case 'customer.subscription.deleted': {
-        const customerId = (event as any).data?.object?.customer;
-        // You may want to look up userId by customerId if no client_reference_id
-        // For simplicity, do nothing or downgrade by mapping customerId -> userId in your DB.
+      case 'invoice.payment_failed':
+      case 'customer.subscription.past_due': {
+        // Suspend access for failed payments or past due subscriptions
+        const subscription = (event as any).data?.object;
+        const customerId = subscription?.customer || (event as any).data?.object?.customer;
+        const clientRef = subscription?.metadata?.userId;
+        
+        if (clientRef && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL) {
+          await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users/${clientRef}`, {
+            method: 'PUT',
+            headers: {
+              'Content-Type': 'application/json',
+              'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+            },
+            body: JSON.stringify({ user_metadata: { plan: 'free', stripe_customer_id: customerId } })
+          });
+        }
         break;
       }
       default:

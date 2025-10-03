@@ -74,8 +74,33 @@ export async function GET(req: NextRequest) {
       const subs = await stripe.subscriptions.list({ customer: customerId, status: 'all', limit: 10 })
       const latest = subs.data.sort((a, b) => (b.created || 0) - (a.created || 0))[0]
       const status = latest?.status
+      // SECURITY: Only allow access for truly active subscriptions - block incomplete, past_due, unpaid, etc.
       const active = status === 'active' || status === 'trialing'
-      if (!active) {
+      
+      // SECURITY: Also verify the plan can be identified from price IDs
+      let hasValidPlan = false
+      if (active && latest) {
+        const price = latest.items.data[0]?.price
+        const priceId = price?.id
+        const env = process.env
+        const starterIds = [env.NEXT_PUBLIC_STRIPE_PRICE_ID_STARTER_MONTHLY, env.NEXT_PUBLIC_STRIPE_PRICE_ID_STARTER_YEARLY].filter(Boolean)
+        const growthIds = [env.NEXT_PUBLIC_STRIPE_PRICE_ID_GROWTH_MONTHLY, env.NEXT_PUBLIC_STRIPE_PRICE_ID_GROWTH_YEARLY].filter(Boolean)
+        
+        if (priceId && (starterIds.includes(priceId) || growthIds.includes(priceId))) {
+          hasValidPlan = true
+        } else if (price) {
+          // Fallback: check lookup_key, nickname, product name
+          const lookup = (price.lookup_key || '').toString().toLowerCase()
+          const nickname = (price.nickname || '').toString().toLowerCase()
+          if (lookup.includes('growth') || nickname.includes('growth') || lookup.includes('starter') || nickname.includes('starter')) {
+            hasValidPlan = true
+          }
+        }
+      }
+      
+      // Fail-closed on any non-active status or unidentifiable plan
+      if (!active || !hasValidPlan) {
+        console.log('[CREDENTIALS] Access denied:', { customerId, status, active, hasValidPlan })
         return NextResponse.json({}, { status: 200 })
       }
     }

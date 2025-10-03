@@ -209,7 +209,7 @@ const PricingSection = () => {
                     <span className="text-sm text-gray-400 mb-1.5">/mo</span>
                   </div>
 
-                 <div className="text-xs text-gray-300 -mt-0.5">
+                 <div className="text-xs text-gray-300 mt-3 mb-0">
 											{plan.name === 'Starter' && 'Access to 40 Ecom tools'}
 											{plan.name === 'Pro' && 'Access to +50 Ecom tools'}
 										</div>
@@ -217,7 +217,7 @@ const PricingSection = () => {
 								
                 {/* Features per plan */}
                 {plan.name === 'Starter' && (
-                  <div className="mb-8 space-y-2">
+                  <div className="mt-0 mb-8 space-y-2">
                     <div onClick={() => toggleExpand('starter')} className="w-full flex items-center justify-between text-left text-gray-300 px-0 py-1 hover:text-white transition cursor-pointer select-none">
                       <span className="flex items-center gap-2 text-xs"><Check className="w-4 h-4 text-purple-400" />40 Ecom tools</span>
                       <ChevronDown className={`w-4 h-4 transition-transform duration-300 ${expanded['starter'] ? 'rotate-180' : ''}`} />
@@ -274,9 +274,9 @@ const PricingSection = () => {
                 )}
 
                 {plan.name === 'Pro' && (
-                  <div className="mb-8 space-y-2 text-gray-300 text-sm">
+                  <div className="mt-0 mb-8 space-y-1.5 text-gray-300 text-sm">
                     <div className="flex items-center gap-2 text-xs"><Check className="w-4 h-4 text-purple-400" /><span>Starter tools, plus:</span></div>
-                    <ul className="space-y-2">
+                    <ul className="space-y-1.5">
                       {proExtras.map((t) => (
                         <li key={t} className="flex items-center gap-2 text-xs"><Check className="w-4 h-4 text-purple-400" /><span>{t}</span></li>
                       ))}

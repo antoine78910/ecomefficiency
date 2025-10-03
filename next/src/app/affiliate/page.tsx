@@ -74,14 +74,14 @@ export default function AffiliatePage() {
             <p className="text-gray-300 text-sm md:text-base mb-5">
               One link and reduction code. No limits. Automated monthly income.
             </p>
-            <Link href="/sign-up?affiliates=1">
+            <a href="https://ecomefficiency.firstpromoter.com" target="_blank" rel="noreferrer noopener">
               <button className="cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_32px_0_rgba(149,65,224,0.70)] px-6 py-3 rounded-xl border-[1px] border-[#9541e0] text-white font-medium group w-[220px] h-[48px] mx-auto">
                 <div className="relative overflow-hidden">
                   <p className="group-hover:-translate-y-7 duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)]">Become an affiliate</p>
                   <p className="absolute top-7 left-0 group-hover:top-0 duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)]">Become an affiliate</p>
                 </div>
               </button>
-            </Link>
+            </a>
           </div>
         </div>
         {/* bottom gradient fade */}
@@ -182,9 +182,9 @@ export default function AffiliatePage() {
                 <li className="flex items-center gap-2"><Check className="w-4 h-4 text-purple-400" /> Help others scale smarter with real tools</li>
               </ul>
               <div className="mt-4">
-                <Link href="/sign-up?affiliates=1">
+                <a href="https://ecomefficiency.firstpromoter.com" target="_blank" rel="noreferrer noopener">
                   <button className="cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_32px_0_rgba(149,65,224,0.55)] px-6 py-3 rounded-xl border-[1px] border-[#9541e0] text-white font-medium">Become an affiliate</button>
-                </Link>
+                </a>
               </div>
             </div>
           </div>
@@ -220,9 +220,9 @@ export default function AffiliatePage() {
             <div>
               <h2 className="text-4xl md:text-5xl font-bold font-sans mb-4">Frequently asked questions</h2>
               <p className="text-gray-300 text-sm mb-5">Don’t find the answer to your question? Contact us by clicking here.</p>
-              <Link href="/sign-up?affiliates=1">
+              <a href="https://ecomefficiency.firstpromoter.com" target="_blank" rel="noreferrer noopener">
                 <button className="cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_32px_0_rgba(149,65,224,0.55)] px-6 py-3 rounded-xl border-[1px] border-[#9541e0] text-white font-medium">Become an affiliate</button>
-              </Link>
+              </a>
             </div>
             <Faq />
           </div>
