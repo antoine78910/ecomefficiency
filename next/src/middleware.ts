@@ -74,18 +74,7 @@ export function middleware(req: NextRequest) {
     // Do not rewrite to /app anymore; let / (root) render its own route under app.*
   }
 
-  // If user is signed-in on main domain, send to app subdomain root (robust for localhost and custom ports)
-  if (hasAuth && !(hostname === 'app.localhost' || bareHostname.startsWith('app.'))) {
-    const r = url.clone();
-    if (hostname === 'localhost') {
-      r.hostname = 'app.localhost';
-      r.pathname = '/';
-      return NextResponse.redirect(r)
-    }
-    r.hostname = 'app.' + bareHostname.replace(/^app\./, '')
-    r.pathname = '/';
-    return NextResponse.redirect(r)
-  }
+  // Do not auto-redirect signed-in users from main domain to app.*; stay on landing or current page
 
   return NextResponse.next()
 }

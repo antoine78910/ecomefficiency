@@ -34,30 +34,7 @@ export default function Home() {
     );
   }
 
-  useEffect(() => {
-    (async () => {
-      try {
-        const host = window.location.hostname.toLowerCase()
-        const port = window.location.port ? `:${window.location.port}` : ''
-        const appOrigin = host === 'localhost'
-          ? `http://app.localhost${port}`
-          : `${window.location.protocol}//app.${host.replace(/^(app\.|www\.)/, '')}`
-        console.log('[landing] probe start', { host, port, appOrigin })
-        // First: if a Supabase session exists on this origin, redirect immediately
-        try {
-          const { data } = await supabase.auth.getSession();
-          console.log('[landing] supabase session on main?', Boolean(data?.session))
-          if (data?.session) {
-            console.log('[landing] redirect via supabase session')
-            window.location.href = `${appOrigin}/`;
-            return;
-          }
-        } catch {}
-        // Removed cross-origin cookie probe: stay on landing unless a session exists on this origin
-        console.log('[landing] no redirect conditions met')
-      } catch {}
-    })()
-  }, [])
+  // Do not auto-redirect signed-in users to app.*; keep users on the landing page unless they navigate
 
   return (
     <div className="min-h-screen bg-black">
