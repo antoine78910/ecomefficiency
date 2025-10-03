@@ -4,7 +4,7 @@ import React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import Footer from "@/components/Footer";
-import { Check, Video, GraduationCap, ShoppingCart, BookOpen, Plus, Youtube, Instagram, Linkedin } from "lucide-react";
+import { Check, Video, GraduationCap, ShoppingCart, BookOpen, Plus } from "lucide-react";
 
 type Currency = "EUR" | "USD";
 
@@ -327,34 +327,36 @@ function ShareDiagram() {
             </feMerge>
           </filter>
         </defs>
-        {/* Center -> Bottom */}
-        <path d="M300,80 C300,140 300,140 300,200" stroke="rgba(149,65,224,0.55)" strokeWidth="2.5" fill="none" filter="url(#glow)" />
-        {/* Left -> Bottom */}
-        <path d="M120,180 C220,200 240,200 300,200" stroke="rgba(149,65,224,0.55)" strokeWidth="2.5" fill="none" filter="url(#glow)" />
-        {/* Right -> Bottom */}
-        <path d="M480,180 C380,200 360,200 300,200" stroke="rgba(149,65,224,0.55)" strokeWidth="2.5" fill="none" filter="url(#glow)" />
+        {/* Top center (insta) -> Bottom */}
+        <path d="M300,60 C300,120 300,150 300,200" stroke="rgba(149,65,224,0.55)" strokeWidth="2.5" fill="none" filter="url(#glow)" />
+        {/* Left mid (tik) -> Bottom */}
+        <path d="M120,150 C220,190 240,200 300,200" stroke="rgba(149,65,224,0.55)" strokeWidth="2.5" fill="none" filter="url(#glow)" />
+        {/* Right mid (x) -> Bottom */}
+        <path d="M480,150 C380,190 360,200 300,200" stroke="rgba(149,65,224,0.55)" strokeWidth="2.5" fill="none" filter="url(#glow)" />
+        {/* Top right (discord) -> Bottom */}
+        <path d="M480,60 C420,120 360,160 300,200" stroke="rgba(149,65,224,0.55)" strokeWidth="2.5" fill="none" filter="url(#glow)" />
       </svg>
 
-      {/* Titles */}
-      <div className="absolute top-0 text-sm text-gray-300">Short</div>
-
-      {/* Nodes */}
-      <div className="absolute top-10">
+      {/* Nodes with brand images */}
+      <div className="absolute top-6">
         <div className="w-24 h-24 rounded-full border border-white/10 bg-[#0d0f14] flex items-center justify-center">
-          <Instagram className="w-10 h-10 text-pink-400" />
+          <Image src="/tools-logos/insta.png" alt="Instagram" width={44} height={44} />
         </div>
       </div>
-      <div className="absolute left-0 bottom-0 translate-y-4">
+      <div className="absolute left-0 top-[54%] -translate-y-1/2">
         <div className="w-24 h-24 rounded-full border border-white/10 bg-[#0d0f14] flex items-center justify-center">
-          <Youtube className="w-10 h-10 text-red-500" />
+          <Image src="/tools-logos/tik.png" alt="TikTok" width={44} height={44} />
         </div>
-        <div className="mt-2 ml-4 text-sm text-gray-300">Youtube</div>
       </div>
-      <div className="absolute right-0 bottom-0 translate-y-4">
+      <div className="absolute right-0 top-[54%] -translate-y-1/2">
         <div className="w-24 h-24 rounded-full border border-white/10 bg-[#0d0f14] flex items-center justify-center">
-          <Linkedin className="w-10 h-10 text-[#2A66BC]" />
+          <Image src="/tools-logos/x.png" alt="X" width={40} height={40} />
         </div>
-        <div className="mt-2 -mr-2 text-sm text-gray-300">Linkedin</div>
+      </div>
+      <div className="absolute right-0 top-6">
+        <div className="w-24 h-24 rounded-full border border-white/10 bg-[#0d0f14] flex items-center justify-center">
+          <Image src="/tools-logos/discord.png" alt="Discord" width={42} height={42} />
+        </div>
       </div>
 
       {/* Bottom app tile */}
