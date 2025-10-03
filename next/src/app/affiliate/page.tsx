@@ -63,7 +63,6 @@ export default function AffiliatePage() {
           maskImage: "linear-gradient(to bottom, white 0%, white 72%, transparent 100%)",
           WebkitMaskImage: "linear-gradient(to bottom, white 0%, white 72%, transparent 100%)",
         }} />
-        <div className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 h-64 w-[70rem] bg-gradient-to-b from-purple-500/20 via-purple-600/15 to-transparent blur-3xl" aria-hidden />
         <div className="max-w-6xl mx-auto px-6 py-14 md:py-20">
           <div className="text-center max-w-3xl mx-auto">
             <div className="inline-flex items-center px-3 py-1.5 rounded-full bg-purple-500/20 border border-purple-500/30 mb-4">
@@ -85,8 +84,8 @@ export default function AffiliatePage() {
             </a>
           </div>
         </div>
-        {/* bottom gradient fade (stronger) */}
-        <div className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 h-40 w-[70rem] bg-gradient-to-t from-purple-600/35 via-purple-500/20 to-transparent blur-[64px]" aria-hidden />
+        {/* bottom gradient fade (softer) */}
+        <div className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 h-36 w-[64rem] bg-gradient-to-t from-purple-600/20 via-purple-500/10 to-transparent blur-[48px]" aria-hidden />
       </section>
 
       {/* Simulator */}
@@ -150,8 +149,8 @@ export default function AffiliatePage() {
                 <style jsx>{`
                   input[type='range']::-webkit-slider-runnable-track { height: 6px; border-radius: 9999px; }
                   input[type='range']::-moz-range-track { height: 6px; border-radius: 9999px; background: transparent; }
-                  input[type='range']::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 9999px; background: #9b5ef7; border: 2px solid rgba(255,255,255,0.6); box-shadow: 0 0 0 6px rgba(155,94,247,0.25); margin-top: -6px; }
-                  input[type='range']::-moz-range-thumb { width: 18px; height: 18px; border-radius: 9999px; background: #9b5ef7; border: 2px solid rgba(255,255,255,0.6); box-shadow: 0 0 0 6px rgba(155,94,247,0.25); }
+                  input[type='range']::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 22px; height: 22px; border-radius: 9999px; background: #9b5ef7; border: 2px solid rgba(255,255,255,0.6); box-shadow: 0 0 0 8px rgba(155,94,247,0.22); margin-top: -8px; }
+                  input[type='range']::-moz-range-thumb { width: 22px; height: 22px; border-radius: 9999px; background: #9b5ef7; border: 2px solid rgba(255,255,255,0.6); box-shadow: 0 0 0 8px rgba(155,94,247,0.22); }
                 `}</style>
               </div>
               <div className="text-xs text-gray-500 mt-2">Commission: ≈ {currency === "EUR" ? "9€" : "$9"} per active subscription</div>
@@ -171,14 +170,10 @@ export default function AffiliatePage() {
           <div className="grid md:grid-cols-3 gap-8">
             <div>
               <div className="text-sm text-gray-400 mb-2">Your referral link</div>
-              <div className="rounded-2xl border border-white/10 bg-[#0d0f14] p-2 shadow-[0_8px_40px_rgba(0,0,0,0.35)]">
+              <div className="rounded-2xl border border-white/10 bg-black p-2 shadow-[0_0_0_1px_rgba(255,255,255,0.06),0_10px_30px_rgba(0,0,0,0.45)]">
                 <div className="flex items-center gap-2">
-                  <input
-                    readOnly
-                    value={`https://ecomefficiency.site/via?=yourname`}
-                    className="flex-1 bg-transparent text-white/90 text-sm px-3 py-2 outline-none"
-                  />
-                  <span className="text-[11px] px-2 py-1 rounded-md bg-[#b6a4ff]/20 text-[#d7ccff] border border-[#b6a4ff]/30">via?=you</span>
+                  <div className="flex-1 text-white/90 text-sm px-3 py-2 font-mono">https://ecomefficiency.com/</div>
+                  <span className="text-[11px] px-2 py-1 rounded-md bg-purple-400/25 text-purple-100 border border-purple-400/40">via?=yourname</span>
                 </div>
               </div>
               <h3 className="mt-6 font-semibold text-lg">Create your affiliate account</h3>
@@ -234,7 +229,12 @@ export default function AffiliatePage() {
               </ul>
               <div className="mt-4">
                 <a href="https://ecomefficiency.firstpromoter.com" target="_blank" rel="noreferrer noopener">
-                  <button className="cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_32px_0_rgba(149,65,224,0.55)] px-6 py-3 rounded-xl border-[1px] border-[#9541e0] text-white font-medium">Become an affiliate</button>
+                  <button className="cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_32px_0_rgba(149,65,224,0.70)] px-6 py-3 rounded-xl border-[1px] border-[#9541e0] text-white font-medium group w-[220px] h-[48px]">
+                    <div className="relative overflow-hidden">
+                      <p className="group-hover:-translate-y-7 duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)]">Become an affiliate</p>
+                      <p className="absolute top-7 left-0 group-hover:top-0 duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)]">Become an affiliate</p>
+                    </div>
+                  </button>
                 </a>
               </div>
             </div>
@@ -272,7 +272,12 @@ export default function AffiliatePage() {
               <h2 className="text-4xl md:text-5xl font-bold font-sans mb-4">Frequently asked questions</h2>
               <p className="text-gray-300 text-sm mb-5">Don’t find the answer to your question? Contact us by clicking here.</p>
               <a href="https://ecomefficiency.firstpromoter.com" target="_blank" rel="noreferrer noopener">
-                <button className="cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_32px_0_rgba(149,65,224,0.55)] px-6 py-3 rounded-xl border-[1px] border-[#9541e0] text-white font-medium">Become an affiliate</button>
+                <button className="cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_32px_0_rgba(149,65,224,0.70)] px-6 py-3 rounded-xl border-[1px] border-[#9541e0] text-white font-medium group w-[220px] h-[48px]">
+                  <div className="relative overflow-hidden">
+                    <p className="group-hover:-translate-y-7 duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)]">Become an affiliate</p>
+                    <p className="absolute top-7 left-0 group-hover:top-0 duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)]">Become an affiliate</p>
+                  </div>
+                </button>
               </a>
             </div>
             <Faq />
