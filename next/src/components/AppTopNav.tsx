@@ -132,6 +132,9 @@ export default function AppTopNav() {
             <DropdownMenuItem className="hover:bg-[#5c3dfa]/20 focus:bg-[#5c3dfa]/20 cursor-pointer">
               <Link href="/subscription" className="w-full">Subscription</Link>
             </DropdownMenuItem>
+              <DropdownMenuItem className="hover:bg-[#5c3dfa]/20 focus:bg-[#5c3dfa]/20 cursor-pointer">
+                <Link href="/affiliate" className="w-full">Affiliate</Link>
+              </DropdownMenuItem>
             <DropdownMenuItem onClick={handleLogout} className="hover:bg-[#5c3dfa]/20 focus:bg-[#5c3dfa]/20 cursor-pointer text-red-400">
               Log out
             </DropdownMenuItem>
