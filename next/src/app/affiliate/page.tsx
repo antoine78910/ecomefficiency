@@ -315,56 +315,33 @@ function Faq() {
 
 function ShareDiagram() {
   return (
-    <div className="relative flex items-center justify-center mb-6">
-      {/* Smooth curved violet connections */}
-      <svg className="absolute inset-0" width="100%" height="100%" viewBox="0 0 600 260" preserveAspectRatio="xMidYMid meet">
+    <div className="relative mb-3 h-40 md:h-44">
+      {/* Curved violet connections under icons */}
+      <svg className="absolute inset-0 z-0" width="100%" height="100%" viewBox="0 0 600 240" preserveAspectRatio="none">
         <defs>
-          <filter id="glow" x="-50%" y="-50%" width="200%" height="200%">
-            <feGaussianBlur stdDeviation="2.5" result="coloredBlur" />
+          <filter id="glow2" x="-50%" y="-50%" width="200%" height="200%">
+            <feGaussianBlur stdDeviation="2" result="blur" />
             <feMerge>
-              <feMergeNode in="coloredBlur" />
+              <feMergeNode in="blur" />
               <feMergeNode in="SourceGraphic" />
             </feMerge>
           </filter>
         </defs>
-        {/* Top center (insta) -> Bottom */}
-        <path d="M300,60 C300,120 300,150 300,200" stroke="rgba(149,65,224,0.55)" strokeWidth="2.5" fill="none" filter="url(#glow)" />
-        {/* Left mid (tik) -> Bottom */}
-        <path d="M120,150 C220,190 240,200 300,200" stroke="rgba(149,65,224,0.55)" strokeWidth="2.5" fill="none" filter="url(#glow)" />
-        {/* Right mid (x) -> Bottom */}
-        <path d="M480,150 C380,190 360,200 300,200" stroke="rgba(149,65,224,0.55)" strokeWidth="2.5" fill="none" filter="url(#glow)" />
-        {/* Top right (discord) -> Bottom */}
-        <path d="M480,60 C420,120 360,160 300,200" stroke="rgba(149,65,224,0.55)" strokeWidth="2.5" fill="none" filter="url(#glow)" />
+        {/* Icons along a uniform top arc -> center bottom */}
+        <path d="M90,40 C200,90 260,130 300,170" stroke="rgba(149,65,224,0.6)" strokeWidth="2.25" fill="none" filter="url(#glow2)" />
+        <path d="M210,40 C250,90 270,120 300,170" stroke="rgba(149,65,224,0.6)" strokeWidth="2.25" fill="none" filter="url(#glow2)" />
+        <path d="M390,40 C350,90 330,120 300,170" stroke="rgba(149,65,224,0.6)" strokeWidth="2.25" fill="none" filter="url(#glow2)" />
+        <path d="M510,40 C400,90 340,130 300,170" stroke="rgba(149,65,224,0.6)" strokeWidth="2.25" fill="none" filter="url(#glow2)" />
       </svg>
 
-      {/* Nodes with brand images */}
-      <div className="absolute top-6">
-        <div className="w-24 h-24 rounded-full border border-white/10 bg-[#0d0f14] flex items-center justify-center">
-          <Image src="/tools-logos/insta.png" alt="Instagram" width={44} height={44} />
-        </div>
-      </div>
-      <div className="absolute left-0 top-[54%] -translate-y-1/2">
-        <div className="w-24 h-24 rounded-full border border-white/10 bg-[#0d0f14] flex items-center justify-center">
-          <Image src="/tools-logos/tik.png" alt="TikTok" width={44} height={44} />
-        </div>
-      </div>
-      <div className="absolute right-0 top-[54%] -translate-y-1/2">
-        <div className="w-24 h-24 rounded-full border border-white/10 bg-[#0d0f14] flex items-center justify-center">
-          <Image src="/tools-logos/x.png" alt="X" width={40} height={40} />
-        </div>
-      </div>
-      <div className="absolute right-0 top-6">
-        <div className="w-24 h-24 rounded-full border border-white/10 bg-[#0d0f14] flex items-center justify-center">
-          <Image src="/tools-logos/discord.png" alt="Discord" width={42} height={42} />
-        </div>
-      </div>
+      {/* Social logos positioned uniformly, no circles */}
+      <Image src="/tools-logos/insta.png" alt="Instagram" width={36} height={36} className="absolute z-10" style={{ left: '15%', top: 10, transform: 'translateX(-50%)' }} />
+      <Image src="/tools-logos/tik.png" alt="TikTok" width={36} height={36} className="absolute z-10" style={{ left: '35%', top: 10, transform: 'translateX(-50%)' }} />
+      <Image src="/tools-logos/x.png" alt="X" width={34} height={34} className="absolute z-10" style={{ left: '65%', top: 10, transform: 'translateX(-50%)' }} />
+      <Image src="/tools-logos/discord.png" alt="Discord" width={36} height={36} className="absolute z-10" style={{ left: '85%', top: 10, transform: 'translateX(-50%)' }} />
 
-      {/* Bottom app tile */}
-      <div className="absolute bottom-0 left-1/2 -translate-x-1/2">
-        <div className="w-28 h-28 rounded-2xl border border-white/10 bg-black shadow-[0_12px_40px_rgba(0,0,0,0.45)] flex items-center justify-center">
-          <Image src="/favicon.png" alt="EcomEfficiency" width={48} height={48} className="rounded-lg" />
-        </div>
-      </div>
+      {/* Bottom app logo centered */}
+      <Image src="/favicon.png" alt="EcomEfficiency" width={44} height={44} className="absolute z-10 left-1/2" style={{ bottom: 4, transform: 'translateX(-50%)' }} />
     </div>
   )
 }
