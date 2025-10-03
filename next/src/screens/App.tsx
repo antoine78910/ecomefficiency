@@ -120,6 +120,20 @@ const App = () => {
           <CanvaFlipCard inviteLink={canvaInvite || undefined} disabled={appPlan === 'free'} />
         </div>
 
+        <div className="mt-6 md:mt-8">
+          <div className="relative overflow-hidden rounded-2xl border border-purple-500/30 bg-[linear-gradient(180deg,rgba(149,65,224,0.08)_0%,rgba(124,48,199,0.08)_100%)] p-4 md:p-5 flex items-center justify-between gap-4">
+            <div className="text-white/90 text-sm md:text-base">
+              <span className="font-semibold text-white">Earn 30% for life</span> by helping your friends save thousands on tools.
+            </div>
+            <a href="/affiliate" className="shrink-0">
+              <button className="cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_24px_rgba(149,65,224,0.45)] px-4 md:px-6 h-9 md:h-10 rounded-xl border border-[#9541e0] text-white text-xs md:text-sm font-medium">
+                Become an affiliate
+              </button>
+            </a>
+            <div className="pointer-events-none absolute -bottom-10 -right-10 h-40 w-40 bg-purple-600/20 blur-3xl" aria-hidden />
+          </div>
+        </div>
+
       </div>
       <HowToAccess renderTrigger={false} />
     </div>
