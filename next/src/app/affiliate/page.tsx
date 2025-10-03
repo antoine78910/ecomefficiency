@@ -58,7 +58,7 @@ export default function AffiliatePage() {
       {/* Hero */}
       <section className="relative overflow-hidden">
         <div className="absolute inset-0 pointer-events-none opacity-35" style={{
-          backgroundImage: `linear-gradient(rgba(255,255,255,0.10) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.10) 1px, transparent 1px)`,
+          backgroundImage: `linear-gradient(rgba(255,255,255,0.12) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.12) 1px, transparent 1px)`,
           backgroundSize: "36px 36px",
           maskImage: "linear-gradient(to bottom, white 0%, white 72%, transparent 100%)",
           WebkitMaskImage: "linear-gradient(to bottom, white 0%, white 72%, transparent 100%)",
@@ -97,7 +97,7 @@ export default function AffiliatePage() {
       {/* Simulator */}
       <section className="py-10 md:py-14 border-t border-white/10">
         <div className="max-w-6xl mx-auto px-6">
-          <div className="grid md:grid-cols-[1fr_auto] gap-6 md:gap-10 items-center">
+          <div className="grid md:grid-cols-[1fr_220px] gap-6 md:gap-10 items-center">
             <div>
               <div className="flex items-center justify-between mb-2">
                 <div className="text-sm text-gray-300">{referrals} referrals</div>
@@ -139,9 +139,9 @@ export default function AffiliatePage() {
               </div>
               <div className="text-xs text-gray-500 mt-2">Commission: ≈ {currency === "EUR" ? "9€" : "$9"} per active subscription</div>
             </div>
-            <div className="text-right">
+            <div className="text-right w-full md:w-[220px]">
               <div className="text-gray-400 text-sm">Payout</div>
-              <div className="text-4xl md:text-5xl font-extrabold">{format(monthly, currency)}</div>
+              <div className="text-4xl md:text-5xl font-extrabold tabular-nums">{format(monthly, currency)}</div>
               <div className="text-gray-400 text-sm">per month</div>
             </div>
           </div>
