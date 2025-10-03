@@ -57,12 +57,13 @@ export default function AffiliatePage() {
       <main className="flex-1">
       {/* Hero */}
       <section className="relative overflow-hidden">
-        <div className="absolute inset-0 pointer-events-none opacity-25" style={{
-          backgroundImage: `linear-gradient(rgba(255,255,255,0.08) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.08) 1px, transparent 1px)`,
-          backgroundSize: "40px 40px",
-          maskImage: "linear-gradient(to bottom, white 0%, white 60%, transparent 100%)",
-          WebkitMaskImage: "linear-gradient(to bottom, white 0%, white 60%, transparent 100%)",
+        <div className="absolute inset-0 pointer-events-none opacity-35" style={{
+          backgroundImage: `linear-gradient(rgba(255,255,255,0.10) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.10) 1px, transparent 1px)`,
+          backgroundSize: "36px 36px",
+          maskImage: "linear-gradient(to bottom, white 0%, white 72%, transparent 100%)",
+          WebkitMaskImage: "linear-gradient(to bottom, white 0%, white 72%, transparent 100%)",
         }} />
+        <div className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 h-64 w-[70rem] bg-gradient-to-b from-purple-500/20 via-purple-600/15 to-transparent blur-3xl" aria-hidden />
         <div className="max-w-6xl mx-auto px-6 py-14 md:py-20">
           <div className="text-center max-w-3xl mx-auto">
             <div className="inline-flex items-center px-3 py-1.5 rounded-full bg-purple-500/20 border border-purple-500/30 mb-4">
@@ -84,8 +85,8 @@ export default function AffiliatePage() {
             </a>
           </div>
         </div>
-        {/* bottom gradient fade */}
-        <div className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 h-32 w-[60rem] bg-gradient-to-t from-purple-600/20 to-transparent blur-3xl" aria-hidden />
+        {/* bottom gradient fade (stronger) */}
+        <div className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 h-40 w-[70rem] bg-gradient-to-t from-purple-600/35 via-purple-500/20 to-transparent blur-[64px]" aria-hidden />
       </section>
 
       {/* Simulator */}
@@ -93,16 +94,66 @@ export default function AffiliatePage() {
         <div className="max-w-6xl mx-auto px-6">
           <div className="grid md:grid-cols-[1fr_auto] gap-6 md:gap-10 items-center">
             <div>
-              <div className="text-sm text-gray-300 mb-2">{referrals} referrals</div>
-              <input
-                type="range"
-                min={0}
-                max={500}
-                step={1}
-                value={referrals}
-                onChange={(e) => setReferrals(Number(e.target.value))}
-                className="w-full accent-[#9b5ef7]"
-              />
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-sm text-gray-300">{referrals} referrals</div>
+                <div className="flex items-center gap-2">
+                  <button
+                    aria-label="Decrease"
+                    onClick={() => setReferrals(v => Math.max(0, v - 10))}
+                    className="cursor-pointer px-2 py-1 rounded-md border border-white/10 text-white/80 hover:bg-white/10 text-xs"
+                  >−10</button>
+                  <button
+                    aria-label="Decrease"
+                    onClick={() => setReferrals(v => Math.max(0, v - 1))}
+                    className="cursor-pointer px-2 py-1 rounded-md border border-white/10 text-white/80 hover:bg-white/10 text-xs"
+                  >−1</button>
+                  <button
+                    aria-label="Increase"
+                    onClick={() => setReferrals(v => Math.min(500, v + 1))}
+                    className="cursor-pointer px-2 py-1 rounded-md border border-white/10 text-white/80 hover:bg-white/10 text-xs"
+                  >+1</button>
+                  <button
+                    aria-label="Increase"
+                    onClick={() => setReferrals(v => Math.min(500, v + 10))}
+                    className="cursor-pointer px-2 py-1 rounded-md border border-white/10 text-white/80 hover:bg-white/10 text-xs"
+                  >+10</button>
+                </div>
+              </div>
+              <div className="relative select-none">
+                {(() => {
+                  const max = 500; const pct = Math.max(0, Math.min(100, (referrals / max) * 100));
+                  return (
+                    <>
+                      <input
+                        type="range"
+                        min={0}
+                        max={max}
+                        step={1}
+                        value={referrals}
+                        onChange={(e) => setReferrals(Number(e.target.value))}
+                        className="w-full appearance-none bg-transparent"
+                        style={{
+                          background: `linear-gradient(to right, rgba(149,65,224,0.9) 0%, rgba(149,65,224,0.9) ${pct}%, rgba(255,255,255,0.08) ${pct}%, rgba(255,255,255,0.08) 100%)`,
+                          height: 6, borderRadius: 9999,
+                        } as any}
+                      />
+                      <div
+                        className="absolute -top-8 text-[11px] text-white/90 px-2 py-1 rounded-md border border-white/10 bg-black/70"
+                        style={{ left: `calc(${pct}% - 16px)` }}
+                      >{referrals}</div>
+                      <div className="flex justify-between text-[10px] text-gray-500 mt-2">
+                        <span>0</span><span>100</span><span>200</span><span>300</span><span>400</span><span>500</span>
+                      </div>
+                    </>
+                  )
+                })()}
+                <style jsx>{`
+                  input[type='range']::-webkit-slider-runnable-track { height: 6px; border-radius: 9999px; }
+                  input[type='range']::-moz-range-track { height: 6px; border-radius: 9999px; background: transparent; }
+                  input[type='range']::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 18px; height: 18px; border-radius: 9999px; background: #9b5ef7; border: 2px solid rgba(255,255,255,0.6); box-shadow: 0 0 0 6px rgba(155,94,247,0.25); margin-top: -6px; }
+                  input[type='range']::-moz-range-thumb { width: 18px; height: 18px; border-radius: 9999px; background: #9b5ef7; border: 2px solid rgba(255,255,255,0.6); box-shadow: 0 0 0 6px rgba(155,94,247,0.25); }
+                `}</style>
+              </div>
               <div className="text-xs text-gray-500 mt-2">Commission: ≈ {currency === "EUR" ? "9€" : "$9"} per active subscription</div>
             </div>
             <div className="text-right">
