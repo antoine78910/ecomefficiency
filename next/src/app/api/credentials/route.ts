@@ -77,30 +77,9 @@ export async function GET(req: NextRequest) {
       // SECURITY: Only allow access for truly active subscriptions - block incomplete, past_due, unpaid, etc.
       const active = status === 'active' || status === 'trialing'
       
-      // SECURITY: Also verify the plan can be identified from price IDs
-      let hasValidPlan = false
-      if (active && latest) {
-        const price = latest.items.data[0]?.price
-        const priceId = price?.id
-        const env = process.env
-        const starterIds = [env.NEXT_PUBLIC_STRIPE_PRICE_ID_STARTER_MONTHLY, env.NEXT_PUBLIC_STRIPE_PRICE_ID_STARTER_YEARLY].filter(Boolean)
-        const growthIds = [env.NEXT_PUBLIC_STRIPE_PRICE_ID_GROWTH_MONTHLY, env.NEXT_PUBLIC_STRIPE_PRICE_ID_GROWTH_YEARLY].filter(Boolean)
-        
-        if (priceId && (starterIds.includes(priceId) || growthIds.includes(priceId))) {
-          hasValidPlan = true
-        } else if (price) {
-          // Fallback: check lookup_key, nickname, product name
-          const lookup = (price.lookup_key || '').toString().toLowerCase()
-          const nickname = (price.nickname || '').toString().toLowerCase()
-          if (lookup.includes('growth') || nickname.includes('growth') || lookup.includes('starter') || nickname.includes('starter')) {
-            hasValidPlan = true
-          }
-        }
-      }
-      
-      // Fail-closed on any non-active status or unidentifiable plan
-      if (!active || !hasValidPlan) {
-        console.log('[CREDENTIALS] Access denied:', { customerId, status, active, hasValidPlan })
+      // Fail-closed on any non-active status
+      if (!active) {
+        console.log('[CREDENTIALS] Access denied:', { customerId, status, active })
         return NextResponse.json({}, { status: 200 })
       }
     }
@@ -348,6 +327,119 @@ export async function GET(req: NextRequest) {
                 if (maybe && !maybe.includes('@') && !isLikelyUrl(maybe) && !/invites?|generated/i.test(maybe)) { passwordPro = maybe; break }
               }
             }
+          }
+          // Prefer explicit labels and embedded fields if present (robust parsing like Starter)
+          try {
+            const mUP = contentPro.match(/Username\s*:\s*([^\r\n`]+)/i); if (mUP) { const v = cleanText(mUP[1]).split(/\s+/)[0]; if (v) emailPro = v }
+            const mPP = contentPro.match(/Password\s*:\s*([^\r\n`]+)/i); if (mPP) { const v = cleanText(mPP[1]).split(/\s+/)[0]; if (v && !/invites?|generated/i.test(v)) passwordPro = v }
+          } catch {}
+          if ((!emailPro || !passwordPro) && Array.isArray((msgPro as any)?.embeds)) {
+            try {
+              const embedsP: any[] = (msgPro as any).embeds
+              for (const emb of embedsP) {
+                const parts: string[] = []
+                if (emb?.title) parts.push(String(emb.title))
+                if (emb?.description) parts.push(String(emb.description))
+                if (Array.isArray(emb?.fields)) {
+                  for (const f of emb.fields) {
+                    if (f?.name || f?.value) parts.push(`${f?.name || ''}: ${f?.value || ''}`)
+                    const nameLower = String(f?.name || '').toLowerCase()
+                    if (!passwordPro && /(pass|password|mdp|mot\s*de\s*passe)/i.test(nameLower)) {
+                      const cand = cleanText(String(f?.value || ''))
+                      if (cand && !cand.includes('@') && !isLikelyUrl(cand)) {
+                        passwordPro = removeUrls(cand)
+                      }
+                    }
+                  }
+                }
+                // State-machine parsing on description for `Password` followed by a fenced block or next line
+                const descRawP = String(emb?.description || '')
+                try {
+                  const linesSM = descRawP.split(/\r?\n/)
+                  let expect: 'username' | 'password' | null = null
+                  for (let i = 0; i < linesSM.length; i++) {
+                    const rawLine = String(linesSM[i] || '')
+                    const line = cleanText(rawLine)
+                    if (!emailPro && /`?user\s*name\s*:?[` ]?/i.test(rawLine)) { expect = 'username'; continue }
+                    if (!passwordPro && /`?pass(?:word)?\s*:?[` ]?/i.test(rawLine)) { expect = 'password'; continue }
+                    if (expect && /```/.test(rawLine)) {
+                      const m = rawLine.match(/```\s*([^`]+?)\s*```/)
+                      if (m && m[1]) {
+                        const cand = cleanText(m[1])
+                        if (expect === 'username' && /@/.test(cand)) { emailPro = cand; }
+                        else if (expect === 'password' && cand && !/@/.test(cand)) { passwordPro = cand; }
+                        expect = null
+                        if (emailPro && passwordPro) { break }
+                        continue
+                      }
+                    }
+                    if (expect && line && !/```/.test(rawLine)) {
+                      if (expect === 'username' && /@/.test(line)) { emailPro = line; }
+                      else if (expect === 'password' && line && !/@/.test(line)) { passwordPro = line; }
+                      expect = null
+                      if (emailPro && passwordPro) { break }
+                    }
+                  }
+                } catch {}
+                // Fallback regex on entire description
+                if (!emailPro) {
+                  const mUser = descRawP.match(/`?user\s*name\s*:?`?[\s\S]*?```([\s\S]*?)```/i)
+                  if (mUser && mUser[1]) {
+                    const cand = cleanText(mUser[1])
+                    if (cand && /@/.test(cand)) emailPro = cand
+                  }
+                }
+                if (!passwordPro) {
+                  const mPass = descRawP.match(/`?pass(?:word)?\s*:?`?[\s\S]*?```([\s\S]*?)```/i)
+                  if (mPass && mPass[1]) {
+                    const cand = cleanText(mPass[1])
+                    if (cand && !/@/.test(cand)) passwordPro = cand
+                  }
+                }
+                for (const part of parts) {
+                  if (!emailPro) {
+                    const m = String(part).match(emailRegex)
+                    if (m) emailPro = m[0]
+                  }
+                  if (!passwordPro) {
+                    const rawPart = String(part)
+                    const lines = rawPart.split(/\r?\n/)
+                    for (let i = 0; i < lines.length && !passwordPro; i++) {
+                      const lineClean = cleanText(lines[i] || '')
+                      if (/pass(?:word)?\s*[:：]?/i.test(lineClean)) {
+                        const inlineMatch = lineClean.match(/pass(?:word)?\s*[:：]\s*(.*)$/i)
+                        let candidate = (inlineMatch && inlineMatch[1] ? inlineMatch[1].trim() : '')
+                        if (!candidate) {
+                          let j = i + 1
+                          while (j < lines.length && !cleanText(lines[j])) j++
+                          const nextLine = cleanText(lines[j] || '')
+                          if (nextLine && !nextLine.includes('@') && !isLikelyUrl(nextLine)) {
+                            candidate = nextLine
+                          }
+                        }
+                        if (candidate && !candidate.includes('@') && !isLikelyUrl(candidate)) {
+                          passwordPro = removeUrls(candidate)
+                          break
+                        }
+                      }
+                    }
+                    if (!passwordPro) {
+                      const allLines = String(part).split(/\r?\n/).map(s => cleanText(s)).filter(Boolean)
+                      for (const ln of allLines) {
+                        const isLabel = /pass(?:word)?/i.test(ln) || /[:：]\s*$/.test(ln) || /user\s*name/i.test(ln)
+                        if (ln && !isLabel && !ln.includes('@') && !isLikelyUrl(ln) && ln.length >= 4 && ln.length <= 128) { passwordPro = ln; break }
+                      }
+                    }
+                  }
+                  if (emailPro && passwordPro) break
+                }
+                if (emailPro && passwordPro) break
+              }
+            } catch {}
+          }
+          // Final sanitization to avoid capturing labels
+          if (passwordPro && /^pass(?:word)?[:：]?$/i.test(passwordPro)) {
+            passwordPro = undefined
           }
           // Prefer explicit labels if present
           try {

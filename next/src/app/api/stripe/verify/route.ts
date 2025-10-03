@@ -41,6 +41,9 @@ export async function POST(req: NextRequest) {
     const priceId = price?.id;
     let plan: "starter" | "growth" | null = null;
     const env = process.env;
+    
+    console.log('[VERIFY] Price analysis:', { priceId, unitAmount: price?.unit_amount, currency: price?.currency });
+    
     if (priceId) {
       const starterIds = [env.NEXT_PUBLIC_STRIPE_PRICE_ID_STARTER_MONTHLY, env.NEXT_PUBLIC_STRIPE_PRICE_ID_STARTER_YEARLY].filter(Boolean);
       const growthIds = [env.NEXT_PUBLIC_STRIPE_PRICE_ID_GROWTH_MONTHLY, env.NEXT_PUBLIC_STRIPE_PRICE_ID_GROWTH_YEARLY].filter(Boolean);
@@ -52,25 +55,42 @@ export async function POST(req: NextRequest) {
     if (!plan && price) {
       const lookup = (price.lookup_key || "").toString().toLowerCase();
       const nickname = (price.nickname || "").toString().toLowerCase();
-      if (lookup.includes("growth") || nickname.includes("growth")) plan = "growth";
+      if (lookup.includes("growth") || nickname.includes("growth") || lookup.includes("pro")) plan = "growth";
       if (lookup.includes("starter") || nickname.includes("starter")) plan = plan || "starter";
+      
+      // Check by price amount as fallback (assuming EUR/USD pricing)
+      const amount = price.unit_amount || 0;
+      if (!plan && amount > 0) {
+        // Starter: 19.99 USD/EUR monthly, 11.99 annual = 1999/1199 cents
+        // Pro: 29.99 USD/EUR monthly, 17.99 annual = 2999/1799 cents  
+        if (amount >= 2500) { // Above 25.00 = Pro
+          plan = "growth";
+        } else if (amount >= 1000) { // Above 10.00 = likely Starter
+          plan = "starter";
+        }
+      }
+      
       try {
         const prodId = typeof price.product === 'string' ? price.product : (price.product as any)?.id;
         if (prodId) {
           const product = await stripe.products.retrieve(prodId);
           const name = (product?.name || "").toLowerCase();
-          if (!plan && name.includes("growth")) plan = "growth";
+          if (!plan && (name.includes("growth") || name.includes("pro"))) plan = "growth";
           if (!plan && name.includes("starter")) plan = "starter";
         }
       } catch {}
     }
 
-    // SECURITY: Block access if we can't identify the plan, even if subscription appears active
-    const finalPlan = (plan==='growth' ? 'pro' : plan);
-    const isValidAccess = active && finalPlan; // Must be both active AND have a valid plan
+    // If we can't identify the plan from price IDs, check if subscription is active and assume it's valid
+    let finalPlan = (plan==='growth' ? 'pro' : plan);
+    if (!finalPlan && active) {
+      // If subscription is active but we can't identify the plan, default to 'starter'
+      // This handles cases where price IDs might not match our env vars
+      finalPlan = 'starter';
+    }
     
-    const result = { ok: true, active: isValidAccess, status, plan: finalPlan };
-    console.log('[VERIFY] Subscription check:', { customerId, status, active: isValidAccess, plan: finalPlan, rawActive: active });
+    const result = { ok: true, active, status, plan: finalPlan };
+    console.log('[VERIFY] Subscription check:', { customerId, status, active, plan: finalPlan });
     return NextResponse.json(result);
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || "unknown_error" }, { status: 500 });
