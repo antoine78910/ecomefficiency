@@ -4,7 +4,7 @@ import React from "react";
 import Image from "next/image";
 import Link from "next/link";
 import Footer from "@/components/Footer";
-import { Check, Video, GraduationCap, ShoppingCart, BookOpen, Plus } from "lucide-react";
+import { Check, Video, GraduationCap, ShoppingCart, BookOpen, Plus, Youtube, Instagram, Linkedin } from "lucide-react";
 
 type Currency = "EUR" | "USD";
 
@@ -114,7 +114,7 @@ export default function AffiliatePage() {
                         step={1}
                         value={referrals}
                         onChange={(e) => setReferrals(Number(e.target.value))}
-                        className="w-full appearance-none bg-transparent"
+                        className="w-full appearance-none bg-transparent cursor-pointer"
                         style={{
                           background: `linear-gradient(to right, rgba(149,65,224,0.9) 0%, rgba(149,65,224,0.9) ${pct}%, rgba(255,255,255,0.08) ${pct}%, rgba(255,255,255,0.08) 100%)`,
                           height: 6, borderRadius: 9999,
@@ -164,13 +164,7 @@ export default function AffiliatePage() {
               <p className="text-sm text-gray-400 mt-2">Takes less than 2 minutes. You’ll get a custom link and tracking code instantly.</p>
             </div>
             <div>
-              <div className="flex items-center justify-center mb-4">
-                <div className="relative">
-                  <div className="absolute -top-8 -left-10 w-10 h-10 rounded-full border border-white/10 bg-[#0d0f14] flex items-center justify-center text-xs">YouTube</div>
-                  <div className="absolute -top-8 -right-10 w-10 h-10 rounded-full border border-white/10 bg-[#0d0f14] flex items-center justify-center text-xs">LinkedIn</div>
-                  <div className="w-14 h-14 rounded-2xl border border-white/10 bg-[#0d0f14] flex items-center justify-center">T</div>
-                </div>
-              </div>
+              <ShareDiagram />
               <h3 className="font-semibold text-lg">Share your affiliate link</h3>
               <p className="text-sm text-gray-400 mt-2">Share your custom affiliate link with your audience, followers, friends, customers.</p>
             </div>
@@ -297,6 +291,46 @@ function Faq() {
           )}
         </div>
       ))}
+    </div>
+  )
+}
+
+function ShareDiagram() {
+  return (
+    <div className="relative flex items-center justify-center mb-6">
+      {/* Lines */}
+      <div className="absolute top-8 left-1/2 -translate-x-1/2 h-24 w-px bg-white/10" />
+      <div className="absolute bottom-8 left-[20%] right-1/2 h-px bg-white/10" />
+      <div className="absolute bottom-8 left-1/2 right-[20%] h-px bg-white/10" />
+
+      {/* Center label */}
+      <div className="absolute top-0 text-sm text-gray-300">Short</div>
+
+      {/* Platforms */}
+      <div className="absolute top-10">
+        <div className="w-24 h-24 rounded-full border border-white/10 bg-[#0d0f14] flex items-center justify-center">
+          <Instagram className="w-10 h-10 text-pink-400" />
+        </div>
+      </div>
+      <div className="absolute left-0 bottom-0 translate-y-4">
+        <div className="w-24 h-24 rounded-full border border-white/10 bg-[#0d0f14] flex items-center justify-center">
+          <Youtube className="w-10 h-10 text-red-500" />
+        </div>
+        <div className="mt-2 ml-4 text-sm text-gray-300">Youtube</div>
+      </div>
+      <div className="absolute right-0 bottom-0 translate-y-4">
+        <div className="w-24 h-24 rounded-full border border-white/10 bg-[#0d0f14] flex items-center justify-center">
+          <Linkedin className="w-10 h-10 text-[#2A66BC]" />
+        </div>
+        <div className="mt-2 -mr-2 text-sm text-gray-300">Linkedin</div>
+      </div>
+
+      {/* Bottom app tile */}
+      <div className="absolute bottom-0 left-1/2 -translate-x-1/2">
+        <div className="w-28 h-28 rounded-2xl border border-white/10 bg-black shadow-[0_12px_40px_rgba(0,0,0,0.45)] flex items-center justify-center">
+          <Image src="/favicon.png" alt="EcomEfficiency" width={48} height={48} className="rounded-lg" />
+        </div>
+      </div>
     </div>
   )
 }
