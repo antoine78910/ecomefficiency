@@ -1,5 +1,3 @@
-"use client";
-import { useEffect, useMemo } from "react";
 import Dashboard from "@/screens/App";
 import AppTopNav from "@/components/AppTopNav";
 import NewNavbar from "@/components/NewNavbar";
@@ -12,14 +10,12 @@ import JoinMembersSection from "@/components/JoinMembersSection";
 import Footer from "@/components/Footer";
 import AuthHashRedirector from "@/components/AuthHashRedirector";
 import VideoSection from "@/components/VideoSection";
-import { supabase } from "@/integrations/supabase/client";
+import { headers } from "next/headers";
 
 export default function Home() {
-  const isApp = useMemo(() => {
-    if (typeof window === 'undefined') return false;
-    const host = window.location.hostname.toLowerCase();
-    return host === 'app.localhost' || host.startsWith('app.');
-  }, []);
+  const h = headers();
+  const host = (h.get('x-forwarded-host') || h.get('host') || '').toLowerCase();
+  const isApp = host === 'app.localhost' || host.startsWith('app.');
 
   if (isApp) {
     return (

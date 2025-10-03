@@ -106,6 +106,7 @@ export default function AppTopNav() {
         <div className="rounded-xl overflow-hidden">
           <Image src="/ecomefficiency.png" alt="Ecom Efficiency Logo" width={140} height={56} className="h-14 w-auto rounded-xl mix-blend-screen" />
         </div>
+        <a href="/affiliate" className="hidden md:inline-flex items-center text-sm text-[#cfd3d8] hover:text-white underline-offset-4 hover:underline">Affiliate</a>
       </div>
       {email ? (
         <DropdownMenu>
