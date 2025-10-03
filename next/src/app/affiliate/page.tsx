@@ -270,12 +270,30 @@ export default function AffiliatePage() {
 
 function Faq() {
   const items = [
-    { q: 'How often are payouts made ?', a: 'Payouts are processed monthly for balances above the minimum threshold.' },
-    { q: 'How to track the referred signup?', a: 'You will receive a unique link and discount code. Signups using either are credited to you.' },
-    { q: "Does the discount code track affiliates even if they don't use the affiliate link?", a: 'Yes, discount code usage is also attributed to your account.' },
-    { q: 'Can I advertise using my affiliate link?', a: 'Yes, provided your ads follow local regulations and our brand guidelines.' },
-    { q: 'How does link tracking work?', a: 'We use cookies and server-side validations to attribute referrals reliably.' },
-    { q: 'Any other questions?', a: 'Reach out to our support and we will help you set everything up.' },
+    {
+      q: 'When and how do I get paid?',
+      a: "You'll receive your payment automatically on the 5th of each month, exclusively through PayPal. You need to earn a minimum of 50 USD in commissions to get paid, and the payment process may take a few days, so please allow 3-5 days for the funds to appear in your account.",
+    },
+    {
+      q: 'How do I check my referrals?',
+      a: "You can check your referrals by logging into your affiliate account. If you've correctly used your unique referral URL, the information on your dashboard will be accurate.",
+    },
+    {
+      q: 'Does a promo code track sales without the affiliate link?',
+      a: "Yes, absolutely. If a customer purchases a subscription using your promo code without going through your affiliate link, the sale will be credited to your affiliate account just as if they had used your affiliate link. So, you can promote Trendtrack on your videos and tell your audience to subscribe using your discount code to get affiliate sales.",
+    },
+    {
+      q: 'Are paid ads allowed?',
+      a: 'Paid ads are not allowed. If you use paid advertising, your commissions will not be paid. We conduct regular checks and may ask you to provide proof of the methods you used to generate sales if there is any doubt.',
+    },
+    {
+      q: 'How long does tracking last?',
+      a: 'Cookies and tracking codes monitor your referrals for 30 days. Each time someone clicks your link or uses your code, the 30-day tracking is refreshed. Even if they leave and come back later without clicking again, you still get the credit.',
+    },
+    {
+      q: 'Need more help?',
+      a: 'If you have any more questions, you can ask Hugo by email at admin@ecomefficiency.com',
+    },
   ];
   const [open, setOpen] = React.useState<number | null>(0);
   return (
