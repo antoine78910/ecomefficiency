@@ -1184,7 +1184,14 @@ function CanvaFlipCard({ inviteLink, disabled }: { inviteLink?: string | null; d
         {disabled ? (
           <div className="text-[11px] text-gray-400">Subscribe to access</div>
         ) : (
-          <div className="text-[11px] text-gray-400">Click to open the invite and connect on your account</div>
+          <div className="text-[11px] text-gray-400">
+            Click to open the invite and connect on your account
+          </div>
+        )}
+        {!disabled && (
+          <div className="mt-1 text-[10px] leading-snug text-gray-500">
+            Invite link rotates monthly. If you lose access, click this card again to refresh.
+          </div>
         )}
       </div>
     </div>

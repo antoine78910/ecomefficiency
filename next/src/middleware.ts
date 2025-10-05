@@ -40,9 +40,20 @@ export function middleware(req: NextRequest) {
     return NextResponse.rewrite(r)
   }
 
-  // tools subdomain legacy routes => redirect to main tools page
+  // tools subdomain routes
   if (hostname === 'tools.localhost' || bareHostname.startsWith('tools.')) {
-    if (pathname === '/' || pathname === '' || pathname.startsWith('/pro') || pathname.startsWith('/starter')) {
+    // /starter => marketing starter tools page
+    if (pathname === '/starter') {
+      const r = url.clone(); r.pathname = '/startertools';
+      return NextResponse.rewrite(r)
+    }
+    // /pro => marketing pro tools page
+    if (pathname === '/pro') {
+      const r = url.clone(); r.pathname = '/protools';
+      return NextResponse.rewrite(r)
+    }
+    // default legacy to /tools (keep root only)
+    if (pathname === '/' || pathname === '') {
       const r = url.clone(); r.pathname = '/tools';
       return NextResponse.rewrite(r)
     }
