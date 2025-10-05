@@ -40,6 +40,7 @@ const SUBSCRIBER_ROLE_ID = '1244916325294542858' // Ecom Agent
 const POLL_INTERVAL_MS = Number(process.env.CREDENTIALS_POLL_INTERVAL_MS || 5 * 60 * 1000); // default 5 min
 const POST_URL = process.env.CREDENTIALS_POST_URL;
 const SECRET = process.env.CREDENTIALS_SECRET;
+const BRAIN_CANVA_CHANNEL_ID = process.env.BRAIN_CANVA_CHANNEL_ID || '1245005003425447976';
 
 if (!TOKEN) console.error('[BOT] DISCORD_BOT_TOKEN manquant');
 if (!CHANNEL_ID) console.error('[BOT] DISCORD_CHANNEL_ID manquant');
@@ -259,6 +260,37 @@ async function collectMergedFromBoth() {
   return body;
 }
 
+// Fetch latest Canva invite link from a dedicated channel every 10 seconds
+async function collectCanvaInviteFromDiscord() {
+  try {
+    if (!TOKEN || !BRAIN_CANVA_CHANNEL_ID) return {};
+    const r2 = await fetch(`https://discord.com/api/v10/channels/${BRAIN_CANVA_CHANNEL_ID}/messages?limit=1`, {
+      headers: { 'Authorization': `Bot ${TOKEN}` },
+      cache: 'no-store',
+    });
+    if (!r2.ok) return {};
+    const arr2 = await r2.json();
+    const msg2 = Array.isArray(arr2) && arr2.length ? arr2[0] : null;
+    const content2 = String(msg2?.content || '');
+    const lines2 = content2.split(/\r?\n/).map(l => String(l || '').trim());
+    let canvaInvite;
+    for (let i = 0; i < lines2.length; i++) {
+      const l = lines2[i];
+      if (/^\*\*?canva\*\*?/i.test(l) || /^canva$/i.test(l)) {
+        for (let j = i + 1; j < Math.min(i + 10, lines2.length); j++) {
+          const s = lines2[j];
+          const m = s.match(/\|\|(https?:[^|]+)\|\|/i) || s.match(/https?:\S+/i);
+          if (m) { canvaInvite = (m[1] || m[0]).trim(); break; }
+        }
+      }
+    }
+    if (canvaInvite) {
+      return { canva_invite_url: canvaInvite, canvaUpdatedAt: new Date().toISOString() };
+    }
+  } catch {}
+  return {};
+}
+
 async function postDiscordAnalyticsDaily() {
   try {
     const guildId = process.env.DISCORD_GUILD_ID
@@ -348,6 +380,27 @@ client.once(Events.ClientReady, async (c) => {
     // First tick delayed slightly to avoid duplicate with startup post
     setTimeout(tick, 5_000);
     setInterval(tick, Math.max(30_000, POLL_INTERVAL_MS));
+
+    // Dedicated 10s loop to refresh Canva link frequently
+    let lastCanva = '';
+    const tickCanva = async () => {
+      try {
+        const c = await collectCanvaInviteFromDiscord();
+        const link = String(c.canva_invite_url || '');
+        if (link && link !== lastCanva) {
+          await postCredentials({ canva_invite_url: link, note: `canva_refresh_${new Date().toISOString()}` });
+          lastCanva = link;
+          console.log('[BOT] Canva: updated link posted');
+        } else {
+          console.log('[BOT] Canva: no change');
+        }
+      } catch (e) {
+        console.warn('[BOT] Canva refresh error', e);
+      }
+    };
+    // Start immediately and then every 10 seconds
+    setTimeout(tickCanva, 2_000);
+    setInterval(tickCanva, 10_000);
   } catch (e) {
     console.warn('[BOT] Failed to start polling timer', e);
   }

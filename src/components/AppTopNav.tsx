@@ -90,6 +90,9 @@ export default function AppTopNav() {
               <span className="font-medium">{firstName || email}</span>
             </div>
             <DropdownMenuItem className="hover:bg-[#5c3dfa]/20 focus:bg-[#5c3dfa]/20 cursor-pointer">
+              <Link href="/account" className="w-full">Account</Link>
+            </DropdownMenuItem>
+            <DropdownMenuItem className="hover:bg-[#5c3dfa]/20 focus:bg-[#5c3dfa]/20 cursor-pointer">
               <Link href="/subscription" className="w-full">Subscriptions</Link>
             </DropdownMenuItem>
             <DropdownMenuItem onClick={handleLogout} className="hover:bg-[#5c3dfa]/20 focus:bg-[#5c3dfa]/20 cursor-pointer text-red-400">

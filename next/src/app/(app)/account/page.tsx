@@ -1,106 +1,80 @@
 "use client";
-import { useEffect, useState } from "react";
+import React from "react";
 import { supabase } from "@/integrations/supabase/client";
-
-function PlanBadge({ disabled }: { disabled?: boolean }) {
-  return (
-    <span className={`px-2 py-1 rounded text-xs ${disabled ? 'bg-white/5 text-gray-500' : 'bg-purple-500/20 text-purple-300'}`}>
-      {disabled ? 'Starter' : 'Growth'}
-    </span>
-  );
-}
+import { useToast } from "@/components/ui/use-toast";
 
 export default function AccountPage() {
-  const [plan, setPlan] = useState<'starter' | 'growth'>('starter');
+  const { toast } = useToast();
+  const [userId, setUserId] = React.useState<string>("");
+  const [currentEmail, setCurrentEmail] = React.useState<string>("");
+  const [newEmail, setNewEmail] = React.useState<string>("");
+  const [savingEmail, setSavingEmail] = React.useState(false);
 
-  useEffect(() => {
-    let mounted = true;
+  React.useEffect(() => {
     (async () => {
       const { data } = await supabase.auth.getUser();
-      if (!mounted) return;
-      const meta = (data.user?.user_metadata as any) || {};
-      const p = (meta.plan as string)?.toLowerCase();
-      if (p === 'growth') setPlan('growth');
+      const user = data.user;
+      setUserId(user?.id || "");
+      setCurrentEmail(user?.email || "");
     })();
-    return () => { mounted = false; };
   }, []);
 
-  const isStarter = plan === 'starter';
+  const handleChangeEmail = async () => {
+    if (!newEmail || newEmail === currentEmail) {
+      try { toast({ title: "No change", description: "Please enter a different email address." }); } catch {}
+      return;
+    }
+    setSavingEmail(true);
+    try {
+      const redirect = `${window.location.origin}/account/confirm-email-change?new=${encodeURIComponent(newEmail)}`
+      const { error } = await supabase.auth.signInWithOtp({
+        email: currentEmail,
+        options: { emailRedirectTo: redirect }
+      })
+      if (error) throw error;
+      try { toast({ title: "Verification sent", description: `We sent a confirmation link to ${currentEmail}.` }); } catch {}
+    } catch (e: any) {
+      try { toast({ title: "Email change failed", description: String(e?.message || 'Please try again.') }); } catch {}
+    } finally {
+      setSavingEmail(false);
+    }
+  };
 
   return (
-    <div className="max-w-6xl mx-auto px-6 py-8">
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="text-2xl font-bold">Account</h1>
-        <div className="flex items-center gap-2 text-sm">
-          <span className="text-gray-400">Current plan:</span>
-          <PlanBadge disabled={isStarter} />
-        </div>
+    <div className="max-w-3xl mx-auto px-6 py-10">
+      <div className="mb-4">
+        <button
+          onClick={() => { try { window.location.href = "/"; } catch {} }}
+          className="px-3 py-1.5 rounded-md border border-white/20 text-white hover:bg-white/10 cursor-pointer text-sm"
+        >
+          ← Back to Home
+        </button>
       </div>
 
-      {/* Billing Section */}
-      <section className="mb-8">
-        <h2 className="text-lg font-semibold mb-2">Billing</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div className="border border-white/10 rounded-lg p-4 bg-black/40">
-            <p className="text-gray-400 text-sm mb-1">Plan</p>
-            <p className="text-white font-medium mb-2">{isStarter ? 'Starter' : 'Growth'}</p>
-            <div className="flex items-center gap-2">
-              <button
-                className={`px-3 py-2 rounded border ${isStarter ? 'border-white/20 text-white/70' : 'border-white/10 text-gray-300'} hover:bg-white/5`}
-                onClick={() => setPlan('starter')}
-              >
-                Switch to Starter (€19.99)
-              </button>
-              <button
-                className={`px-3 py-2 rounded border ${!isStarter ? 'border-white/20 text-white/70' : 'border-white/10 text-gray-300'} hover:bg-white/5`}
-                onClick={() => setPlan('growth')}
-              >
-                Switch to Growth (€39.99)
-              </button>
-            </div>
-          </div>
-          <div className="border border-white/10 rounded-lg p-4 bg-black/40">
-            <p className="text-gray-400 text-sm mb-1">Next billing</p>
-            <p className="text-white">15 Feb 2024</p>
-          </div>
-        </div>
-      </section>
+      <h1 className="text-2xl font-bold text-white mb-2">Account</h1>
+      <p className="text-gray-400 mb-6">{currentEmail ? <>Signed in as <span className="text-white">{currentEmail}</span></> : "Not signed in"}</p>
 
-      {/* Feature Access Section */}
-      <section>
-        <h2 className="text-lg font-semibold mb-2">Included tools</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {/* ElevenLabs */}
-          <div className={`border border-white/10 rounded-lg p-4 ${isStarter ? 'opacity-50' : ''}`}>
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-white font-medium">ElevenLabs</p>
-              <span className={`text-xs px-2 py-1 rounded ${isStarter ? 'bg-white/5 text-gray-500' : 'bg-green-500/20 text-green-400'}`}>Unlimited credits</span>
-            </div>
-            <p className="text-gray-400 text-sm mb-3">Advanced TTS voices.</p>
-            <a
-              href="/pipiads2"
-              className={`inline-block px-3 py-2 rounded border border-white/10 hover:bg-white/5 ${isStarter ? 'pointer-events-none opacity-50' : ''}`}
-            >
-              Generate my access code
-            </a>
-          </div>
-          {/* Pipiads */}
-          <div className={`border border-white/10 rounded-lg p-4 ${isStarter ? 'opacity-50' : ''}`}>
-            <div className="flex items-center justify-between mb-2">
-              <p className="text-white font-medium">Pipiads</p>
-              <span className={`text-xs px-2 py-1 rounded ${isStarter ? 'bg-white/5 text-gray-500' : 'bg-green-500/20 text-green-400'}`}>Unlimited credits</span>
-            </div>
-            <p className="text-gray-400 text-sm mb-3">TikTok ad spy and analytics.</p>
-            <a
-              href="/pipiads2"
-              className={`inline-block px-3 py-2 rounded border border-white/10 hover:bg-white/5 ${isStarter ? 'pointer-events-none opacity-50' : ''}`}
-            >
-              Generate my access code
-            </a>
-          </div>
+      <div className="rounded-xl border border-white/10 p-4 bg-gray-900">
+        <div className="text-white font-medium mb-3">Email address</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-center mb-3">
+          <input value={currentEmail} readOnly placeholder="Current email"
+                 className="bg-gray-800/60 border border-white/10 rounded-md px-3 py-2 text-white/70 focus:outline-none" />
+          <input value={newEmail} onChange={(e)=>setNewEmail(e.target.value)} placeholder="New email"
+                 className="bg-gray-800/60 border border-white/10 rounded-md px-3 py-2 text-white focus:outline-none focus:border-purple-500" />
         </div>
-        <p className="text-xs text-gray-500 mt-2">Starter (€19.99) shows grayed access. Growth (€39.99) unlocks unlimited credits.</p>
-      </section>
+        <div className="flex items-center gap-3">
+          <button
+            disabled={savingEmail}
+            onClick={handleChangeEmail}
+            className={`px-4 py-2 rounded-md ${savingEmail ? 'bg-gray-700 text-gray-400' : 'bg-[#9541e0] hover:bg-[#8636d2] text-white'}`}
+          >
+            {savingEmail ? 'Sending…' : 'Change email address'}
+          </button>
+        </div>
+        <div className="mt-2 text-xs text-gray-500">
+          We’ll send a confirmation link to your current address. Your email won’t change until you confirm.
+        </div>
+      </div>
     </div>
   );
 }

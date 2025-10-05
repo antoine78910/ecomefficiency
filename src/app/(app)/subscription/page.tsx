@@ -8,8 +8,6 @@ export default function SubscriptionPage() {
   const [customerId, setCustomerId] = React.useState<string>('')
   const [userId, setUserId] = React.useState<string>('')
   const [firstName, setFirstName] = React.useState<string>('')
-  const [lastName, setLastName] = React.useState<string>('')
-  const [saving, setSaving] = React.useState(false)
 
   React.useEffect(() => {
     (async () => {
@@ -24,16 +22,11 @@ export default function SubscriptionPage() {
         if (user?.id) {
           const { data: prof } = await supabase
             .from('profiles')
-            .select('first_name,last_name')
+            .select('first_name')
             .eq('id', user.id)
             .maybeSingle()
-          if (prof) {
-            setFirstName((prof as any).first_name || '')
-            setLastName((prof as any).last_name || '')
-          } else {
-            setFirstName((meta.first_name as string) || '')
-            setLastName((meta.last_name as string) || '')
-          }
+          if (prof) setFirstName((prof as any).first_name || '')
+          else setFirstName((meta.first_name as string) || '')
         }
       } catch {}
       // Realtime verify with Stripe
@@ -66,31 +59,7 @@ export default function SubscriptionPage() {
     <div className="max-w-3xl mx-auto px-6 py-10">
       <h1 className="text-2xl font-bold text-white mb-2">Subscription</h1>
       <p className="text-gray-400 mb-6">{email ? <>Signed in as <span className="text-white">{email}</span></> : 'Not signed in'}</p>
-      <div className="mb-6 rounded-xl border border-white/10 p-4 bg-gray-900">
-        <div className="text-white font-medium mb-3">Your name</div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          <input value={firstName} onChange={(e)=>setFirstName(e.target.value)} placeholder="First name" className="bg-gray-800/60 border border-white/10 rounded-md px-3 py-2 text-white focus:outline-none focus:border-purple-500" />
-          <input value={lastName} onChange={(e)=>setLastName(e.target.value)} placeholder="Last name" className="bg-gray-800/60 border border-white/10 rounded-md px-3 py-2 text-white focus:outline-none focus:border-purple-500" />
-        </div>
-        <div className="mt-3 flex items-center gap-3">
-          <button
-            disabled={!userId || saving}
-            onClick={async ()=>{
-              if (!userId) return;
-              setSaving(true)
-              try {
-                await supabase.auth.updateUser({ data: { first_name: firstName || null, last_name: lastName || null } })
-                await supabase.from('profiles').upsert({ id: userId, first_name: firstName || null, last_name: lastName || null, updated_at: new Date().toISOString() as any })
-              } catch {}
-              setSaving(false)
-            }}
-            className={`px-4 py-2 rounded-md ${saving ? 'bg-gray-700 text-gray-400' : 'bg-[#9541e0] hover:bg-[#8636d2] text-white'}`}
-          >
-            {saving ? 'Saving…' : 'Save name'}
-          </button>
-          <span className="text-xs text-gray-500">This updates your display name across the app.</span>
-        </div>
-      </div>
+      {/* Name editing moved to /account */}
       <div className={`inline-flex items-center gap-2 px-3 py-1 rounded ${badge}`}>
         <span>{crown}</span>
         <span className="capitalize">{plan}</span>

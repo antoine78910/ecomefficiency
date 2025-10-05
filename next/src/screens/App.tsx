@@ -46,6 +46,31 @@ const App = () => {
       } catch {}
     })()
   }, [])
+
+  // Live-refresh Canva invite every 10s
+  React.useEffect(() => {
+    let cancelled = false
+    let timer: any
+    const run = async () => {
+      try {
+        const mod = await import("@/integrations/supabase/client")
+        const { data } = await mod.supabase.auth.getUser()
+        const email = data.user?.email || ''
+        const customerId = ((data.user?.user_metadata as any) || {}).stripe_customer_id || ''
+        const headers: Record<string, string> = {}
+        if (email) headers['x-user-email'] = email
+        if (customerId) headers['x-stripe-customer-id'] = customerId
+        const res = await fetch('/api/credentials', { headers, cache: 'no-store' })
+        const json = await res.json().catch(() => ({}))
+        const link = json?.canva_invite_url ? String(json.canva_invite_url) : null
+        if (!cancelled && link && link !== canvaInvite) setCanvaInvite(link)
+      } catch {}
+    }
+    // kick and schedule
+    run()
+    timer = setInterval(run, 10_000)
+    return () => { cancelled = true; try { clearInterval(timer) } catch {} }
+  }, [canvaInvite])
   React.useEffect(() => {
     (async () => {
       try {
