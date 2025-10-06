@@ -131,10 +131,24 @@ function CheckoutContent() {
             </div>
 
             <div className="border-t border-white/10 pt-4 mb-6">
-              <div className="flex items-center justify-between text-lg">
-                <span className="text-white font-semibold">Total</span>
-                <span className="text-purple-400 font-bold">{formatPrice(price, currency)}/mo</span>
-              </div>
+              {billing === 'yearly' ? (
+                <>
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="text-gray-400 text-sm">Monthly price</span>
+                    <span className="text-gray-400 text-sm">{formatPrice(price, currency)}/mo</span>
+                  </div>
+                  <div className="flex items-center justify-between text-lg">
+                    <span className="text-white font-semibold">Total billed today</span>
+                    <span className="text-purple-400 font-bold">{formatPrice(price * 12, currency)}</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Then {formatPrice(price * 12, currency)} every year</p>
+                </>
+              ) : (
+                <div className="flex items-center justify-between text-lg">
+                  <span className="text-white font-semibold">Total billed today</span>
+                  <span className="text-purple-400 font-bold">{formatPrice(price, currency)}</span>
+                </div>
+              )}
             </div>
 
             <div className="space-y-2">
