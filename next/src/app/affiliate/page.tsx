@@ -151,7 +151,7 @@ export default function AffiliatePage() {
       {/* How it works / referral examples (photo1) */}
       <section className="py-12 md:py-16">
         <div className="max-w-6xl mx-auto px-6">
-          <div className="grid md:grid-cols-3 gap-12 md:gap-16">
+          <div className="grid md:grid-cols-3 gap-16 md:gap-16">
             <div>
               <div className="text-sm text-gray-400 mb-2">Your referral link</div>
               <div className="rounded-xl border border-white/10 bg-black shadow-[0_6px_28px_rgba(0,0,0,0.45),inset_0_0_0_1px_rgba(255,255,255,0.04)] px-0 py-0 flex items-center mt-3 mb-8">
