@@ -31,4 +31,12 @@ if (!SUPABASE_CONFIG_OK) {
 }
 
 export const supabase: SupabaseClient<Database, 'public'> =
-  createClient<Database, 'public'>(url, key);
+  createClient<Database, 'public'>(url, key, {
+    auth: {
+      persistSession: true,
+      autoRefreshToken: true,
+      detectSessionInUrl: true,
+      storageKey: 'ecom-efficiency-auth',
+      storage: typeof window !== 'undefined' ? window.localStorage : undefined,
+    }
+  });
