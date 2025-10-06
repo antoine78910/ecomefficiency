@@ -10,9 +10,9 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY 
 
 export default function CheckoutPage() {
   const searchParams = useSearchParams();
-  const tier = (searchParams.get('tier') || 'pro') as 'starter' | 'pro';
-  const billing = (searchParams.get('billing') || 'monthly') as 'monthly' | 'yearly';
-  const currency = (searchParams.get('currency') || 'EUR') as 'EUR' | 'USD';
+  const tier = (searchParams?.get('tier') || 'pro') as 'starter' | 'pro';
+  const billing = (searchParams?.get('billing') || 'monthly') as 'monthly' | 'yearly';
+  const currency = (searchParams?.get('currency') || 'EUR') as 'EUR' | 'USD';
 
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
