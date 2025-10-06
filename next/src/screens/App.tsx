@@ -767,52 +767,67 @@ function CredentialsPanel() {
             </div>
           </div>
         ) : null}
-        {error ? (
-          <p className="text-red-400 text-sm">{error}</p>
-        ) : !creds || loading ? (
-          <p className="text-gray-400 text-sm">Loading…</p>
-        ) : plan === 'inactive' ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <p className="text-xs text-gray-400 mb-1">Email</p>
-              <div className="group flex items-center gap-2">
-                <TooltipProvider delayDuration={0}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className={`break-all text-white filter blur-sm select-none cursor-not-allowed`}>
-                        ••••••••
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="bg-white text-black border-white">Subscribe to reveal</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <CopyButton value={undefined} label="Copy email" disabled={true} />
+        {(() => {
+          if (error) {
+            return <p className="text-red-400 text-sm">{error}</p>;
+          }
+          
+          if (!creds || loading) {
+            return <p className="text-gray-400 text-sm">Loading…</p>;
+          }
+          
+          if (plan === 'inactive') {
+            return (
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">Email</p>
+                  <div className="group flex items-center gap-2">
+                    <TooltipProvider delayDuration={0}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className={`break-all text-white filter blur-sm select-none cursor-not-allowed`}>
+                            ••••••••
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="bg-white text-black border-white">Subscribe to reveal</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <CopyButton value={undefined} label="Copy email" disabled={true} />
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-400 mb-1">Password</p>
+                  <div className="group flex items-center gap-2">
+                    <TooltipProvider delayDuration={0}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <span className={`break-all text-white filter blur-sm select-none cursor-not-allowed`}>
+                            ••••••••
+                          </span>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="bg-white text-black border-white">Subscribe to reveal</TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                    <CopyButton value={undefined} label="Copy password" disabled={true} />
+                  </div>
+                </div>
+                <div className="md:col-span-2">
+                  <div className="mt-2 text-sm text-gray-400 flex items-center gap-2">
+                    <span>How to access the tools?</span>
+                    <button onClick={() => { try { (window as any).__eeOpenHowTo?.(); window.dispatchEvent(new CustomEvent('ee-open-howto')); document.dispatchEvent(new CustomEvent('ee-open-howto')); const el = document.getElementById('howto-modal-open') as HTMLButtonElement | null; el?.click(); } catch {} }} className="underline text-purple-300 hover:text-purple-200 cursor-pointer">Open the 3‑step demo</button>
+                  </div>
+                </div>
               </div>
-            </div>
-            <div>
-              <p className="text-xs text-gray-400 mb-1">Password</p>
-              <div className="group flex items-center gap-2">
-                <TooltipProvider delayDuration={0}>
-                  <Tooltip>
-                    <TooltipTrigger asChild>
-                      <span className={`break-all text-white filter blur-sm select-none cursor-not-allowed`}>
-                        ••••••••
-                      </span>
-                    </TooltipTrigger>
-                    <TooltipContent side="top" className="bg-white text-black border-white">Subscribe to reveal</TooltipContent>
-                  </Tooltip>
-                </TooltipProvider>
-                <CopyButton value={undefined} label="Copy password" disabled={true} />
-              </div>
-            </div>
-            <div className="md:col-span-2">
-              <div className="mt-2 text-sm text-gray-400 flex items-center gap-2">
-                <span>How to access the tools?</span>
-                <button onClick={() => { try { (window as any).__eeOpenHowTo?.(); window.dispatchEvent(new CustomEvent('ee-open-howto')); document.dispatchEvent(new CustomEvent('ee-open-howto')); const el = document.getElementById('howto-modal-open') as HTMLButtonElement | null; el?.click(); } catch {} }} className="underline text-purple-300 hover:text-purple-200 cursor-pointer">Open the 3‑step demo</button>
-              </div>
-            </div>
-          </div>
-        ) : creds && plan !== 'inactive' && ((plan==='pro' && (creds.adspower_pro_email || creds.adspower_pro_password)) || (plan==='checking' && (creds.adspower_email || creds.adspower_starter_email || creds.adspower_pro_email)) || (plan==='starter' && (creds.adspower_email || creds.adspower_password || creds.adspower_starter_email || creds.adspower_starter_password))) ? (
+            );
+          }
+          
+          // Show credentials if we have them (checking, starter, or pro)
+          const hasProCreds = (creds.adspower_pro_email || creds.adspower_pro_password);
+          const hasStarterCreds = (creds.adspower_email || creds.adspower_password || creds.adspower_starter_email || creds.adspower_starter_password);
+          const hasAnyCreds = (creds.adspower_email || creds.adspower_starter_email || creds.adspower_pro_email);
+          
+          if ((plan === 'pro' && hasProCreds) || (plan === 'starter' && hasStarterCreds) || (plan === 'checking' && hasAnyCreds)) {
+            return (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <p className="text-xs text-gray-400 mb-1">Email</p>
@@ -871,9 +886,11 @@ function CredentialsPanel() {
               </div>
             </div>
           </div>
-        ) : (
-          <div className="text-gray-400 text-sm">Waiting for credentials…</div>
-        )}
+            );
+          }
+          
+          return <div className="text-gray-400 text-sm">Waiting for credentials…</div>;
+        })()}
       </CardContent>
     </Card>
     <button id="howto-modal-open" onClick={() => { try { window.dispatchEvent(new CustomEvent('ee-open-howto')); } catch {} }} className="hidden" />
