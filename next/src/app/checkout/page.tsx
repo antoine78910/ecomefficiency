@@ -89,17 +89,6 @@ function CheckoutContent() {
     let cancelled = false;
     (async () => {
       try {
-        // Track checkout view for A/B test
-        const urlParams = new URLSearchParams(window.location.search);
-        const abVariant = urlParams.get('ab_variant');
-        if (abVariant === 'custom' || abVariant === 'stripe') {
-          fetch('/api/ab-test/track', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ variant: 'custom', eventType: 'view' })
-          }).catch(console.error);
-        }
-
         // Get user info
         const { data } = await supabase.auth.getUser();
         const email = data.user?.email;
@@ -450,7 +439,7 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
       const { error } = await stripe.confirmPayment({
         elements,
         confirmParams: {
-          return_url: `${window.location.origin}/checkout/success?tier=${tier}&billing=${billing}&ab_variant=custom`,
+          return_url: `${window.location.origin}/checkout/success?tier=${tier}&billing=${billing}`,
         },
       });
 
