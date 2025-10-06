@@ -450,7 +450,7 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
       const { error } = await stripe.confirmPayment({
         elements,
         confirmParams: {
-          return_url: `${window.location.origin}/checkout/success?tier=${tier}&billing=${billing}`,
+          return_url: `${window.location.origin}/checkout/success?tier=${tier}&billing=${billing}&ab_variant=custom`,
         },
       });
 

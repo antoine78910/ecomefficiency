@@ -8,6 +8,17 @@ function CheckoutSuccessContent() {
   const [redirecting, setRedirecting] = useState(false);
 
   useEffect(() => {
+    // Track conversion for A/B test
+    const urlParams = new URLSearchParams(window.location.search);
+    const abVariant = urlParams.get('ab_variant');
+    if (abVariant === 'custom' || abVariant === 'stripe') {
+      fetch('/api/ab-test/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ variant: abVariant, eventType: 'conversion' })
+      }).catch(console.error);
+    }
+
     // Wait a moment then redirect to app
     const timer = setTimeout(() => {
       setRedirecting(true);
