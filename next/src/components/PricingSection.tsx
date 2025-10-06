@@ -80,31 +80,21 @@ const PricingSection = () => {
     // Track CTA click (client-side best effort)
     try { postGoal('pricing_cta_click', { plan: tier, billing: isYearly ? 'yearly' : 'monthly' }); } catch {}
 
-    // If user is not signed-in, send them to sign-in with a callback to resume checkout
+    // If user is not signed-in, send them to sign-up first
     try {
       const { data } = await supabase.auth.getUser();
       const user = data.user;
       if (!user) {
-        const current = new URL(window.location.href);
-        current.searchParams.set('checkout', tier);
-        current.searchParams.set('billing', isYearly ? 'yearly' : 'monthly');
-        current.searchParams.set('currency', currency);
-        const callbackPath = current.pathname + '?' + current.searchParams.toString();
-        // Fast UX: notify then redirect immediately to sign-up with callback
-        toast({ title: 'Redirecting you to checkout..' });
-        window.location.href = `/sign-up?callback=${encodeURIComponent(callbackPath)}`;
+        // Build callback to return to checkout after sign-up
+        const checkoutUrl = `/checkout?tier=${tier}&billing=${isYearly ? 'yearly' : 'monthly'}&currency=${currency}`;
+        toast({ title: 'Please sign up to continue..' });
+        window.location.href = `/sign-up?callback=${encodeURIComponent(checkoutUrl)}`;
         return;
       }
     } catch {}
-    // When already logged-in, we still redirect to sign-up fast (to keep UX consistent)
-    const current = new URL(window.location.href);
-    current.searchParams.set('checkout', tier);
-    current.searchParams.set('billing', isYearly ? 'yearly' : 'monthly');
-    current.searchParams.set('currency', currency);
-    const callbackPath = current.pathname + '?' + current.searchParams.toString();
-    toast({ title: 'Redirecting you to checkout..' });
-    window.location.href = `/sign-up?callback=${encodeURIComponent(callbackPath)}`;
-    return;
+    
+    // User is logged in, go directly to custom checkout
+    window.location.href = `/checkout?tier=${tier}&billing=${isYearly ? 'yearly' : 'monthly'}&currency=${currency}`;
   };
 
   React.useEffect(() => {

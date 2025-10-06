@@ -737,15 +737,8 @@ function CredentialsPanel() {
       } catch { return 'EUR' }
     }
     const currency = await detectCurrency()
-    try {
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (email) headers['x-user-email'] = email
-      if (userId) headers['x-user-id'] = userId
-      if (customerId) headers['x-stripe-customer-id'] = customerId
-      const res = await fetch('/api/stripe/checkout', { method: 'POST', headers, body: JSON.stringify({ tier, billing, currency }) })
-      const data = await res.json()
-      if (data?.url) window.location.href = data.url
-    } catch {}
+    // Redirect to custom checkout page instead of Stripe hosted checkout
+    window.location.href = `/checkout?tier=${tier}&billing=${billing}&currency=${currency}`;
   }
 
   if (plan === 'checking') {
