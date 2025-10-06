@@ -155,17 +155,28 @@ const SignUp = () => {
         setIsSocialLoading(false);
         return;
       }
-      // OAuth must redirect to localhost:5000 first (Google doesn't support app.localhost)
-      // Then we'll redirect to app.localhost after processing tokens
+      // Build redirect URL based on environment
       const protocol = window.location.protocol;
+      const hostname = window.location.hostname;
       const port = window.location.port ? `:${window.location.port}` : '';
-      const oauthRedirect = `${protocol}//localhost${port}/`;
+      
+      let redirectUrl;
+      if (hostname.startsWith('app.')) {
+        // Already on app subdomain
+        redirectUrl = `${protocol}//${hostname}${port}/`;
+      } else if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        // For localhost dev, redirect to localhost root first (Google OAuth doesn't support app.localhost)
+        redirectUrl = `${protocol}//${hostname}${port}/`;
+      } else {
+        // For production, redirect to app subdomain
+        const cleanHost = hostname.replace(/^www\./, '');
+        redirectUrl = `${protocol}//app.${cleanHost}${port}/`;
+      }
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          // Redirect to root localhost first, then App.tsx will handle redirect to app.localhost
-          redirectTo: `${oauthRedirect}?just=1`
+          redirectTo: `${redirectUrl}?just=1`
         }
       });
 
