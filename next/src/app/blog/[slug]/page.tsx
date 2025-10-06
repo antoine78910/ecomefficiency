@@ -205,7 +205,6 @@ Let's build something great together!
 Ready to access all the tools you need? [Get started with Ecom Efficiency](/pricing)
     `
   },
-];
 };
 
 export default function BlogPostPage() {
