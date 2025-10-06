@@ -96,6 +96,7 @@ export async function POST(req: NextRequest) {
     });
 
     for (const inv of invoices.data) {
+      if (!inv.id) continue;
       try {
         await stripe.invoices.voidInvoice(inv.id);
         console.log('[create-subscription-intent] Voided old invoice', inv.id);
