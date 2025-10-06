@@ -8,6 +8,7 @@ export async function POST(req: NextRequest) {
       billing?: 'monthly'|'yearly'; 
       currency?: 'USD'|'EUR';
       customerId?: string;
+      couponCode?: string;
     };
 
     if (!process.env.STRIPE_SECRET_KEY) {
@@ -20,6 +21,7 @@ export async function POST(req: NextRequest) {
     const billing = body.billing || 'monthly';
     const currency = (body.currency || 'EUR').toUpperCase();
     const customerId = body.customerId;
+    const couponCode = body.couponCode;
 
     // Resolve priceId from env
     const env = process.env as Record<string, string | undefined>;
@@ -106,7 +108,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create subscription with payment required upfront
-    const subscription = await stripe.subscriptions.create({
+    const subscriptionParams: Stripe.SubscriptionCreateParams = {
       customer: customer.id,
       items: [{ price: priceId }],
       payment_behavior: 'default_incomplete',
@@ -120,7 +122,15 @@ export async function POST(req: NextRequest) {
         tier,
         billing,
       },
-    });
+    };
+
+    // Apply coupon if provided
+    if (couponCode) {
+      subscriptionParams.coupon = couponCode.trim().toUpperCase();
+      console.log('[create-subscription-intent] Applying coupon:', couponCode);
+    }
+
+    const subscription = await stripe.subscriptions.create(subscriptionParams);
 
     console.log('[create-subscription-intent] Subscription created', {
       id: subscription.id,

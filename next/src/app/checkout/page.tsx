@@ -18,6 +18,68 @@ function CheckoutContent() {
   const [error, setError] = useState<string | null>(null);
   const [customerId, setCustomerId] = useState<string | null>(null);
   const [promoExpanded, setPromoExpanded] = useState(false);
+  const [promoCode, setPromoCode] = useState('');
+  const [appliedPromo, setAppliedPromo] = useState<any>(null);
+  const [promoError, setPromoError] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+
+  const handleApplyPromo = async () => {
+    if (!promoCode.trim()) return;
+    
+    setPromoError(null);
+    try {
+      // First validate the coupon
+      const validateRes = await fetch('/api/stripe/validate-coupon', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ couponCode: promoCode.trim() })
+      });
+      
+      const validateData = await validateRes.json();
+      
+      if (!validateRes.ok) {
+        setPromoError(validateData.error || 'Invalid promo code');
+        setAppliedPromo(null);
+        return;
+      }
+      
+      // Then recreate the subscription intent with coupon
+      const { data } = await supabase.auth.getUser();
+      const email = data.user?.email;
+      const userId = data.user?.id;
+      
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (email) headers['x-user-email'] = email;
+      if (userId) headers['x-user-id'] = userId;
+
+      const createRes = await fetch('/api/stripe/create-subscription-intent', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ 
+          tier, 
+          billing, 
+          currency, 
+          customerId,
+          couponCode: promoCode.trim().toUpperCase()
+        })
+      });
+
+      const createData = await createRes.json();
+      if (!createRes.ok || !createData.clientSecret) {
+        setPromoError('Failed to apply promo code');
+        setAppliedPromo(null);
+        return;
+      }
+
+      // Update client secret with discounted subscription
+      setClientSecret(createData.clientSecret);
+      setAppliedPromo(validateData.coupon);
+      setPromoError(null);
+    } catch (e) {
+      setPromoError('Failed to validate promo code');
+      setAppliedPromo(null);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -29,6 +91,10 @@ function CheckoutContent() {
         const userId = data.user?.id;
         const meta = (data.user?.user_metadata as any) || {};
         const existingCustomerId = meta.stripe_customer_id;
+        
+        if (email && !cancelled) {
+          setUserEmail(email);
+        }
 
         // Check if user is authenticated
         if (!email && !userId) {
@@ -113,7 +179,10 @@ function CheckoutContent() {
         <div className="text-center mb-8">
           <img src="/ecomefficiency.png" alt="Ecom Efficiency" className="h-12 w-auto mx-auto mb-4" />
           <h1 className="text-3xl font-bold text-white mb-2">Complete Your Subscription</h1>
-          <p className="text-gray-400">Secure checkout powered by Stripe</p>
+          <p className="text-gray-400 mb-1">Secure checkout powered by Stripe</p>
+          {userEmail && (
+            <p className="text-xs text-gray-500">Logged in as <span className="text-gray-400">{userEmail}</span></p>
+          )}
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">
@@ -145,7 +214,10 @@ function CheckoutContent() {
                   <div className="flex items-center justify-between">
                     <label className="text-xs text-gray-400">Promo Code</label>
                     <button 
-                      onClick={() => setPromoExpanded(false)}
+                      onClick={() => {
+                        setPromoExpanded(false);
+                        setPromoError(null);
+                      }}
                       className="text-xs text-gray-500 hover:text-gray-400"
                     >
                       ✕
@@ -154,13 +226,38 @@ function CheckoutContent() {
                   <div className="flex gap-2">
                     <input 
                       type="text"
+                      value={promoCode}
+                      onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                      onKeyDown={(e) => e.key === 'Enter' && handleApplyPromo()}
                       placeholder="Enter code"
-                      className="flex-1 px-3 py-2 text-sm bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors"
+                      disabled={!!appliedPromo}
+                      className="flex-1 px-3 py-2 text-sm bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     />
-                    <button className="px-3 py-2 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors">
-                      Apply
+                    <button 
+                      onClick={handleApplyPromo}
+                      disabled={!promoCode.trim() || !!appliedPromo}
+                      className="px-3 py-2 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {appliedPromo ? '✓' : 'Apply'}
                     </button>
                   </div>
+                  {promoError && (
+                    <p className="text-xs text-red-400">{promoError}</p>
+                  )}
+                  {appliedPromo && (
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-green-400">✓ {appliedPromo.name || promoCode} applied</span>
+                      <button 
+                        onClick={() => {
+                          setAppliedPromo(null);
+                          setPromoCode('');
+                        }}
+                        className="text-gray-500 hover:text-gray-400"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
