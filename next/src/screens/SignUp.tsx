@@ -175,8 +175,8 @@ const SignUp = () => {
       if (hostname.startsWith('app.')) {
         appBase = `${protocol}//${hostname}${port}/`;
       } else if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        // For localhost dev, stay on localhost (Google OAuth doesn't support app.localhost)
-        appBase = `${protocol}//${hostname}${port}/app`;
+        // For localhost dev, redirect to /app route (Google OAuth doesn't support app.localhost)
+        appBase = `${protocol}//${hostname}${port}/app/`;
       } else {
         const cleanHost = hostname.replace(/^www\./, '');
         appBase = `${protocol}//app.${cleanHost}${port}/`;
