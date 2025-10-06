@@ -15,9 +15,7 @@ import GoogleButton from "@/components/GoogleButton";
 const SignUp = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isSocialLoading, setIsSocialLoading] = useState(false);
   const [firstName, setFirstName] = useState('');
@@ -27,15 +25,6 @@ const SignUp = () => {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-
-    if (password !== confirmPassword) {
-      toast({
-        title: "Error",
-        description: "Passwords do not match",
-        variant: "destructive",
-      });
-      return;
-    }
 
     if (password.length < 6) {
       toast({
@@ -166,26 +155,17 @@ const SignUp = () => {
         setIsSocialLoading(false);
         return;
       }
-      // Build app subdomain URL
+      // OAuth must redirect to localhost:5000 first (Google doesn't support app.localhost)
+      // Then we'll redirect to app.localhost after processing tokens
       const protocol = window.location.protocol;
-      const hostname = window.location.hostname;
       const port = window.location.port ? `:${window.location.port}` : '';
-      
-      let appBase;
-      if (hostname.startsWith('app.')) {
-        appBase = `${protocol}//${hostname}${port}/`;
-      } else if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        // For localhost dev, redirect to /app route (Google OAuth doesn't support app.localhost)
-        appBase = `${protocol}//${hostname}${port}/app/`;
-      } else {
-        const cleanHost = hostname.replace(/^www\./, '');
-        appBase = `${protocol}//app.${cleanHost}${port}/`;
-      }
-      
+      const oauthRedirect = `${protocol}//localhost${port}/`;
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${appBase}?just=1`
+          // Redirect to root localhost first, then App.tsx will handle redirect to app.localhost
+          redirectTo: `${oauthRedirect}?just=1`
         }
       });
 
@@ -227,23 +207,6 @@ const SignUp = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex flex-col items-center space-y-3">
-              <GoogleButton 
-                onClick={() => handleSocialSignUp('google')}
-                disabled={isSocialLoading}
-                isLoading={isSocialLoading}
-              />
-            </div>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-gray-600" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-gray-900 px-2 text-gray-400">Or</span>
-              </div>
-            </div>
-
             <form onSubmit={handleSignUp} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
@@ -290,30 +253,6 @@ const SignUp = () => {
                     className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label htmlFor="confirmPassword" className="text-sm font-medium text-white">
-                  Confirm Password
-                </label>
-                <div className="relative">
-                  <Input
-                    id="confirmPassword"
-                    type={showConfirmPassword ? "text" : "password"}
-                    placeholder="Confirm your password"
-                    value={confirmPassword}
-                    onChange={(e) => setConfirmPassword(e.target.value)}
-                    required
-                    className="bg-gray-800/50 border-gray-700 text-white placeholder:text-gray-400 focus:border-purple-500 pr-10"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                    className="absolute right-3 top-1/2 transform -translate-y-1/2 text-gray-400 hover:text-white"
-                  >
-                    {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
               </div>

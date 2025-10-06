@@ -13,38 +13,67 @@ const App = () => {
   const [appPlan, setAppPlan] = React.useState<'free'|'starter'|'pro'>('free')
   // Handle Supabase auth hash after email verification so the session is available immediately
   React.useEffect(() => {
-    (async () => {
-      if (typeof window === 'undefined') return
-      const hash = window.location.hash || ''
-      const url = new URL(window.location.href)
-      const code = url.searchParams.get('code')
-      const hasHashTokens = /access_token=|refresh_token=/.test(hash)
+    if (typeof window === 'undefined') return
 
-      try {
-        const mod = await import("@/integrations/supabase/client")
-        if (hasHashTokens) {
-          const params = new URLSearchParams(hash.replace(/^#/, ''))
-          const accessToken = params.get('access_token')
-          const refreshToken = params.get('refresh_token')
-          if (accessToken && refreshToken) {
+    const hash = window.location.hash || ''
+    const url = new URL(window.location.href)
+    const code = url.searchParams.get('code')
+    const hasHashTokens = /access_token=|refresh_token=/.test(hash)
+
+    if (hasHashTokens) {
+      const params = new URLSearchParams(hash.replace(/^#/, ''))
+      const accessToken = params.get('access_token')
+      const refreshToken = params.get('refresh_token')
+
+      if (accessToken && refreshToken) {
+        (async () => {
+          try {
+            const mod = await import("@/integrations/supabase/client")
             await mod.supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
             try { await fetch('/api/auth/flag', { method: 'POST' }) } catch {}
-            try { history.replaceState(null, '', window.location.pathname + window.location.search) } catch {}
+
+            // Redirect to app.localhost subdomain after OAuth
+            const protocol = window.location.protocol
+            const hostname = window.location.hostname
+            const port = window.location.port ? `:${window.location.port}` : ''
+
+            // If on plain localhost after OAuth, redirect to app.localhost
+            if (hostname === 'localhost') {
+              window.location.href = `${protocol}//app.localhost${port}/`
+              return
+            }
+
+            // Otherwise clean the hash and stay
+            window.history.replaceState(null, '', window.location.pathname + window.location.search)
+          } catch {}
+        })()
+        return
+      }
+    }
+
+    // Handle code-based redirects (magic link / email confirm that returns ?code=...)
+    if (code) {
+      (async () => {
+        try {
+          const mod = await import("@/integrations/supabase/client")
+          await mod.supabase.auth.exchangeCodeForSession(window.location.href)
+          try { await fetch('/api/auth/flag', { method: 'POST' }) } catch {}
+
+          // Redirect to app.localhost if on plain localhost
+          const protocol = window.location.protocol
+          const hostname = window.location.hostname
+          const port = window.location.port ? `:${window.location.port}` : ''
+
+          if (hostname === 'localhost') {
+            window.location.href = `${protocol}//app.localhost${port}/`
             return
           }
-        }
-        // Handle code-based redirects (magic link / email confirm that returns ?code=...)
-        if (code) {
-          try {
-            await mod.supabase.auth.exchangeCodeForSession(window.location.href)
-            try { await fetch('/api/auth/flag', { method: 'POST' }) } catch {}
-          } catch {}
+
           // Clean URL (remove code/state)
-          try { history.replaceState(null, '', window.location.pathname) } catch {}
-          return
-        }
-      } catch {}
-    })()
+          window.history.replaceState(null, '', window.location.pathname)
+        } catch {}
+      })()
+    }
   }, [])
 
   // Live-refresh Canva invite every 10s

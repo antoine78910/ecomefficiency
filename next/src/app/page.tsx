@@ -15,7 +15,7 @@ import { headers } from "next/headers";
 export default async function Home() {
   const h = await headers();
   const host = (h.get('x-forwarded-host') || h.get('host') || '').toLowerCase();
-  const isApp = host === 'app.localhost' || host.startsWith('app.');
+  const isApp = host.includes('app.localhost') || (host.startsWith('app.') && !host.includes('localhost'));
 
   if (isApp) {
     return (

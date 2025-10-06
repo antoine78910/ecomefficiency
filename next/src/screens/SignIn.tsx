@@ -25,17 +25,17 @@ const SignIn = () => {
       const protocol = window.location.protocol;
       const hostname = window.location.hostname;
       const port = window.location.port ? `:${window.location.port}` : '';
-      
+
       // If already on app subdomain, keep it
       if (hostname.startsWith('app.')) {
         return `${protocol}//${hostname}${port}/`;
       }
-      
-      // For localhost dev, redirect to /app route (Google OAuth doesn't support app.localhost)
+
+      // For localhost dev, redirect to app.localhost subdomain
       if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        return `${protocol}//${hostname}${port}/app/`;
+        return `${protocol}//app.localhost${port}/`;
       }
-      
+
       // For production domains, remove www and add app prefix
       const cleanHost = hostname.replace(/^www\./, '');
       return `${protocol}//app.${cleanHost}${port}/`;
@@ -153,12 +153,17 @@ const SignIn = () => {
         setIsSocialLoading(false);
         return;
       }
-      const appBase = getAppBaseUrl();
+      // OAuth must redirect to localhost:5000 first (Google doesn't support app.localhost)
+      // Then we'll redirect to app.localhost after processing tokens
+      const protocol = window.location.protocol;
+      const port = window.location.port ? `:${window.location.port}` : '';
+      const oauthRedirect = `${protocol}//localhost${port}/`;
+
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          // Redirect back to app root so it can exchange ?code=... and set session
-          redirectTo: `${appBase}?just=1`
+          // Redirect to root localhost first, then App.tsx will handle redirect to app.localhost
+          redirectTo: `${oauthRedirect}?just=1`
         }
       });
 
@@ -200,23 +205,6 @@ const SignIn = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            <div className="flex flex-col items-center space-y-3">
-              <GoogleButton 
-                onClick={() => handleSocialSignIn('google')}
-                disabled={isSocialLoading}
-                isLoading={isSocialLoading}
-              />
-            </div>
-
-            <div className="relative">
-              <div className="absolute inset-0 flex items-center">
-                <span className="w-full border-t border-gray-600" />
-              </div>
-              <div className="relative flex justify-center text-xs uppercase">
-                <span className="bg-gray-900 px-2 text-gray-400">Or</span>
-              </div>
-            </div>
-
             <form onSubmit={handleSignIn} className="space-y-4">
               <div className="space-y-2">
                 <label htmlFor="email" className="text-sm font-medium text-white">
