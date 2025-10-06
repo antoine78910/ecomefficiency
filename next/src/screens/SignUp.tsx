@@ -121,19 +121,21 @@ const SignUp = () => {
         // Send lead to FirstPromoter for referral attribution (if available)
         try { (window as any).fpr && (window as any).fpr('referral', { email }); } catch {}
 
-        // Redirect to persistent verification page on the current origin (respect dev/prod)
-        const origin = (typeof window !== 'undefined') ? window.location.origin : '';
-        const url = new URL(origin);
-        // Prefer "app." subdomain if available
-        const host = url.hostname;
-        let appOrigin = origin;
-        if (!host.startsWith('app.')) {
-          const parts = host.split('.');
-          if (parts.length >= 2) {
-            const root = parts.slice(-2).join('.');
-            appOrigin = `${url.protocol}//app.${root}${url.port ? ':'+url.port : ''}`;
-          }
+        // Redirect to verification page on app subdomain
+        const protocol = window.location.protocol;
+        const hostname = window.location.hostname;
+        const port = window.location.port ? `:${window.location.port}` : '';
+        
+        let appOrigin;
+        if (hostname.startsWith('app.')) {
+          appOrigin = `${protocol}//${hostname}${port}`;
+        } else if (hostname === 'localhost' || hostname === '127.0.0.1') {
+          appOrigin = `${protocol}//app.localhost${port}`;
+        } else {
+          const cleanHost = hostname.replace(/^www\./, '');
+          appOrigin = `${protocol}//app.${cleanHost}${port}`;
         }
+        
         window.location.href = `${appOrigin}/verify-email?email=${encodeURIComponent(email)}`;
       }
     } catch (error: any) {
