@@ -107,13 +107,13 @@ const NewNavbar = () => {
         </div>
 
         {menuOpen && (
-          <div className="md:hidden absolute right-0 top-16 w-56 bg-[#0d0e12] border border-white/10 rounded-lg shadow-xl z-[60]">
-            <Link href="/tools" className="block px-4 py-2 text-sm text-white hover:bg-white/10">Tools</Link>
-            <Link href="/blog" className="block px-4 py-2 text-sm text-white hover:bg-white/10">Blog</Link>
-            <Link href="/affiliate" className="block px-4 py-2 text-sm text-white hover:bg-white/10">Affiliate</Link>
-            <button onClick={handlePricingClick} className="w-full text-left px-4 py-2 text-sm text-white hover:bg-white/10 cursor-pointer">Pricing</button>
-            <button onClick={handleDiscordClick} className="w-full text-left px-4 py-2 text-sm text-white hover:bg-white/10 cursor-pointer">Join Community</button>
-            <Link href="/sign-in" className="block px-4 py-2 text-sm text-white hover:bg-white/10">Sign In</Link>
+          <div className="md:hidden absolute right-0 top-20 w-56 bg-[#0d0e12] border border-white/10 rounded-lg shadow-xl z-[60]">
+            <Link href="/tools" className="block px-4 py-3 text-base text-white hover:bg-white/10">Tools</Link>
+            <Link href="/blog" className="block px-4 py-3 text-base text-white hover:bg-white/10">Blog</Link>
+            <Link href="/affiliate" className="block px-4 py-3 text-base text-white hover:bg-white/10">Affiliate</Link>
+            <button onClick={handlePricingClick} className="w-full text-left px-4 py-3 text-base text-white hover:bg-white/10 cursor-pointer">Pricing</button>
+            <button onClick={handleDiscordClick} className="w-full text-left px-4 py-3 text-base text-white hover:bg-white/10 cursor-pointer">Join Community</button>
+            <Link href="/sign-in" className="block px-4 py-3 text-base text-white hover:bg-white/10">Sign In</Link>
           </div>
         )}
       </div>
