@@ -130,6 +130,21 @@ function CheckoutContent() {
               </div>
             </div>
 
+            {/* Promo Code */}
+            <div className="mb-4">
+              <label className="text-sm text-gray-400 mb-2 block">Promo Code (optional)</label>
+              <div className="flex gap-2">
+                <input 
+                  type="text"
+                  placeholder="Enter code"
+                  className="flex-1 px-4 py-2 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors"
+                />
+                <button className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors">
+                  Apply
+                </button>
+              </div>
+            </div>
+
             <div className="border-t border-white/10 pt-4 mb-6">
               {billing === 'yearly' ? (
                 <>
