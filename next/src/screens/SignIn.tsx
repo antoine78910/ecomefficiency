@@ -23,12 +23,22 @@ const SignIn = () => {
   const getAppBaseUrl = () => {
     try {
       const protocol = window.location.protocol;
-      const host = window.location.hostname.split(':')[0];
+      const hostname = window.location.hostname;
       const port = window.location.port ? `:${window.location.port}` : '';
-      // Remove www. if present, then add app. prefix
-      const cleanHost = host.replace(/^www\./, '');
-      const targetHost = cleanHost.startsWith('app.') ? cleanHost : `app.${cleanHost}`;
-      return `${protocol}//${targetHost}${port}/`;
+      
+      // If already on app subdomain, keep it
+      if (hostname.startsWith('app.')) {
+        return `${protocol}//${hostname}${port}/`;
+      }
+      
+      // For localhost, use app.localhost
+      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return `${protocol}//app.localhost${port}/`;
+      }
+      
+      // For production domains, remove www and add app prefix
+      const cleanHost = hostname.replace(/^www\./, '');
+      return `${protocol}//app.${cleanHost}${port}/`;
     } catch {
       return '/';
     }

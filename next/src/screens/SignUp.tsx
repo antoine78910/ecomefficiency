@@ -166,11 +166,20 @@ const SignUp = () => {
         setIsSocialLoading(false);
         return;
       }
-      // Build app subdomain URL, removing www if present
+      // Build app subdomain URL
       const protocol = window.location.protocol;
-      const host = window.location.hostname.replace(/^www\./, '');
+      const hostname = window.location.hostname;
       const port = window.location.port ? `:${window.location.port}` : '';
-      const appBase = host.startsWith('app.') ? `${protocol}//${host}${port}/` : `${protocol}//app.${host}${port}/`;
+      
+      let appBase;
+      if (hostname.startsWith('app.')) {
+        appBase = `${protocol}//${hostname}${port}/`;
+      } else if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        appBase = `${protocol}//app.localhost${port}/`;
+      } else {
+        const cleanHost = hostname.replace(/^www\./, '');
+        appBase = `${protocol}//app.${cleanHost}${port}/`;
+      }
       
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
