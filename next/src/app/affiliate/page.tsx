@@ -54,6 +54,23 @@ export default function AffiliatePage() {
 
   return (
     <div className="min-h-screen bg-black text-white flex flex-col">
+      {/* Top Banner */}
+      <div className="sticky top-16 z-40 bg-gradient-to-r from-purple-900 via-purple-600 to-purple-900 border-b border-purple-500/30">
+        <div className="max-w-7xl mx-auto px-6 py-3">
+          <div className="flex items-center justify-center gap-3 text-center">
+            <span className="text-2xl">💰</span>
+            <p className="text-white font-medium text-sm md:text-base">
+              <span className="font-bold">Earn 30% recurring commission</span> for every referral — no limits, no caps!
+            </p>
+            <a href="https://ecomefficiency.firstpromoter.com" target="_blank" rel="noreferrer noopener" className="hidden md:inline-flex">
+              <button className="px-4 py-1.5 bg-white text-purple-600 rounded-lg font-semibold text-sm hover:bg-gray-100 transition-colors">
+                Join Now →
+              </button>
+            </a>
+          </div>
+        </div>
+      </div>
+      
       <main className="flex-1">
       {/* Hero */}
       <section className="relative overflow-hidden">
