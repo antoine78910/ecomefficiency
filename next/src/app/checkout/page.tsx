@@ -89,6 +89,17 @@ function CheckoutContent() {
     let cancelled = false;
     (async () => {
       try {
+        // Track checkout view for A/B test
+        const urlParams = new URLSearchParams(window.location.search);
+        const abVariant = urlParams.get('ab_variant');
+        if (abVariant === 'custom' || abVariant === 'stripe') {
+          fetch('/api/ab-test/track', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ variant: 'custom', eventType: 'view' })
+          }).catch(console.error);
+        }
+
         // Get user info
         const { data } = await supabase.auth.getUser();
         const email = data.user?.email;
@@ -258,7 +269,7 @@ function CheckoutContent() {
                     <input 
                       type="text"
                       value={promoCode}
-                      onChange={(e) => setPromoCode(e.target.value.toUpperCase())}
+                      onChange={(e) => setPromoCode(e.target.value)}
                       onKeyDown={(e) => e.key === 'Enter' && handleApplyPromo()}
                       placeholder="Enter code"
                       disabled={!!appliedPromo}

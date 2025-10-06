@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
 
     // Apply promo code if provided
     if (couponCode) {
-      const code = couponCode.trim().toUpperCase();
+      const code = couponCode.trim();
       
       // Try to find promotion code first
       try {

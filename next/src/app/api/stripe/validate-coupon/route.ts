@@ -13,10 +13,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Coupon code is required' }, { status: 400 });
     }
 
-    const code = couponCode.trim().toUpperCase();
+    const code = couponCode.trim();
     console.log('[validate-coupon] Validating code:', code);
 
-    // Try promotion code first (newer Stripe API)
+    // Try promotion code first (newer Stripe API) - case sensitive
     try {
       const promoCodes = await stripe.promotionCodes.list({
         code: code,

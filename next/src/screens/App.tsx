@@ -754,11 +754,11 @@ function CredentialsPanel() {
         if (data?.url) window.location.href = data.url
       } else {
         // Use custom checkout with Stripe Elements
-        window.location.href = `/checkout?tier=${tier}&billing=${billing}&currency=${currency}`;
+        window.location.href = `/checkout?tier=${tier}&billing=${billing}&currency=${currency}&ab_variant=custom`;
       }
     } catch {
       // Fallback to custom checkout on error
-      window.location.href = `/checkout?tier=${tier}&billing=${billing}&currency=${currency}`;
+      window.location.href = `/checkout?tier=${tier}&billing=${billing}&currency=${currency}&ab_variant=custom`;
     }
   }
 
