@@ -812,7 +812,7 @@ function CredentialsPanel() {
               </div>
             </div>
           </div>
-        ) : creds && (plan === 'checking' || plan === 'starter' || plan === 'pro') && ((plan==='pro' && (creds.adspower_pro_email || creds.adspower_pro_password)) || (plan==='checking' && (creds.adspower_email || creds.adspower_starter_email || creds.adspower_pro_email)) || (plan==='starter' && (creds.adspower_email || creds.adspower_password || creds.adspower_starter_email || creds.adspower_starter_password))) ? (
+        ) : creds && plan !== 'inactive' && ((plan==='pro' && (creds.adspower_pro_email || creds.adspower_pro_password)) || (plan==='checking' && (creds.adspower_email || creds.adspower_starter_email || creds.adspower_pro_email)) || (plan==='starter' && (creds.adspower_email || creds.adspower_password || creds.adspower_starter_email || creds.adspower_starter_password))) ? (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <p className="text-xs text-gray-400 mb-1">Email</p>
