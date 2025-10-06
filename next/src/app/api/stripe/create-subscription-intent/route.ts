@@ -170,9 +170,14 @@ export async function POST(req: NextRequest) {
     console.log('[create-subscription-intent] Invoice ID:', invoiceId);
 
     // Get the invoice and its PaymentIntent (includes discount)
-    const invoice = typeof latestInvoice === 'object' ? latestInvoice : await stripe.invoices.retrieve(invoiceId, {
-      expand: ['payment_intent']
-    });
+    const invoice = typeof latestInvoice === 'object' && latestInvoice 
+      ? latestInvoice 
+      : await stripe.invoices.retrieve(invoiceId, { expand: ['payment_intent'] });
+    
+    if (!invoice) {
+      console.error('[create-subscription-intent] Failed to retrieve invoice');
+      return NextResponse.json({ error: "invoice_retrieval_failed" }, { status: 500 });
+    }
     
     console.log('[create-subscription-intent] Invoice details', {
       id: invoice.id,
