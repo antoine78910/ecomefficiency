@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
         save_default_payment_method: 'on_subscription',
         payment_method_types: ['card'],
       },
-      expand: ['latest_invoice'],
+      expand: ['latest_invoice', 'latest_invoice.payment_intent'],
       metadata: {
         ...(userId ? { userId } : {}),
         tier,
@@ -169,42 +169,39 @@ export async function POST(req: NextRequest) {
 
     console.log('[create-subscription-intent] Invoice ID:', invoiceId);
 
-    // CRITICAL: Manually create PaymentIntent for the invoice amount
-    // This is the ONLY reliable way to get a client_secret for subscriptions
-    const invoice = typeof latestInvoice === 'object' ? latestInvoice : await stripe.invoices.retrieve(invoiceId);
-    const amount = (invoice as any).amount_due || 0;
-
-    if (amount <= 0) {
-      console.error('[create-subscription-intent] Invoice has no amount');
-      return NextResponse.json({ error: "invalid_amount" }, { status: 500 });
-    }
-
-    // Create PaymentIntent manually
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount,
-      currency: currency.toLowerCase(),
-      customer: customer.id,
-      metadata: {
-        subscription_id: subscription.id,
-        invoice_id: invoiceId,
-        ...(userId ? { userId } : {}),
-        tier,
-        billing,
-      },
-      // Use automatic_payment_methods (requires HTTPS in production)
-      automatic_payment_methods: {
-        enabled: true,
-        allow_redirects: 'never', // Disable redirects for better UX
-      },
+    // Get the invoice and its PaymentIntent (includes discount)
+    const invoice = typeof latestInvoice === 'object' ? latestInvoice : await stripe.invoices.retrieve(invoiceId, {
+      expand: ['payment_intent']
+    });
+    
+    console.log('[create-subscription-intent] Invoice details', {
+      id: invoice.id,
+      amount_due: invoice.amount_due,
+      discount: invoice.discount,
+      total_discount_amounts: invoice.total_discount_amounts
     });
 
-    console.log('[create-subscription-intent] PaymentIntent created', {
+    // Use the PaymentIntent from the invoice (it has the correct amount with discount)
+    const paymentIntentData = (invoice as any).payment_intent;
+    
+    if (!paymentIntentData) {
+      console.error('[create-subscription-intent] No PaymentIntent on invoice');
+      return NextResponse.json({ error: "no_payment_intent" }, { status: 500 });
+    }
+
+    // If it's a string ID, retrieve the full object
+    const paymentIntent = typeof paymentIntentData === 'string'
+      ? await stripe.paymentIntents.retrieve(paymentIntentData)
+      : paymentIntentData;
+
+    console.log('[create-subscription-intent] PaymentIntent from invoice', {
       id: paymentIntent.id,
-      amount,
+      amount: paymentIntent.amount,
       hasSecret: !!paymentIntent.client_secret
     });
 
     if (!paymentIntent.client_secret) {
+      console.error('[create-subscription-intent] No client secret on PaymentIntent');
       return NextResponse.json({ error: "no_client_secret" }, { status: 500 });
     }
 

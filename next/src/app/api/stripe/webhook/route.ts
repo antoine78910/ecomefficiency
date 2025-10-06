@@ -79,6 +79,31 @@ export async function POST(req: NextRequest) {
         }
         break;
       }
+      case 'invoice.payment_succeeded': {
+        // Activate plan when payment succeeds
+        const invoice = (event as any).data?.object;
+        const subscriptionId = invoice?.subscription;
+        
+        if (subscriptionId) {
+          // Fetch subscription to get metadata
+          const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+          const clientRef = subscription?.metadata?.userId;
+          const customerId = subscription?.customer;
+          
+          if (clientRef && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL) {
+            console.log('[webhook] Payment succeeded, activating plan for user:', clientRef);
+            await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users/${clientRef}`, {
+              method: 'PUT',
+              headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+              },
+              body: JSON.stringify({ user_metadata: { plan: 'growth', stripe_customer_id: customerId } })
+            });
+          }
+        }
+        break;
+      }
       case 'customer.subscription.deleted': {
         // Downgrade user to free plan when subscription ends
         const subscription = (event as any).data?.object;
