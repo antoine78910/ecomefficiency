@@ -181,7 +181,7 @@ function CheckoutContent() {
     <div className="min-h-screen bg-black py-6 px-4">
       <div className="max-w-4xl mx-auto">
         <div className="text-center mb-5">
-          <img src="/ecomefficiency.png" alt="Ecom Efficiency" className="h-9 w-auto mx-auto mb-2" />
+          <img src="/ecomefficiency.png" alt="Ecom Efficiency" className="h-12 w-auto mx-auto mb-2" />
           <h1 className="text-xl font-bold text-white">Complete Your Subscription</h1>
         </div>
 
