@@ -495,7 +495,7 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
         </p>
         
         {/* Trust badges */}
-        <div className="flex items-center justify-center gap-4 pt-1 border-t border-white/10">
+        <div className="flex items-center justify-center gap-4 pt-2.5 border-t border-white/10">
           <div className="flex items-center gap-2 text-xs text-gray-400">
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M12 2L3 7V11C3 16.55 6.84 21.74 12 23C17.16 21.74 21 16.55 21 11V7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
