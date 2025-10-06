@@ -166,10 +166,16 @@ const SignUp = () => {
         setIsSocialLoading(false);
         return;
       }
+      // Build app subdomain URL, removing www if present
+      const protocol = window.location.protocol;
+      const host = window.location.hostname.replace(/^www\./, '');
+      const port = window.location.port ? `:${window.location.port}` : '';
+      const appBase = host.startsWith('app.') ? `${protocol}//${host}${port}/` : `${protocol}//app.${host}${port}/`;
+      
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/`
+          redirectTo: `${appBase}?just=1`
         }
       });
 

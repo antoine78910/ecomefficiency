@@ -25,8 +25,9 @@ const SignIn = () => {
       const protocol = window.location.protocol;
       const host = window.location.hostname.split(':')[0];
       const port = window.location.port ? `:${window.location.port}` : '';
-      // If already on app.* keep same host, else prefix with app.
-      const targetHost = host.startsWith('app.') ? host : `app.${host}`;
+      // Remove www. if present, then add app. prefix
+      const cleanHost = host.replace(/^www\./, '');
+      const targetHost = cleanHost.startsWith('app.') ? cleanHost : `app.${cleanHost}`;
       return `${protocol}//${targetHost}${port}/`;
     } catch {
       return '/';
