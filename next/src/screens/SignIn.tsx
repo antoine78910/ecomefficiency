@@ -189,7 +189,6 @@ const SignIn = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Social Login temporarily disabled (re-enable later)
             <div className="flex flex-col items-center space-y-3">
               <GoogleButton 
                 onClick={() => handleSocialSignIn('google')}
@@ -206,7 +205,6 @@ const SignIn = () => {
                 <span className="bg-gray-900 px-2 text-gray-400">Or</span>
               </div>
             </div>
-            */}
 
             <form onSubmit={handleSignIn} className="space-y-4">
               <div className="space-y-2">

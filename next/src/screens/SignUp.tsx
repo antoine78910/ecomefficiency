@@ -211,7 +211,6 @@ const SignUp = () => {
             </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Social Sign Up temporarily disabled (re-enable later)
             <div className="flex flex-col items-center space-y-3">
               <GoogleButton 
                 onClick={() => handleSocialSignUp('google')}
@@ -228,7 +227,6 @@ const SignUp = () => {
                 <span className="bg-gray-900 px-2 text-gray-400">Or</span>
               </div>
             </div>
-            */}
 
             <form onSubmit={handleSignUp} className="space-y-4">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
