@@ -822,11 +822,12 @@ function CredentialsPanel() {
           }
           
           // Show credentials if we have them (checking, starter, or pro)
-          const hasProCreds = (creds.adspower_pro_email || creds.adspower_pro_password);
-          const hasStarterCreds = (creds.adspower_email || creds.adspower_password || creds.adspower_starter_email || creds.adspower_starter_password);
-          const hasAnyCreds = (creds.adspower_email || creds.adspower_starter_email || creds.adspower_pro_email);
+          const hasProCreds = !!(creds.adspower_pro_email || creds.adspower_pro_password);
+          const hasStarterCreds = !!(creds.adspower_email || creds.adspower_password || creds.adspower_starter_email || creds.adspower_starter_password);
+          const hasAnyCreds = !!(creds.adspower_email || creds.adspower_starter_email || creds.adspower_pro_email);
           
-          if ((plan === 'pro' && hasProCreds) || (plan === 'starter' && hasStarterCreds) || (plan === 'checking' && hasAnyCreds)) {
+          const currentPlan = plan as string; // Type assertion to avoid flow narrowing issues
+          if ((currentPlan === 'pro' && hasProCreds) || (currentPlan === 'starter' && hasStarterCreds) || (currentPlan === 'checking' && hasAnyCreds)) {
             return (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
