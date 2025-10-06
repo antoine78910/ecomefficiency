@@ -108,7 +108,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Create subscription with payment required upfront
-    const subscriptionParams: Stripe.SubscriptionCreateParams = {
+    const subscriptionParams: any = {
       customer: customer.id,
       items: [{ price: priceId }],
       payment_behavior: 'default_incomplete',
