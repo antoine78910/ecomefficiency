@@ -110,7 +110,7 @@ const SignIn = () => {
           const rt = data.session?.refresh_token;
           const appBase = getAppBaseUrl();
           if (at && rt) {
-            window.location.href = `${appBase}#access_token=${encodeURIComponent(at)}&refresh_token=${encodeURIComponent(rt)}`;
+            window.location.href = `${appBase}#access_token=${encodeURIComponent(at)}&refresh_token=${encodeURIComponent(rt)}&just_signed_in=1`;
           } else {
             window.location.href = appBase;
           }
@@ -147,7 +147,7 @@ const SignIn = () => {
         provider,
         options: {
           // Redirect back to app root so it can exchange ?code=... and set session
-          redirectTo: appBase
+          redirectTo: `${appBase}?just=1`
         }
       });
 

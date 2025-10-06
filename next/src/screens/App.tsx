@@ -623,41 +623,56 @@ function CredentialsPanel() {
   const [userId, setUserId] = React.useState<string | null>(null)
   const [seoModalOpen, setSeoModalOpen] = React.useState(false)
   React.useEffect(() => {
+    let cancelled = false
     ;(async () => {
-      try {
-        const mod = await import("@/integrations/supabase/client")
-        const { data } = await mod.supabase.auth.getUser()
-        const user = data.user
-        const email = user?.email
-        setEmail(email || null)
-        setUserId(user?.id || null)
-        const meta = (user?.user_metadata as any) || {}
-        setCustomerId(meta.stripe_customer_id || null)
-        const res = await fetch('/api/stripe/verify', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', ...(email ? { 'x-user-email': email } : {}), ...(meta.stripe_customer_id ? { 'x-stripe-customer-id': meta.stripe_customer_id } : {}) },
-          body: JSON.stringify({ email })
-        })
-        const json = await res.json().catch(() => ({}))
-        if (json?.ok && json?.active) {
-          setPlan((json.plan === 'growth' || json.plan==='pro' ? 'pro' : 'starter'))
-          setBanner(null)
-        } else {
-          setPlan('inactive')
-          const st = json?.status as string | undefined
-          if (st && (st === 'past_due' || st === 'unpaid' || st === 'incomplete' || st === 'incomplete_expired')) {
-            setBanner('Payment incomplete or failed. Please resume your subscription to access features.')
-          } else {
-            setBanner('No active subscription. Go to Pricing to subscribe.')
+      const tryVerify = async () => {
+        try {
+          const mod = await import("@/integrations/supabase/client")
+          const { data } = await mod.supabase.auth.getUser()
+          const user = data.user
+          const email = user?.email
+          setEmail(email || null)
+          setUserId(user?.id || null)
+          const meta = (user?.user_metadata as any) || {}
+          setCustomerId(meta.stripe_customer_id || null)
+          const res = await fetch('/api/stripe/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', ...(email ? { 'x-user-email': email } : {}), ...(meta.stripe_customer_id ? { 'x-stripe-customer-id': meta.stripe_customer_id } : {}) },
+            body: JSON.stringify({ email })
+          })
+          const json = await res.json().catch(() => ({}))
+          if (json?.ok && json?.active) {
+            setPlan((json.plan === 'growth' || json.plan==='pro' ? 'pro' : 'starter'))
+            setBanner(null)
+            return true
           }
-          setShowBilling(true)
-        }
-      } catch {
+        } catch {}
+        return false
+      }
+
+      // If we just signed in, be patient and retry more times before showing billing
+      let justSignedIn = false
+      try {
+        const h = (typeof window !== 'undefined' ? window.location.hash : '') || ''
+        const s = (typeof window !== 'undefined' ? new URL(window.location.href).searchParams : null)
+        justSignedIn = (/just_signed_in=1/.test(h) || (s && s.get('just') === '1')) || false
+      } catch {}
+
+      const maxAttempts = justSignedIn ? 10 : 3
+      const delayMs = justSignedIn ? 1200 : 800
+      for (let i = 0; i < maxAttempts && !cancelled; i++) {
+        const ok = await tryVerify()
+        if (ok) return
+        await new Promise(r => setTimeout(r, delayMs))
+      }
+
+      if (!cancelled) {
         setPlan('inactive')
-        setBanner('Unable to verify your subscription at the moment.')
+        setBanner('No active subscription. Go to Pricing to subscribe.')
         setShowBilling(true)
       }
     })()
+    return () => { cancelled = true }
   }, [])
 
   const openPortal = async () => {
