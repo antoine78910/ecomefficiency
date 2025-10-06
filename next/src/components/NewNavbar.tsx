@@ -48,7 +48,6 @@ const NewNavbar = () => {
           {/* Navigation Links */}
           <div className="hidden md:flex items-center justify-center space-x-8">
             <Link href="/tools" className="text-gray-400 hover:text-white transition-colors">Tools</Link>
-            <Link href="/blog" className="text-gray-400 hover:text-white transition-colors">Blog</Link>
             <Link href="/affiliate" className="text-gray-400 hover:text-white transition-colors">Affiliate</Link>
             <button 
               onClick={handlePricingClick}
@@ -109,7 +108,6 @@ const NewNavbar = () => {
         {menuOpen && (
           <div className="md:hidden absolute right-0 top-14 w-56 bg-[#0d0e12] border border-white/10 rounded-lg shadow-xl z-[60]">
             <Link href="/tools" className="block px-4 py-3 text-base text-white hover:bg-white/10">Tools</Link>
-            <Link href="/blog" className="block px-4 py-3 text-base text-white hover:bg-white/10">Blog</Link>
             <Link href="/affiliate" className="block px-4 py-3 text-base text-white hover:bg-white/10">Affiliate</Link>
             <button onClick={handlePricingClick} className="w-full text-left px-4 py-3 text-base text-white hover:bg-white/10 cursor-pointer">Pricing</button>
             <button onClick={handleDiscordClick} className="w-full text-left px-4 py-3 text-base text-white hover:bg-white/10 cursor-pointer">Join Community</button>
