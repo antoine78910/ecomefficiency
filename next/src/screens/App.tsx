@@ -828,24 +828,49 @@ function CredentialsPanel() {
           
           const currentPlan = plan as string; // Type assertion to avoid flow narrowing issues
           if ((currentPlan === 'pro' && hasProCreds) || (currentPlan === 'starter' && hasStarterCreds) || (currentPlan === 'checking' && hasAnyCreds)) {
+            // Compute values once to avoid repeated type checks in JSX
+            const displayEmail = currentPlan === 'pro' 
+              ? (creds.adspower_pro_email || '') 
+              : currentPlan === 'checking' 
+                ? (creds.adspower_starter_email || creds.adspower_email || creds.adspower_pro_email || '') 
+                : (creds.adspower_email || creds.adspower_starter_email || '');
+                
+            const displayPassword = currentPlan === 'pro'
+              ? (creds.adspower_pro_password || '')
+              : currentPlan === 'checking'
+                ? (creds.adspower_starter_password || creds.adspower_password || creds.adspower_pro_password || '')
+                : (creds.adspower_password || creds.adspower_starter_password || '');
+                
+            const emailValue = currentPlan === 'pro'
+              ? creds.adspower_pro_email
+              : currentPlan === 'checking'
+                ? (creds.adspower_starter_email || creds.adspower_email || creds.adspower_pro_email)
+                : (creds.adspower_email || creds.adspower_starter_email);
+                
+            const passwordValue = currentPlan === 'pro'
+              ? creds.adspower_pro_password
+              : currentPlan === 'checking'
+                ? (creds.adspower_starter_password || creds.adspower_password || creds.adspower_pro_password)
+                : (creds.adspower_password || creds.adspower_starter_password);
+            
             return (
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <p className="text-xs text-gray-400 mb-1">Email</p>
               <div className="group flex items-center gap-2">
                 <span className={`break-all text-white filter blur-sm transition ease-out duration-300 hover:blur-none group-hover:blur-none select-none`}>
-                  {plan==='pro' ? (creds.adspower_pro_email || '') : (plan==='checking' ? (creds.adspower_starter_email || creds.adspower_email || creds.adspower_pro_email || '') : (creds.adspower_email || creds.adspower_starter_email || ''))}
+                  {displayEmail}
                 </span>
-                <CopyButton value={(plan==='pro' ? creds.adspower_pro_email : (plan==='checking' ? (creds.adspower_starter_email || creds.adspower_email || creds.adspower_pro_email) : (creds.adspower_email || creds.adspower_starter_email)))} label="Copy email" />
+                <CopyButton value={emailValue} label="Copy email" />
               </div>
             </div>
             <div>
               <p className="text-xs text-gray-400 mb-1">Password</p>
               <div className="group flex items-center gap-2">
                 <span className={`break-all text-white filter blur-sm transition ease-out duration-300 hover:blur-none group-hover:blur-none select-none`}>
-                  {plan==='pro' ? (creds.adspower_pro_password || '') : (plan==='checking' ? (creds.adspower_starter_password || creds.adspower_password || creds.adspower_pro_password || '') : (creds.adspower_password || creds.adspower_starter_password || ''))}
+                  {displayPassword}
                 </span>
-                <CopyButton value={(plan==='pro' ? creds.adspower_pro_password : (plan==='checking' ? (creds.adspower_starter_password || creds.adspower_password || creds.adspower_pro_password) : (creds.adspower_password || creds.adspower_starter_password)))} label="Copy password" />
+                <CopyButton value={passwordValue} label="Copy password" />
               </div>
             </div>
             <p className="text-xs text-gray-500 md:col-span-2">Last update: {creds?.updatedAt ? new Date(creds.updatedAt).toLocaleString() : '—'}</p>
