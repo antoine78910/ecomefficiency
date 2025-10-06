@@ -89,16 +89,31 @@ export async function POST(req: NextRequest) {
           const subscription = await stripe.subscriptions.retrieve(subscriptionId);
           const clientRef = subscription?.metadata?.userId;
           const customerId = subscription?.customer;
+          const tier = subscription?.metadata?.tier; // 'starter' or 'pro'
           
           if (clientRef && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL) {
-            console.log('[webhook] Payment succeeded, activating plan for user:', clientRef);
+            // Map tier to plan (starter stays starter, pro becomes growth)
+            const plan = tier === 'starter' ? 'starter' : 'growth';
+            
+            console.log('[webhook] Payment succeeded, activating plan for user:', {
+              userId: clientRef,
+              tier,
+              plan
+            });
+            
             await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users/${clientRef}`, {
               method: 'PUT',
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
               },
-              body: JSON.stringify({ user_metadata: { plan: 'growth', stripe_customer_id: customerId } })
+              body: JSON.stringify({ 
+                user_metadata: { 
+                  plan, 
+                  stripe_customer_id: customerId,
+                  tier 
+                } 
+              })
             });
           }
         }

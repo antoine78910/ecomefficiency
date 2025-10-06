@@ -33,8 +33,37 @@ export async function POST(req: NextRequest) {
     }
 
     const status = latest.status; // active, trialing, past_due, unpaid, canceled, incomplete...
-    // Only allow access for truly active subscriptions - block incomplete, past_due, unpaid, etc.
-    const active = status === "active" || status === "trialing";
+    
+    // Check if subscription is paid even if status is incomplete
+    let active = status === "active" || status === "trialing";
+    
+    // Special case: incomplete subscription but invoice is paid
+    if (!active && status === "incomplete") {
+      try {
+        const latestInvoiceId = typeof latest.latest_invoice === 'string' 
+          ? latest.latest_invoice 
+          : (latest.latest_invoice as any)?.id;
+        
+        if (latestInvoiceId) {
+          const invoice = await stripe.invoices.retrieve(latestInvoiceId);
+          console.log('[VERIFY] Incomplete subscription - checking invoice', {
+            invoiceId: invoice.id,
+            status: invoice.status,
+            paid: invoice.paid,
+            amount_paid: invoice.amount_paid,
+            amount_due: invoice.amount_due
+          });
+          
+          // If invoice is paid, treat subscription as active
+          if (invoice.paid || invoice.status === 'paid') {
+            active = true;
+            console.log('[VERIFY] Invoice is paid - activating subscription access');
+          }
+        }
+      } catch (e) {
+        console.error('[VERIFY] Error checking invoice:', e);
+      }
+    }
 
     // Map price IDs to plan name; with robust fallbacks
     const price = latest.items.data[0]?.price as Stripe.Price | undefined;
