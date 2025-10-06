@@ -26,13 +26,17 @@ export default function AccountPage() {
     }
     setSavingEmail(true);
     try {
-      const redirect = `${window.location.origin}/account/confirm-email-change?new=${encodeURIComponent(newEmail)}`
-      const { error } = await supabase.auth.signInWithOtp({
-        email: currentEmail,
-        options: { emailRedirectTo: redirect }
-      })
+      // Use updateUser to trigger the proper email change flow
+      // Supabase will send confirmation emails to BOTH old and new addresses
+      const { error } = await supabase.auth.updateUser(
+        { email: newEmail },
+        {
+          emailRedirectTo: `${window.location.origin}/account`
+        }
+      )
       if (error) throw error;
-      try { toast({ title: "Verification sent", description: `We sent a confirmation link to ${currentEmail}.` }); } catch {}
+      try { toast({ title: "Verification sent", description: `We sent confirmation links to both ${currentEmail} and ${newEmail}. Please check both inboxes.` }); } catch {}
+      setNewEmail('');
     } catch (e: any) {
       try { toast({ title: "Email change failed", description: String(e?.message || 'Please try again.') }); } catch {}
     } finally {
