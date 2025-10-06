@@ -175,17 +175,14 @@ function CheckoutContent() {
 
   return (
     <div className="min-h-screen bg-black py-6 px-4">
-      <div className="max-w-6xl mx-auto">
-        <div className="grid md:grid-cols-[280px_1fr] gap-8 items-start">
-          {/* Left: Logo + Title */}
-          <div className="text-center md:text-left md:sticky md:top-6">
-            <img src="/ecomefficiency.png" alt="Ecom Efficiency" className="h-16 w-auto mx-auto md:mx-0 mb-4" />
-            <h1 className="text-2xl font-bold text-white mb-1">Complete Your Subscription</h1>
-            <p className="text-sm text-gray-400">Secure checkout powered by Stripe</p>
-          </div>
+      <div className="max-w-4xl mx-auto">
+        <div className="text-center mb-6">
+          <img src="/ecomefficiency.png" alt="Ecom Efficiency" className="h-10 w-auto mx-auto mb-3" />
+          <h1 className="text-2xl font-bold text-white mb-1">Complete Your Subscription</h1>
+          <p className="text-sm text-gray-400">Secure checkout powered by Stripe</p>
+        </div>
 
-          {/* Right: Forms */}
-          <div className="grid md:grid-cols-2 gap-4">
+        <div className="grid md:grid-cols-2 gap-4">
           {/* Order Summary */}
           <div className="bg-gray-900/50 border border-purple-500/20 rounded-2xl p-4">
             <h2 className="text-white font-semibold text-base mb-3">Order Summary</h2>
@@ -361,7 +358,6 @@ function CheckoutContent() {
               />
             </Elements>
           </div>
-          </div>
         </div>
       </div>
     </div>
@@ -423,11 +419,11 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
   };
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form onSubmit={handleSubmit} className="space-y-4">
       <PaymentElement />
       
       {message && (
-        <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/30 rounded-lg p-3">
+        <div className="text-xs text-red-300 bg-red-500/10 border border-red-500/30 rounded-lg p-2">
           {message}
         </div>
       )}
@@ -435,7 +431,7 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
       <button
         type="submit"
         disabled={!stripe || isProcessing}
-        className="w-full bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-4 rounded-xl border border-[#9541e0] shadow-[0_4px_24px_rgba(149,65,224,0.45)] transition-all"
+        className="w-full bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl border border-[#9541e0] shadow-[0_4px_24px_rgba(149,65,224,0.45)] transition-all"
       >
         {isProcessing ? (
           <span className="flex items-center justify-center gap-2">
@@ -447,13 +443,13 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
         )}
       </button>
 
-      <div className="space-y-3">
+      <div className="space-y-2">
         <p className="text-xs text-gray-500 text-center">
           By subscribing, you agree to our Terms of Service. Cancel anytime.
         </p>
         
         {/* Trust badges */}
-        <div className="flex items-center justify-center gap-4 pt-2 border-t border-white/10">
+        <div className="flex items-center justify-center gap-4 pt-1 border-t border-white/10">
           <div className="flex items-center gap-2 text-xs text-gray-400">
             <svg className="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
               <path d="M12 2L3 7V11C3 16.55 6.84 21.74 12 23C17.16 21.74 21 16.55 21 11V7L12 2Z" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
