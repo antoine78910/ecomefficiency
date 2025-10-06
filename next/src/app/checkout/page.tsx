@@ -147,7 +147,25 @@ function CheckoutContent() {
     pro: { monthly: 29.99, yearly: 17.99 }
   };
 
-  const price = prices[tier][billing];
+  const basePrice = prices[tier][billing];
+  
+  // Calculate discounted price if promo is applied
+  const getDiscountedPrice = () => {
+    if (!appliedPromo) return basePrice;
+    
+    if (appliedPromo.percent_off) {
+      return basePrice * (1 - appliedPromo.percent_off / 100);
+    }
+    
+    if (appliedPromo.amount_off) {
+      const discountInCurrency = currency === 'EUR' ? appliedPromo.amount_off / 100 : appliedPromo.amount_off / 100;
+      return Math.max(0, basePrice - discountInCurrency);
+    }
+    
+    return basePrice;
+  };
+  
+  const price = getDiscountedPrice();
 
   if (error) {
     return (
@@ -193,7 +211,14 @@ function CheckoutContent() {
             <div className="mb-3">
               <div className="flex items-center justify-between mb-1">
                 <span className="text-gray-300 capitalize text-sm">{tier} Plan</span>
-                <span className="text-white font-semibold text-sm">{formatPrice(price, currency)}/mo</span>
+                <div className="text-right">
+                  {appliedPromo && (
+                    <div className="text-xs text-gray-500 line-through">
+                      {formatPrice(basePrice, currency)}/mo
+                    </div>
+                  )}
+                  <span className="text-white font-semibold text-sm">{formatPrice(price, currency)}/mo</span>
+                </div>
               </div>
               <div className="text-xs text-gray-500">
                 {billing === 'yearly' ? 'Billed annually (save 40%)' : 'Billed monthly'}
@@ -265,6 +290,12 @@ function CheckoutContent() {
             </div>
 
             <div className="border-t border-white/10 pt-3 mb-4">
+              {appliedPromo && (
+                <div className="flex items-center justify-between mb-2 text-green-400 text-sm">
+                  <span>Discount ({appliedPromo.percent_off}% off)</span>
+                  <span>-{formatPrice(basePrice - price, currency)}</span>
+                </div>
+              )}
               {billing === 'yearly' ? (
                 <>
                   <div className="flex items-center justify-between mb-1">
