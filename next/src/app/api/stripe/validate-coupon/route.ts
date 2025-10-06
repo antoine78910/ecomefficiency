@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2024-12-18.acacia'
+  apiVersion: '2025-07-30.basil' as any
 });
 
 export async function POST(req: NextRequest) {
@@ -13,9 +13,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Coupon code is required' }, { status: 400 });
     }
 
+    console.log('[validate-coupon] Validating coupon:', couponCode);
+
     // Validate coupon with Stripe
     try {
       const coupon = await stripe.coupons.retrieve(couponCode.trim().toUpperCase());
+      
+      console.log('[validate-coupon] Coupon found:', {
+        id: coupon.id,
+        valid: coupon.valid,
+        percent_off: coupon.percent_off,
+        amount_off: coupon.amount_off
+      });
 
       // Check if coupon is valid
       if (!coupon.valid) {
@@ -46,10 +55,14 @@ export async function POST(req: NextRequest) {
       });
 
     } catch (stripeError: any) {
+      console.error('[validate-coupon] Stripe error:', stripeError.code, stripeError.message);
       if (stripeError.code === 'resource_missing') {
         return NextResponse.json({ error: 'Invalid promo code' }, { status: 400 });
       }
-      throw stripeError;
+      return NextResponse.json({ 
+        error: 'Coupon validation failed', 
+        details: stripeError.message 
+      }, { status: 400 });
     }
 
   } catch (error: any) {

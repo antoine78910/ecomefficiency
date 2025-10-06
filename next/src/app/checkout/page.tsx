@@ -179,10 +179,7 @@ function CheckoutContent() {
         <div className="text-center mb-8">
           <img src="/ecomefficiency.png" alt="Ecom Efficiency" className="h-12 w-auto mx-auto mb-4" />
           <h1 className="text-3xl font-bold text-white mb-2">Complete Your Subscription</h1>
-          <p className="text-gray-400 mb-1">Secure checkout powered by Stripe</p>
-          {userEmail && (
-            <p className="text-xs text-gray-500">Logged in as <span className="text-gray-400">{userEmail}</span></p>
-          )}
+          <p className="text-gray-400">Secure checkout powered by Stripe</p>
         </div>
 
         <div className="grid md:grid-cols-2 gap-6">
@@ -325,6 +322,13 @@ function CheckoutContent() {
 
           {/* Payment Form */}
           <div className="bg-gray-900/50 border border-purple-500/20 rounded-2xl p-6">
+            {userEmail && (
+              <div className="mb-4 pb-4 border-b border-white/10">
+                <p className="text-sm text-gray-400">Logged in as</p>
+                <p className="text-base text-white font-medium">{userEmail}</p>
+              </div>
+            )}
+            
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-white font-semibold text-lg">Payment Details</h2>
               <div className="flex items-center gap-2 text-xs text-gray-400">
