@@ -65,19 +65,19 @@ export default function AffiliatePage() {
           maskImage: "linear-gradient(to bottom, white 0%, white 72%, transparent 100%)",
           WebkitMaskImage: "linear-gradient(to bottom, white 0%, white 72%, transparent 100%)",
         }} />
-        <div className="max-w-6xl mx-auto px-6 py-16 md:py-24">
+        <div className="max-w-6xl mx-auto px-6 py-12 md:py-16">
           <div className="text-center max-w-3xl mx-auto">
-            <div className="inline-flex items-center px-3 py-1.5 rounded-full bg-purple-500/20 border border-purple-500/30 mb-5">
-              <span className="text-purple-300 text-sm font-medium">Share EcomEfficiency</span>
+            <div className="inline-flex items-center px-3 py-1.5 rounded-full bg-purple-500/20 border border-purple-500/30 mb-4">
+              <span className="text-purple-300 text-xs">Share EcomEfficiency</span>
             </div>
-            <h1 className="text-4xl md:text-6xl font-bold font-sans mb-5 leading-tight">
+            <h1 className="text-3xl md:text-5xl font-bold font-sans mb-3 leading-tight">
               Earn <span className="text-purple-300">30% for life</span> on every subscription
             </h1>
-            <p className="text-gray-300 text-base md:text-lg mb-6">
+            <p className="text-gray-300 text-sm md:text-base mb-5">
               One link and reduction code. No limits. Automated monthly income.
             </p>
             <a href="https://ecomefficiency.firstpromoter.com" target="_blank" rel="noreferrer noopener">
-              <button className="cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_32px_0_rgba(149,65,224,0.70)] px-7 py-3.5 rounded-xl border-[1px] border-[#9541e0] text-white font-medium text-base group w-[240px] h-[54px] mx-auto hover:brightness-110 transition-all">
+              <button className="cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_32px_0_rgba(149,65,224,0.70)] px-6 py-3 rounded-xl border-[1px] border-[#9541e0] text-white font-medium group w-[220px] h-[48px] mx-auto">
                 <div className="relative overflow-hidden">
                   <p className="group-hover:-translate-y-7 duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)]">Become an affiliate</p>
                   <p className="absolute top-7 left-0 group-hover:top-0 duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)]">Become an affiliate</p>
