@@ -20,6 +20,19 @@ const SignIn = () => {
   const { toast } = useToast();
   const { trackSession } = useSessionTracking();
 
+  const getAppBaseUrl = () => {
+    try {
+      const protocol = window.location.protocol;
+      const host = window.location.hostname.split(':')[0];
+      const port = window.location.port ? `:${window.location.port}` : '';
+      // If already on app.* keep same host, else prefix with app.
+      const targetHost = host.startsWith('app.') ? host : `app.${host}`;
+      return `${protocol}//${targetHost}${port}/`;
+    } catch {
+      return '/';
+    }
+  };
+
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
@@ -91,12 +104,18 @@ const SignIn = () => {
         } catch {}
 
         toast({ title: "Sign in successful!", description: "Welcome to Ecom Efficiency" });
-        // Default: send to app root on current base domain (no /app path)
-        const baseHost = window.location.hostname.split(':')[0];
-        if (!baseHost.startsWith('app.')) {
-          window.location.href = `http://app.${baseHost}:5000/`;
-        } else {
-          window.location.href = '/';
+        // Redirect to app subdomain with session tokens in hash so App can set session
+        try {
+          const at = data.session?.access_token;
+          const rt = data.session?.refresh_token;
+          const appBase = getAppBaseUrl();
+          if (at && rt) {
+            window.location.href = `${appBase}#access_token=${encodeURIComponent(at)}&refresh_token=${encodeURIComponent(rt)}`;
+          } else {
+            window.location.href = appBase;
+          }
+        } catch {
+          window.location.href = getAppBaseUrl();
         }
       }
     } catch (error: any) {
@@ -123,10 +142,12 @@ const SignIn = () => {
         setIsSocialLoading(false);
         return;
       }
+      const appBase = getAppBaseUrl();
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${window.location.origin}/`
+          // Redirect back to app root so it can exchange ?code=... and set session
+          redirectTo: appBase
         }
       });
 
