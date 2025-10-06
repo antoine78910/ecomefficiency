@@ -174,23 +174,26 @@ function CheckoutContent() {
   }
 
   return (
-    <div className="min-h-screen bg-black py-12 px-4">
-      <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-8">
-          <img src="/ecomefficiency.png" alt="Ecom Efficiency" className="h-12 w-auto mx-auto mb-4" />
-          <h1 className="text-3xl font-bold text-white mb-2">Complete Your Subscription</h1>
-          <p className="text-gray-400">Secure checkout powered by Stripe</p>
-        </div>
+    <div className="min-h-screen bg-black py-6 px-4">
+      <div className="max-w-6xl mx-auto">
+        <div className="grid md:grid-cols-[280px_1fr] gap-8 items-start">
+          {/* Left: Logo + Title */}
+          <div className="text-center md:text-left md:sticky md:top-6">
+            <img src="/ecomefficiency.png" alt="Ecom Efficiency" className="h-16 w-auto mx-auto md:mx-0 mb-4" />
+            <h1 className="text-2xl font-bold text-white mb-1">Complete Your Subscription</h1>
+            <p className="text-sm text-gray-400">Secure checkout powered by Stripe</p>
+          </div>
 
-        <div className="grid md:grid-cols-2 gap-6">
+          {/* Right: Forms */}
+          <div className="grid md:grid-cols-2 gap-4">
           {/* Order Summary */}
-          <div className="bg-gray-900/50 border border-purple-500/20 rounded-2xl p-6">
-            <h2 className="text-white font-semibold text-lg mb-4">Order Summary</h2>
+          <div className="bg-gray-900/50 border border-purple-500/20 rounded-2xl p-4">
+            <h2 className="text-white font-semibold text-base mb-3">Order Summary</h2>
             
-            <div className="mb-6">
-              <div className="flex items-center justify-between mb-2">
-                <span className="text-gray-300 capitalize">{tier} Plan</span>
-                <span className="text-white font-semibold">{formatPrice(price, currency)}/mo</span>
+            <div className="mb-3">
+              <div className="flex items-center justify-between mb-1">
+                <span className="text-gray-300 capitalize text-sm">{tier} Plan</span>
+                <span className="text-white font-semibold text-sm">{formatPrice(price, currency)}/mo</span>
               </div>
               <div className="text-xs text-gray-500">
                 {billing === 'yearly' ? 'Billed annually (save 40%)' : 'Billed monthly'}
@@ -259,7 +262,7 @@ function CheckoutContent() {
               )}
             </div>
 
-            <div className="border-t border-white/10 pt-4 mb-6">
+            <div className="border-t border-white/10 pt-3 mb-4">
               {billing === 'yearly' ? (
                 <>
                   <div className="flex items-center justify-between mb-1">
@@ -280,34 +283,34 @@ function CheckoutContent() {
               )}
             </div>
 
-            <div className="space-y-2">
-              <p className="text-sm text-gray-300 font-medium mb-3">What's included:</p>
+            <div className="space-y-1.5">
+              <p className="text-xs text-gray-400 font-medium mb-2">What's included:</p>
               {tier === 'starter' ? (
                 <>
-                  <div className="flex items-start gap-2 text-sm text-gray-300">
+                  <div className="flex items-start gap-2 text-xs text-gray-300">
                     <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
                     <span>Access to 40+ premium tools</span>
                   </div>
-                  <div className="flex items-start gap-2 text-sm text-gray-300">
+                  <div className="flex items-start gap-2 text-xs text-gray-300">
                     <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
                     <span>ChatGPT, Midjourney, Helium10, and more</span>
                   </div>
-                  <div className="flex items-start gap-2 text-sm text-gray-300">
+                  <div className="flex items-start gap-2 text-xs text-gray-300">
                     <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
                     <span>+30 SEO tools included</span>
                   </div>
                 </>
               ) : (
                 <>
-                  <div className="flex items-start gap-2 text-sm text-gray-300">
+                  <div className="flex items-start gap-2 text-xs text-gray-300">
                     <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
                     <span>Everything in Starter, plus:</span>
                   </div>
-                  <div className="flex items-start gap-2 text-sm text-gray-300">
+                  <div className="flex items-start gap-2 text-xs text-gray-300">
                     <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
                     <span>Pipiads, Runway, Heygen, ElevenLabs</span>
                   </div>
-                  <div className="flex items-start gap-2 text-sm text-gray-300">
+                  <div className="flex items-start gap-2 text-xs text-gray-300">
                     <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
                     <span>Access to 50+ premium tools</span>
                   </div>
@@ -321,16 +324,16 @@ function CheckoutContent() {
           </div>
 
           {/* Payment Form */}
-          <div className="bg-gray-900/50 border border-purple-500/20 rounded-2xl p-6">
+          <div className="bg-gray-900/50 border border-purple-500/20 rounded-2xl p-4">
             {userEmail && (
-              <div className="mb-4 pb-4 border-b border-white/10">
-                <p className="text-sm text-gray-400">Logged in as</p>
-                <p className="text-base text-white font-medium">{userEmail}</p>
+              <div className="mb-3 pb-3 border-b border-white/10">
+                <p className="text-xs text-gray-400">Logged in as</p>
+                <p className="text-sm text-white font-medium">{userEmail}</p>
               </div>
             )}
             
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-white font-semibold text-lg">Payment Details</h2>
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-white font-semibold text-base">Payment Details</h2>
               <div className="flex items-center gap-2 text-xs text-gray-400">
                 <svg className="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>

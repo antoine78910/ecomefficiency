@@ -124,10 +124,31 @@ export async function POST(req: NextRequest) {
       },
     };
 
-    // Apply coupon if provided
+    // Apply promo code if provided
     if (couponCode) {
-      subscriptionParams.coupon = couponCode.trim().toUpperCase();
-      console.log('[create-subscription-intent] Applying coupon:', couponCode);
+      const code = couponCode.trim().toUpperCase();
+      
+      // Try to find promotion code first
+      try {
+        const promoCodes = await stripe.promotionCodes.list({
+          code: code,
+          active: true,
+          limit: 1
+        });
+
+        if (promoCodes.data.length > 0) {
+          subscriptionParams.promotion_code = promoCodes.data[0].id;
+          console.log('[create-subscription-intent] Applying promotion code:', promoCodes.data[0].id);
+        } else {
+          // Fallback to coupon
+          subscriptionParams.coupon = code;
+          console.log('[create-subscription-intent] Applying coupon:', code);
+        }
+      } catch (e) {
+        // Fallback to coupon
+        subscriptionParams.coupon = code;
+        console.log('[create-subscription-intent] Applying coupon (fallback):', code);
+      }
     }
 
     const subscription = await stripe.subscriptions.create(subscriptionParams);

@@ -13,11 +13,63 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Coupon code is required' }, { status: 400 });
     }
 
-    console.log('[validate-coupon] Validating coupon:', couponCode);
+    const code = couponCode.trim().toUpperCase();
+    console.log('[validate-coupon] Validating code:', code);
 
-    // Validate coupon with Stripe
+    // Try promotion code first (newer Stripe API)
     try {
-      const coupon = await stripe.coupons.retrieve(couponCode.trim().toUpperCase());
+      const promoCodes = await stripe.promotionCodes.list({
+        code: code,
+        active: true,
+        limit: 1
+      });
+
+      if (promoCodes.data.length > 0) {
+        const promoCode = promoCodes.data[0];
+        const coupon = promoCode.coupon;
+        
+        console.log('[validate-coupon] Promotion code found:', {
+          id: promoCode.id,
+          code: promoCode.code,
+          active: promoCode.active,
+          percent_off: coupon.percent_off,
+          amount_off: coupon.amount_off
+        });
+
+        if (!promoCode.active) {
+          return NextResponse.json({ error: 'This promo code is no longer active' }, { status: 400 });
+        }
+
+        // Check expiration
+        if (promoCode.expires_at && promoCode.expires_at < Math.floor(Date.now() / 1000)) {
+          return NextResponse.json({ error: 'This promo code has expired' }, { status: 400 });
+        }
+
+        // Check max redemptions
+        if (promoCode.max_redemptions && promoCode.times_redeemed >= promoCode.max_redemptions) {
+          return NextResponse.json({ error: 'This promo code has been fully redeemed' }, { status: 400 });
+        }
+
+        return NextResponse.json({
+          coupon: {
+            id: coupon.id,
+            code: promoCode.code,
+            name: coupon.name,
+            percent_off: coupon.percent_off,
+            amount_off: coupon.amount_off,
+            currency: coupon.currency,
+            duration: coupon.duration,
+            duration_in_months: coupon.duration_in_months,
+          }
+        });
+      }
+    } catch (promoError: any) {
+      console.log('[validate-coupon] No promotion code found, trying coupon...', promoError.message);
+    }
+
+    // Fallback to direct coupon lookup
+    try {
+      const coupon = await stripe.coupons.retrieve(code);
       
       console.log('[validate-coupon] Coupon found:', {
         id: coupon.id,
