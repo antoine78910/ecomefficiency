@@ -35,8 +35,27 @@ export default function AuthHashRedirector() {
     }
     
     if (/access_token=|refresh_token=/.test(hash)) {
-      // Do not force redirect to /app anymore; keep user on current path
-      // Supabase client will parse the hash from the URL as-is.
+      // If we have auth tokens in hash but NOT on app subdomain, redirect to app
+      const hostname = window.location.hostname;
+      
+      if (hostname.startsWith('app.')) {
+        // Already on app subdomain, let Supabase client parse the hash
+        return;
+      }
+      
+      // Redirect to app subdomain with the tokens
+      const protocol = window.location.protocol;
+      const port = window.location.port ? `:${window.location.port}` : '';
+      
+      let appUrl;
+      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        appUrl = `${protocol}//app.localhost${port}/`;
+      } else {
+        const cleanHost = hostname.replace(/^www\./, '');
+        appUrl = `${protocol}//app.${cleanHost}${port}/`;
+      }
+      
+      window.location.href = `${appUrl}${hash}`;
     }
   }, []);
   return null;

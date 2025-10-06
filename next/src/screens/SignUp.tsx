@@ -51,34 +51,12 @@ const SignUp = () => {
         return;
       }
 
-      // Compute app origin (subdomain) for email verification redirect
-      const getAppRedirect = () => {
-        try {
-          const protocol = window.location.protocol;
-          const hostname = window.location.hostname;
-          const port = window.location.port ? `:${window.location.port}` : '';
-          
-          if (hostname.startsWith('app.')) {
-            return `${protocol}//${hostname}${port}/`;
-          }
-          
-          if (hostname === 'localhost' || hostname === '127.0.0.1') {
-            return `${protocol}//app.localhost${port}/`;
-          }
-          
-          const cleanHost = hostname.replace(/^www\./, '');
-          return `${protocol}//app.${cleanHost}${port}/`;
-        } catch {
-          return window.location.origin + '/';
-        }
-      };
-
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          // After email verification, open the app subdomain directly
-          emailRedirectTo: getAppRedirect(),
+          // Don't specify emailRedirectTo - let Supabase use its default Site URL
+          // We'll handle the redirect client-side after email verification
           data: { first_name: firstName, last_name: lastName, plan: 'free' }
         }
       });
