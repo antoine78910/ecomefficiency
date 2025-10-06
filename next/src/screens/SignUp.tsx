@@ -51,29 +51,34 @@ const SignUp = () => {
         return;
       }
 
-      // Compute app origin (subdomain) for redirects
-      const appOrigin = (process.env.NEXT_PUBLIC_APP_ORIGIN && typeof window !== 'undefined')
-        ? process.env.NEXT_PUBLIC_APP_ORIGIN
-        : (typeof window !== 'undefined' ? (() => {
-            try {
-              const url = new URL(window.location.href);
-              const host = url.hostname;
-              if (host.startsWith('app.')) return `${url.protocol}//${host}${url.port ? ':'+url.port : ''}`;
-              const parts = host.split('.');
-              if (parts.length >= 2) {
-                const root = parts.slice(-2).join('.');
-                return `${url.protocol}//app.${root}`;
-              }
-              return window.location.origin;
-            } catch { return (typeof window !== 'undefined' ? window.location.origin : ''); }
-          })() : '');
+      // Compute app origin (subdomain) for email verification redirect
+      const getAppRedirect = () => {
+        try {
+          const protocol = window.location.protocol;
+          const hostname = window.location.hostname;
+          const port = window.location.port ? `:${window.location.port}` : '';
+          
+          if (hostname.startsWith('app.')) {
+            return `${protocol}//${hostname}${port}/`;
+          }
+          
+          if (hostname === 'localhost' || hostname === '127.0.0.1') {
+            return `${protocol}//app.localhost${port}/`;
+          }
+          
+          const cleanHost = hostname.replace(/^www\./, '');
+          return `${protocol}//app.${cleanHost}${port}/`;
+        } catch {
+          return window.location.origin + '/';
+        }
+      };
 
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
           // After email verification, open the app subdomain directly
-          emailRedirectTo: appOrigin ? `${appOrigin}/` : `${window.location.origin}/`,
+          emailRedirectTo: getAppRedirect(),
           data: { first_name: firstName, last_name: lastName, plan: 'free' }
         }
       });
