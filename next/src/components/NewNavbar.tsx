@@ -28,7 +28,7 @@ const NewNavbar = () => {
   return (
     <nav className="bg-black/90 backdrop-blur-sm border-b border-white/10 sticky top-0 z-50">
       <div className="w-full mx-auto px-0 relative">
-        <div className="grid grid-cols-[auto_1fr] md:grid-cols-3 items-center h-16">
+        <div className="grid grid-cols-[auto_1fr] md:grid-cols-3 items-center h-14 md:h-16">
           {/* Logo */}
           <div className="flex items-center justify-start space-x-3 pl-2 md:pl-3">
             <div className="flex items-center">
@@ -36,9 +36,9 @@ const NewNavbar = () => {
                 <Image 
                   src="/ecomefficiency.png" 
                   alt="Ecom Efficiency Logo" 
-                  width={140}
-                  height={56}
-                  className="h-12 md:h-14 w-auto object-contain mix-blend-screen cursor-pointer"
+                  width={130}
+                  height={52}
+                  className="h-10 md:h-12 w-auto object-contain mix-blend-screen cursor-pointer"
                   priority
                 />
               </Link>
@@ -107,7 +107,7 @@ const NewNavbar = () => {
         </div>
 
         {menuOpen && (
-          <div className="md:hidden absolute right-0 top-20 w-56 bg-[#0d0e12] border border-white/10 rounded-lg shadow-xl z-[60]">
+          <div className="md:hidden absolute right-0 top-14 w-56 bg-[#0d0e12] border border-white/10 rounded-lg shadow-xl z-[60]">
             <Link href="/tools" className="block px-4 py-3 text-base text-white hover:bg-white/10">Tools</Link>
             <Link href="/blog" className="block px-4 py-3 text-base text-white hover:bg-white/10">Blog</Link>
             <Link href="/affiliate" className="block px-4 py-3 text-base text-white hover:bg-white/10">Affiliate</Link>
