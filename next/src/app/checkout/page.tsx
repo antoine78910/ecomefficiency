@@ -17,6 +17,7 @@ function CheckoutContent() {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [customerId, setCustomerId] = useState<string | null>(null);
+  const [promoExpanded, setPromoExpanded] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -130,19 +131,38 @@ function CheckoutContent() {
               </div>
             </div>
 
-            {/* Promo Code */}
+            {/* Promo Code - Collapsible */}
             <div className="mb-4">
-              <label className="text-sm text-gray-400 mb-2 block">Promo Code (optional)</label>
-              <div className="flex gap-2">
-                <input 
-                  type="text"
-                  placeholder="Enter code"
-                  className="flex-1 px-4 py-2 bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors"
-                />
-                <button className="px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors">
-                  Apply
+              {!promoExpanded ? (
+                <button 
+                  onClick={() => setPromoExpanded(true)}
+                  className="text-xs text-gray-500 hover:text-purple-400 underline transition-colors"
+                >
+                  Have a promo code?
                 </button>
-              </div>
+              ) : (
+                <div className="space-y-2 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs text-gray-400">Promo Code</label>
+                    <button 
+                      onClick={() => setPromoExpanded(false)}
+                      className="text-xs text-gray-500 hover:text-gray-400"
+                    >
+                      ✕
+                    </button>
+                  </div>
+                  <div className="flex gap-2">
+                    <input 
+                      type="text"
+                      placeholder="Enter code"
+                      className="flex-1 px-3 py-2 text-sm bg-gray-800/50 border border-gray-700 rounded-lg text-white placeholder-gray-500 focus:outline-none focus:border-purple-500 transition-colors"
+                    />
+                    <button className="px-3 py-2 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors">
+                      Apply
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="border-t border-white/10 pt-4 mb-6">
