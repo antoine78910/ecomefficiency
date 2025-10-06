@@ -206,6 +206,12 @@ function CheckoutContent() {
         <div className="grid md:grid-cols-2 gap-4">
           {/* Order Summary */}
           <div className="bg-gray-900/50 border border-purple-500/20 rounded-2xl p-4">
+            {userEmail && (
+              <div className="mb-3 pb-3 border-b border-white/10">
+                <p className="text-xs text-gray-400">Logged in as</p>
+                <p className="text-sm text-white font-medium">{userEmail}</p>
+              </div>
+            )}
             <h2 className="text-white font-semibold text-base mb-3">Order Summary</h2>
             
             <div className="mb-3">
@@ -358,13 +364,6 @@ function CheckoutContent() {
 
           {/* Payment Form */}
           <div className="bg-gray-900/50 border border-purple-500/20 rounded-2xl p-4">
-            {userEmail && (
-              <div className="mb-3 pb-3 border-b border-white/10">
-                <p className="text-xs text-gray-400">Logged in as</p>
-                <p className="text-sm text-white font-medium">{userEmail}</p>
-              </div>
-            )}
-            
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-white font-semibold text-base">Payment Details</h2>
               <div className="flex items-center gap-2 text-xs text-gray-400">
