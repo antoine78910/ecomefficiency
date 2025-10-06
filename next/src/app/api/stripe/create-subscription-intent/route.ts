@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
         });
 
         if (promoCodes.data.length > 0) {
-          subscriptionParams.promotion_code = promoCodes.data[0].id;
+          subscriptionParams.discounts = [{ promotion_code: promoCodes.data[0].id }];
           console.log('[create-subscription-intent] Applying promotion code:', promoCodes.data[0].id);
         } else {
           // Fallback to coupon

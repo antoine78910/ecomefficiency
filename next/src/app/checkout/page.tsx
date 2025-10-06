@@ -21,12 +21,14 @@ function CheckoutContent() {
   const [promoCode, setPromoCode] = useState('');
   const [appliedPromo, setAppliedPromo] = useState<any>(null);
   const [promoError, setPromoError] = useState<string | null>(null);
+  const [promoLoading, setPromoLoading] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
 
   const handleApplyPromo = async () => {
     if (!promoCode.trim()) return;
     
     setPromoError(null);
+    setPromoLoading(true);
     try {
       // First validate the coupon
       const validateRes = await fetch('/api/stripe/validate-coupon', {
@@ -78,6 +80,8 @@ function CheckoutContent() {
     } catch (e) {
       setPromoError('Failed to validate promo code');
       setAppliedPromo(null);
+    } finally {
+      setPromoLoading(false);
     }
   };
 
@@ -176,10 +180,9 @@ function CheckoutContent() {
   return (
     <div className="min-h-screen bg-black py-6 px-4">
       <div className="max-w-4xl mx-auto">
-        <div className="text-center mb-6">
-          <img src="/ecomefficiency.png" alt="Ecom Efficiency" className="h-10 w-auto mx-auto mb-3" />
-          <h1 className="text-2xl font-bold text-white mb-1">Complete Your Subscription</h1>
-          <p className="text-sm text-gray-400">Secure checkout powered by Stripe</p>
+        <div className="text-center mb-5">
+          <img src="/ecomefficiency.png" alt="Ecom Efficiency" className="h-9 w-auto mx-auto mb-2" />
+          <h1 className="text-xl font-bold text-white">Complete Your Subscription</h1>
         </div>
 
         <div className="grid md:grid-cols-2 gap-4">
@@ -232,10 +235,12 @@ function CheckoutContent() {
                     />
                     <button 
                       onClick={handleApplyPromo}
-                      disabled={!promoCode.trim() || !!appliedPromo}
-                      className="px-3 py-2 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      disabled={!promoCode.trim() || !!appliedPromo || promoLoading}
+                      className="px-3 py-2 text-sm bg-purple-600 hover:bg-purple-700 text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed min-w-[70px]"
                     >
-                      {appliedPromo ? '✓' : 'Apply'}
+                      {promoLoading ? (
+                        <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin inline-block" />
+                      ) : appliedPromo ? '✓' : 'Apply'}
                     </button>
                   </div>
                   {promoError && (
