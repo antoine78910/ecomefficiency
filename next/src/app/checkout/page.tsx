@@ -361,6 +361,7 @@ function CheckoutContent() {
               />
             </Elements>
           </div>
+          </div>
         </div>
       </div>
     </div>
