@@ -93,8 +93,40 @@ const PricingSection = () => {
       }
     } catch {}
     
-    // User is logged in, go directly to custom checkout
-    window.location.href = `/checkout?tier=${tier}&billing=${isYearly ? 'yearly' : 'monthly'}&currency=${currency}`;
+    // A/B Test: 50% custom, 50% Stripe hosted
+    try {
+      const abRes = await fetch('/api/ab-test');
+      const abData = await abRes.json();
+      
+      if (abData.variant === 'stripe') {
+        // Stripe hosted checkout
+        const { data: userData } = await supabase.auth.getUser();
+        const meta = (userData.user?.user_metadata as any) || {};
+        const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+        if (userData.user?.email) headers['x-user-email'] = userData.user.email;
+        if (userData.user?.id) headers['x-user-id'] = userData.user.id;
+        if (meta.stripe_customer_id) headers['x-stripe-customer-id'] = meta.stripe_customer_id;
+        
+        const res = await fetch('/api/stripe/checkout', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ tier, billing: isYearly ? 'yearly' : 'monthly', currency })
+        });
+        
+        const json = await res.json();
+        if (json?.url) {
+          window.location.href = json.url;
+        } else {
+          throw new Error('No checkout URL');
+        }
+      } else {
+        // Custom checkout
+        window.location.href = `/checkout?tier=${tier}&billing=${isYearly ? 'yearly' : 'monthly'}&currency=${currency}`;
+      }
+    } catch (e: any) {
+      // Fallback to custom on error
+      window.location.href = `/checkout?tier=${tier}&billing=${isYearly ? 'yearly' : 'monthly'}&currency=${currency}`;
+    }
   };
 
   React.useEffect(() => {

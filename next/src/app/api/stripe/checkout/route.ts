@@ -85,6 +85,7 @@ export async function POST(req: NextRequest) {
       allow_promotion_codes: true,
       client_reference_id: userId || undefined,
       customer_email: userEmail || undefined,
+      locale: 'en', // Force English to avoid "Subscribe with obligation to pay" text
       metadata: {
         ...(userId ? { userId } : {}),
         ...(datafastVisitorId ? { datafast_visitor_id: datafastVisitorId } : {}),

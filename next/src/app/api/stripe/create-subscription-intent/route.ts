@@ -64,16 +64,31 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "missing_customer_info" }, { status: 400 });
     }
 
-    // Create subscription with incomplete status
+    // Check if customer already has active subscriptions
+    const existingSubs = await stripe.subscriptions.list({
+      customer: customer.id,
+      status: 'active',
+      limit: 10
+    });
+
+    // If customer has active subscription, return error to avoid duplicate
+    if (existingSubs.data.length > 0) {
+      return NextResponse.json({ 
+        error: "already_subscribed",
+        message: "You already have an active subscription. Please manage it from your account settings."
+      }, { status: 400 });
+    }
+
+    // Create subscription with payment required upfront
     const subscription = await stripe.subscriptions.create({
       customer: customer.id,
       items: [{ price: priceId }],
       payment_behavior: 'default_incomplete',
-      payment_settings: { 
+      payment_settings: {
         save_default_payment_method: 'on_subscription',
-        payment_method_types: ['card']
+        payment_method_types: ['card'],
       },
-      expand: ['latest_invoice.payment_intent'],
+      expand: ['latest_invoice'],
       metadata: {
         ...(userId ? { userId } : {}),
         tier,
@@ -81,25 +96,66 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    // Type assertion needed because expand makes it an object instead of string ID
-    const invoice = subscription.latest_invoice as Stripe.Invoice | null;
-    if (!invoice) {
+    console.log('[create-subscription-intent] Subscription created', {
+      id: subscription.id,
+      status: subscription.status,
+    });
+
+    // Get the invoice ID
+    const latestInvoice = subscription.latest_invoice;
+    const invoiceId = typeof latestInvoice === 'string' ? latestInvoice : (latestInvoice as any)?.id;
+    
+    if (!invoiceId) {
+      console.error('[create-subscription-intent] No invoice ID');
       return NextResponse.json({ error: "no_invoice" }, { status: 500 });
     }
 
-    // payment_intent is expanded to object via expand parameter
-    const paymentIntent = (invoice as any).payment_intent as Stripe.PaymentIntent | string | null;
-    const clientSecret = typeof paymentIntent === 'string' 
-      ? null 
-      : paymentIntent?.client_secret;
+    console.log('[create-subscription-intent] Invoice ID:', invoiceId);
 
-    if (!clientSecret) {
+    // CRITICAL: Manually create PaymentIntent for the invoice amount
+    // This is the ONLY reliable way to get a client_secret for subscriptions
+    const invoice = typeof latestInvoice === 'object' ? latestInvoice : await stripe.invoices.retrieve(invoiceId);
+    const amount = (invoice as any).amount_due || 0;
+
+    if (amount <= 0) {
+      console.error('[create-subscription-intent] Invoice has no amount');
+      return NextResponse.json({ error: "invalid_amount" }, { status: 500 });
+    }
+
+    // Create PaymentIntent manually
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount,
+      currency: currency.toLowerCase(),
+      customer: customer.id,
+      metadata: {
+        subscription_id: subscription.id,
+        invoice_id: invoiceId,
+        ...(userId ? { userId } : {}),
+        tier,
+        billing,
+      },
+      // Use automatic_payment_methods (requires HTTPS in production)
+      automatic_payment_methods: {
+        enabled: true,
+        allow_redirects: 'never', // Disable redirects for better UX
+      },
+    });
+
+    console.log('[create-subscription-intent] PaymentIntent created', {
+      id: paymentIntent.id,
+      amount,
+      hasSecret: !!paymentIntent.client_secret
+    });
+
+    if (!paymentIntent.client_secret) {
       return NextResponse.json({ error: "no_client_secret" }, { status: 500 });
     }
 
-    return NextResponse.json({ 
+    return NextResponse.json({
       subscriptionId: subscription.id,
-      clientSecret: clientSecret,
+      invoiceId,
+      paymentIntentId: paymentIntent.id,
+      clientSecret: paymentIntent.client_secret,
       customerId: customer.id,
     });
 
