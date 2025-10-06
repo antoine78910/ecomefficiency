@@ -36,20 +36,14 @@ export async function POST(req: NextRequest) {
       userId = data.user?.id || null;
     }
 
-    // Insert event using raw SQL to avoid TypeScript type issues
-    const { error } = await supabaseAdmin.rpc('exec_sql', {
-      query: `INSERT INTO ab_test_events (variant, event_type, user_id) VALUES ($1, $2, $3)`,
-      params: [variant, eventType, userId]
-    }).catch(async () => {
-      // Fallback: direct insert (bypasses TypeScript types)
-      return await supabaseAdmin
-        .from('ab_test_events' as any)
-        .insert({
-          variant,
-          event_type: eventType,
-          user_id: userId
-        });
-    });
+    // Insert event (bypass TypeScript types with any)
+    const { error } = await supabaseAdmin
+      .from('ab_test_events' as any)
+      .insert({
+        variant,
+        event_type: eventType,
+        user_id: userId
+      });
 
     if (error) {
       console.error('[ab-test-track] Error:', error);
