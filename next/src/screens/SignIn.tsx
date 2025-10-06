@@ -31,9 +31,9 @@ const SignIn = () => {
         return `${protocol}//${hostname}${port}/`;
       }
       
-      // For localhost, use app.localhost
+      // For localhost dev, stay on localhost (Google OAuth doesn't support app.localhost)
       if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        return `${protocol}//app.localhost${port}/`;
+        return `${protocol}//${hostname}${port}/app`;
       }
       
       // For production domains, remove www and add app prefix
