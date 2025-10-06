@@ -818,7 +818,7 @@ function CredentialsPanel() {
               <p className="text-xs text-gray-400 mb-1">Email</p>
               <div className="group flex items-center gap-2">
                 <span className={`break-all text-white filter blur-sm transition ease-out duration-300 hover:blur-none group-hover:blur-none select-none`}>
-                  {`${(plan==='pro' ? (creds.adspower_pro_email || '') : (plan==='checking' ? (creds.adspower_starter_email || creds.adspower_email || creds.adspower_pro_email || '') : (creds.adspower_email || creds.adspower_starter_email || ''))}`}
+                  {plan==='pro' ? (creds.adspower_pro_email || '') : (plan==='checking' ? (creds.adspower_starter_email || creds.adspower_email || creds.adspower_pro_email || '') : (creds.adspower_email || creds.adspower_starter_email || ''))}
                 </span>
                 <CopyButton value={(plan==='pro' ? creds.adspower_pro_email : (plan==='checking' ? (creds.adspower_starter_email || creds.adspower_email || creds.adspower_pro_email) : (creds.adspower_email || creds.adspower_starter_email)))} label="Copy email" />
               </div>
@@ -827,7 +827,7 @@ function CredentialsPanel() {
               <p className="text-xs text-gray-400 mb-1">Password</p>
               <div className="group flex items-center gap-2">
                 <span className={`break-all text-white filter blur-sm transition ease-out duration-300 hover:blur-none group-hover:blur-none select-none`}>
-                  {`${(plan==='pro' ? (creds.adspower_pro_password || '') : (plan==='checking' ? (creds.adspower_starter_password || creds.adspower_password || creds.adspower_pro_password || '') : (creds.adspower_password || creds.adspower_starter_password || ''))}`}
+                  {plan==='pro' ? (creds.adspower_pro_password || '') : (plan==='checking' ? (creds.adspower_starter_password || creds.adspower_password || creds.adspower_pro_password || '') : (creds.adspower_password || creds.adspower_starter_password || ''))}
                 </span>
                 <CopyButton value={(plan==='pro' ? creds.adspower_pro_password : (plan==='checking' ? (creds.adspower_starter_password || creds.adspower_password || creds.adspower_pro_password) : (creds.adspower_password || creds.adspower_starter_password)))} label="Copy password" />
               </div>
