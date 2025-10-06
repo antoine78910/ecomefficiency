@@ -81,16 +81,25 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    const invoice = subscription.latest_invoice as Stripe.Invoice;
-    const paymentIntent = invoice?.payment_intent as Stripe.PaymentIntent;
+    // Type assertion needed because expand makes it an object instead of string ID
+    const invoice = subscription.latest_invoice as Stripe.Invoice | null;
+    if (!invoice) {
+      return NextResponse.json({ error: "no_invoice" }, { status: 500 });
+    }
 
-    if (!paymentIntent?.client_secret) {
+    // payment_intent is expanded to object via expand parameter
+    const paymentIntent = (invoice as any).payment_intent as Stripe.PaymentIntent | string | null;
+    const clientSecret = typeof paymentIntent === 'string' 
+      ? null 
+      : paymentIntent?.client_secret;
+
+    if (!clientSecret) {
       return NextResponse.json({ error: "no_client_secret" }, { status: 500 });
     }
 
     return NextResponse.json({ 
       subscriptionId: subscription.id,
-      clientSecret: paymentIntent.client_secret,
+      clientSecret: clientSecret,
       customerId: customer.id,
     });
 
