@@ -76,9 +76,19 @@ export async function GET(req: NextRequest) {
       
       // Check if ANY subscription is truly active (active/trialing status OR paid invoice)
       let anyActive = false;
+      let debugInfo: any[] = [];
+      
       for (const sub of sorted) {
+        console.log('[CREDENTIALS] Checking sub:', { 
+          id: sub.id, 
+          status: sub.status, 
+          hasInvoice: !!sub.latest_invoice,
+          created: new Date(sub.created * 1000).toISOString()
+        });
+        
         if (sub.status === 'active' || sub.status === 'trialing') {
           anyActive = true;
+          console.log('[CREDENTIALS] ✅ Found active/trialing sub');
           break;
         }
         
@@ -86,20 +96,32 @@ export async function GET(req: NextRequest) {
         if (sub.status === 'incomplete' && sub.latest_invoice) {
           try {
             const invoiceId = typeof sub.latest_invoice === 'string' ? sub.latest_invoice : sub.latest_invoice.id;
+            console.log('[CREDENTIALS] Checking invoice for incomplete sub:', { subId: sub.id, invoiceId });
             
             if (invoiceId) {
               const invoice = await stripe.invoices.retrieve(invoiceId);
+              console.log('[CREDENTIALS] Invoice details:', { 
+                id: invoice.id, 
+                status: invoice.status,
+                paid: invoice.paid,
+                amount_paid: invoice.amount_paid,
+                amount_due: invoice.amount_due
+              });
               
               if (invoice.status === 'paid') {
                 anyActive = true;
-                console.log('[CREDENTIALS] Granting access: incomplete sub with paid invoice', { subId: sub.id });
+                console.log('[CREDENTIALS] ✅ Granting access: incomplete sub with PAID invoice');
                 break;
+              } else {
+                console.log('[CREDENTIALS] ❌ Invoice not paid:', invoice.status);
               }
             }
-          } catch (e) {
-            console.error('[CREDENTIALS] Failed to check invoice:', e);
+          } catch (e: any) {
+            console.error('[CREDENTIALS] Failed to check invoice:', e.message);
           }
         }
+        
+        debugInfo.push({ id: sub.id, status: sub.status, hasInvoice: !!sub.latest_invoice });
       }
       
       const latest = sorted[0]
