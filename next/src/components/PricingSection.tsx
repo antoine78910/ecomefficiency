@@ -109,14 +109,20 @@ const PricingSection = () => {
           // 1) Locale first (most reliable for actual user location)
           try {
             const locale = Intl.DateTimeFormat().resolvedOptions().locale || navigator.language || 'en-US';
-            console.log('[Pricing] Detected locale:', locale);
+            const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+            console.log('[Pricing] Detected locale:', locale, 'timezone:', timeZone);
+            
             const eurCC = new Set(['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE']);
             const regionMatch = locale.match(/[-_]([A-Z]{2})/);
             const region = regionMatch ? regionMatch[1] : '';
-            if (region && eurCC.has(region)) {
+            
+            // Also check timezone for Europe
+            const isEuropeTimezone = timeZone.startsWith('Europe/') || timeZone.includes('Paris') || timeZone.includes('Berlin') || timeZone.includes('Brussels');
+            
+            if ((region && eurCC.has(region)) || isEuropeTimezone) {
               setCurrency('EUR');
               setIsReady(true);
-              console.log('[Pricing] Using EUR from locale');
+              console.log('[Pricing] Using EUR from locale/timezone');
               return;
             } else if (region) {
               setCurrency('USD');
