@@ -79,7 +79,7 @@ export async function POST(req: NextRequest) {
     });
 
     // If invoice is not already paid, mark it as paid
-    if (targetInvoice.status !== 'paid') {
+    if (targetInvoice.status !== 'paid' && targetInvoice.id) {
       try {
         await stripe.invoices.pay(targetInvoice.id, {
           paid_out_of_band: true
