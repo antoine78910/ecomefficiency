@@ -113,47 +113,61 @@ export async function POST(req: NextRequest) {
         break;
       }
       case 'invoice.payment_succeeded': {
-        // Activate plan when payment succeeds
+        // Activate plan when payment succeeds - THIS IS THE CRITICAL PATH
         const invoice = (event as any).data?.object;
         const subscriptionId = invoice?.subscription;
 
         if (subscriptionId) {
-          // Fetch subscription to get metadata
-          const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-          const clientRef = subscription?.metadata?.userId;
-          const customerId = subscription?.customer;
-          const tier = subscription?.metadata?.tier; // 'starter' or 'pro'
+          try {
+            // Fetch subscription to get metadata
+            const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+            const clientRef = subscription?.metadata?.userId;
+            const customerId = subscription?.customer;
+            const tier = subscription?.metadata?.tier; // 'starter' or 'pro'
 
-          if (clientRef && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL) {
-            // Map tier to plan: starter → starter, pro → pro
+            // Map tier to plan: starter → starter, pro/growth → pro
             const plan = tier === 'starter' ? 'starter' : 'pro';
 
-            console.log('[webhook] Payment succeeded, activating plan for user:', {
+            console.log('[webhook][invoice.payment_succeeded] 🔔 ACTIVATING PLAN:', {
               userId: clientRef,
               tier,
               plan,
-              subscriptionId
+              subscriptionId,
+              subscriptionStatus: subscription.status,
+              invoiceId: invoice.id
             });
 
-            const updateRes = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users/${clientRef}`, {
-              method: 'PUT',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
-              },
-              body: JSON.stringify({
-                user_metadata: {
-                  plan,
-                  stripe_customer_id: customerId,
-                  tier
-                }
-              })
-            });
+            if (clientRef && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL) {
+              const updateRes = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users/${clientRef}`, {
+                method: 'PUT',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+                },
+                body: JSON.stringify({
+                  user_metadata: {
+                    plan,
+                    stripe_customer_id: customerId,
+                    tier
+                  }
+                })
+              });
 
-            const updateData = await updateRes.json();
-            console.log('[webhook] User metadata updated:', updateData);
-          } else {
-            console.error('[webhook] Missing required data:', { clientRef, hasSupabaseConfig: !!process.env.SUPABASE_SERVICE_ROLE_KEY });
+              const updateData = await updateRes.json();
+              if (updateRes.ok) {
+                console.log('[webhook][invoice.payment_succeeded] ✅ USER PLAN ACTIVATED:', { userId: clientRef, plan, tier });
+              } else {
+                console.error('[webhook][invoice.payment_succeeded] ❌ FAILED TO UPDATE USER:', { status: updateRes.status, data: updateData });
+              }
+            } else {
+              console.error('[webhook][invoice.payment_succeeded] ❌ MISSING CONFIG:', {
+                hasUserId: !!clientRef,
+                hasSupabaseKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
+                hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL
+              });
+            }
+          } catch (e: any) {
+            console.error('[webhook][invoice.payment_succeeded] ❌ ERROR:', e.message, e.stack);
           }
         }
         break;
