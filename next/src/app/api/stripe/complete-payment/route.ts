@@ -75,7 +75,7 @@ export async function POST(req: NextRequest) {
       status: targetInvoice.status,
       amount_paid: targetInvoice.amount_paid,
       amount_due: targetInvoice.amount_due,
-      subscription: targetInvoice.subscription
+      subscription: (targetInvoice as any).subscription
     });
 
     // If invoice is not already paid, mark it as paid
@@ -125,7 +125,7 @@ export async function POST(req: NextRequest) {
                 user_metadata: {
                   plan,
                   tier,
-                  stripe_customer_id: targetInvoice.customer
+                  stripe_customer_id: (targetInvoice as any).customer
                 }
               })
             }
