@@ -22,6 +22,12 @@ export async function POST(req: NextRequest) {
     const currency = (body.currency || 'EUR').toUpperCase();
     const customerId = body.customerId;
     const couponCode = body.couponCode;
+    
+    // Price mapping for logging
+    const prices: Record<string, Record<string, number>> = {
+      starter: { monthly: 1999, yearly: 1199 },
+      pro: { monthly: 2999, yearly: 1799 }
+    };
 
     // Resolve priceId from env
     const env = process.env as Record<string, string | undefined>;
@@ -186,36 +192,40 @@ export async function POST(req: NextRequest) {
       total_discount_amounts: invoice.total_discount_amounts
     });
 
-    // Use the PaymentIntent from the invoice (it has the correct amount with discount)
-    let paymentIntentData = (invoice as any).payment_intent;
+    // Use amount_due from invoice which includes discount
+    const amountDue = invoice.amount_due || 0;
     
-    // If no PaymentIntent on invoice, wait a moment and retry
-    if (!paymentIntentData) {
-      console.log('[create-subscription-intent] No PaymentIntent yet, retrying...');
-      await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
-      
-      const retryInvoice = await stripe.invoices.retrieve(invoiceId, { expand: ['payment_intent'] });
-      paymentIntentData = (retryInvoice as any).payment_intent;
-      
-      if (!paymentIntentData) {
-        console.error('[create-subscription-intent] Still no PaymentIntent after retry');
-        return NextResponse.json({ error: "no_payment_intent" }, { status: 500 });
-      }
+    if (amountDue <= 0) {
+      console.error('[create-subscription-intent] Invalid amount_due:', amountDue);
+      return NextResponse.json({ error: "invalid_amount" }, { status: 500 });
     }
 
-    // If it's a string ID, retrieve the full object
-    const paymentIntent = typeof paymentIntentData === 'string'
-      ? await stripe.paymentIntents.retrieve(paymentIntentData)
-      : paymentIntentData;
+    // Create a new PaymentIntent with the discounted amount from invoice
+    const paymentIntent = await stripe.paymentIntents.create({
+      amount: amountDue,
+      currency: currency.toLowerCase(),
+      customer: customer.id,
+      metadata: {
+        subscription_id: subscription.id,
+        invoice_id: invoiceId,
+        ...(userId ? { userId } : {}),
+        tier,
+        billing,
+      },
+      automatic_payment_methods: {
+        enabled: true,
+        allow_redirects: 'never',
+      },
+    });
 
-    console.log('[create-subscription-intent] PaymentIntent from invoice', {
+    console.log('[create-subscription-intent] PaymentIntent created with discounted amount', {
       id: paymentIntent.id,
-      amount: paymentIntent.amount,
+      amountDue,
       hasSecret: !!paymentIntent.client_secret
     });
 
     if (!paymentIntent.client_secret) {
-      console.error('[create-subscription-intent] No client secret on PaymentIntent');
+      console.error('[create-subscription-intent] No client secret');
       return NextResponse.json({ error: "no_client_secret" }, { status: 500 });
     }
 
