@@ -714,29 +714,36 @@ function CredentialsPanel() {
   }
 
   const startCheckout = async (tier: 'starter' | 'pro', billing: 'monthly' | 'yearly') => {
-    const detectCurrency = async (): Promise<'EUR' | 'USD'> => {
-      // 1) Try server headers
-      try {
-        const r = await fetch('/api/ip-region', { cache: 'no-store' })
-        const j = await r.json().catch(() => ({}))
-        if (j?.currency === 'EUR') return 'EUR'
-      } catch {}
-      // 2) Browser IP geo
-      try {
-        const g = await fetch('https://ipapi.co/json/', { cache: 'no-store' })
-        const gj = await g.json().catch(() => ({}))
-        const cc = String(gj?.country || '').toUpperCase()
-        const eu = new Set(['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE'])
-        if (cc && eu.has(cc)) return 'EUR'
-      } catch {}
-      // 3) Fallback locale
-      try {
-        const loc = Intl.DateTimeFormat().resolvedOptions().locale.toUpperCase()
-        const euRE = /(AT|BE|BG|HR|CY|CZ|DK|EE|FI|FR|DE|GR|HU|IE|IT|LV|LT|LU|MT|NL|PL|PT|RO|SK|SI|ES|SE)/
-        return euRE.test(loc) ? 'EUR' : 'USD'
-      } catch { return 'EUR' }
+    // Simple EUR detection - timezone first
+    let currency: 'EUR' | 'USD' = 'EUR'; // Default to EUR
+    
+    try {
+      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+      const locale = Intl.DateTimeFormat().resolvedOptions().locale || '';
+      
+      console.log('[App startCheckout] Timezone:', timeZone, 'Locale:', locale);
+      
+      // Europe timezone = EUR
+      if (timeZone.startsWith('Europe/')) {
+        currency = 'EUR';
+      }
+      // Check locale for EUR countries
+      else {
+        const regionMatch = locale.match(/[-_]([A-Z]{2})/);
+        const region = regionMatch ? regionMatch[1] : '';
+        const eurCC = new Set(['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE']);
+        if (region && eurCC.has(region)) {
+          currency = 'EUR';
+        } else if (region) {
+          currency = 'USD';
+        }
+      }
+    } catch (e) {
+      console.error('[App startCheckout] Detection error:', e);
+      currency = 'EUR'; // Default EUR on error
     }
-    const currency = await detectCurrency()
+    
+    console.log('[App startCheckout] Final currency:', currency);
     
     // Always use custom checkout with Stripe Elements
     window.location.href = `/checkout?tier=${tier}&billing=${billing}&currency=${currency}`;

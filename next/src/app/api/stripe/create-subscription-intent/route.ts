@@ -200,23 +200,24 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "invalid_amount" }, { status: 500 });
     }
 
-    // Create a new PaymentIntent with the discounted amount from invoice
-    const paymentIntent = await stripe.paymentIntents.create({
-      amount: amountDue,
-      currency: currency.toLowerCase(),
-      customer: customer.id,
-      metadata: {
-        subscription_id: subscription.id,
-        invoice_id: invoiceId,
-        ...(userId ? { userId } : {}),
-        tier,
-        billing,
-      },
-      automatic_payment_methods: {
-        enabled: true,
-        allow_redirects: 'never',
-      },
+    // Finalize the invoice to create PaymentIntent
+    await stripe.invoices.finalizeInvoice(invoiceId);
+    
+    // Retrieve invoice again with payment_intent
+    const finalizedInvoice = await stripe.invoices.retrieve(invoiceId, {
+      expand: ['payment_intent']
     });
+    
+    const paymentIntentData = (finalizedInvoice as any).payment_intent;
+    
+    if (!paymentIntentData) {
+      console.error('[create-subscription-intent] No PaymentIntent after finalize');
+      return NextResponse.json({ error: "no_payment_intent_after_finalize" }, { status: 500 });
+    }
+    
+    const paymentIntent = typeof paymentIntentData === 'string'
+      ? await stripe.paymentIntents.retrieve(paymentIntentData)
+      : paymentIntentData;
 
     console.log('[create-subscription-intent] PaymentIntent created with discounted amount', {
       id: paymentIntent.id,
