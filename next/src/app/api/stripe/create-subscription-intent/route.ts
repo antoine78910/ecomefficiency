@@ -200,18 +200,21 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "invalid_amount" }, { status: 500 });
     }
 
-    // Finalize the invoice to create PaymentIntent
-    await stripe.invoices.finalizeInvoice(invoiceId);
+    // Finalize the invoice if it's still draft
+    if (invoice.status === 'draft') {
+      console.log('[create-subscription-intent] Finalizing draft invoice');
+      await stripe.invoices.finalizeInvoice(invoiceId);
+    }
     
-    // Retrieve invoice again with payment_intent
-    const finalizedInvoice = await stripe.invoices.retrieve(invoiceId, {
-      expand: ['payment_intent']
-    });
+    // Retrieve invoice with payment_intent
+    const finalizedInvoice = invoice.status === 'draft' 
+      ? await stripe.invoices.retrieve(invoiceId, { expand: ['payment_intent'] })
+      : invoice;
     
     const paymentIntentData = (finalizedInvoice as any).payment_intent;
     
     if (!paymentIntentData) {
-      console.error('[create-subscription-intent] No PaymentIntent after finalize');
+      console.error('[create-subscription-intent] No PaymentIntent on finalized invoice');
       return NextResponse.json({ error: "no_payment_intent_after_finalize" }, { status: 500 });
     }
     
