@@ -29,8 +29,8 @@ export async function POST(req: NextRequest) {
 
     let targetInvoice: Stripe.Invoice | null = null;
     for (const inv of invoices.data) {
-      const invPi = inv.payment_intent;
-      const piId = typeof invPi === 'string' ? invPi : (invPi as any)?.id;
+      const invPi = (inv as any).payment_intent;
+      const piId = typeof invPi === 'string' ? invPi : invPi?.id;
       if (piId === paymentIntentId) {
         targetInvoice = inv;
         break;
@@ -51,8 +51,8 @@ export async function POST(req: NextRequest) {
           });
           
           for (const inv of custInvoices.data) {
-            const invPi = inv.payment_intent;
-            const piId = typeof invPi === 'string' ? invPi : (invPi as any)?.id;
+            const invPi = (inv as any).payment_intent;
+            const piId = typeof invPi === 'string' ? invPi : invPi?.id;
             if (piId === paymentIntentId) {
               targetInvoice = inv;
               break;
