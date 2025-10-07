@@ -113,16 +113,16 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Create subscription - use pending_if_incomplete to auto-create PaymentIntent
+    // Create subscription with default_incomplete
     const subscriptionParams: any = {
       customer: customer.id,
       items: [{ price: priceId }],
-      payment_behavior: 'pending_if_incomplete',
+      payment_behavior: 'default_incomplete',
       payment_settings: {
         save_default_payment_method: 'on_subscription',
         payment_method_types: ['card'],
       },
-      expand: ['pending_setup_intent', 'latest_invoice.payment_intent'],
+      expand: ['latest_invoice'],
       metadata: {
         ...(userId ? { userId } : {}),
         tier,
