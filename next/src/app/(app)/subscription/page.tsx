@@ -24,15 +24,15 @@ export default function SubscriptionPage() {
       const r = await fetch('/api/stripe/verify', { method:'POST', headers, body: JSON.stringify({ email: user?.email || '' }) })
       const j = await r.json().catch(() => ({}))
       const vp = (j?.plan as string)?.toLowerCase()
-      if (j?.ok && j?.active && (vp==='starter' || vp==='pro' || vp==='growth')) setPlan((vp==='growth'?'pro':vp) as any)
+      if (j?.ok && j?.active && (vp==='starter' || vp==='pro' )) setPlan(vp as any)
       else {
         const p = (meta.plan as string)?.toLowerCase()
-        if (p==='starter' || p==='pro' || p==='growth') setPlan((p==='growth'?'pro':p) as any)
+        if (p==='starter' || p==='pro') setPlan(p as any)
         else setPlan('free')
       }
     } catch {
       const p = (meta.plan as string)?.toLowerCase()
-      if (p==='starter' || p==='pro' || p==='growth') setPlan((p==='growth'?'pro':p) as any)
+      if (p==='starter' || p==='pro') setPlan(p as any)
       else setPlan('free')
     }
     // Use browser IP to decide symbol for billing labels

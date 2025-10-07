@@ -122,8 +122,8 @@ const App = () => {
           const vj = await vr.json().catch(() => ({}))
           const p = (vj?.plan as string)?.toLowerCase()
           // SECURITY: Only allow access if subscription is both OK and ACTIVE
-          if (vj?.ok && vj?.active === true && (p === 'starter' || p === 'growth' || p === 'pro')) {
-            setAppPlan((p==='growth' ? 'pro' : p) as any)
+          if (vj?.ok && vj?.active === true && (p === 'starter' || p === 'pro')) {
+            setAppPlan(p as any)
           } else {
             // SECURITY: Don't trust user_metadata alone, always default to free for inactive subscriptions
             setAppPlan('free')
@@ -232,14 +232,14 @@ function PlanBadgeInline() {
           const r = await fetch('/api/stripe/verify', { method: 'POST', headers, body: JSON.stringify({ email: data.user?.email || '' }) })
           const j = await r.json().catch(() => ({}))
           const p = (j?.plan as string)?.toLowerCase()
-          if (j?.ok && j?.active && (p === 'starter' || p === 'pro' || p==='growth')) setPlan((p==='growth'?'pro':p) as any)
+          if (j?.ok && j?.active && (p === 'starter' || p === 'pro')) setPlan(p as any)
           else {
             const mp = (meta.plan as string)?.toLowerCase()
-            if (mp === 'starter' || mp === 'pro' || mp==='growth') setPlan((mp==='growth'?'pro':mp) as any)
+            if (mp === 'starter' || mp === 'pro') setPlan(mp as any)
           }
         } catch {
           const p = (meta.plan as string)?.toLowerCase()
-          if (p === 'starter' || p === 'pro' || p==='growth') setPlan((p==='growth'?'pro':p) as any)
+          if (p === 'starter' || p === 'pro') setPlan(p as any)
         }
       } catch {}
     })()
@@ -671,7 +671,7 @@ function CredentialsPanel() {
           })
           const json = await res.json().catch(() => ({}))
           if (json?.ok && json?.active) {
-            setPlan((json.plan === 'growth' || json.plan==='pro' ? 'pro' : 'starter'))
+            setPlan(json.plan==='pro' ? 'pro' : 'starter')
             setBanner(null)
             return true
           }
@@ -1111,10 +1111,10 @@ function ToolCard({ service, title, description }: { service: 'pipiads'|'elevenl
           const r = await fetch('/api/stripe/verify', { method: 'POST', headers, body: JSON.stringify({ email: data.user?.email || '' }) })
           const j = await r.json().catch(() => ({}))
           const p = (j?.plan as string)?.toLowerCase()
-          setUnlocked(Boolean(j?.ok && j?.active && (p === 'growth' || p==='pro')))
+          setUnlocked(Boolean(j?.ok && j?.active && p === 'pro'))
         } catch {
           const p = (meta.plan as string)?.toLowerCase()
-          setUnlocked(p === 'growth' || p==='pro')
+          setUnlocked(p === 'pro')
         }
     } catch {}
     })()
