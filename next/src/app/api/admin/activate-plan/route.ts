@@ -27,8 +27,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'User not found' }, { status: 404 });
     }
 
+    // Map plan correctly: starter stays starter, pro becomes growth
+    const userPlan = plan === 'starter' ? 'starter' : plan === 'pro' ? 'growth' : 'free';
+    
+    console.log('[activate-plan] Activating plan', { email, requestedPlan: plan, actualPlan: userPlan });
+    
     // Update user metadata
-    await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users/${user.id}`, {
+    const updateRes = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users/${user.id}`, {
       method: 'PUT',
       headers: {
         'Content-Type': 'application/json',
@@ -37,15 +42,19 @@ export async function POST(req: NextRequest) {
       body: JSON.stringify({ 
         user_metadata: { 
           ...user.user_metadata,
-          plan: plan === 'starter' ? 'growth' : plan === 'pro' ? 'growth' : 'free'
+          plan: userPlan
         } 
       })
     });
+    
+    const updateData = await updateRes.json();
+    console.log('[activate-plan] Update result:', updateData);
 
     return NextResponse.json({ 
       success: true, 
       userId: user.id,
-      plan 
+      plan: userPlan,
+      updated: updateData
     });
   } catch (e: any) {
     console.error('[activate-plan] Error:', e);

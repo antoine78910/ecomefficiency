@@ -714,36 +714,10 @@ function CredentialsPanel() {
   }
 
   const startCheckout = async (tier: 'starter' | 'pro', billing: 'monthly' | 'yearly') => {
-    // Simple EUR detection - timezone first
-    let currency: 'EUR' | 'USD' = 'EUR'; // Default to EUR
+    // Use the currency from ipInfo if available, otherwise default to EUR
+    const currency = ipInfo?.currency || 'EUR';
     
-    try {
-      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-      const locale = Intl.DateTimeFormat().resolvedOptions().locale || '';
-      
-      console.log('[App startCheckout] Timezone:', timeZone, 'Locale:', locale);
-      
-      // Europe timezone = EUR
-      if (timeZone.startsWith('Europe/')) {
-        currency = 'EUR';
-      }
-      // Check locale for EUR countries
-      else {
-        const regionMatch = locale.match(/[-_]([A-Z]{2})/);
-        const region = regionMatch ? regionMatch[1] : '';
-        const eurCC = new Set(['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE']);
-        if (region && eurCC.has(region)) {
-          currency = 'EUR';
-        } else if (region) {
-          currency = 'USD';
-        }
-      }
-    } catch (e) {
-      console.error('[App startCheckout] Detection error:', e);
-      currency = 'EUR'; // Default EUR on error
-    }
-    
-    console.log('[App startCheckout] Final currency:', currency);
+    console.log('[App startCheckout]', { tier, billing, currency, ipInfo });
     
     // Always use custom checkout with Stripe Elements
     window.location.href = `/checkout?tier=${tier}&billing=${billing}&currency=${currency}`;
