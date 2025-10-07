@@ -490,6 +490,12 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
 
           // CRITICAL: Mark invoice as paid and activate plan
           // This handles cases where Stripe disables automatic collection
+          console.log('[Checkout] 🔄 Calling complete-payment API...', {
+            paymentIntentId: paymentIntent.id,
+            email: data.user?.email,
+            tier
+          });
+
           const activationRes = await fetch('/api/stripe/complete-payment', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -500,13 +506,15 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
             })
           });
 
+          console.log('[Checkout] complete-payment response status:', activationRes.status);
+
           const activationData = await activationRes.json();
           console.log('[Checkout] Payment completion result:', activationData);
 
           if (!activationData.success) {
-            console.error('[Checkout] Failed to complete payment:', activationData);
+            console.error('[Checkout] ❌ Failed to complete payment:', activationData);
           } else {
-            console.log('[Checkout] ✓ Payment completed and plan activated:', activationData.plan);
+            console.log('[Checkout] ✅ Payment completed and plan activated:', activationData.plan);
           }
         } catch (e) {
           console.error('[Checkout] Failed to complete payment (non-fatal):', e);
