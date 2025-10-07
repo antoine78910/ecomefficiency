@@ -187,11 +187,20 @@ export async function POST(req: NextRequest) {
     });
 
     // Use the PaymentIntent from the invoice (it has the correct amount with discount)
-    const paymentIntentData = (invoice as any).payment_intent;
+    let paymentIntentData = (invoice as any).payment_intent;
     
+    // If no PaymentIntent on invoice, wait a moment and retry
     if (!paymentIntentData) {
-      console.error('[create-subscription-intent] No PaymentIntent on invoice');
-      return NextResponse.json({ error: "no_payment_intent" }, { status: 500 });
+      console.log('[create-subscription-intent] No PaymentIntent yet, retrying...');
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second
+      
+      const retryInvoice = await stripe.invoices.retrieve(invoiceId, { expand: ['payment_intent'] });
+      paymentIntentData = (retryInvoice as any).payment_intent;
+      
+      if (!paymentIntentData) {
+        console.error('[create-subscription-intent] Still no PaymentIntent after retry');
+        return NextResponse.json({ error: "no_payment_intent" }, { status: 500 });
+      }
     }
 
     // If it's a string ID, retrieve the full object
