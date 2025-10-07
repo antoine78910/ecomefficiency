@@ -436,15 +436,36 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
     setMessage(null);
 
     try {
-      const { error } = await stripe.confirmPayment({
+      const { error, paymentIntent } = await stripe.confirmPayment({
         elements,
-        confirmParams: {
-          return_url: `${window.location.origin}/checkout/success?tier=${tier}&billing=${billing}`,
-        },
+        redirect: 'if_required',
       });
 
       if (error) {
         setMessage(error.message || 'Payment failed');
+      } else if (paymentIntent && paymentIntent.status === 'succeeded') {
+        // Payment succeeded! Activate plan immediately
+        try {
+          const { data } = await supabase.auth.getUser();
+          const userId = data.user?.id;
+          
+          // Call admin API to activate plan
+          await fetch('/api/admin/activate-plan', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              email: data.user?.email,
+              plan: tier === 'starter' ? 'starter' : 'pro'
+            })
+          });
+          
+          console.log('[Checkout] Plan activated, redirecting...');
+        } catch (e) {
+          console.error('[Checkout] Failed to activate plan:', e);
+        }
+        
+        // Redirect to success
+        window.location.href = `/checkout/success?tier=${tier}&billing=${billing}`;
       }
     } catch (err: any) {
       setMessage(err.message || 'An unexpected error occurred');
