@@ -95,7 +95,8 @@ export async function POST(req: NextRequest) {
         save_default_payment_method: 'on_subscription',
         payment_method_types: ['card'],
       },
-      expand: ['latest_invoice'],
+      // Important: expand PaymentIntent on the latest invoice so we can confirm it client-side
+      expand: ['latest_invoice.payment_intent'],
       metadata: {
         ...(userId ? { userId } : {}),
         tier,
@@ -106,27 +107,32 @@ export async function POST(req: NextRequest) {
     // Apply promo code if provided
     if (couponCode) {
       const code = couponCode.trim();
-      
-      // Try to find promotion code first
-      try {
-        const promoCodes = await stripe.promotionCodes.list({
-          code: code,
-          active: true,
-          limit: 1
-        });
 
+      // Prefer Promotion Codes (user-entered redeemable code)
+      try {
+        const promoCodes = await stripe.promotionCodes.list({ code, active: true, limit: 1 });
         if (promoCodes.data.length > 0) {
           subscriptionParams.discounts = [{ promotion_code: promoCodes.data[0].id }];
           console.log('[create-subscription-intent] Applying promotion code:', promoCodes.data[0].id);
         } else {
-          // Fallback to coupon
-          subscriptionParams.coupon = code;
-          console.log('[create-subscription-intent] Applying coupon:', code);
+          // Fallback to a direct coupon id (only if it actually exists)
+          try {
+            const coupon = await stripe.coupons.retrieve(code);
+            if (coupon && coupon.valid) {
+              subscriptionParams.discounts = [{ coupon: coupon.id }];
+              console.log('[create-subscription-intent] Applying coupon:', coupon.id);
+            }
+          } catch {}
         }
-      } catch (e) {
-        // Fallback to coupon
-        subscriptionParams.coupon = code;
-        console.log('[create-subscription-intent] Applying coupon (fallback):', code);
+      } catch {
+        // As an ultimate fallback, try coupon id and ignore if invalid
+        try {
+          const coupon = await stripe.coupons.retrieve(code);
+          if (coupon && coupon.valid) {
+            subscriptionParams.discounts = [{ coupon: coupon.id }];
+            console.log('[create-subscription-intent] Applying coupon (fallback):', coupon.id);
+          }
+        } catch {}
       }
     }
 
@@ -135,92 +141,30 @@ export async function POST(req: NextRequest) {
     console.log('[create-subscription-intent] Subscription created', {
       id: subscription.id,
       status: subscription.status,
+      discount: subscription.discount,
+      coupon: subscriptionParams.coupon,
+      promotion_code: subscriptionParams.discounts?.[0]?.promotion_code
     });
 
-    // Get the invoice ID
-    const latestInvoice = subscription.latest_invoice;
-    const invoiceId = typeof latestInvoice === 'string' ? latestInvoice : (latestInvoice as any)?.id;
-    
+    // Get the invoice ID and its PaymentIntent (expanded above)
+    const latestInvoice = subscription.latest_invoice as any;
+    const invoiceId = typeof latestInvoice === 'string' ? latestInvoice : latestInvoice?.id;
     if (!invoiceId) {
       console.error('[create-subscription-intent] No invoice ID');
-      return NextResponse.json({ error: "no_invoice" }, { status: 500 });
+      return NextResponse.json({ error: 'no_invoice' }, { status: 500 });
     }
 
-    console.log('[create-subscription-intent] Invoice ID:', invoiceId);
+    const invoice = typeof latestInvoice === 'object' ? latestInvoice : await stripe.invoices.retrieve(invoiceId, { expand: ['payment_intent'] });
 
-    // Get the invoice and its PaymentIntent (includes discount)
-    const invoice = typeof latestInvoice === 'object' && latestInvoice 
-      ? latestInvoice 
-      : await stripe.invoices.retrieve(invoiceId, { expand: ['payment_intent'] });
-    
-    if (!invoice) {
-      console.error('[create-subscription-intent] Failed to retrieve invoice');
-      return NextResponse.json({ error: "invoice_retrieval_failed" }, { status: 500 });
+    if (!invoice || !(invoice as any).payment_intent) {
+      console.error('[create-subscription-intent] No PaymentIntent on invoice');
+      return NextResponse.json({ error: 'no_payment_intent' }, { status: 500 });
     }
-    
-    console.log('[create-subscription-intent] Invoice details', {
-      id: invoice.id,
-      status: invoice.status,
-      amount_due: invoice.amount_due,
-      discounts: invoice.discounts,
-      total_discount_amounts: invoice.total_discount_amounts
-    });
 
-    // Try to get PaymentIntent from invoice
-    let paymentIntentData = (invoice as any).payment_intent;
-    
-    // If no PaymentIntent, check pending_setup_intent or create manually
-    if (!paymentIntentData) {
-      console.log('[create-subscription-intent] No PaymentIntent, trying pending_setup_intent');
-      const setupIntent = (subscription as any).pending_setup_intent;
-      
-      if (setupIntent) {
-        console.log('[create-subscription-intent] Found SetupIntent, but we need PaymentIntent');
-      }
-      
-      // Create PaymentIntent manually with invoice amount (includes discount)
-      console.log('[create-subscription-intent] Creating manual PaymentIntent with amount:', invoice.amount_due);
-      
-      const paymentIntent = await stripe.paymentIntents.create({
-        amount: invoice.amount_due,
-        currency: currency.toLowerCase(),
-        customer: customer.id,
-        metadata: {
-          subscription_id: subscription.id,
-          invoice_id: invoiceId,
-          ...(userId ? { userId } : {}),
-          tier,
-          billing,
-        },
-        automatic_payment_methods: {
-          enabled: true,
-        },
-        description: `Ecom Efficiency - ${tier} ${billing}`,
-      });
-      
-      console.log('[create-subscription-intent] Manual PaymentIntent created', {
-        id: paymentIntent.id,
-        amount: paymentIntent.amount,
-        hasSecret: !!paymentIntent.client_secret
-      });
-      
-      if (!paymentIntent.client_secret) {
-        return NextResponse.json({ error: "no_client_secret" }, { status: 500 });
-      }
-      
-      return NextResponse.json({
-        subscriptionId: subscription.id,
-        invoiceId,
-        paymentIntentId: paymentIntent.id,
-        clientSecret: paymentIntent.client_secret,
-        customerId: customer.id,
-      });
-    }
-    
-    // Use existing PaymentIntent from invoice
-    const paymentIntent = typeof paymentIntentData === 'string'
-      ? await stripe.paymentIntents.retrieve(paymentIntentData)
-      : paymentIntentData;
+    // Use the invoice's PaymentIntent so the invoice is paid automatically on confirmation
+    const paymentIntent = typeof (invoice as any).payment_intent === 'string'
+      ? await stripe.paymentIntents.retrieve((invoice as any).payment_intent)
+      : (invoice as any).payment_intent;
 
     console.log('[create-subscription-intent] Using invoice PaymentIntent', {
       id: paymentIntent.id,
@@ -229,7 +173,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (!paymentIntent.client_secret) {
-      return NextResponse.json({ error: "no_client_secret" }, { status: 500 });
+      return NextResponse.json({ error: 'no_client_secret' }, { status: 500 });
     }
 
     return NextResponse.json({

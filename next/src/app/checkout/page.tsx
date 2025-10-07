@@ -62,7 +62,7 @@ function CheckoutContent() {
           billing, 
           currency, 
           customerId,
-          couponCode: promoCode.trim().toUpperCase()
+          couponCode: promoCode.trim()
         })
       });
 
@@ -462,13 +462,14 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
     try {
       const { error, paymentIntent } = await stripe.confirmPayment({
         elements,
+        confirmParams: { return_url: `${window.location.origin}/checkout/success?tier=${tier}&billing=${billing}` },
         redirect: 'if_required',
       });
 
       if (error) {
         setMessage(error.message || 'Payment failed');
       } else if (paymentIntent && paymentIntent.status === 'succeeded') {
-        // Payment succeeded! Activate plan immediately
+        // Payment succeeded! Activate subscription and plan immediately
         try {
           const { data } = await supabase.auth.getUser();
 
@@ -479,7 +480,27 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
             email: data.user?.email
           });
 
-          // Call admin API to activate plan immediately (webhooks don't work in localhost)
+          // Step 1: Activate the Stripe subscription (mark invoice as paid)
+          const subscriptionId = paymentIntent.metadata?.subscription_id;
+          if (subscriptionId) {
+            try {
+              const activateSubRes = await fetch('/api/stripe/activate-subscription', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  subscriptionId,
+                  paymentIntentId: paymentIntent.id
+                })
+              });
+
+              const activateSubData = await activateSubRes.json();
+              console.log('[Checkout] Subscription activation:', activateSubData);
+            } catch (e) {
+              console.error('[Checkout] Failed to activate subscription:', e);
+            }
+          }
+
+          // Step 2: Activate the plan in Supabase
           const activationRes = await fetch('/api/admin/activate-plan', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
