@@ -90,6 +90,8 @@ export async function POST(req: NextRequest) {
     const subscriptionParams: any = {
       customer: customer.id,
       items: [{ price: priceId }],
+      // Ensure Stripe will attempt to create a PaymentIntent for the invoice
+      collection_method: 'charge_automatically',
       payment_behavior: 'default_incomplete',
       payment_settings: {
         save_default_payment_method: 'on_subscription',
@@ -167,7 +169,7 @@ export async function POST(req: NextRequest) {
       } catch {}
 
       // Brief delay to allow Stripe to attach PI after finalization
-      try { await new Promise(r => setTimeout(r, 500)); } catch {}
+      try { await new Promise(r => setTimeout(r, 800)); } catch {}
 
       // Retry retrieving with expansion
       try {
@@ -176,6 +178,30 @@ export async function POST(req: NextRequest) {
     }
 
     if (!invoice || !(invoice as any).payment_intent) {
+      // Try to create a PaymentIntent directly tied to the invoice amount
+      try {
+        const amount = (invoice as any)?.amount_due;
+        if (typeof amount === 'number' && amount > 0) {
+          const pi = await stripe.paymentIntents.create({
+            amount,
+            currency: currency.toLowerCase(),
+            customer: customer.id,
+            automatic_payment_methods: { enabled: true },
+            description: `Ecom Efficiency - ${tier} ${billing}`,
+            metadata: { subscription_id: subscription.id, invoice_id: invoiceId, ...(userId ? { userId } : {}) },
+          });
+          if (pi && pi.client_secret) {
+            return NextResponse.json({
+              subscriptionId: subscription.id,
+              invoiceId,
+              paymentIntentId: pi.id,
+              clientSecret: pi.client_secret,
+              customerId: customer.id,
+            });
+          }
+        }
+      } catch {}
+
       // As a last attempt, re-fetch subscription expanded (Stripe eventual consistency)
       try {
         const refreshed = await stripe.subscriptions.retrieve(subscription.id, { expand: ['latest_invoice.payment_intent'] });
