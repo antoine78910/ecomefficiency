@@ -26,29 +26,57 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, active: false, status: "no_customer", plan: null });
     }
 
-    // Check for ACTIVE, TRIALING, or INCOMPLETE subscriptions (incomplete = just paid, waiting for webhook)
+    // Check for ACTIVE, TRIALING, or INCOMPLETE-BUT-PAID subscriptions
     const allSubs = await stripe.subscriptions.list({ customer: customerId, limit: 10 });
 
     // Sort by created date (most recent first)
     const sortedSubs = allSubs.data.sort((a, b) => b.created - a.created);
 
-    // Find first subscription that's active, trialing, or incomplete (just paid)
-    const latest = sortedSubs.find(sub =>
-      sub.status === 'active' ||
-      sub.status === 'trialing' ||
-      sub.status === 'incomplete'
-    );
+    // Find first subscription that's truly active (status active/trialing OR invoice paid)
+    let latest: typeof sortedSubs[0] | undefined;
+    let invoiceStatus: string | undefined;
+
+    for (const sub of sortedSubs) {
+      // Immediately accept active/trialing
+      if (sub.status === 'active' || sub.status === 'trialing') {
+        latest = sub;
+        invoiceStatus = 'active_sub';
+        break;
+      }
+      
+      // For incomplete, check if invoice is paid (= payment succeeded but Stripe hasn't updated status yet)
+      if (sub.status === 'incomplete' && sub.latest_invoice) {
+        try {
+          const invoiceId = typeof sub.latest_invoice === 'string' ? sub.latest_invoice : sub.latest_invoice.id;
+          const invoice = await stripe.invoices.retrieve(invoiceId);
+          
+          if (invoice.status === 'paid') {
+            latest = sub;
+            invoiceStatus = 'paid_invoice';
+            console.log('[VERIFY] Found incomplete sub with paid invoice (granting access)', { subId: sub.id, invoiceId });
+            break;
+          }
+        } catch (e) {
+          console.error('[VERIFY] Failed to check invoice for incomplete sub:', e);
+        }
+      }
+    }
 
     if (!latest) {
-      console.log('[VERIFY] No valid subscription found');
-      return NextResponse.json({ ok: true, active: false, status: "no_subscription", plan: null });
+      console.log('[VERIFY] No active or paid subscription found');
+      return NextResponse.json({ ok: true, active: false, status: "no_active_subscription", plan: null });
     }
 
     const status = latest.status;
-    // Consider incomplete as "pending activation" = active for access
-    const active = status === 'active' || status === 'trialing' || status === 'incomplete';
+    const active = true; // If we reached here, subscription is valid
 
-    console.log('[VERIFY] Found subscription:', { status, active, subscriptionId: latest.id });
+    console.log('[VERIFY] ✅ Found valid subscription:', { 
+      status, 
+      active, 
+      subscriptionId: latest.id,
+      invoiceStatus,
+      reason: invoiceStatus === 'paid_invoice' ? 'incomplete but invoice paid' : 'status active/trialing'
+    });
 
     // Map price IDs to plan name; with robust fallbacks
     const price = latest.items.data[0]?.price as Stripe.Price | undefined;

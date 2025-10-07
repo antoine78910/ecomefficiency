@@ -73,17 +73,50 @@ export async function GET(req: NextRequest) {
       }
       const subs = await stripe.subscriptions.list({ customer: customerId, status: 'all', limit: 10 })
       const sorted = subs.data.sort((a, b) => (b.created || 0) - (a.created || 0))
-      const anyActive = sorted.some(s => s.status === 'active' || s.status === 'trialing')
+      
+      // Check if ANY subscription is truly active (active/trialing status OR paid invoice)
+      let anyActive = false;
+      for (const sub of sorted) {
+        if (sub.status === 'active' || sub.status === 'trialing') {
+          anyActive = true;
+          break;
+        }
+        
+        // For incomplete, verify invoice is paid
+        if (sub.status === 'incomplete' && sub.latest_invoice) {
+          try {
+            const invoiceId = typeof sub.latest_invoice === 'string' ? sub.latest_invoice : sub.latest_invoice.id;
+            const invoice = await stripe.invoices.retrieve(invoiceId);
+            
+            if (invoice.status === 'paid') {
+              anyActive = true;
+              console.log('[CREDENTIALS] Granting access: incomplete sub with paid invoice', { subId: sub.id });
+              break;
+            }
+          } catch (e) {
+            console.error('[CREDENTIALS] Failed to check invoice:', e);
+          }
+        }
+      }
+      
       const latest = sorted[0]
       const status = latest?.status
 
-      console.log('[CREDENTIALS] Access check:', { customerId, status, anyActive, latestId: latest?.id })
+      console.log('[CREDENTIALS] Access check:', { 
+        customerId, 
+        status, 
+        anyActive, 
+        latestId: latest?.id,
+        totalSubs: sorted.length
+      })
 
-      // Fail-closed unless ANY subscription is active/trialing
+      // Fail-closed unless ANY subscription is active/trialing OR has paid invoice
       if (!anyActive) {
-        console.log('[CREDENTIALS] Access denied - none active (latest status:', status, ')')
+        console.log('[CREDENTIALS] ❌ Access denied - no valid subscription (latest status:', status, ')')
         return NextResponse.json({}, { status: 200 })
       }
+      
+      console.log('[CREDENTIALS] ✅ Access granted')
     }
   } catch {
     // On verification error, do not leak anything
