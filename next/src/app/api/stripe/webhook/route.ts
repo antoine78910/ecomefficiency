@@ -79,7 +79,39 @@ export async function POST(req: NextRequest) {
         }
         break;
       }
-      // Removed payment_intent.succeeded handler; we rely on invoice.payment_succeeded
+      case 'payment_intent.succeeded': {
+        // If we created a manual PaymentIntent as a fallback, mark the invoice paid
+        try {
+          const pi: any = (event as any).data?.object;
+          const invoiceId: string | undefined = pi?.metadata?.invoice_id;
+          const subscriptionId: string | undefined = pi?.metadata?.subscription_id;
+          if (invoiceId && subscriptionId) {
+            try { await stripe.invoices.finalizeInvoice(invoiceId).catch(()=>{}); } catch {}
+            try {
+              await stripe.invoices.pay(invoiceId, { paid_out_of_band: true });
+            } catch {}
+
+            // Best-effort: activate user immediately
+            try {
+              const sub = await stripe.subscriptions.retrieve(subscriptionId);
+              const userId = (sub as any)?.metadata?.userId;
+              const tier = (sub as any)?.metadata?.tier;
+              const plan = tier === 'starter' ? 'starter' : 'pro';
+              if (userId && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL) {
+                await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
+                  method: 'PUT',
+                  headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
+                  },
+                  body: JSON.stringify({ user_metadata: { plan, tier, stripe_customer_id: sub.customer } })
+                });
+              }
+            } catch {}
+          }
+        } catch {}
+        break;
+      }
       case 'invoice.payment_succeeded': {
         // Activate plan when payment succeeds
         const invoice = (event as any).data?.object;
