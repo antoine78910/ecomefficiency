@@ -480,25 +480,7 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
             email: data.user?.email
           });
 
-          // Step 1: Activate the Stripe subscription (mark invoice as paid)
-          const subscriptionId = paymentIntent.metadata?.subscription_id;
-          if (subscriptionId) {
-            try {
-              const activateSubRes = await fetch('/api/stripe/activate-subscription', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  subscriptionId,
-                  paymentIntentId: paymentIntent.id
-                })
-              });
-
-              const activateSubData = await activateSubRes.json();
-              console.log('[Checkout] Subscription activation:', activateSubData);
-            } catch (e) {
-              console.error('[Checkout] Failed to activate subscription:', e);
-            }
-          }
+          // Webhook will activate the subscription via invoice.payment_succeeded
 
           // Step 2: Activate the plan in Supabase
           const activationRes = await fetch('/api/admin/activate-plan', {
