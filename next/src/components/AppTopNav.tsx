@@ -29,15 +29,15 @@ export default function AppTopNav() {
         const r = await fetch('/api/stripe/verify', { method: 'POST', headers, body: JSON.stringify({ email: user?.email || '' }) });
         const j = await r.json().catch(() => ({}));
         const p = (j?.plan as string)?.toLowerCase();
-        if (j?.ok && j?.active && (p === 'starter' || p === 'pro' || p === 'growth')) setPlan((p==='growth'?'pro':p) as any);
+        if (j?.ok && j?.active && (p === 'starter' || p === 'pro' )) setPlan(p as any);
         else {
           const mp = (meta.plan as string)?.toLowerCase();
-          if (mp === 'starter' || mp === 'growth' || mp==='pro') setPlan((mp==='growth'?'pro':mp) as any);
+          if (mp === 'starter' || mp==='pro') setPlan(mp as any);
           else setPlan('free');
         }
       } catch {
         const p = (meta.plan as string)?.toLowerCase();
-        if (p === 'starter' || p === 'growth' || p==='pro') setPlan((p==='growth'?'pro':p) as any);
+        if (p === 'starter' || p==='pro') setPlan(p as any);
         else setPlan('free');
       }
     } catch {}
@@ -61,7 +61,7 @@ export default function AppTopNav() {
     try { document.addEventListener('visibilitychange', onVisible); } catch {}
     const onPlanUpdated = (e: any) => {
       const p = (e?.detail?.plan as string | undefined)?.toLowerCase();
-      if (p === 'starter' || p === 'growth' || p === 'pro') setPlan((p==='growth'?'pro':p) as any);
+      if (p === 'starter' || p === 'pro') setPlan(p as any);
       else if (p === 'free') setPlan('free');
     };
     try { window.addEventListener('ee-plan-updated', onPlanUpdated as any); } catch {}

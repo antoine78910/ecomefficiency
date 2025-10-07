@@ -77,7 +77,16 @@ function CheckoutContent() {
       setClientSecret(createData.clientSecret);
       setAppliedPromo(validateData.coupon);
       setPromoError(null);
+
+      console.log('[CHECKOUT] Promo applied:', {
+        coupon: validateData.coupon,
+        percent_off: validateData.coupon?.percent_off,
+        amount_off: validateData.coupon?.amount_off,
+        basePrice,
+        currency
+      });
     } catch (e) {
+      console.error('[CHECKOUT] Failed to apply promo:', e);
       setPromoError('Failed to validate promo code');
       setAppliedPromo(null);
     } finally {
@@ -152,19 +161,34 @@ function CheckoutContent() {
   // Calculate discounted price if promo is applied
   const getDiscountedPrice = () => {
     if (!appliedPromo) return basePrice;
-    
+
     if (appliedPromo.percent_off) {
-      return basePrice * (1 - appliedPromo.percent_off / 100);
+      const discounted = basePrice * (1 - appliedPromo.percent_off / 100);
+      console.log('[CHECKOUT] Percent discount:', {
+        basePrice,
+        percent_off: appliedPromo.percent_off,
+        discounted
+      });
+      return discounted;
     }
-    
+
     if (appliedPromo.amount_off) {
-      const discountInCurrency = currency === 'EUR' ? appliedPromo.amount_off / 100 : appliedPromo.amount_off / 100;
-      return Math.max(0, basePrice - discountInCurrency);
+      // amount_off is in cents, convert to currency
+      const discountAmount = appliedPromo.amount_off / 100;
+      const discounted = Math.max(0, basePrice - discountAmount);
+      console.log('[CHECKOUT] Amount discount:', {
+        basePrice,
+        amount_off: appliedPromo.amount_off,
+        discountAmount,
+        currency,
+        discounted
+      });
+      return discounted;
     }
-    
+
     return basePrice;
   };
-  
+
   const price = getDiscountedPrice();
 
   if (error) {
@@ -447,35 +471,39 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
         // Payment succeeded! Activate plan immediately
         try {
           const { data } = await supabase.auth.getUser();
-          
+
           console.log('[Checkout] Payment succeeded!', {
             paymentIntentId: paymentIntent.id,
             amount: paymentIntent.amount,
             tier,
             email: data.user?.email
           });
-          
+
           // Call admin API to activate plan immediately (webhooks don't work in localhost)
           const activationRes = await fetch('/api/admin/activate-plan', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
+            body: JSON.stringify({
               email: data.user?.email,
-              plan: tier === 'starter' ? 'starter' : 'pro'
+              plan: tier // Send 'starter' or 'pro', the API will handle the mapping
             })
           });
-          
+
           const activationData = await activationRes.json();
           console.log('[Checkout] Plan activation result:', activationData);
-          
+
           if (!activationData.success) {
             console.error('[Checkout] Failed to activate plan:', activationData);
+            // Continue anyway, webhook will handle it
+          } else {
+            console.log('[Checkout] ✓ Plan activated successfully:', activationData.plan);
           }
         } catch (e) {
-          console.error('[Checkout] Failed to activate plan:', e);
+          console.error('[Checkout] Failed to activate plan (non-fatal):', e);
+          // Continue anyway, webhook will handle it
         }
-        
-        // Redirect to success
+
+        // Redirect to success page
         window.location.href = `/checkout/success?tier=${tier}&billing=${billing}`;
       }
     } catch (err: any) {

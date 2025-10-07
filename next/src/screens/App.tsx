@@ -619,25 +619,52 @@ function CredentialsPanel() {
         const headers: Record<string, string> = {};
         if (email) headers['x-user-email'] = email;
         if (customerId) headers['x-stripe-customer-id'] = customerId;
+
+        console.log('[CREDENTIALS] Fetching with:', { email, customerId });
+
         // Force refresh: call GET with cache:no-store so server refetches Discord channels
         const res = await fetch('/api/credentials', { headers, cache: 'no-store' });
-        if (!res.ok) throw new Error('Failed to load');
+        if (!res.ok) {
+          console.error('[CREDENTIALS] Fetch failed:', res.status, res.statusText);
+          throw new Error('Failed to load');
+        }
         const json = await res.json();
+
+        console.log('[CREDENTIALS] Received:', {
+          hasData: !!json,
+          keys: Object.keys(json || {}),
+          adspower_email: json?.adspower_email,
+          adspower_starter_email: json?.adspower_starter_email,
+          adspower_pro_email: json?.adspower_pro_email
+        });
+
         if (active) {
           setCreds(json);
           setError(null);
         }
       } catch (e: any) {
+        console.error('[CREDENTIALS] Error:', e);
         if (active) setError(e.message);
       } finally {
         if (active) setLoading(false);
       }
     };
     fetchCreds();
+
+    // Listen for visibility change to refresh credentials when user returns to page
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') {
+        console.log('[CREDENTIALS] Page visible, refreshing credentials...');
+        fetchCreds();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisible);
+
     const id = setInterval(fetchCreds, 300000); // refresh every 5 min
     return () => {
       active = false;
       clearInterval(id);
+      document.removeEventListener('visibilitychange', onVisible);
     };
   }, []);
 
@@ -820,7 +847,15 @@ function CredentialsPanel() {
           const hasProCreds = !!(creds.adspower_pro_email || creds.adspower_pro_password);
           const hasStarterCreds = !!(creds.adspower_email || creds.adspower_password || creds.adspower_starter_email || creds.adspower_starter_password);
           const hasAnyCreds = !!(creds.adspower_email || creds.adspower_starter_email || creds.adspower_pro_email);
-          
+
+          console.log('[CREDENTIALS] Display check:', {
+            plan,
+            hasProCreds,
+            hasStarterCreds,
+            hasAnyCreds,
+            credsKeys: Object.keys(creds || {})
+          });
+
           const currentPlan = plan as string; // Type assertion to avoid flow narrowing issues
           if ((currentPlan === 'pro' && hasProCreds) || (currentPlan === 'starter' && hasStarterCreds) || (currentPlan === 'checking' && hasAnyCreds)) {
             // Compute values once to avoid repeated type checks in JSX

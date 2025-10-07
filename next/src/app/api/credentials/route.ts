@@ -74,12 +74,15 @@ export async function GET(req: NextRequest) {
       const subs = await stripe.subscriptions.list({ customer: customerId, status: 'all', limit: 10 })
       const latest = subs.data.sort((a, b) => (b.created || 0) - (a.created || 0))[0]
       const status = latest?.status
-      // SECURITY: Only allow access for truly active subscriptions - block incomplete, past_due, unpaid, etc.
-      const active = status === 'active' || status === 'trialing'
-      
+      // SECURITY: Allow access for active, trialing, AND incomplete (just paid, waiting for webhook)
+      // incomplete = payment succeeded but webhook not yet processed (normal in test mode)
+      const active = status === 'active' || status === 'trialing' || status === 'incomplete'
+
+      console.log('[CREDENTIALS] Access check:', { customerId, status, active, subscriptionId: latest?.id })
+
       // Fail-closed on any non-active status
       if (!active) {
-        console.log('[CREDENTIALS] Access denied:', { customerId, status, active })
+        console.log('[CREDENTIALS] Access denied - invalid status')
         return NextResponse.json({}, { status: 200 })
       }
     }

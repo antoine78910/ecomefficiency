@@ -4,13 +4,13 @@ import Stripe from "stripe";
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json().catch(() => ({})) as { priceId?: string; promotionCode?: string; tier?: 'starter'|'growth'|'pro'|'unlimited'; billing?: 'monthly'|'yearly'; currency?: 'USD'|'EUR' };
+    const body = await req.json().catch(() => ({})) as { priceId?: string; promotionCode?: string; tier?: 'starter'|'pro'|'unlimited'; billing?: 'monthly'|'yearly'; currency?: 'USD'|'EUR' };
 
     // Resolve priceId either from body or from server env by tier/billing
     let priceId = body.priceId;
     if (!priceId) {
       const tierRaw = (body.tier || 'pro').toLowerCase();
-      const tier = tierRaw === 'growth' ? 'pro' : tierRaw;
+      const tier = tierRaw;
       const billing = (body.billing || 'monthly').toLowerCase();
       const currency = (body.currency || 'EUR').toUpperCase();
       const env = process.env as Record<string, string | undefined>;
@@ -94,8 +94,8 @@ export async function POST(req: NextRequest) {
     };
 
     // Build discounts logic
-    const isGrowthMonthly = (String((body.tier || '').toLowerCase()) === 'growth') && (String((body.billing || 'monthly').toLowerCase()) === 'monthly');
-    const autoPromoInput = process.env.STRIPE_PROMOTION_CODE_GROWTH_10 || 'promo_1S1ZqOLCLqnM14mK1IXSV2Zl';
+    const isProMonthly = (String((body.tier || '').toLowerCase()) === 'pro') && (String((body.billing || 'monthly').toLowerCase()) === 'monthly');
+    const autoPromoInput = process.env.STRIPE_PROMOTION_CODE_PRO_10 || '';
 
     const resolvePromotionCodeId = async (input?: string | null): Promise<string | null> => {
       try {
@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
     if (body.promotionCode) {
       const resolved = await resolvePromotionCodeId(body.promotionCode);
       session = await createWithDiscounts(resolved ? [{ promotion_code: resolved }] : undefined);
-    } else if (isGrowthMonthly && autoPromoInput) {
+    } else if (isProMonthly && autoPromoInput) {
       const resolved = await resolvePromotionCodeId(autoPromoInput);
       session = await createWithDiscounts(resolved ? [{ promotion_code: resolved }] : undefined);
     } else {

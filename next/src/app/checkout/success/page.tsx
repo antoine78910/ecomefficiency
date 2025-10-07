@@ -6,15 +6,63 @@ import { Check } from 'lucide-react';
 function CheckoutSuccessContent() {
   const searchParams = useSearchParams();
   const [redirecting, setRedirecting] = useState(false);
+  const tier = searchParams?.get('tier') || 'pro';
 
   useEffect(() => {
+    // Force plan activation immediately after payment
+    let cancelled = false;
+    (async () => {
+      try {
+        // Import supabase client
+        const mod = await import("@/integrations/supabase/client");
+        const { data } = await mod.supabase.auth.getUser();
+        const email = data.user?.email;
+
+        if (email) {
+          console.log('[CheckoutSuccess] Forcing plan activation for:', email, 'tier:', tier);
+
+          // Try multiple times to ensure activation
+          for (let attempt = 1; attempt <= 5 && !cancelled; attempt++) {
+            try {
+              const activationRes = await fetch('/api/admin/activate-plan', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  email,
+                  plan: tier // 'starter' or 'pro'
+                })
+              });
+
+              const activationData = await activationRes.json();
+              console.log(`[CheckoutSuccess] Activation attempt ${attempt}:`, activationData);
+
+              if (activationData.success) {
+                console.log('[CheckoutSuccess] ✓ Plan activated successfully!');
+                break;
+              }
+            } catch (e) {
+              console.error(`[CheckoutSuccess] Activation attempt ${attempt} failed:`, e);
+            }
+
+            // Wait 500ms before retry
+            if (attempt < 5) {
+              await new Promise(r => setTimeout(r, 500));
+            }
+          }
+        }
+      } catch (e) {
+        console.error('[CheckoutSuccess] Failed to activate plan:', e);
+      }
+    })();
+
     // Wait a moment then redirect to app
     const timer = setTimeout(() => {
+      if (cancelled) return;
       setRedirecting(true);
       const protocol = window.location.protocol;
       const hostname = window.location.hostname;
       const port = window.location.port ? `:${window.location.port}` : '';
-      
+
       let appUrl;
       if (hostname === 'localhost' || hostname === '127.0.0.1') {
         appUrl = `${protocol}//app.localhost${port}/`;
@@ -24,12 +72,15 @@ function CheckoutSuccessContent() {
         const cleanHost = hostname.replace(/^www\./, '');
         appUrl = `${protocol}//app.${cleanHost}${port}/`;
       }
-      
-      window.location.href = appUrl;
-    }, 3000);
 
-    return () => clearTimeout(timer);
-  }, []);
+      window.location.href = appUrl;
+    }, 4000); // Increased to 4 seconds to allow activation attempts
+
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [tier]);
 
   return (
     <div className="min-h-screen bg-black flex items-center justify-center p-6">

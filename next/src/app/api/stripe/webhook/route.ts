@@ -41,7 +41,7 @@ export async function POST(req: NextRequest) {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
               },
-              body: JSON.stringify({ user_metadata: { plan: 'growth', stripe_customer_id: customerId } })
+              body: JSON.stringify({ user_metadata: { plan: 'pro', stripe_customer_id: customerId } })
             });
           }
         }
@@ -63,7 +63,7 @@ export async function POST(req: NextRequest) {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
               },
-              body: JSON.stringify({ user_metadata: { plan: 'growth', stripe_customer_id: customerId } })
+              body: JSON.stringify({ user_metadata: { plan: 'pro', stripe_customer_id: customerId } })
             });
           } else {
             // Any non-active state should be downgraded to free
@@ -104,38 +104,44 @@ export async function POST(req: NextRequest) {
         // Activate plan when payment succeeds
         const invoice = (event as any).data?.object;
         const subscriptionId = invoice?.subscription;
-        
+
         if (subscriptionId) {
           // Fetch subscription to get metadata
           const subscription = await stripe.subscriptions.retrieve(subscriptionId);
           const clientRef = subscription?.metadata?.userId;
           const customerId = subscription?.customer;
           const tier = subscription?.metadata?.tier; // 'starter' or 'pro'
-          
+
           if (clientRef && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL) {
-            // Map tier to plan (starter stays starter, pro becomes growth)
-            const plan = tier === 'starter' ? 'starter' : 'growth';
-            
+            // Map tier to plan: starter → starter, pro → pro
+            const plan = tier === 'starter' ? 'starter' : 'pro';
+
             console.log('[webhook] Payment succeeded, activating plan for user:', {
               userId: clientRef,
               tier,
-              plan
+              plan,
+              subscriptionId
             });
-            
-            await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users/${clientRef}`, {
+
+            const updateRes = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users/${clientRef}`, {
               method: 'PUT',
               headers: {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
               },
-              body: JSON.stringify({ 
-                user_metadata: { 
-                  plan, 
+              body: JSON.stringify({
+                user_metadata: {
+                  plan,
                   stripe_customer_id: customerId,
-                  tier 
-                } 
+                  tier
+                }
               })
             });
+
+            const updateData = await updateRes.json();
+            console.log('[webhook] User metadata updated:', updateData);
+          } else {
+            console.error('[webhook] Missing required data:', { clientRef, hasSupabaseConfig: !!process.env.SUPABASE_SERVICE_ROLE_KEY });
           }
         }
         break;
