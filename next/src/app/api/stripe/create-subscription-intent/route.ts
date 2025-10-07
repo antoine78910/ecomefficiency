@@ -153,10 +153,41 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'no_invoice' }, { status: 500 });
     }
 
-    const invoice = typeof latestInvoice === 'object' ? latestInvoice : await stripe.invoices.retrieve(invoiceId, { expand: ['payment_intent'] });
+    let invoice = typeof latestInvoice === 'object'
+      ? latestInvoice
+      : await stripe.invoices.retrieve(invoiceId, { expand: ['payment_intent'] });
+
+    // If PaymentIntent is missing, try to finalize and retry expansion
+    if (!invoice || !(invoice as any).payment_intent) {
+      try {
+        const status = (invoice as any)?.status;
+        if (status === 'draft') {
+          await stripe.invoices.finalizeInvoice(invoiceId);
+        }
+      } catch {}
+
+      // Brief delay to allow Stripe to attach PI after finalization
+      try { await new Promise(r => setTimeout(r, 500)); } catch {}
+
+      // Retry retrieving with expansion
+      try {
+        invoice = await stripe.invoices.retrieve(invoiceId, { expand: ['payment_intent'] });
+      } catch {}
+    }
 
     if (!invoice || !(invoice as any).payment_intent) {
-      console.error('[create-subscription-intent] No PaymentIntent on invoice');
+      // As a last attempt, re-fetch subscription expanded (Stripe eventual consistency)
+      try {
+        const refreshed = await stripe.subscriptions.retrieve(subscription.id, { expand: ['latest_invoice.payment_intent'] });
+        const li: any = refreshed.latest_invoice;
+        if (li && li.payment_intent) {
+          invoice = li;
+        }
+      } catch {}
+    }
+
+    if (!invoice || !(invoice as any).payment_intent) {
+      console.error('[create-subscription-intent] No PaymentIntent on invoice after retries', { invoiceId, subId: subscription.id });
       return NextResponse.json({ error: 'no_payment_intent' }, { status: 500 });
     }
 
