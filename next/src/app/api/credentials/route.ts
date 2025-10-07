@@ -104,8 +104,7 @@ export async function GET(req: NextRequest) {
                 id: invoice.id, 
                 status: invoice.status,
                 amount_paid: invoice.amount_paid,
-                amount_due: invoice.amount_due,
-                payment_intent: typeof invoice.payment_intent === 'string' ? invoice.payment_intent : invoice.payment_intent?.id
+                amount_due: invoice.amount_due
               });
               
               if (invoice.status === 'paid') {
