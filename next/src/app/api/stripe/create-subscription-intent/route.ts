@@ -182,7 +182,7 @@ export async function POST(req: NextRequest) {
     console.log('[create-subscription-intent] Invoice details', {
       id: invoice.id,
       amount_due: invoice.amount_due,
-      discount: invoice.discount,
+      discounts: invoice.discounts,
       total_discount_amounts: invoice.total_discount_amounts
     });
 
