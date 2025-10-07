@@ -79,6 +79,27 @@ export async function POST(req: NextRequest) {
         }
         break;
       }
+      case 'payment_intent.succeeded': {
+        // Handle manual PaymentIntent success - pay the associated invoice
+        const pi = (event as any).data?.object;
+        const invoiceId = pi?.metadata?.invoice_id;
+        const subscriptionId = pi?.metadata?.subscription_id;
+        
+        if (invoiceId && subscriptionId) {
+          console.log('[webhook] Manual PaymentIntent succeeded, paying invoice', { invoiceId, subscriptionId });
+          
+          try {
+            // Pay the invoice with this payment
+            await stripe.invoices.pay(invoiceId, {
+              paid_out_of_band: true
+            });
+            console.log('[webhook] Invoice marked as paid');
+          } catch (e: any) {
+            console.error('[webhook] Failed to pay invoice:', e.message);
+          }
+        }
+        break;
+      }
       case 'invoice.payment_succeeded': {
         // Activate plan when payment succeeds
         const invoice = (event as any).data?.object;

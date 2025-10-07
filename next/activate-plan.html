@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Activate Plan</title>
+</head>
+<body>
+  <h1>Activate Plan</h1>
+  <button onclick="activatePlan()">Activate Starter Plan</button>
+  <pre id="result"></pre>
+  
+  <script>
+    async function activatePlan() {
+      const result = await fetch('https://ecomefficiency.com/api/admin/activate-plan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          email: 'antoine.daniere78@gmail.com',
+          plan: 'starter'
+        })
+      }).then(r => r.json());
+      
+      document.getElementById('result').textContent = JSON.stringify(result, null, 2);
+      
+      if (result.success) {
+        alert('Plan activated! Refresh app.ecomefficiency.com');
+      }
+    }
+  </script>
+</body>
+</html>
+

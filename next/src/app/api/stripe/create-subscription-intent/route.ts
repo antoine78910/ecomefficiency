@@ -113,16 +113,16 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Create subscription with payment required upfront
+    // Create subscription - use pending_if_incomplete to auto-create PaymentIntent
     const subscriptionParams: any = {
       customer: customer.id,
       items: [{ price: priceId }],
-      payment_behavior: 'default_incomplete',
+      payment_behavior: 'pending_if_incomplete',
       payment_settings: {
         save_default_payment_method: 'on_subscription',
         payment_method_types: ['card'],
       },
-      expand: ['latest_invoice.payment_intent'],
+      expand: ['pending_setup_intent', 'latest_invoice.payment_intent'],
       metadata: {
         ...(userId ? { userId } : {}),
         tier,
@@ -193,45 +193,69 @@ export async function POST(req: NextRequest) {
       total_discount_amounts: invoice.total_discount_amounts
     });
 
-    // Check if PaymentIntent already exists on invoice
+    // Try to get PaymentIntent from invoice
     let paymentIntentData = (invoice as any).payment_intent;
     
+    // If no PaymentIntent, check pending_setup_intent or create manually
     if (!paymentIntentData) {
-      console.log('[create-subscription-intent] No PaymentIntent on invoice, checking if already finalized');
+      console.log('[create-subscription-intent] No PaymentIntent, trying pending_setup_intent');
+      const setupIntent = (subscription as any).pending_setup_intent;
       
-      // Re-fetch with expand to ensure we have latest data
-      const refetchedInvoice = await stripe.invoices.retrieve(invoiceId, {
-        expand: ['payment_intent']
+      if (setupIntent) {
+        console.log('[create-subscription-intent] Found SetupIntent, but we need PaymentIntent');
+      }
+      
+      // Create PaymentIntent manually with invoice amount (includes discount)
+      console.log('[create-subscription-intent] Creating manual PaymentIntent with amount:', invoice.amount_due);
+      
+      const paymentIntent = await stripe.paymentIntents.create({
+        amount: invoice.amount_due,
+        currency: currency.toLowerCase(),
+        customer: customer.id,
+        metadata: {
+          subscription_id: subscription.id,
+          invoice_id: invoiceId,
+          ...(userId ? { userId } : {}),
+          tier,
+          billing,
+        },
+        automatic_payment_methods: {
+          enabled: true,
+        },
+        description: `Ecom Efficiency - ${tier} ${billing}`,
       });
       
-      paymentIntentData = (refetchedInvoice as any).payment_intent;
+      console.log('[create-subscription-intent] Manual PaymentIntent created', {
+        id: paymentIntent.id,
+        amount: paymentIntent.amount,
+        hasSecret: !!paymentIntent.client_secret
+      });
       
-      console.log('[create-subscription-intent] After refetch:', {
-        hasPaymentIntent: !!paymentIntentData,
-        status: refetchedInvoice.status
+      if (!paymentIntent.client_secret) {
+        return NextResponse.json({ error: "no_client_secret" }, { status: 500 });
+      }
+      
+      return NextResponse.json({
+        subscriptionId: subscription.id,
+        invoiceId,
+        paymentIntentId: paymentIntent.id,
+        clientSecret: paymentIntent.client_secret,
+        customerId: customer.id,
       });
     }
     
-    // Get the PaymentIntent
-    const paymentIntent = paymentIntentData 
-      ? (typeof paymentIntentData === 'string'
-          ? await stripe.paymentIntents.retrieve(paymentIntentData)
-          : paymentIntentData)
-      : null;
+    // Use existing PaymentIntent from invoice
+    const paymentIntent = typeof paymentIntentData === 'string'
+      ? await stripe.paymentIntents.retrieve(paymentIntentData)
+      : paymentIntentData;
 
-    if (!paymentIntent || !paymentIntent.client_secret) {
-      console.error('[create-subscription-intent] No valid PaymentIntent available');
-      return NextResponse.json({ error: "no_payment_intent" }, { status: 500 });
-    }
-
-    console.log('[create-subscription-intent] PaymentIntent ready', {
+    console.log('[create-subscription-intent] Using invoice PaymentIntent', {
       id: paymentIntent.id,
       amount: paymentIntent.amount,
       hasSecret: !!paymentIntent.client_secret
     });
 
     if (!paymentIntent.client_secret) {
-      console.error('[create-subscription-intent] No client secret');
       return NextResponse.json({ error: "no_client_secret" }, { status: 500 });
     }
 
