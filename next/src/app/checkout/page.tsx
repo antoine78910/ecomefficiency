@@ -452,20 +452,37 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    console.log('[Checkout] 🎯 handleSubmit called', { 
+      hasSubmitted: hasSubmitted.current, 
+      isProcessing,
+      timestamp: new Date().toISOString()
+    });
 
     if (!stripe || !elements) {
+      console.log('[Checkout] ⚠️ Stripe or Elements not ready');
       return;
     }
 
-    // Prevent double submission
-    if (hasSubmitted.current || isProcessing) {
-      console.log('[Checkout] Already processing, ignoring duplicate submit');
+    // Prevent double submission (multi-layer protection)
+    const sessionKey = `checkout_processing_${tier}_${billing}`;
+    const alreadyProcessing = sessionStorage.getItem(sessionKey);
+    
+    if (hasSubmitted.current || isProcessing || alreadyProcessing) {
+      console.log('[Checkout] ⛔ Already processing, ignoring duplicate submit', {
+        hasSubmittedRef: hasSubmitted.current,
+        isProcessingState: isProcessing,
+        sessionStorage: alreadyProcessing
+      });
       return;
     }
 
     hasSubmitted.current = true;
+    sessionStorage.setItem(sessionKey, 'true');
     setIsProcessing(true);
     setMessage(null);
+    
+    console.log('[Checkout] ✅ Starting payment confirmation...');
 
     try {
       const { error, paymentIntent } = await stripe.confirmPayment({
@@ -522,10 +539,13 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
         }
 
         // Redirect to success page
+        sessionStorage.removeItem(sessionKey); // Clear lock on success
         window.location.href = `/checkout/success?tier=${tier}&billing=${billing}`;
       }
     } catch (err: any) {
       setMessage(err.message || 'An unexpected error occurred');
+      sessionStorage.removeItem(sessionKey); // Clear lock on error to allow retry
+      hasSubmitted.current = false;
     } finally {
       setIsProcessing(false);
     }
