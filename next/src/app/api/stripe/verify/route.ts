@@ -48,13 +48,16 @@ export async function POST(req: NextRequest) {
       if (sub.status === 'incomplete' && sub.latest_invoice) {
         try {
           const invoiceId = typeof sub.latest_invoice === 'string' ? sub.latest_invoice : sub.latest_invoice.id;
-          const invoice = await stripe.invoices.retrieve(invoiceId);
           
-          if (invoice.status === 'paid') {
-            latest = sub;
-            invoiceStatus = 'paid_invoice';
-            console.log('[VERIFY] Found incomplete sub with paid invoice (granting access)', { subId: sub.id, invoiceId });
-            break;
+          if (invoiceId) {
+            const invoice = await stripe.invoices.retrieve(invoiceId);
+            
+            if (invoice.status === 'paid') {
+              latest = sub;
+              invoiceStatus = 'paid_invoice';
+              console.log('[VERIFY] Found incomplete sub with paid invoice (granting access)', { subId: sub.id, invoiceId });
+              break;
+            }
           }
         } catch (e) {
           console.error('[VERIFY] Failed to check invoice for incomplete sub:', e);

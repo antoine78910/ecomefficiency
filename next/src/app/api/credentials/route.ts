@@ -86,12 +86,15 @@ export async function GET(req: NextRequest) {
         if (sub.status === 'incomplete' && sub.latest_invoice) {
           try {
             const invoiceId = typeof sub.latest_invoice === 'string' ? sub.latest_invoice : sub.latest_invoice.id;
-            const invoice = await stripe.invoices.retrieve(invoiceId);
             
-            if (invoice.status === 'paid') {
-              anyActive = true;
-              console.log('[CREDENTIALS] Granting access: incomplete sub with paid invoice', { subId: sub.id });
-              break;
+            if (invoiceId) {
+              const invoice = await stripe.invoices.retrieve(invoiceId);
+              
+              if (invoice.status === 'paid') {
+                anyActive = true;
+                console.log('[CREDENTIALS] Granting access: incomplete sub with paid invoice', { subId: sub.id });
+                break;
+              }
             }
           } catch (e) {
             console.error('[CREDENTIALS] Failed to check invoice:', e);
