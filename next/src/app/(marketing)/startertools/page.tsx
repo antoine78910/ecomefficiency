@@ -18,7 +18,7 @@ const STARTER_TOOL_NAMES = [
 ];
 const PRO_ONLY_TOOL_NAMES = [
   'Flair.ai', 'Gemini', 'Exploding Topics', 'Pipiads', 'Kalodata',
-  'Atria', 'Heygen', 'Fotor', 'ForePlay', 'ElevenLabs', 'Runway', 'Trendtrack'
+  'Atria', 'Heygen', 'Fotor', 'ForePlay', 'ElevenLabs', 'Runway', 'Trendtrack', 'Higgsfield'
 ];
 
 export default function StarterToolsPage() {

@@ -39,7 +39,7 @@ export default function ProToolsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {[seoTile, ...carouselTools
               .filter(t => [
-                'Flair.ai','ChatGPT','Gemini','Midjourney','Exploding Topics','Pipiads','Kalodata','WinningHunter','Capcut','SendShort','Helium10','Dropship.io','ShopHunter','Atria','Heygen','Fotor','ForePlay','ElevenLabs','Runway','Trendtrack'
+                'Flair.ai','ChatGPT','Gemini','Midjourney','Exploding Topics','Pipiads','Kalodata','WinningHunter','Capcut','SendShort','Helium10','Dropship.io','ShopHunter','Atria','Heygen','Fotor','ForePlay','ElevenLabs','Runway','Trendtrack','Higgsfield'
               ].includes(t.name))
               .filter(t => t.name !== 'Canva' && t.name !== 'Brain.fm')
             ].map((tool) => (

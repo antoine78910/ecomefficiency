@@ -141,9 +141,8 @@ export async function POST(req: NextRequest) {
     console.log('[create-subscription-intent] Subscription created', {
       id: subscription.id,
       status: subscription.status,
-      discount: subscription.discount,
-      coupon: subscriptionParams.coupon,
-      promotion_code: subscriptionParams.discounts?.[0]?.promotion_code
+      discounts: (subscription as any)?.discounts,
+      promotion: subscriptionParams.discounts,
     });
 
     // Get the invoice ID and its PaymentIntent (expanded above)

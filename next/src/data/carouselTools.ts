@@ -20,6 +20,7 @@ export const logoDomainMap: Record<string, string> = {
   'gemini': 'google.com',
   'midjourney': 'midjourney.com',
   'runway': 'runwayml.com',
+  'higgsfield': 'higgsfield.ai',
 };
 
 export const carouselTools: CarouselTool[] = [
@@ -41,7 +42,7 @@ export const carouselTools: CarouselTool[] = [
   { name: 'Kalodata', description: 'TikTok shop analytics', icon: '/tools-logos/kalodata.png' },
   { name: 'Fotor', description: 'AI photo editor', icon: '/tools-logos/fotor.png' },
   { name: 'ForePlay', description: 'Save ads, build briefs', icon: '/tools-logos/foreplay.png' },
-  { name: 'BrandSearch', description: 'Track brands, ads, funnels', icon: '/tools-logos/brandsearch.png' },
+  { name: 'Higgsfield', description: 'AI video generation', icon: '/tools-logos/higgsfield.png' },
   { name: 'Dropship.io', description: 'Shopify product tracker', icon: '/tools-logos/dropship.png' },
   { name: 'Heygen', description: 'AI avatar videos', icon: '/tools-logos/heygen.png' },
   { name: 'Veo 3', description: 'AI video by Google.', icon: '/tools-logos/veo3.png' },
