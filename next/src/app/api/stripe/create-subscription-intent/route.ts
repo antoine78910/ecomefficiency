@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
         save_default_payment_method: 'on_subscription',
         payment_method_types: ['card'],
       },
-      expand: ['latest_invoice', 'latest_invoice.payment_intent'],
+      expand: ['latest_invoice.payment_intent'],
       metadata: {
         ...(userId ? { userId } : {}),
         tier,
@@ -187,44 +187,46 @@ export async function POST(req: NextRequest) {
     
     console.log('[create-subscription-intent] Invoice details', {
       id: invoice.id,
+      status: invoice.status,
       amount_due: invoice.amount_due,
       discounts: invoice.discounts,
       total_discount_amounts: invoice.total_discount_amounts
     });
 
-    // Use amount_due from invoice which includes discount
-    const amountDue = invoice.amount_due || 0;
-    
-    if (amountDue <= 0) {
-      console.error('[create-subscription-intent] Invalid amount_due:', amountDue);
-      return NextResponse.json({ error: "invalid_amount" }, { status: 500 });
-    }
-
-    // Finalize the invoice if it's still draft
-    if (invoice.status === 'draft') {
-      console.log('[create-subscription-intent] Finalizing draft invoice');
-      await stripe.invoices.finalizeInvoice(invoiceId);
-    }
-    
-    // Retrieve invoice with payment_intent
-    const finalizedInvoice = invoice.status === 'draft' 
-      ? await stripe.invoices.retrieve(invoiceId, { expand: ['payment_intent'] })
-      : invoice;
-    
-    const paymentIntentData = (finalizedInvoice as any).payment_intent;
+    // Check if PaymentIntent already exists on invoice
+    let paymentIntentData = (invoice as any).payment_intent;
     
     if (!paymentIntentData) {
-      console.error('[create-subscription-intent] No PaymentIntent on finalized invoice');
-      return NextResponse.json({ error: "no_payment_intent_after_finalize" }, { status: 500 });
+      console.log('[create-subscription-intent] No PaymentIntent on invoice, checking if already finalized');
+      
+      // Re-fetch with expand to ensure we have latest data
+      const refetchedInvoice = await stripe.invoices.retrieve(invoiceId, {
+        expand: ['payment_intent']
+      });
+      
+      paymentIntentData = (refetchedInvoice as any).payment_intent;
+      
+      console.log('[create-subscription-intent] After refetch:', {
+        hasPaymentIntent: !!paymentIntentData,
+        status: refetchedInvoice.status
+      });
     }
     
-    const paymentIntent = typeof paymentIntentData === 'string'
-      ? await stripe.paymentIntents.retrieve(paymentIntentData)
-      : paymentIntentData;
+    // Get the PaymentIntent
+    const paymentIntent = paymentIntentData 
+      ? (typeof paymentIntentData === 'string'
+          ? await stripe.paymentIntents.retrieve(paymentIntentData)
+          : paymentIntentData)
+      : null;
 
-    console.log('[create-subscription-intent] PaymentIntent created with discounted amount', {
+    if (!paymentIntent || !paymentIntent.client_secret) {
+      console.error('[create-subscription-intent] No valid PaymentIntent available');
+      return NextResponse.json({ error: "no_payment_intent" }, { status: 500 });
+    }
+
+    console.log('[create-subscription-intent] PaymentIntent ready', {
       id: paymentIntent.id,
-      amountDue,
+      amount: paymentIntent.amount,
       hasSecret: !!paymentIntent.client_secret
     });
 
