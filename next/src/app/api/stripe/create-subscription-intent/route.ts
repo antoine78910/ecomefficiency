@@ -72,45 +72,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "missing_customer_info" }, { status: 400 });
     }
 
-    // Check for ALL existing subscriptions (active, incomplete, etc.)
-    const allSubs = await stripe.subscriptions.list({
+    // Check for active subscription only
+    const activeSubs = await stripe.subscriptions.list({
       customer: customer.id,
-      limit: 100
+      status: 'active',
+      limit: 1
     });
 
-    // Cancel incomplete/unpaid subscriptions to avoid conflicts
-    for (const sub of allSubs.data) {
-      if (sub.status === 'incomplete' || sub.status === 'incomplete_expired' || sub.status === 'past_due' || sub.status === 'unpaid') {
-        try {
-          await stripe.subscriptions.cancel(sub.id);
-          console.log('[create-subscription-intent] Cancelled old subscription', sub.id, sub.status);
-        } catch (e) {
-          console.warn('[create-subscription-intent] Failed to cancel old sub', sub.id, e);
-        }
-      } else if (sub.status === 'active' || sub.status === 'trialing') {
-        // Has active subscription
-        return NextResponse.json({ 
-          error: "already_subscribed",
-          message: "You already have an active subscription. Please manage it from your account settings."
-        }, { status: 400 });
-      }
-    }
-
-    // Also clean up unpaid invoices that might block currency change
-    const invoices = await stripe.invoices.list({
-      customer: customer.id,
-      status: 'open',
-      limit: 100
-    });
-
-    for (const inv of invoices.data) {
-      if (!inv.id) continue;
-      try {
-        await stripe.invoices.voidInvoice(inv.id);
-        console.log('[create-subscription-intent] Voided old invoice', inv.id);
-      } catch (e) {
-        console.warn('[create-subscription-intent] Failed to void invoice', inv.id);
-      }
+    if (activeSubs.data.length > 0) {
+      return NextResponse.json({ 
+        error: "already_subscribed",
+        message: "You already have an active subscription."
+      }, { status: 400 });
     }
 
     // Create subscription with default_incomplete

@@ -26,45 +26,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, active: false, status: "no_customer", plan: null });
     }
 
-    const subs = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 10 });
-    const latest = subs.data.sort((a, b) => (b.created || 0) - (a.created || 0))[0];
-    if (!latest) {
-      return NextResponse.json({ ok: true, active: false, status: "no_subscription", plan: null });
+    // Only check for ACTIVE subscriptions
+    const subs = await stripe.subscriptions.list({ customer: customerId, status: "active", limit: 1 });
+    
+    if (subs.data.length === 0) {
+      console.log('[VERIFY] No active subscription found');
+      return NextResponse.json({ ok: true, active: false, status: "no_active_subscription", plan: null });
     }
 
-    const status = latest.status; // active, trialing, past_due, unpaid, canceled, incomplete...
-    
-    // Check if subscription is paid even if status is incomplete
-    let active = status === "active" || status === "trialing";
-    
-    // Special case: incomplete subscription but invoice is paid
-    if (!active && status === "incomplete") {
-      try {
-        const latestInvoiceId = typeof latest.latest_invoice === 'string' 
-          ? latest.latest_invoice 
-          : (latest.latest_invoice as any)?.id;
-        
-        if (latestInvoiceId) {
-          const invoice = await stripe.invoices.retrieve(latestInvoiceId);
-          const invoiceData = invoice as any;
-          console.log('[VERIFY] Incomplete subscription - checking invoice', {
-            invoiceId: invoice.id,
-            status: invoice.status,
-            paid: invoiceData.paid,
-            amount_paid: invoice.amount_paid,
-            amount_due: invoice.amount_due
-          });
-          
-          // If invoice is paid, treat subscription as active
-          if (invoiceData.paid || invoice.status === 'paid') {
-            active = true;
-            console.log('[VERIFY] Invoice is paid - activating subscription access');
-          }
-        }
-      } catch (e) {
-        console.error('[VERIFY] Error checking invoice:', e);
-      }
-    }
+    const latest = subs.data[0];
+    const status = latest.status;
+    const active = true; // It's from the active list, so it's active
 
     // Map price IDs to plan name; with robust fallbacks
     const price = latest.items.data[0]?.price as Stripe.Price | undefined;
