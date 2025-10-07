@@ -480,30 +480,29 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
             email: data.user?.email
           });
 
-          // Webhook will activate the subscription via invoice.payment_succeeded
-
-          // Step 2: Activate the plan in Supabase
-          const activationRes = await fetch('/api/admin/activate-plan', {
+          // CRITICAL: Mark invoice as paid and activate plan
+          // This handles cases where Stripe disables automatic collection
+          const activationRes = await fetch('/api/stripe/complete-payment', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
+              paymentIntentId: paymentIntent.id,
               email: data.user?.email,
-              plan: tier // Send 'starter' or 'pro', the API will handle the mapping
+              tier
             })
           });
 
           const activationData = await activationRes.json();
-          console.log('[Checkout] Plan activation result:', activationData);
+          console.log('[Checkout] Payment completion result:', activationData);
 
           if (!activationData.success) {
-            console.error('[Checkout] Failed to activate plan:', activationData);
-            // Continue anyway, webhook will handle it
+            console.error('[Checkout] Failed to complete payment:', activationData);
           } else {
-            console.log('[Checkout] ✓ Plan activated successfully:', activationData.plan);
+            console.log('[Checkout] ✓ Payment completed and plan activated:', activationData.plan);
           }
         } catch (e) {
-          console.error('[Checkout] Failed to activate plan (non-fatal):', e);
-          // Continue anyway, webhook will handle it
+          console.error('[Checkout] Failed to complete payment (non-fatal):', e);
+          // Continue anyway, user can retry
         }
 
         // Redirect to success page
