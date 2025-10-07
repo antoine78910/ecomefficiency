@@ -46,16 +46,17 @@ export async function POST(req: NextRequest) {
         
         if (latestInvoiceId) {
           const invoice = await stripe.invoices.retrieve(latestInvoiceId);
+          const invoiceData = invoice as any;
           console.log('[VERIFY] Incomplete subscription - checking invoice', {
             invoiceId: invoice.id,
             status: invoice.status,
-            paid: invoice.paid,
+            paid: invoiceData.paid,
             amount_paid: invoice.amount_paid,
             amount_due: invoice.amount_due
           });
           
           // If invoice is paid, treat subscription as active
-          if (invoice.paid || invoice.status === 'paid') {
+          if (invoiceData.paid || invoice.status === 'paid') {
             active = true;
             console.log('[VERIFY] Invoice is paid - activating subscription access');
           }
