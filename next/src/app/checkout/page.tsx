@@ -447,10 +447,16 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
         // Payment succeeded! Activate plan immediately
         try {
           const { data } = await supabase.auth.getUser();
-          const userId = data.user?.id;
           
-          // Call admin API to activate plan
-          await fetch('/api/admin/activate-plan', {
+          console.log('[Checkout] Payment succeeded!', {
+            paymentIntentId: paymentIntent.id,
+            amount: paymentIntent.amount,
+            tier,
+            email: data.user?.email
+          });
+          
+          // Call admin API to activate plan immediately (webhooks don't work in localhost)
+          const activationRes = await fetch('/api/admin/activate-plan', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ 
@@ -459,7 +465,12 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
             })
           });
           
-          console.log('[Checkout] Plan activated, redirecting...');
+          const activationData = await activationRes.json();
+          console.log('[Checkout] Plan activation result:', activationData);
+          
+          if (!activationData.success) {
+            console.error('[Checkout] Failed to activate plan:', activationData);
+          }
         } catch (e) {
           console.error('[Checkout] Failed to activate plan:', e);
         }
