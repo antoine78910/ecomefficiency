@@ -713,13 +713,26 @@ function CredentialsPanel() {
     } catch {}
   }
 
-  const startCheckout = async (tier: 'starter' | 'pro', billing: 'monthly' | 'yearly') => {
-    // Use the currency from ipInfo if available, otherwise default to EUR
-    const currency = ipInfo?.currency || 'EUR';
+  const startCheckout = (tier: 'starter' | 'pro', billing: 'monthly' | 'yearly') => {
+    // Detect currency instantly without waiting for ipInfo
+    let currency: 'EUR' | 'USD' = 'EUR';
     
-    console.log('[App startCheckout]', { tier, billing, currency, ipInfo });
+    try {
+      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+      if (timeZone.startsWith('Europe/')) {
+        currency = 'EUR';
+      } else {
+        const locale = Intl.DateTimeFormat().resolvedOptions().locale || '';
+        const regionMatch = locale.match(/[-_]([A-Z]{2})/);
+        const region = regionMatch ? regionMatch[1] : '';
+        const eurCC = new Set(['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE']);
+        currency = (region && eurCC.has(region)) ? 'EUR' : 'USD';
+      }
+    } catch {}
     
-    // Always use custom checkout with Stripe Elements
+    console.log('[App startCheckout] INSTANT redirect', { tier, billing, currency });
+    
+    // Instant redirect - no await
     window.location.href = `/checkout?tier=${tier}&billing=${billing}&currency=${currency}`;
   }
 
