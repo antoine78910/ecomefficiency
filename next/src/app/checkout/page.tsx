@@ -398,7 +398,7 @@ function CheckoutContent() {
               </div>
             </div>
             
-            <Elements stripe={stripePromise} options={{ clientSecret, appearance: {
+            <Elements key={clientSecret || 'default'} stripe={stripePromise} options={{ clientSecret, appearance: {
               theme: 'night',
               variables: {
                 colorPrimary: '#9541e0',
