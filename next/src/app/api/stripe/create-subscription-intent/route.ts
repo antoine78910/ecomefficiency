@@ -72,7 +72,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "missing_customer_info" }, { status: 400 });
     }
 
-    // Check for active subscription only
+    // Check for active subscription
     const activeSubs = await stripe.subscriptions.list({
       customer: customer.id,
       status: 'active',
@@ -84,6 +84,24 @@ export async function POST(req: NextRequest) {
         error: "already_subscribed",
         message: "You already have an active subscription."
       }, { status: 400 });
+    }
+
+    // Clean up incomplete subscriptions to avoid accumulation and anti-fraud flags
+    const incompleteSubs = await stripe.subscriptions.list({
+      customer: customer.id,
+      status: 'incomplete',
+      limit: 10
+    });
+
+    console.log('[create-subscription-intent] Found incomplete subs to clean:', incompleteSubs.data.length);
+
+    for (const oldSub of incompleteSubs.data) {
+      try {
+        await stripe.subscriptions.cancel(oldSub.id);
+        console.log('[create-subscription-intent] ✅ Cleaned incomplete sub:', oldSub.id);
+      } catch (e) {
+        console.error('[create-subscription-intent] Failed to cancel incomplete sub:', oldSub.id);
+      }
     }
 
     // Create subscription with default_incomplete

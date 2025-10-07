@@ -448,6 +448,7 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
   const elements = useElements();
   const [isProcessing, setIsProcessing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const hasSubmitted = React.useRef(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -456,6 +457,13 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
       return;
     }
 
+    // Prevent double submission
+    if (hasSubmitted.current || isProcessing) {
+      console.log('[Checkout] Already processing, ignoring duplicate submit');
+      return;
+    }
+
+    hasSubmitted.current = true;
     setIsProcessing(true);
     setMessage(null);
 
