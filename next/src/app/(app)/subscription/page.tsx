@@ -16,7 +16,7 @@ export default function SubscriptionPage() {
     const meta = (user?.user_metadata as any) || {}
     if (meta.stripe_customer_id) setCustomerId(meta.stripe_customer_id)
     // Name editing moved to /account
-    // Realtime verify with Stripe
+    // CRITICAL: ONLY trust Stripe verification, NEVER user_metadata
     try {
       const headers: Record<string,string> = { 'Content-Type': 'application/json' }
       if (user?.email) headers['x-user-email'] = user.email
@@ -24,16 +24,17 @@ export default function SubscriptionPage() {
       const r = await fetch('/api/stripe/verify', { method:'POST', headers, body: JSON.stringify({ email: user?.email || '' }) })
       const j = await r.json().catch(() => ({}))
       const vp = (j?.plan as string)?.toLowerCase()
-      if (j?.ok && j?.active && (vp==='starter' || vp==='pro' )) setPlan(vp as any)
-      else {
-        const p = (meta.plan as string)?.toLowerCase()
-        if (p==='starter' || p==='pro') setPlan(p as any)
-        else setPlan('free')
+      
+      // Only show starter/pro if subscription is ACTIVE
+      if (j?.ok && j?.active === true && (vp==='starter' || vp==='pro')) {
+        setPlan(vp as any)
+      } else {
+        // No active subscription = Free
+        setPlan('free')
       }
     } catch {
-      const p = (meta.plan as string)?.toLowerCase()
-      if (p==='starter' || p==='pro') setPlan(p as any)
-      else setPlan('free')
+      // On error, default to free
+      setPlan('free')
     }
     // Use browser IP to decide symbol for billing labels
     try {
