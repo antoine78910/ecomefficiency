@@ -21,46 +21,29 @@ export async function POST(req: NextRequest) {
       metadata: pi.metadata
     });
 
-    // Find the invoice associated with this PaymentIntent
-    const invoices = await stripe.invoices.list({
-      limit: 10,
-      expand: ['data.payment_intent']
+    // Get subscription ID from metadata
+    const subscriptionId = (pi.metadata as any)?.subscription_id;
+    
+    if (!subscriptionId) {
+      console.error('[complete-payment] No subscription_id in PaymentIntent metadata');
+      return NextResponse.json({ 
+        success: false, 
+        error: "no_subscription_id",
+        message: "PaymentIntent not linked to subscription"
+      }, { status: 400 });
+    }
+
+    console.log('[complete-payment] Found subscription ID:', subscriptionId);
+
+    // Retrieve subscription to get the latest invoice
+    const subscription = await stripe.subscriptions.retrieve(subscriptionId, {
+      expand: ['latest_invoice']
     });
 
-    let targetInvoice: Stripe.Invoice | null = null;
-    for (const inv of invoices.data) {
-      const invPi = (inv as any).payment_intent;
-      const piId = typeof invPi === 'string' ? invPi : invPi?.id;
-      if (piId === paymentIntentId) {
-        targetInvoice = inv;
-        break;
-      }
-    }
-
-    if (!targetInvoice) {
-      console.error('[complete-payment] No invoice found for PaymentIntent:', paymentIntentId);
-      // Try by customer email fallback
-      if (email) {
-        const customers = await stripe.customers.search({ query: `email:'${email}'`, limit: 1 });
-        if (customers.data.length > 0) {
-          const custId = customers.data[0].id;
-          const custInvoices = await stripe.invoices.list({
-            customer: custId,
-            limit: 5,
-            expand: ['data.payment_intent']
-          });
-          
-          for (const inv of custInvoices.data) {
-            const invPi = (inv as any).payment_intent;
-            const piId = typeof invPi === 'string' ? invPi : invPi?.id;
-            if (piId === paymentIntentId) {
-              targetInvoice = inv;
-              break;
-            }
-          }
-        }
-      }
-    }
+    const latestInvoice = subscription.latest_invoice;
+    const targetInvoice = typeof latestInvoice === 'string' 
+      ? await stripe.invoices.retrieve(latestInvoice)
+      : latestInvoice as Stripe.Invoice;
 
     if (!targetInvoice) {
       return NextResponse.json({ 
