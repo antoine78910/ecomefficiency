@@ -106,13 +106,34 @@ const PricingSection = () => {
         setIsReady(true);
       } else {
         try {
-          // 1) Locale first (most reliable for actual user location)
+          const eurCC = new Set(['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE']);
+          
+          // 1) IP FIRST (most reliable for actual location)
+          const browser = await fetch('https://ipapi.co/json/', { cache: 'no-store' }).then(r => r.json()).catch(() => ({}));
+          if (browser?.country) {
+            const cc = String(browser.country).toUpperCase();
+            const detectedCurrency = eurCC.has(cc) ? 'EUR' : 'USD';
+            console.log('[Pricing] ✅ Using', detectedCurrency, 'from IP country:', cc);
+            setCurrency(detectedCurrency);
+            setIsReady(true);
+            return;
+          }
+          
+          // 2) Fallback to server IP
+          const server = await fetch('/api/ip-region', { cache: 'no-store' }).then(r => r.json()).catch(() => ({}));
+          if (server?.currency === 'EUR' || server?.currency === 'USD') {
+            console.log('[Pricing] ✅ Using', server.currency, 'from server IP country:', server.country);
+            setCurrency(server.currency);
+            setIsReady(true);
+            return;
+          }
+          
+          // 3) Fallback to locale/timezone
           try {
             const locale = Intl.DateTimeFormat().resolvedOptions().locale || navigator.language || 'en-US';
             const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
             console.log('[Pricing] Detected locale:', locale, 'timezone:', timeZone);
             
-            const eurCC = new Set(['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE']);
             const regionMatch = locale.match(/[-_]([A-Z]{2})/);
             const region = regionMatch ? regionMatch[1] : '';
             
@@ -132,26 +153,9 @@ const PricingSection = () => {
             }
           } catch {}
           
-          // 2) Browser IP (works with user proxies)
-          const browser = await fetch('https://ipapi.co/json/', { cache: 'no-store' }).then(r => r.json()).catch(() => ({}));
-          if (browser?.country) {
-            const cc = String(browser.country).toUpperCase();
-            const eurCC = new Set(['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE']);
-            const detectedCurrency = eurCC.has(cc) ? 'EUR' : 'USD';
-            console.log('[Pricing] Using', detectedCurrency, 'from IP country:', cc);
-            setCurrency(detectedCurrency);
-          } else {
-            // 3) Server IP fallback
-            const server = await fetch('/api/ip-region', { cache: 'no-store' }).then(r => r.json()).catch(() => ({}));
-            if (server?.currency === 'EUR' || server?.currency === 'USD') {
-              console.log('[Pricing] Using', server.currency, 'from server');
-              setCurrency(server.currency);
-            } else {
-              // 4) Default to USD (most users outside EU)
-              console.log('[Pricing] Defaulting to USD');
-              setCurrency('USD');
-            }
-          }
+          // 4) Default to USD (most users outside EU)
+          console.log('[Pricing] Defaulting to USD');
+          setCurrency('USD');
         } catch (e) {
           console.error('[Pricing] Currency detection error:', e);
           setCurrency('USD'); // Default to USD on any error
