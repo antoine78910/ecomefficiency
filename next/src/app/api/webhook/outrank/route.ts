@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { writeFile, readFile } from "fs/promises";
-import { join } from "path";
+import { supabaseAdmin } from "@/integrations/supabase/server";
 
 // SECURITY: This should match what you set in Outrank dashboard
 const ACCESS_TOKEN = process.env.OUTRANK_WEBHOOK_ACCESS_TOKEN || 'your_secure_token_here_change_me';
@@ -106,47 +105,54 @@ export async function POST(req: NextRequest) {
 }
 
 async function saveArticleToBlog(article: OutrankArticle) {
-  // Path to blog data file
-  const blogDataPath = join(process.cwd(), 'src', 'data', 'blogPosts.ts');
-  
+  if (!supabaseAdmin) {
+    throw new Error('Supabase admin client not configured');
+  }
+
   // Convert Outrank article to our blog post format
   const blogPost = {
+    id: article.id,
     slug: article.slug,
     title: article.title,
     excerpt: article.meta_description,
-    coverImage: article.image_url || '/ecomefficiency.png',
+    content_markdown: article.content_markdown,
+    content_html: article.content_html,
+    cover_image: article.image_url || '/ecomefficiency.png',
     author: 'Ecom Efficiency Team',
-    date: article.created_at.split('T')[0], // Extract date only
     category: article.tags?.[0] || 'Uncategorized',
-    readTime: estimateReadTime(article.content_markdown),
-    content: article.content_markdown
+    read_time: estimateReadTime(article.content_markdown),
+    tags: article.tags,
+    published_at: article.created_at
   };
 
-  try {
-    // Read existing blog posts file
-    let fileContent = '';
-    try {
-      fileContent = await readFile(blogDataPath, 'utf-8');
-    } catch {
-      // File doesn't exist, create initial structure
-      fileContent = `export const blogPosts = [];\n\nexport const blogPostsContent: Record<string, any> = {};`;
-    }
+  console.log('[outrank-webhook] Saving article to Supabase:', {
+    id: blogPost.id,
+    slug: blogPost.slug,
+    title: blogPost.title,
+    content_length: blogPost.content_markdown?.length || 0
+  });
 
-    // Append new article (simple approach - you can make this smarter)
-    // This is a basic implementation - in production you'd want a database
-    console.log('[outrank-webhook] Article would be saved:', {
-      slug: blogPost.slug,
-      title: blogPost.title,
-      note: 'Manual integration required - see data/blogPosts.ts'
-    });
+  // Upsert article to Supabase (insert or update if exists)
+  const { data, error } = await supabaseAdmin
+    .from('blog_posts')
+    .upsert(blogPost, {
+      onConflict: 'slug',
+      ignoreDuplicates: false
+    })
+    .select()
+    .single();
 
-    // For now, just log the article data so you can manually add it
-    // In a real implementation, you'd use a database or CMS
-    return blogPost;
-  } catch (e) {
-    console.error('[outrank-webhook] Error saving article:', e);
-    throw e;
+  if (error) {
+    console.error('[outrank-webhook] Supabase error:', error);
+    throw new Error(`Failed to save article: ${error.message}`);
   }
+
+  console.log('[outrank-webhook] ✅ Article saved to Supabase:', {
+    id: data.id,
+    slug: data.slug
+  });
+
+  return blogPost;
 }
 
 function estimateReadTime(markdown: string): string {

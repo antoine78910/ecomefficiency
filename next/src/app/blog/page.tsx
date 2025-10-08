@@ -4,53 +4,45 @@ import Link from 'next/link';
 import Image from 'next/image';
 import Footer from '@/components/Footer';
 import NewNavbar from '@/components/NewNavbar';
+import { supabase } from '@/integrations/supabase/client';
 
-// Blog posts data - add new posts here
-const blogPosts = [
-  {
-    slug: 'how-to-find-winning-products-2025',
-    title: 'How to Find Winning Products in 2025: Complete Guide',
-    excerpt: 'Learn the exact process top sellers use to find profitable products using Pipiads, WinningHunter, and other spy tools.',
-    coverImage: '/tools-logos/pipiads.png',
-    author: 'Antoine D.',
-    date: '2025-01-20',
-    category: 'Product Research',
-    readTime: '8 min read'
-  },
-  {
-    slug: 'ai-tools-for-ecommerce',
-    title: 'Top 10 AI Tools Every E-commerce Entrepreneur Needs',
-    excerpt: 'From ChatGPT to Midjourney and Heygen - discover how AI can automate your content creation and boost sales.',
-    coverImage: '/tools-logos/chatgpt.png',
-    author: 'Ecom Efficiency Team',
-    date: '2025-01-18',
-    category: 'AI & Automation',
-    readTime: '6 min read'
-  },
-  {
-    slug: 'save-money-on-ecom-tools',
-    title: 'Stop Wasting Money: How to Access $4000 Worth of Tools for $30',
-    excerpt: 'The secret to accessing Semrush, Helium10, Runway, and 47+ other premium tools without breaking the bank.',
-    coverImage: '/ecomefficiency.png',
-    author: 'Antoine D.',
-    date: '2025-01-16',
-    category: 'Cost Optimization',
-    readTime: '5 min read'
-  },
-  {
-    slug: 'welcome-to-ecom-efficiency',
-    title: 'Welcome to Ecom Efficiency Blog',
-    excerpt: 'Discover how we help e-commerce entrepreneurs save thousands on premium tools while scaling their business.',
-    coverImage: '/ecomefficiency.png',
-    author: 'Ecom Efficiency Team',
-    date: '2025-01-15',
-    category: 'Announcement',
-    readTime: '3 min read'
-  },
-];
+type BlogPost = {
+  slug: string;
+  title: string;
+  excerpt: string;
+  cover_image: string;
+  author: string;
+  published_at: string;
+  category: string;
+  read_time: string;
+};
 
 export default function BlogPage() {
   const [searchTerm, setSearchTerm] = React.useState('');
+  const [blogPosts, setBlogPosts] = React.useState<BlogPost[]>([]);
+  const [loading, setLoading] = React.useState(true);
+
+  // Fetch blog posts from Supabase
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const { data, error } = await supabase
+          .from('blog_posts')
+          .select('slug, title, excerpt, cover_image, author, published_at, category, read_time')
+          .order('published_at', { ascending: false });
+
+        if (error) {
+          console.error('[Blog] Error fetching posts:', error);
+        } else if (data) {
+          setBlogPosts(data);
+        }
+      } catch (e) {
+        console.error('[Blog] Failed to load posts:', e);
+      } finally {
+        setLoading(false);
+      }
+    })();
+  }, []);
   
   const filteredPosts = blogPosts.filter(post => 
     post.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -88,7 +80,12 @@ export default function BlogPage() {
       {/* Blog Grid */}
       <section className="py-12 px-6">
         <div className="max-w-6xl mx-auto">
-          {filteredPosts.length === 0 ? (
+          {loading ? (
+            <div className="text-center py-16">
+              <div className="h-10 w-10 rounded-full border-2 border-white/30 border-t-white animate-spin mx-auto mb-4" />
+              <p className="text-gray-400">Loading articles...</p>
+            </div>
+          ) : filteredPosts.length === 0 ? (
             <div className="text-center py-16">
               <p className="text-gray-400">No articles found. Try a different search term.</p>
             </div>
