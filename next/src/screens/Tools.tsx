@@ -6,6 +6,7 @@ import { Search, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import JoinMembersSection from "@/components/JoinMembersSection";
 import Footer from "@/components/Footer";
+import NewNavbar from "@/components/NewNavbar";
 import { carouselTools, logoDomainMap } from "@/data/carouselTools";
 import { useRouter, usePathname } from "next/navigation";
 
@@ -121,29 +122,24 @@ const Tools = () => {
 
   return (
     <div className="min-h-screen bg-black">
-      {/* Header */}
-      <div className="bg-black/90 backdrop-blur-sm border-b border-white/10 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="flex items-center justify-between h-16">
-            <Link href="/" className="text-white hover:bg-white/10 flex items-center gap-2 rounded-md px-2 py-2">
-              <ArrowLeft className="w-4 h-4" />
-              Back to Home
-            </Link>
-            <div className="w-32"></div>
-            <div className="w-32"></div>
-          </div>
-        </div>
-      </div>
+      {/* Navbar */}
+      <NewNavbar />
 
-      {/* Hero Section */}
+      {/* Hero Section with Back Button */}
       <div className="py-8 md:py-16 px-6 lg:px-8 bg-gradient-to-b from-black to-purple-900/10">
-        <div className="max-w-7xl mx-auto text-center">
-          <h1 className="text-4xl md:text-6xl font-bold text-white mb-3 md:mb-6">
-            +50 <span className="gradient-text">Premium Tools</span>
-          </h1>
-          <p className="text-xl text-gray-400 mb-4 md:mb-8 max-w-3xl mx-auto">
-            Access the best Ecom tools
-          </p>
+        <div className="max-w-7xl mx-auto">
+          <Link href="/" className="inline-flex items-center gap-2 text-gray-400 hover:text-white mb-6 transition-colors">
+            <ArrowLeft className="w-4 h-4" />
+            Back to Home
+          </Link>
+          <div className="text-center">
+            <h1 className="text-4xl md:text-6xl font-bold text-white mb-3 md:mb-6">
+              +50 <span className="gradient-text">Premium Tools</span>
+            </h1>
+            <p className="text-xl text-gray-400 mb-4 md:mb-8 max-w-3xl mx-auto">
+              Access the best Ecom tools
+            </p>
+          </div>
         </div>
       </div>
 

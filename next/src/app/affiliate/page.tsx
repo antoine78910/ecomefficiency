@@ -180,15 +180,16 @@ export default function AffiliatePage() {
                     <div className="text-[11px] text-gray-400 mb-1">Pending</div>
                     <div className="text-gray-300 text-sm">{format(45, currency)}</div>
                   </div>
-                  {/* Available card + external payout button */}
-                  <div className="flex items-stretch gap-2">
-                    <div className="flex-1 rounded-xl bg-black/40 border border-purple-500/30 p-3">
-                      <div className="text-[11px] text-gray-400 mb-1">Available</div>
-                      <div className="text-gray-300 text-sm">{format(1623, currency)}</div>
-                    </div>
-                    <button className="self-center h-8 px-3 rounded-full bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] border border-[#9541e0] text-white text-xs cursor-pointer whitespace-nowrap">Payout</button>
+                  {/* Available card */}
+                  <div className="rounded-xl bg-black/40 border border-purple-500/30 p-3">
+                    <div className="text-[11px] text-gray-400 mb-1">Available</div>
+                    <div className="text-gray-300 text-sm">{format(1623, currency)}</div>
                   </div>
                 </div>
+                {/* Payout button below */}
+                <button className="mt-3 w-full h-8 px-3 rounded-full bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] border border-[#9541e0] text-white text-xs font-medium cursor-pointer">
+                  Request Payout
+                </button>
               </div>
               <h3 className="-mt-0 font-semibold text-lg">Earn every month, for life</h3>
               <p className="text-sm text-gray-400 mt-2">Get 30% of every subscription you generate, as long as your referral stays active. No cap, no fuss.</p>
