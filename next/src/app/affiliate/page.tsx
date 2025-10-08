@@ -173,25 +173,25 @@ export default function AffiliatePage() {
               <p className="text-sm text-gray-400 mt-4">Share your custom affiliate link with your audience, followers, friends, customers.</p>
             </div>
             <div>
-              <div className="rounded-2xl border border-white/10 bg-[#0d0f14] p-3 md:p-4 mb-7 -mt-6">
-                <div className="grid grid-cols-2 gap-3 items-stretch">
+              <div className="rounded-2xl border border-white/10 bg-[#0d0f14] p-2.5 md:p-3 mb-7 -mt-6">
+                <div className="grid grid-cols-2 gap-2 items-stretch">
                   {/* Pending card */}
-                  <div className="rounded-xl bg-black/40 border border-purple-500/30 p-3">
-                    <div className="text-[11px] text-gray-400 mb-1">Pending</div>
-                    <div className="text-gray-300 text-sm">{format(45, currency)}</div>
+                  <div className="rounded-xl bg-black/40 border border-purple-500/30 p-2">
+                    <div className="text-[10px] text-gray-400 mb-0.5">Pending</div>
+                    <div className="text-gray-300 text-xs">{format(45, currency)}</div>
                   </div>
                   {/* Available card */}
-                  <div className="rounded-xl bg-black/40 border border-purple-500/30 p-3">
-                    <div className="text-[11px] text-gray-400 mb-1">Available</div>
-                    <div className="text-gray-300 text-sm">{format(1623, currency)}</div>
+                  <div className="rounded-xl bg-black/40 border border-purple-500/30 p-2">
+                    <div className="text-[10px] text-gray-400 mb-0.5">Available</div>
+                    <div className="text-gray-300 text-xs">{format(1623, currency)}</div>
                   </div>
                 </div>
                 {/* Payout button below */}
-                <button className="mt-3 w-full h-8 px-3 rounded-full bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] border border-[#9541e0] text-white text-xs font-medium cursor-pointer">
+                <button className="mt-2 w-full h-7 px-2.5 rounded-full bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] border border-[#9541e0] text-white text-[11px] font-medium cursor-pointer">
                   Request Payout
                 </button>
               </div>
-              <h3 className="-mt-0 font-semibold text-lg">Earn every month, for life</h3>
+              <h3 className="mt-8 font-semibold text-lg">Earn every month, for life</h3>
               <p className="text-sm text-gray-400 mt-2">Get 30% of every subscription you generate, as long as your referral stays active. No cap, no fuss.</p>
             </div>
           </div>
