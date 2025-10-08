@@ -84,9 +84,16 @@ export async function POST(req: NextRequest) {
               </p>
 
               ${invoiceUrl ? `
-              <p style="margin: 16px 0 0; font-size: 14px; color: #888888;">
-                <a href="${invoiceUrl}" style="color: #8b5cf6; text-decoration: underline;">View your invoice</a>
-              </p>
+              <!-- Invoice Button -->
+              <table role="presentation" style="margin: 24px 0; width: 100%;">
+                <tr>
+                  <td align="center">
+                    <a href="${invoiceUrl}" style="display: inline-block; padding: 12px 24px; background: rgba(139, 92, 246, 0.15); color: #ab63ff; text-decoration: none; font-weight: 500; font-size: 14px; border-radius: 8px; border: 1px solid rgba(139, 92, 246, 0.3);">
+                      📄 View Your Invoice
+                    </a>
+                  </td>
+                </tr>
+              </table>
               ` : ''}
             </td>
           </tr>
