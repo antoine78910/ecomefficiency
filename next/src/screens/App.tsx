@@ -225,6 +225,8 @@ function PlanBadgeInline() {
         const mod = await import("@/integrations/supabase/client")
         const { data } = await mod.supabase.auth.getUser()
         const meta = (data.user?.user_metadata as any) || {}
+        
+        // ONLY trust Stripe verification, NEVER user_metadata alone
         try {
           const headers: Record<string, string> = { 'Content-Type': 'application/json' }
           if (data.user?.email) headers['x-user-email'] = data.user.email
@@ -232,14 +234,17 @@ function PlanBadgeInline() {
           const r = await fetch('/api/stripe/verify', { method: 'POST', headers, body: JSON.stringify({ email: data.user?.email || '' }) })
           const j = await r.json().catch(() => ({}))
           const p = (j?.plan as string)?.toLowerCase()
-          if (j?.ok && j?.active && (p === 'starter' || p === 'pro')) setPlan(p as any)
-          else {
-            const mp = (meta.plan as string)?.toLowerCase()
-            if (mp === 'starter' || mp === 'pro') setPlan(mp as any)
+          
+          // CRITICAL: Only show badge if subscription is ACTIVE
+          if (j?.ok && j?.active === true && (p === 'starter' || p === 'pro')) {
+            setPlan(p as any)
+          } else {
+            // No active subscription = no badge (show Free implicitly)
+            setPlan(null)
           }
         } catch {
-          const p = (meta.plan as string)?.toLowerCase()
-          if (p === 'starter' || p === 'pro') setPlan(p as any)
+          // On error, don't show badge
+          setPlan(null)
         }
       } catch {}
     })()

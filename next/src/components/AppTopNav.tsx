@@ -25,20 +25,23 @@ export default function AppTopNav() {
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (user?.email) headers['x-user-email'] = user.email;
       if (meta.stripe_customer_id) headers['x-stripe-customer-id'] = meta.stripe_customer_id as string;
+      
+      // CRITICAL: ONLY trust Stripe verification, NEVER user_metadata
       try {
         const r = await fetch('/api/stripe/verify', { method: 'POST', headers, body: JSON.stringify({ email: user?.email || '' }) });
         const j = await r.json().catch(() => ({}));
         const p = (j?.plan as string)?.toLowerCase();
-        if (j?.ok && j?.active && (p === 'starter' || p === 'pro' )) setPlan(p as any);
-        else {
-          const mp = (meta.plan as string)?.toLowerCase();
-          if (mp === 'starter' || mp==='pro') setPlan(mp as any);
-          else setPlan('free');
+        
+        // Only show starter/pro if subscription is ACTIVE
+        if (j?.ok && j?.active === true && (p === 'starter' || p === 'pro')) {
+          setPlan(p as any);
+        } else {
+          // No active subscription = Free plan
+          setPlan('free');
         }
       } catch {
-        const p = (meta.plan as string)?.toLowerCase();
-        if (p === 'starter' || p==='pro') setPlan(p as any);
-        else setPlan('free');
+        // On error, default to free
+        setPlan('free');
       }
     } catch {}
   }, []);
