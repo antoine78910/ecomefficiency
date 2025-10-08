@@ -30,7 +30,7 @@ export async function POST(req: NextRequest) {
       try {
         // List users and verify email exists (less secure but workable)
         const { data: { users }, error } = await supabaseAdmin.auth.admin.listUsers();
-        const userExists = users?.some(u => u.email === email);
+        const userExists = users?.some((u: any) => u.email === email);
         
         if (userExists) {
           authenticated = true;
