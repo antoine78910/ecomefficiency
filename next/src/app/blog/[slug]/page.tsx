@@ -22,7 +22,7 @@ export default function BlogPostPage() {
     
     (async () => {
       try {
-        const { data, error } = await supabase
+        const { data, error } = await (supabase as any)
           .from('blog_posts')
           .select('*')
           .eq('slug', slug)

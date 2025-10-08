@@ -15,7 +15,7 @@ export default function BlogPage() {
   React.useEffect(() => {
     (async () => {
       try {
-        const { data, error } = await supabase
+        const { data, error } = await (supabase as any)
           .from('blog_posts')
           .select('id, slug, title, excerpt, cover_image, author, published_at, category, read_time')
           .order('published_at', { ascending: false });
