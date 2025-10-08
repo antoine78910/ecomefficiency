@@ -138,21 +138,32 @@ async function saveArticleToBlog(article: OutrankArticle) {
     throw new Error('Supabase admin client not configured');
   }
 
-  // Extract first image from HTML content for cover_image
+  // Extract first image from HTML content for cover_image (for /blog overview)
   let coverImage = article.image_url || '/ecomefficiency.png';
   let processedHtml = article.content_html;
   
   if (article.content_html) {
-    // Try to extract first <img> tag
+    // Try to extract first <img> tag for cover
     const imgMatch = article.content_html.match(/<img[^>]+src=["']([^"']+)["'][^>]*>/i);
     if (imgMatch) {
       coverImage = imgMatch[1];
-      // Remove the first image from content (only if it has alt matching title)
-      const altMatch = imgMatch[0].match(/alt=["']([^"']+)["']/i);
-      if (altMatch && altMatch[1].toLowerCase().includes(article.title.toLowerCase().substring(0, 20))) {
-        processedHtml = article.content_html.replace(imgMatch[0], '');
-      }
     }
+    
+    // Remove ALL images that have alt matching the article title (to avoid duplication)
+    const imgRegex = /<img[^>]+alt=["']([^"']*?)["'][^>]*>/gi;
+    processedHtml = article.content_html.replace(imgRegex, (match, alt) => {
+      // Remove image if alt contains significant part of title
+      const titleWords = article.title.toLowerCase().split(' ').filter(w => w.length > 3);
+      const altLower = alt.toLowerCase();
+      const matchCount = titleWords.filter(word => altLower.includes(word)).length;
+      
+      // If more than 2 title words are in the alt, remove this image
+      if (matchCount >= 2) {
+        console.log('[outrank-webhook] Removing duplicate image with alt:', alt);
+        return '';
+      }
+      return match;
+    });
   }
 
   // Convert Outrank article to blog post format

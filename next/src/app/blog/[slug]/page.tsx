@@ -115,17 +115,6 @@ export default function BlogPostPage() {
           </div>
         </div>
 
-        {/* Cover Image */}
-        <div className="relative w-full h-[400px] rounded-2xl overflow-hidden mb-12 border border-white/10">
-          <Image
-            src={post.cover_image}
-            alt={post.title}
-            fill
-            className="object-cover"
-            priority
-          />
-        </div>
-
         {/* Article Content - Render HTML from Outrank */}
         <div className="blog-content">
           {post.content_html ? (
@@ -339,10 +328,10 @@ export default function BlogPostPage() {
         {/* CTA Section */}
         <div className="text-center py-16">
           <h3 className="text-2xl md:text-3xl font-bold text-white mb-4">
-            Ready to access all these tools?
+            Ready to access all the best SPY, SEO & AI tools for 99% off ?
           </h3>
           <p className="text-gray-400 mb-8 max-w-2xl mx-auto">
-            Get instant access to all premium tools at a fraction of the cost.
+            Boost your productivity while minimizing your costs by accessing +50 Ecom tools
           </p>
           <Link href="/sign-up">
             <button className="cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_32px_0_rgba(149,65,224,0.70)] px-6 py-3 rounded-xl border-[1px] border-[#9541e0] text-white font-medium group w-[160px] h-[48px]">
