@@ -2,9 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { readFile } from "fs/promises";
 import { join } from "path";
 
-export async function GET(req: NextRequest, { params }: { params: { slug: string } }) {
+export async function GET(
+  req: NextRequest,
+  context: { params: Promise<{ slug: string }> }
+) {
   try {
-    const slug = params.slug;
+    const { slug } = await context.params;
     
     // Read post metadata
     const blogPostsPath = join(process.cwd(), 'src', 'data', 'blogPosts.ts');

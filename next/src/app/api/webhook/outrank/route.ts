@@ -37,20 +37,38 @@ type OutrankWebhookPayload = {
 
 export async function POST(req: NextRequest) {
   try {
+    console.log('[outrank-webhook] 🔔 Webhook received');
+    
     // Validate access token
     if (!validateAccessToken(req)) {
-      console.error('[outrank-webhook] Invalid access token');
+      console.error('[outrank-webhook] ❌ Invalid access token');
       return NextResponse.json({ error: 'Invalid access token' }, { status: 401 });
     }
+
+    console.log('[outrank-webhook] ✅ Access token validated');
 
     // Parse webhook payload
     const payload: OutrankWebhookPayload = await req.json();
     
-    console.log('[outrank-webhook] Received event:', {
+    console.log('[outrank-webhook] 📦 Received event:', {
       event_type: payload.event_type,
       timestamp: payload.timestamp,
       article_count: payload.data?.articles?.length || 0
     });
+    
+    // Log first article details for debugging
+    if (payload.data?.articles?.[0]) {
+      const first = payload.data.articles[0];
+      console.log('[outrank-webhook] 📄 First article preview:', {
+        id: first.id,
+        slug: first.slug,
+        title: first.title,
+        content_markdown_length: first.content_markdown?.length || 0,
+        content_html_length: first.content_html?.length || 0,
+        has_image: !!first.image_url,
+        tags_count: first.tags?.length || 0
+      });
+    }
 
     if (payload.event_type !== 'publish_articles') {
       console.warn('[outrank-webhook] Unknown event type:', payload.event_type);
@@ -64,12 +82,16 @@ export async function POST(req: NextRequest) {
 
     // Process each article
     const results = [];
+    console.log('[outrank-webhook] 🔄 Processing', payload.data.articles.length, 'article(s)...');
+    
     for (const article of payload.data.articles) {
       try {
+        console.log('[outrank-webhook] 📝 Saving article:', article.slug);
+        
         // Save article to blog data file
         await saveArticleToBlog(article);
         
-        console.log('[outrank-webhook] Saved article:', {
+        console.log('[outrank-webhook] ✅ Article saved successfully:', {
           id: article.id,
           slug: article.slug,
           title: article.title
@@ -81,7 +103,8 @@ export async function POST(req: NextRequest) {
           status: 'success'
         });
       } catch (e: any) {
-        console.error('[outrank-webhook] Failed to save article:', article.id, e);
+        console.error('[outrank-webhook] ❌ Failed to save article:', article.id, e.message);
+        console.error('[outrank-webhook] Stack trace:', e.stack);
         results.push({
           article_id: article.id,
           slug: article.slug,
@@ -90,6 +113,12 @@ export async function POST(req: NextRequest) {
         });
       }
     }
+    
+    console.log('[outrank-webhook] 🎉 Processing complete:', {
+      total: results.length,
+      successful: results.filter(r => r.status === 'success').length,
+      failed: results.filter(r => r.status === 'error').length
+    });
 
     return NextResponse.json({ 
       message: 'Webhook processed successfully',
