@@ -351,38 +351,74 @@ function CheckoutContent() {
               {tier === 'starter' ? (
                 <>
                   <div className="flex items-start gap-2 text-xs text-gray-300">
-                    <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
-                    <span>Access to 40+ premium tools</span>
+                    <span className="shrink-0">🌍</span>
+                    <span>Trusted by 350+ ecom brands & agencies</span>
                   </div>
                   <div className="flex items-start gap-2 text-xs text-gray-300">
-                    <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
-                    <span>ChatGPT, Midjourney, Helium10, and more</span>
+                    <span className="shrink-0">⚡</span>
+                    <span>Instant access to 40+ premium tools (AI, Spy, SEO & more)</span>
                   </div>
                   <div className="flex items-start gap-2 text-xs text-gray-300">
-                    <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
-                    <span>+30 SEO tools included</span>
+                    <span className="shrink-0">💸</span>
+                    <span>Access $4,000+ worth of tools to scale your business faster</span>
+                  </div>
+                  <div className="flex items-start gap-2 text-xs text-gray-300">
+                    <span className="shrink-0">🎨</span>
+                    <span>+30 premium Shopify themes included</span>
+                  </div>
+                  <div className="flex items-start gap-2 text-xs text-gray-300">
+                    <span className="shrink-0">📊</span>
+                    <span>+300 Canva ad templates to boost your creatives</span>
+                  </div>
+                  <div className="flex items-start gap-2 text-xs text-gray-300">
+                    <span className="shrink-0">💬</span>
+                    <span>Support team available 7/7 on Discord</span>
+                  </div>
+                  <div className="flex items-start gap-2 text-xs text-gray-300">
+                    <span className="shrink-0">👥</span>
+                    <span>Join a community of 1,500+ ecom founders & agencies</span>
+                  </div>
+                  <div className="flex items-start gap-2 text-xs text-gray-300">
+                    <span className="shrink-0">🚀</span>
+                    <span>...and so much more inside!</span>
                   </div>
                 </>
               ) : (
                 <>
                   <div className="flex items-start gap-2 text-xs text-gray-300">
-                    <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
-                    <span>Everything in Starter, plus:</span>
+                    <span className="shrink-0">🌍</span>
+                    <span>Trusted by 350+ ecom brands & agencies</span>
                   </div>
                   <div className="flex items-start gap-2 text-xs text-gray-300">
-                    <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
-                    <span>Pipiads, Runway, Heygen, ElevenLabs</span>
+                    <span className="shrink-0">⚡</span>
+                    <span>Instant access to 50+ premium tools (AI, Spy, SEO & more)</span>
                   </div>
                   <div className="flex items-start gap-2 text-xs text-gray-300">
-                    <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
-                    <span>Access to 50+ premium tools</span>
+                    <span className="shrink-0">💸</span>
+                    <span>Access $4,000+ worth of tools to scale your business faster</span>
+                  </div>
+                  <div className="flex items-start gap-2 text-xs text-gray-300">
+                    <span className="shrink-0">🎨</span>
+                    <span>+30 premium Shopify themes included</span>
+                  </div>
+                  <div className="flex items-start gap-2 text-xs text-gray-300">
+                    <span className="shrink-0">📊</span>
+                    <span>+300 Canva ad templates to boost your creatives</span>
+                  </div>
+                  <div className="flex items-start gap-2 text-xs text-gray-300">
+                    <span className="shrink-0">💬</span>
+                    <span>Support team available 7/7 on Discord</span>
+                  </div>
+                  <div className="flex items-start gap-2 text-xs text-gray-300">
+                    <span className="shrink-0">👥</span>
+                    <span>Join a community of 1,500+ ecom founders & agencies</span>
+                  </div>
+                  <div className="flex items-start gap-2 text-xs text-gray-300">
+                    <span className="shrink-0">🚀</span>
+                    <span>...and so much more inside!</span>
                   </div>
                 </>
               )}
-              <div className="flex items-start gap-2 text-sm text-gray-300">
-                <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
-                <span>Cancel anytime, no commitment</span>
-              </div>
             </div>
           </div>
 
