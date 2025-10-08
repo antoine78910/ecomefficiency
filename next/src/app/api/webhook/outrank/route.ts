@@ -191,6 +191,27 @@ async function saveArticleToBlog(article: OutrankArticle) {
     
     console.log('[outrank-webhook] Removed', imagesToRemove.length, 'duplicate images from content');
   }
+  
+  // Remove "Article created using Outrank" footer text
+  if (processedHtml) {
+    // Try multiple variations of the Outrank attribution
+    const outrankPatterns = [
+      /Article created using Outrank/gi,
+      /Created using Outrank/gi,
+      /Generated (by|with|using) Outrank/gi,
+      /<p[^>]*>.*?Article created using Outrank.*?<\/p>/gi,
+      /<p[^>]*>.*?Created using Outrank.*?<\/p>/gi,
+      /<div[^>]*>.*?Article created using Outrank.*?<\/div>/gi,
+      /<footer[^>]*>.*?Outrank.*?<\/footer>/gi,
+      /<small[^>]*>.*?Outrank.*?<\/small>/gi,
+    ];
+    
+    outrankPatterns.forEach(pattern => {
+      processedHtml = processedHtml.replace(pattern, '');
+    });
+    
+    console.log('[outrank-webhook] Removed Outrank attribution text');
+  }
 
   // Convert Outrank article to blog post format
   const blogPost = {
