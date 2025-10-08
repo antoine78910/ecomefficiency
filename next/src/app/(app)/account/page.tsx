@@ -48,10 +48,10 @@ export default function AccountPage() {
     <div className="max-w-3xl mx-auto px-6 py-10">
       <div className="mb-4">
         <button
-          onClick={() => { try { window.location.href = "/"; } catch {} }}
+          onClick={() => { window.location.href = "/"; }}
           className="px-3 py-1.5 rounded-md border border-white/20 text-white hover:bg-white/10 cursor-pointer text-sm"
         >
-          ← Back to Home
+          ← Back
         </button>
       </div>
 

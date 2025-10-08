@@ -80,7 +80,7 @@ export default function SubscriptionPage() {
     <div className="max-w-3xl mx-auto px-6 py-10">
       <div className="mb-4">
         <button
-          onClick={() => { try { history.back(); } catch { window.location.href = '/account'; } }}
+          onClick={() => { window.location.href = '/'; }}
           className="px-3 py-1.5 rounded-md border border-white/20 text-white hover:bg-white/10 cursor-pointer text-sm"
         >
           ← Back
