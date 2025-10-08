@@ -192,17 +192,39 @@ function CheckoutContent() {
   const price = getDiscountedPrice();
 
   if (error) {
+    // Check if it's an authentication error
+    const isAuthError = error.includes('signed in') || error.includes('authenticate') || error.includes('credentials');
+    
     return (
       <div className="min-h-screen bg-black flex items-center justify-center p-6">
         <div className="max-w-md w-full bg-gray-900 border border-red-500/30 rounded-2xl p-6">
-          <h2 className="text-white text-xl font-bold mb-2">Error</h2>
-          <p className="text-red-300 text-sm">{error}</p>
-          <button 
-            onClick={() => window.location.href = '/pricing'}
-            className="mt-4 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm"
-          >
-            Back to Pricing
-          </button>
+          <h2 className="text-white text-xl font-bold mb-2">
+            {isAuthError ? 'Sign In Required' : 'Error'}
+          </h2>
+          <p className="text-red-300 text-sm mb-4">{error}</p>
+          {isAuthError ? (
+            <div className="space-y-2">
+              <button 
+                onClick={() => window.location.href = '/sign-in'}
+                className="w-full px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm font-medium"
+              >
+                Sign In
+              </button>
+              <button 
+                onClick={() => window.location.href = '/'}
+                className="w-full px-4 py-2 bg-gray-700 hover:bg-gray-600 text-white rounded-lg text-sm"
+              >
+                Back to Home
+              </button>
+            </div>
+          ) : (
+            <button 
+              onClick={() => window.location.href = '/'}
+              className="mt-4 px-4 py-2 bg-purple-600 hover:bg-purple-700 text-white rounded-lg text-sm"
+            >
+              Back to Home
+            </button>
+          )}
         </div>
       </div>
     );
