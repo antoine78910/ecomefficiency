@@ -138,6 +138,23 @@ async function saveArticleToBlog(article: OutrankArticle) {
     throw new Error('Supabase admin client not configured');
   }
 
+  // Extract first image from HTML content for cover_image
+  let coverImage = article.image_url || '/ecomefficiency.png';
+  let processedHtml = article.content_html;
+  
+  if (article.content_html) {
+    // Try to extract first <img> tag
+    const imgMatch = article.content_html.match(/<img[^>]+src=["']([^"']+)["'][^>]*>/i);
+    if (imgMatch) {
+      coverImage = imgMatch[1];
+      // Remove the first image from content (only if it has alt matching title)
+      const altMatch = imgMatch[0].match(/alt=["']([^"']+)["']/i);
+      if (altMatch && altMatch[1].toLowerCase().includes(article.title.toLowerCase().substring(0, 20))) {
+        processedHtml = article.content_html.replace(imgMatch[0], '');
+      }
+    }
+  }
+
   // Convert Outrank article to blog post format
   const blogPost = {
     id: article.id,
@@ -145,8 +162,8 @@ async function saveArticleToBlog(article: OutrankArticle) {
     title: article.title,
     excerpt: article.meta_description,
     content_markdown: article.content_markdown,
-    content_html: article.content_html,
-    cover_image: article.image_url || '/ecomefficiency.png',
+    content_html: processedHtml,
+    cover_image: coverImage,
     author: 'Ecom Efficiency Team',
     category: article.tags?.[0] || 'Uncategorized',
     read_time: estimateReadTime(article.content_markdown),
@@ -158,6 +175,7 @@ async function saveArticleToBlog(article: OutrankArticle) {
     id: blogPost.id,
     slug: blogPost.slug,
     title: blogPost.title,
+    cover_image: blogPost.cover_image,
     content_markdown_length: blogPost.content_markdown?.length || 0,
     content_html_length: blogPost.content_html?.length || 0
   });
@@ -188,7 +206,7 @@ async function saveArticleToBlog(article: OutrankArticle) {
 
 function estimateReadTime(markdown: string): string {
   const words = markdown.split(/\s+/).length;
-  const minutes = Math.ceil(words / 200); // Average reading speed
+  const minutes = Math.ceil(words / 600); // Faster reading speed (3x faster)
   return `${minutes} min read`;
 }
 

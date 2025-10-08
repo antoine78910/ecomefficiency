@@ -336,19 +336,21 @@ export default function BlogPostPage() {
           </div>
         )}
 
-        {/* CTA */}
-        <div className="mt-12 p-8 rounded-2xl bg-gradient-to-br from-purple-900/20 to-purple-600/10 border border-purple-500/30">
-          <h3 className="text-2xl font-bold text-white mb-3">
+        {/* CTA Section */}
+        <div className="text-center py-16">
+          <h3 className="text-2xl md:text-3xl font-bold text-white mb-4">
             Ready to access all these tools?
           </h3>
-          <p className="text-gray-300 mb-6">
-            Get instant access to 50+ premium e-commerce tools for less than the cost of a single subscription.
+          <p className="text-gray-400 mb-8 max-w-2xl mx-auto">
+            Get instant access to all premium tools at a fraction of the cost.
           </p>
-          <Link 
-            href="/pricing"
-            className="inline-block px-8 py-3 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-lg transition-colors"
-          >
-            View Pricing →
+          <Link href="/sign-up">
+            <button className="cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_32px_0_rgba(149,65,224,0.70)] px-6 py-3 rounded-xl border-[1px] border-[#9541e0] text-white font-medium group w-[160px] h-[48px]">
+              <div className="relative overflow-hidden">
+                <p className="group-hover:-translate-y-7 duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)]">Get Started</p>
+                <p className="absolute top-7 left-0 group-hover:top-0 duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)]">Get Started</p>
+              </div>
+            </button>
           </Link>
         </div>
       </article>
