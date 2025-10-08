@@ -196,31 +196,26 @@ async function saveArticleToBlog(article: OutrankArticle) {
   if (processedHtml) {
     const beforeLength = processedHtml.length;
     
-    // First, remove the exact phrase "Article created using Outrank" (case insensitive)
-    processedHtml = processedHtml.replace(/Article\s+created\s+using\s+Outrank\.?/gi, '');
+    // Remove the exact Outrank attribution format: <p><em>Article created using <a href="...outrank...">Outrank</a></em></p>
+    processedHtml = processedHtml.replace(/<p>\s*<em>\s*Article created using\s*<a[^>]*href=["'][^"']*outrank[^"']*["'][^>]*>.*?<\/a>\s*<\/em>\s*<\/p>/gi, '');
     
-    // Remove any HTML tags containing this phrase
-    processedHtml = processedHtml.replace(/<p[^>]*>\s*Article\s+created\s+using\s+Outrank\.?\s*<\/p>/gi, '');
-    processedHtml = processedHtml.replace(/<div[^>]*>\s*Article\s+created\s+using\s+Outrank\.?\s*<\/div>/gi, '');
-    processedHtml = processedHtml.replace(/<span[^>]*>\s*Article\s+created\s+using\s+Outrank\.?\s*<\/span>/gi, '');
-    processedHtml = processedHtml.replace(/<em[^>]*>\s*Article\s+created\s+using\s+Outrank\.?\s*<\/em>/gi, '');
-    processedHtml = processedHtml.replace(/<i[^>]*>\s*Article\s+created\s+using\s+Outrank\.?\s*<\/i>/gi, '');
-    processedHtml = processedHtml.replace(/<small[^>]*>\s*Article\s+created\s+using\s+Outrank\.?\s*<\/small>/gi, '');
+    // Also handle without <em> wrapper
+    processedHtml = processedHtml.replace(/<p>\s*Article created using\s*<a[^>]*href=["'][^"']*outrank[^"']*["'][^>]*>.*?<\/a>\s*<\/p>/gi, '');
     
-    // Also remove just "Outrank" if it appears alone at the end
-    processedHtml = processedHtml.replace(/<p[^>]*>\s*Outrank\.?\s*<\/p>/gi, '');
-    processedHtml = processedHtml.replace(/<em[^>]*>\s*Outrank\.?\s*<\/em>/gi, '');
+    // Remove plain text version without link
+    processedHtml = processedHtml.replace(/<p>\s*<em>\s*Article created using Outrank\.?\s*<\/em>\s*<\/p>/gi, '');
+    processedHtml = processedHtml.replace(/<p>\s*Article created using Outrank\.?\s*<\/p>/gi, '');
     
-    // Remove "Created using Outrank" variation
-    processedHtml = processedHtml.replace(/Created\s+using\s+Outrank\.?/gi, '');
-    processedHtml = processedHtml.replace(/<p[^>]*>\s*Created\s+using\s+Outrank\.?\s*<\/p>/gi, '');
-    
-    // Remove any <a> link to Outrank
+    // Remove any remaining Outrank links
     processedHtml = processedHtml.replace(/<a[^>]*href=["'][^"']*outrank[^"']*["'][^>]*>.*?<\/a>/gi, '');
     
-    // Clean up empty paragraphs that might be left behind
-    processedHtml = processedHtml.replace(/<p[^>]*>\s*<\/p>/gi, '');
-    processedHtml = processedHtml.replace(/<div[^>]*>\s*<\/div>/gi, '');
+    // Remove plain text "Article created using Outrank" anywhere
+    processedHtml = processedHtml.replace(/Article\s+created\s+using\s+Outrank\.?/gi, '');
+    
+    // Clean up empty tags that might be left behind
+    processedHtml = processedHtml.replace(/<p>\s*<em>\s*<\/em>\s*<\/p>/gi, '');
+    processedHtml = processedHtml.replace(/<p>\s*<\/p>/gi, '');
+    processedHtml = processedHtml.replace(/<em>\s*<\/em>/gi, '');
     
     const afterLength = processedHtml.length;
     const removed = beforeLength - afterLength;
