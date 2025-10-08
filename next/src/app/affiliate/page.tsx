@@ -173,7 +173,7 @@ export default function AffiliatePage() {
               <p className="text-sm text-gray-400 mt-4">Share your custom affiliate link with your audience, followers, friends, customers.</p>
             </div>
             <div>
-              <div className="rounded-2xl border border-white/10 bg-[#0d0f14] p-2.5 md:p-3 mb-7 -mt-6">
+              <div className="rounded-2xl border border-white/10 bg-[#0d0f14] p-2.5 md:p-3 mb-4 -mt-8">
                 <div className="grid grid-cols-2 gap-2 items-stretch">
                   {/* Pending card */}
                   <div className="rounded-xl bg-black/40 border border-purple-500/30 p-2">
