@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
+import { rateLimit } from "@/lib/rateLimit";
+import { supabaseAdmin } from "@/integrations/supabase/server";
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,6 +18,19 @@ export async function POST(req: NextRequest) {
     }
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-07-30.basil" });
+
+    // SECURITY: Rate limit by IP (10 requests per minute)
+    const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || 
+                req.headers.get('x-real-ip') || 
+                'unknown';
+    
+    if (!rateLimit(`checkout:${ip}`, 10, 60000)) {
+      console.warn('[create-subscription-intent] ⚠️ Rate limit exceeded for IP:', ip);
+      return NextResponse.json({ 
+        error: "rate_limit_exceeded",
+        message: "Too many requests. Please wait a moment and try again."
+      }, { status: 429 });
+    }
 
     const tier = body.tier || 'pro';
     const billing = body.billing || 'monthly';
@@ -52,6 +67,30 @@ export async function POST(req: NextRequest) {
     // Get or create customer
     const userEmail = req.headers.get("x-user-email") || undefined;
     const userId = req.headers.get("x-user-id") || undefined;
+    
+    // SECURITY: Validate userId matches email in Supabase
+    if (userId && userEmail && supabaseAdmin) {
+      try {
+        const { data: user, error } = await supabaseAdmin.auth.admin.getUserById(userId);
+        
+        if (error || !user || user.email !== userEmail) {
+          console.error('[create-subscription-intent] ❌ userId/email mismatch:', { 
+            providedUserId: userId,
+            providedEmail: userEmail,
+            actualEmail: user?.email
+          });
+          return NextResponse.json({ 
+            error: "unauthorized",
+            message: "Invalid user credentials."
+          }, { status: 401 });
+        }
+        
+        console.log('[create-subscription-intent] ✅ User validated:', userId);
+      } catch (e) {
+        console.error('[create-subscription-intent] Failed to validate user:', e);
+        // Continue anyway - non-blocking validation
+      }
+    }
     
     let customer: Stripe.Customer;
     if (customerId) {
