@@ -194,23 +194,33 @@ async function saveArticleToBlog(article: OutrankArticle) {
   
   // Remove "Article created using Outrank" footer text
   if (processedHtml) {
-    // Try multiple variations of the Outrank attribution
-    const outrankPatterns = [
-      /Article created using Outrank/gi,
-      /Created using Outrank/gi,
-      /Generated (by|with|using) Outrank/gi,
-      /<p[^>]*>.*?Article created using Outrank.*?<\/p>/gi,
-      /<p[^>]*>.*?Created using Outrank.*?<\/p>/gi,
-      /<div[^>]*>.*?Article created using Outrank.*?<\/div>/gi,
-      /<footer[^>]*>.*?Outrank.*?<\/footer>/gi,
-      /<small[^>]*>.*?Outrank.*?<\/small>/gi,
-    ];
+    const beforeLength = processedHtml.length;
     
-    outrankPatterns.forEach(pattern => {
-      processedHtml = processedHtml.replace(pattern, '');
-    });
+    // Remove any paragraph/div/element containing "Article created using Outrank"
+    // This handles cases where it might be wrapped in tags
+    processedHtml = processedHtml.replace(/<p[^>]*>[^<]*Article created using Outrank[^<]*<\/p>/gi, '');
+    processedHtml = processedHtml.replace(/<div[^>]*>[^<]*Article created using Outrank[^<]*<\/div>/gi, '');
+    processedHtml = processedHtml.replace(/<span[^>]*>[^<]*Article created using Outrank[^<]*<\/span>/gi, '');
+    processedHtml = processedHtml.replace(/<small[^>]*>[^<]*Article created using Outrank[^<]*<\/small>/gi, '');
+    processedHtml = processedHtml.replace(/<footer[^>]*>[^<]*Article created using Outrank[^<]*<\/footer>/gi, '');
+    processedHtml = processedHtml.replace(/<em[^>]*>[^<]*Article created using Outrank[^<]*<\/em>/gi, '');
+    processedHtml = processedHtml.replace(/<i[^>]*>[^<]*Article created using Outrank[^<]*<\/i>/gi, '');
     
-    console.log('[outrank-webhook] Removed Outrank attribution text');
+    // Also try plain text in case it's not wrapped
+    processedHtml = processedHtml.replace(/Article created using Outrank\.?/gi, '');
+    processedHtml = processedHtml.replace(/Created using Outrank\.?/gi, '');
+    
+    // Remove any <a> link to Outrank
+    processedHtml = processedHtml.replace(/<a[^>]*href=["'][^"']*outrank[^"']*["'][^>]*>.*?<\/a>/gi, '');
+    
+    const afterLength = processedHtml.length;
+    const removed = beforeLength - afterLength;
+    
+    if (removed > 0) {
+      console.log('[outrank-webhook] ✂️ Removed Outrank attribution text:', removed, 'characters removed');
+    } else {
+      console.log('[outrank-webhook] ⚠️ No Outrank attribution text found to remove');
+    }
   }
 
   // Convert Outrank article to blog post format
