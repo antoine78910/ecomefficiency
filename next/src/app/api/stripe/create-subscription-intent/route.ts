@@ -86,6 +86,49 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
+    // CRITICAL: Prevent duplicate subscriptions created within last 60 seconds
+    const recentSubs = await stripe.subscriptions.list({
+      customer: customer.id,
+      limit: 5
+    });
+    
+    const sixtySecondsAgo = Math.floor(Date.now() / 1000) - 60;
+    const veryRecentSub = recentSubs.data.find(sub => sub.created >= sixtySecondsAgo);
+    
+    if (veryRecentSub) {
+      console.log('[create-subscription-intent] ⚠️ Duplicate request blocked:', {
+        existingSubId: veryRecentSub.id,
+        createdAt: new Date(veryRecentSub.created * 1000).toISOString()
+      });
+      
+      // Return existing subscription's payment intent instead of creating new
+      try {
+        const existing = await stripe.subscriptions.retrieve(veryRecentSub.id, {
+          expand: ['latest_invoice.payment_intent']
+        });
+        const li: any = existing.latest_invoice;
+        const pi: any = li?.payment_intent;
+        
+        if (pi && pi.client_secret) {
+          return NextResponse.json({
+            subscriptionId: existing.id,
+            invoiceId: li.id,
+            paymentIntentId: pi.id,
+            clientSecret: pi.client_secret,
+            customerId: customer.id,
+            note: 'Using existing recent subscription'
+          });
+        }
+      } catch {}
+      
+      // If can't reuse, block completely
+      return NextResponse.json({ 
+        error: "duplicate_request",
+        message: "Please wait before creating another subscription.",
+        retryAfter: 60
+      }, { status: 429 });
+    }
+
     // Clean up incomplete subscriptions to avoid accumulation and anti-fraud flags
     const incompleteSubs = await stripe.subscriptions.list({
       customer: customer.id,
@@ -124,35 +167,45 @@ export async function POST(req: NextRequest) {
       },
     };
 
-    // Apply promo code if provided
+    // Apply promo code if provided (case-insensitive)
     if (couponCode) {
       const code = couponCode.trim();
+      let applied = false;
 
-      // Prefer Promotion Codes (user-entered redeemable code)
-      try {
-        const promoCodes = await stripe.promotionCodes.list({ code, active: true, limit: 1 });
-        if (promoCodes.data.length > 0) {
-          subscriptionParams.discounts = [{ promotion_code: promoCodes.data[0].id }];
-          console.log('[create-subscription-intent] Applying promotion code:', promoCodes.data[0].id);
-        } else {
-          // Fallback to a direct coupon id (only if it actually exists)
+      // Try multiple case variations for promotion codes
+      const variations = [code, code.toUpperCase(), code.toLowerCase()];
+      
+      for (const variant of variations) {
+        if (applied) break;
+        
+        try {
+          const promoCodes = await stripe.promotionCodes.list({ code: variant, active: true, limit: 1 });
+          if (promoCodes.data.length > 0) {
+            subscriptionParams.discounts = [{ promotion_code: promoCodes.data[0].id }];
+            console.log('[create-subscription-intent] ✅ Applying promotion code:', promoCodes.data[0].id, 'variant:', variant);
+            applied = true;
+            break;
+          }
+        } catch {}
+      }
+      
+      // Fallback to direct coupon lookup
+      if (!applied) {
+        for (const variant of variations) {
           try {
-            const coupon = await stripe.coupons.retrieve(code);
+            const coupon = await stripe.coupons.retrieve(variant);
             if (coupon && coupon.valid) {
               subscriptionParams.discounts = [{ coupon: coupon.id }];
-              console.log('[create-subscription-intent] Applying coupon:', coupon.id);
+              console.log('[create-subscription-intent] ✅ Applying coupon:', coupon.id);
+              applied = true;
+              break;
             }
           } catch {}
         }
-      } catch {
-        // As an ultimate fallback, try coupon id and ignore if invalid
-        try {
-          const coupon = await stripe.coupons.retrieve(code);
-          if (coupon && coupon.valid) {
-            subscriptionParams.discounts = [{ coupon: coupon.id }];
-            console.log('[create-subscription-intent] Applying coupon (fallback):', coupon.id);
-          }
-        } catch {}
+      }
+      
+      if (!applied) {
+        console.log('[create-subscription-intent] ⚠️ Coupon not found:', code);
       }
     }
 

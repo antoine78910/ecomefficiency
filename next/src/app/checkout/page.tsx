@@ -528,7 +528,24 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
       });
 
       if (error) {
-        setMessage(error.message || 'Payment failed');
+        // Map Stripe errors to user-friendly messages
+        const userMessage = (() => {
+          const code = error.code;
+          const errorMap: Record<string, string> = {
+            'card_declined': 'Your card was declined. Please try another payment method.',
+            'insufficient_funds': 'Insufficient funds. Please use another card.',
+            'expired_card': 'Your card has expired. Please use another card.',
+            'incorrect_cvc': 'Incorrect security code (CVC). Please check and try again.',
+            'incorrect_number': 'Invalid card number. Please check and try again.',
+            'invalid_expiry_month': 'Invalid expiration month.',
+            'invalid_expiry_year': 'Invalid expiration year.',
+            'processing_error': 'Payment processing error. Please try again in a moment.',
+            'authentication_required': 'Additional authentication required. Please complete the verification.',
+            'payment_intent_authentication_failure': 'Card authentication failed. Please try another card.',
+          };
+          return errorMap[code || ''] || error.message || 'Payment failed. Please try again.';
+        })();
+        setMessage(userMessage);
       } else if (paymentIntent && paymentIntent.status === 'succeeded') {
         // Payment succeeded! Activate subscription and plan immediately
         try {
