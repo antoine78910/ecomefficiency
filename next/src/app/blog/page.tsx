@@ -4,38 +4,19 @@ import Link from 'next/link';
 import Image from 'next/image';
 import Footer from '@/components/Footer';
 import NewNavbar from '@/components/NewNavbar';
-import { supabase } from '@/integrations/supabase/client';
-
-type BlogPost = {
-  slug: string;
-  title: string;
-  excerpt: string;
-  cover_image: string;
-  author: string;
-  published_at: string;
-  category: string;
-  read_time: string;
-};
 
 export default function BlogPage() {
   const [searchTerm, setSearchTerm] = React.useState('');
-  const [blogPosts, setBlogPosts] = React.useState<BlogPost[]>([]);
+  const [blogPosts, setBlogPosts] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
 
-  // Fetch blog posts from Supabase
+  // Fetch blog posts from API
   React.useEffect(() => {
     (async () => {
       try {
-        const { data, error } = await supabase
-          .from('blog_posts')
-          .select('slug, title, excerpt, cover_image, author, published_at, category, read_time')
-          .order('published_at', { ascending: false });
-
-        if (error) {
-          console.error('[Blog] Error fetching posts:', error);
-        } else if (data) {
-          setBlogPosts(data);
-        }
+        const res = await fetch('/api/blog/posts');
+        const data = await res.json();
+        setBlogPosts(data.posts || []);
       } catch (e) {
         console.error('[Blog] Failed to load posts:', e);
       } finally {

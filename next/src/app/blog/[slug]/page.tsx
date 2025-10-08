@@ -6,29 +6,13 @@ import Image from 'next/image';
 import Footer from '@/components/Footer';
 import NewNavbar from '@/components/NewNavbar';
 import { ArrowLeft, Clock, Calendar, User } from 'lucide-react';
-import { supabase } from '@/integrations/supabase/client';
 import ReactMarkdown from 'react-markdown';
-
-type BlogPost = {
-  id: string;
-  slug: string;
-  title: string;
-  excerpt: string;
-  content_markdown: string;
-  content_html: string;
-  cover_image: string;
-  author: string;
-  published_at: string;
-  category: string;
-  read_time: string;
-  tags: string[];
-};
 
 export default function BlogPostPage() {
   const params = useParams();
   const slug = params?.slug as string;
   
-  const [post, setPost] = React.useState<BlogPost | null>(null);
+  const [post, setPost] = React.useState<any | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [notFound, setNotFound] = React.useState(false);
 
@@ -37,16 +21,11 @@ export default function BlogPostPage() {
     
     (async () => {
       try {
-        const { data, error } = await supabase
-          .from('blog_posts')
-          .select('*')
-          .eq('slug', slug)
-          .single();
-
-        if (error || !data) {
-          console.error('[BlogPost] Error fetching post:', error);
+        const res = await fetch(`/api/blog/${slug}`);
+        if (!res.ok) {
           setNotFound(true);
         } else {
+          const data = await res.json();
           setPost(data);
         }
       } catch (e) {
@@ -107,7 +86,7 @@ export default function BlogPostPage() {
             <span className="text-sm px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
               {post.category}
             </span>
-            <span className="text-sm text-gray-500">{post.read_time}</span>
+            <span className="text-sm text-gray-500">{post.readTime}</span>
           </div>
           
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-6">
@@ -121,11 +100,11 @@ export default function BlogPostPage() {
             </div>
             <div className="flex items-center gap-2">
               <Calendar className="w-4 h-4" />
-              <span>{new Date(post.published_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+              <span>{new Date(post.date).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
             </div>
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4" />
-              <span>{post.read_time}</span>
+              <span>{post.readTime}</span>
             </div>
           </div>
         </div>
@@ -133,7 +112,7 @@ export default function BlogPostPage() {
         {/* Cover Image */}
         <div className="relative w-full h-[400px] rounded-2xl overflow-hidden mb-12 border border-white/10">
           <Image
-            src={post.cover_image}
+            src={post.coverImage}
             alt={post.title}
             fill
             className="object-cover"
@@ -150,31 +129,27 @@ export default function BlogPostPage() {
               lineHeight: '1.8'
             }}
           >
-            {post.content_html ? (
-              <div dangerouslySetInnerHTML={{ __html: post.content_html }} />
-            ) : (
-              <ReactMarkdown
-                components={{
-                  h1: ({node, ...props}) => <h1 className="text-3xl font-bold text-white mt-8 mb-4" {...props} />,
-                  h2: ({node, ...props}) => <h2 className="text-2xl font-bold text-white mt-6 mb-3" {...props} />,
-                  h3: ({node, ...props}) => <h3 className="text-xl font-semibold text-white mt-4 mb-2" {...props} />,
-                  p: ({node, ...props}) => <p className="mb-4 text-gray-300" {...props} />,
-                  a: ({node, ...props}) => <a className="text-purple-400 hover:text-purple-300 underline" {...props} />,
-                  ul: ({node, ...props}) => <ul className="list-disc list-inside mb-4 space-y-2" {...props} />,
-                  ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-4 space-y-2" {...props} />,
-                  li: ({node, ...props}) => <li className="text-gray-300" {...props} />,
-                  code: ({node, inline, ...props}: any) => 
-                    inline ? (
-                      <code className="px-1.5 py-0.5 rounded bg-gray-800 text-purple-300 text-sm" {...props} />
-                    ) : (
-                      <code className="block p-4 rounded-lg bg-gray-900 border border-white/10 text-sm overflow-x-auto mb-4" {...props} />
-                    ),
-                  blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-purple-500 pl-4 italic text-gray-400 my-4" {...props} />,
-                }}
-              >
-                {post.content_markdown}
-              </ReactMarkdown>
-            )}
+            <ReactMarkdown
+              components={{
+                h1: ({node, ...props}) => <h1 className="text-3xl font-bold text-white mt-8 mb-4" {...props} />,
+                h2: ({node, ...props}) => <h2 className="text-2xl font-bold text-white mt-6 mb-3" {...props} />,
+                h3: ({node, ...props}) => <h3 className="text-xl font-semibold text-white mt-4 mb-2" {...props} />,
+                p: ({node, ...props}) => <p className="mb-4 text-gray-300" {...props} />,
+                a: ({node, ...props}) => <a className="text-purple-400 hover:text-purple-300 underline" {...props} />,
+                ul: ({node, ...props}) => <ul className="list-disc list-inside mb-4 space-y-2" {...props} />,
+                ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-4 space-y-2" {...props} />,
+                li: ({node, ...props}) => <li className="text-gray-300" {...props} />,
+                code: ({node, inline, ...props}: any) => 
+                  inline ? (
+                    <code className="px-1.5 py-0.5 rounded bg-gray-800 text-purple-300 text-sm" {...props} />
+                  ) : (
+                    <code className="block p-4 rounded-lg bg-gray-900 border border-white/10 text-sm overflow-x-auto mb-4" {...props} />
+                  ),
+                blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-purple-500 pl-4 italic text-gray-400 my-4" {...props} />,
+              }}
+            >
+              {post.content}
+            </ReactMarkdown>
           </div>
         </div>
 
