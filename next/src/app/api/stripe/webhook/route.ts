@@ -156,6 +156,31 @@ export async function POST(req: NextRequest) {
               const updateData = await updateRes.json();
               if (updateRes.ok) {
                 console.log('[webhook][invoice.payment_succeeded] ✅ USER PLAN ACTIVATED:', { userId: clientRef, plan, tier });
+                
+                // Send welcome email via Resend
+                try {
+                  const invoiceUrl = invoice.hosted_invoice_url || undefined;
+                  const userName = updateData?.user_metadata?.first_name || undefined;
+                  const userEmail = (subscription as any).customer_email || invoice.customer_email;
+                  
+                  if (userEmail) {
+                    await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace('/auth/v1', '') || 'https://app.ecomefficiency.com'}/api/send-welcome-email`, {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        email: userEmail,
+                        name: userName,
+                        plan,
+                        tier,
+                        invoiceUrl
+                      })
+                    });
+                    console.log('[webhook][invoice.payment_succeeded] 📧 Welcome email sent to:', userEmail);
+                  }
+                } catch (emailError: any) {
+                  console.error('[webhook][invoice.payment_succeeded] Failed to send welcome email:', emailError.message);
+                  // Non-fatal, continue
+                }
               } else {
                 console.error('[webhook][invoice.payment_succeeded] ❌ FAILED TO UPDATE USER:', { status: updateRes.status, data: updateData });
               }
