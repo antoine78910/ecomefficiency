@@ -278,7 +278,7 @@ function Faq() {
   const items = [
     {
       q: 'When and how do I get paid?',
-      a: "You'll receive your payment automatically on the 5th of each month, exclusively through PayPal. You need to earn a minimum of 50 USD in commissions to get paid, and the payment process may take a few days, so please allow 3-5 days for the funds to appear in your account.",
+      a: "You'll receive your payment automatically on the 30th of each month, exclusively through PayPal. You need to earn a minimum of 50 USD in commissions to get paid, and the payment process may take a few days, so please allow 3-5 days for the funds to appear in your account.",
     },
     {
       q: 'How do I check my referrals?',

@@ -4,19 +4,27 @@ import Link from 'next/link';
 import Image from 'next/image';
 import Footer from '@/components/Footer';
 import NewNavbar from '@/components/NewNavbar';
+import { supabase } from '@/integrations/supabase/client';
 
 export default function BlogPage() {
   const [searchTerm, setSearchTerm] = React.useState('');
   const [blogPosts, setBlogPosts] = React.useState<any[]>([]);
   const [loading, setLoading] = React.useState(true);
 
-  // Fetch blog posts from API
+  // Fetch blog posts from Supabase
   React.useEffect(() => {
     (async () => {
       try {
-        const res = await fetch('/api/blog/posts');
-        const data = await res.json();
-        setBlogPosts(data.posts || []);
+        const { data, error } = await supabase
+          .from('blog_posts')
+          .select('id, slug, title, excerpt, cover_image, author, published_at, category, read_time')
+          .order('published_at', { ascending: false });
+
+        if (error) {
+          console.error('[Blog] Error fetching posts:', error);
+        } else if (data) {
+          setBlogPosts(data);
+        }
       } catch (e) {
         console.error('[Blog] Failed to load posts:', e);
       } finally {
@@ -80,7 +88,7 @@ export default function BlogPage() {
                 >
                   <div className="relative h-48 bg-gray-800">
                     <Image
-                      src={post.coverImage}
+                      src={post.cover_image}
                       alt={post.title}
                       fill
                       className="object-cover group-hover:scale-105 transition-transform duration-300"
@@ -92,7 +100,7 @@ export default function BlogPage() {
                       <span className="text-xs px-2 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
                         {post.category}
                       </span>
-                      <span className="text-xs text-gray-500">{post.readTime}</span>
+                      <span className="text-xs text-gray-500">{post.read_time}</span>
                     </div>
                     
                     <h3 className="text-xl font-semibold text-white mb-2 group-hover:text-purple-400 transition-colors">
@@ -105,7 +113,7 @@ export default function BlogPage() {
                     
                     <div className="flex items-center justify-between text-xs text-gray-500">
                       <span>{post.author}</span>
-                      <span>{new Date(post.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
+                      <span>{new Date(post.published_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</span>
                     </div>
                   </div>
                 </Link>
