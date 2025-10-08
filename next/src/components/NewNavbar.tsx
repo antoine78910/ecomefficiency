@@ -36,9 +36,9 @@ const NewNavbar = () => {
                 <Image 
                   src="/ecomefficiency.png" 
                   alt="Ecom Efficiency Logo" 
-                  width={140}
-                  height={56}
-                  className="h-12 w-auto object-contain mix-blend-screen cursor-pointer"
+                  width={160}
+                  height={64}
+                  className="h-14 w-auto object-contain mix-blend-screen cursor-pointer"
                   priority
                 />
               </Link>
