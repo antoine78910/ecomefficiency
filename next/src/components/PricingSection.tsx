@@ -147,14 +147,14 @@ const PricingSection = () => {
               console.log('[Pricing] Using', server.currency, 'from server');
               setCurrency(server.currency);
             } else {
-              // 4) Default to EUR for Europe
-              console.log('[Pricing] Defaulting to EUR');
-              setCurrency('EUR');
+              // 4) Default to USD (most users outside EU)
+              console.log('[Pricing] Defaulting to USD');
+              setCurrency('USD');
             }
           }
         } catch (e) {
           console.error('[Pricing] Currency detection error:', e);
-          setCurrency('EUR'); // Default to EUR on any error
+          setCurrency('USD'); // Default to USD on any error
         } finally {
           setIsReady(true);
         }

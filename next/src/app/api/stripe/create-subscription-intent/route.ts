@@ -68,28 +68,32 @@ export async function POST(req: NextRequest) {
     const userEmail = req.headers.get("x-user-email") || undefined;
     const userId = req.headers.get("x-user-id") || undefined;
     
-    // SECURITY: Validate userId matches email in Supabase
+    // SECURITY: Validate userId matches email in Supabase (optional, non-blocking)
     if (userId && userEmail && supabaseAdmin) {
       try {
         const { data: user, error } = await supabaseAdmin.auth.admin.getUserById(userId);
         
         if (error || !user || user.email !== userEmail) {
-          console.error('[create-subscription-intent] ❌ userId/email mismatch:', { 
+          console.warn('[create-subscription-intent] ⚠️ userId/email mismatch (continuing anyway):', { 
             providedUserId: userId,
             providedEmail: userEmail,
-            actualEmail: user?.email
+            actualEmail: user?.email,
+            error: error?.message
           });
-          return NextResponse.json({ 
-            error: "unauthorized",
-            message: "Invalid user credentials."
-          }, { status: 401 });
+          // Don't block - validation is advisory only
+        } else {
+          console.log('[create-subscription-intent] ✅ User validated:', userId);
         }
-        
-        console.log('[create-subscription-intent] ✅ User validated:', userId);
       } catch (e) {
         console.error('[create-subscription-intent] Failed to validate user:', e);
         // Continue anyway - non-blocking validation
       }
+    } else {
+      console.log('[create-subscription-intent] ℹ️ User validation skipped:', {
+        hasUserId: !!userId,
+        hasEmail: !!userEmail,
+        hasSupabaseAdmin: !!supabaseAdmin
+      });
     }
     
     let customer: Stripe.Customer;

@@ -746,18 +746,25 @@ function CredentialsPanel() {
   }
 
   const startCheckout = (tier: 'starter' | 'pro', billing: 'monthly' | 'yearly') => {
-    // Detect currency instantly without waiting for ipInfo
-    let currency: 'EUR' | 'USD' = 'EUR';
+    // Detect currency instantly - DEFAULT TO USD, only EUR for EU countries
+    let currency: 'EUR' | 'USD' = 'USD'; // Changed default from EUR to USD
     
     try {
+      const eurCC = new Set(['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE']);
+      
+      // 1. Check timezone first
       const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
       if (timeZone.startsWith('Europe/')) {
-        currency = 'EUR';
-      } else {
+        // Could be Europe but not EU, so still check locale
         const locale = Intl.DateTimeFormat().resolvedOptions().locale || '';
         const regionMatch = locale.match(/[-_]([A-Z]{2})/);
         const region = regionMatch ? regionMatch[1] : '';
-        const eurCC = new Set(['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE']);
+        currency = (region && eurCC.has(region)) ? 'EUR' : 'USD';
+      } else {
+        // 2. Not in Europe timezone, check locale for region
+        const locale = Intl.DateTimeFormat().resolvedOptions().locale || '';
+        const regionMatch = locale.match(/[-_]([A-Z]{2})/);
+        const region = regionMatch ? regionMatch[1] : '';
         currency = (region && eurCC.has(region)) ? 'EUR' : 'USD';
       }
     } catch {}
@@ -1061,7 +1068,7 @@ function PlanPicker({ onChoose }: { onChoose: (tier: 'starter'|'pro', billing: '
       const loc = Intl.DateTimeFormat().resolvedOptions().locale.toUpperCase()
       const eu = /(AT|BE|BG|HR|CY|CZ|DK|EE|FI|FR|DE|GR|HU|IE|IT|LV|LT|LU|MT|NL|PL|PT|RO|SK|SI|ES|SE)/
       return eu.test(loc) ? 'EUR' : 'USD'
-    } catch { return 'EUR' }
+    } catch { return 'USD' } // Changed default from EUR to USD
   })
   const fmt = (n: number) => {
     const v = currency === 'EUR' ? n : n * 1.07
