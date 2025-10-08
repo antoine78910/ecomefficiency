@@ -126,44 +126,199 @@ export default function BlogPostPage() {
           />
         </div>
 
-        {/* Article Content - Render Markdown */}
-        <div className="prose prose-invert prose-purple max-w-none">
-          <div 
-            className="text-gray-300 leading-relaxed"
-            style={{
-              fontSize: '1.125rem',
-              lineHeight: '1.8'
-            }}
-          >
-            {post.content_html ? (
-              <div dangerouslySetInnerHTML={{ __html: post.content_html }} />
-            ) : post.content_markdown ? (
-              <ReactMarkdown
-                components={{
-                  h1: ({node, ...props}) => <h1 className="text-3xl font-bold text-white mt-8 mb-4" {...props} />,
-                  h2: ({node, ...props}) => <h2 className="text-2xl font-bold text-white mt-6 mb-3" {...props} />,
-                  h3: ({node, ...props}) => <h3 className="text-xl font-semibold text-white mt-4 mb-2" {...props} />,
-                  p: ({node, ...props}) => <p className="mb-4 text-gray-300" {...props} />,
-                  a: ({node, ...props}) => <a className="text-purple-400 hover:text-purple-300 underline" {...props} />,
-                  ul: ({node, ...props}) => <ul className="list-disc list-inside mb-4 space-y-2" {...props} />,
-                  ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-4 space-y-2" {...props} />,
-                  li: ({node, ...props}) => <li className="text-gray-300" {...props} />,
-                  code: ({node, inline, ...props}: any) => 
-                    inline ? (
-                      <code className="px-1.5 py-0.5 rounded bg-gray-800 text-purple-300 text-sm" {...props} />
-                    ) : (
-                      <code className="block p-4 rounded-lg bg-gray-900 border border-white/10 text-sm overflow-x-auto mb-4" {...props} />
-                    ),
-                  blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-purple-500 pl-4 italic text-gray-400 my-4" {...props} />,
-                }}
-              >
-                {post.content_markdown}
-              </ReactMarkdown>
-            ) : (
-              <p className="text-gray-400">No content available.</p>
-            )}
-          </div>
+        {/* Article Content - Render HTML from Outrank */}
+        <div className="blog-content">
+          {post.content_html ? (
+            <div 
+              dangerouslySetInnerHTML={{ __html: post.content_html }}
+              className="outrank-content"
+            />
+          ) : post.content_markdown ? (
+            <ReactMarkdown
+              components={{
+                h1: ({node, ...props}) => <h1 className="text-3xl font-bold text-white mt-8 mb-4" {...props} />,
+                h2: ({node, ...props}) => <h2 className="text-2xl font-bold text-white mt-6 mb-3" {...props} />,
+                h3: ({node, ...props}) => <h3 className="text-xl font-semibold text-white mt-4 mb-2" {...props} />,
+                p: ({node, ...props}) => <p className="mb-4 text-gray-300" {...props} />,
+                a: ({node, ...props}) => <a className="text-purple-400 hover:text-purple-300 underline" {...props} />,
+                ul: ({node, ...props}) => <ul className="list-disc list-inside mb-4 space-y-2" {...props} />,
+                ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-4 space-y-2" {...props} />,
+                li: ({node, ...props}) => <li className="text-gray-300" {...props} />,
+                code: ({node, inline, ...props}: any) => 
+                  inline ? (
+                    <code className="px-1.5 py-0.5 rounded bg-gray-800 text-purple-300 text-sm" {...props} />
+                  ) : (
+                    <code className="block p-4 rounded-lg bg-gray-900 border border-white/10 text-sm overflow-x-auto mb-4" {...props} />
+                  ),
+                blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-purple-500 pl-4 italic text-gray-400 my-4" {...props} />,
+              }}
+            >
+              {post.content_markdown}
+            </ReactMarkdown>
+          ) : (
+            <p className="text-gray-400">No content available.</p>
+          )}
         </div>
+        
+        <style jsx global>{`
+          .outrank-content {
+            color: #e5e7eb;
+            line-height: 1.8;
+          }
+          
+          .outrank-content h1 {
+            font-size: 2.25rem;
+            font-weight: 700;
+            color: #ffffff;
+            margin-top: 2rem;
+            margin-bottom: 1rem;
+            line-height: 1.2;
+          }
+          
+          .outrank-content h2 {
+            font-size: 1.875rem;
+            font-weight: 700;
+            color: #ffffff;
+            margin-top: 1.75rem;
+            margin-bottom: 0.875rem;
+            line-height: 1.3;
+          }
+          
+          .outrank-content h3 {
+            font-size: 1.5rem;
+            font-weight: 600;
+            color: #ffffff;
+            margin-top: 1.5rem;
+            margin-bottom: 0.75rem;
+            line-height: 1.4;
+          }
+          
+          .outrank-content h4 {
+            font-size: 1.25rem;
+            font-weight: 600;
+            color: #ffffff;
+            margin-top: 1.25rem;
+            margin-bottom: 0.625rem;
+          }
+          
+          .outrank-content p {
+            margin-bottom: 1.25rem;
+            color: #d1d5db;
+            font-size: 1.125rem;
+            line-height: 1.8;
+          }
+          
+          .outrank-content a {
+            color: #a78bfa;
+            text-decoration: underline;
+            transition: color 0.2s;
+          }
+          
+          .outrank-content a:hover {
+            color: #c4b5fd;
+          }
+          
+          .outrank-content ul,
+          .outrank-content ol {
+            margin-bottom: 1.25rem;
+            padding-left: 1.5rem;
+            color: #d1d5db;
+          }
+          
+          .outrank-content ul {
+            list-style-type: disc;
+          }
+          
+          .outrank-content ol {
+            list-style-type: decimal;
+          }
+          
+          .outrank-content li {
+            margin-bottom: 0.5rem;
+            line-height: 1.8;
+          }
+          
+          .outrank-content img {
+            max-width: 100%;
+            height: auto;
+            border-radius: 0.75rem;
+            margin: 1.5rem 0;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+          }
+          
+          .outrank-content blockquote {
+            border-left: 4px solid #a78bfa;
+            padding-left: 1rem;
+            font-style: italic;
+            color: #9ca3af;
+            margin: 1.5rem 0;
+          }
+          
+          .outrank-content code {
+            background-color: #1f2937;
+            color: #c4b5fd;
+            padding: 0.125rem 0.375rem;
+            border-radius: 0.25rem;
+            font-size: 0.875rem;
+            font-family: 'Courier New', monospace;
+          }
+          
+          .outrank-content pre {
+            background-color: #111827;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 0.5rem;
+            padding: 1rem;
+            overflow-x: auto;
+            margin: 1.5rem 0;
+          }
+          
+          .outrank-content pre code {
+            background-color: transparent;
+            padding: 0;
+            color: #e5e7eb;
+          }
+          
+          .outrank-content table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 1.5rem 0;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+          }
+          
+          .outrank-content th,
+          .outrank-content td {
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            padding: 0.75rem;
+            text-align: left;
+          }
+          
+          .outrank-content th {
+            background-color: #1f2937;
+            color: #ffffff;
+            font-weight: 600;
+          }
+          
+          .outrank-content td {
+            color: #d1d5db;
+          }
+          
+          .outrank-content strong,
+          .outrank-content b {
+            color: #ffffff;
+            font-weight: 600;
+          }
+          
+          .outrank-content em,
+          .outrank-content i {
+            font-style: italic;
+          }
+          
+          .outrank-content hr {
+            border: none;
+            border-top: 1px solid rgba(255, 255, 255, 0.1);
+            margin: 2rem 0;
+          }
+        `}</style>
 
         {/* Tags */}
         {post.tags && post.tags.length > 0 && (
