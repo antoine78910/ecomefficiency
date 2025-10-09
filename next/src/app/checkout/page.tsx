@@ -12,7 +12,37 @@ function CheckoutContent() {
   const searchParams = useSearchParams();
   const tier = (searchParams?.get('tier') || 'pro') as 'starter' | 'pro';
   const billing = (searchParams?.get('billing') || 'monthly') as 'monthly' | 'yearly';
-  const currency = (searchParams?.get('currency') || 'EUR') as 'EUR' | 'USD';
+  
+  // Auto-detect currency if not provided in URL
+  const getCurrency = (): 'EUR' | 'USD' => {
+    const urlCurrency = searchParams?.get('currency');
+    if (urlCurrency === 'EUR' || urlCurrency === 'USD') return urlCurrency;
+    
+    // Auto-detect based on timezone and locale
+    try {
+      const eurCC = new Set(['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE']);
+      
+      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+      const locale = Intl.DateTimeFormat().resolvedOptions().locale || navigator.language || 'en-US';
+      const regionMatch = locale.match(/[-_]([A-Z]{2})/);
+      const region = regionMatch ? regionMatch[1] : '';
+      
+      // Check if European timezone AND European country
+      if (timeZone.startsWith('Europe/') && region && eurCC.has(region)) {
+        return 'EUR';
+      }
+      
+      // Check if European country (fallback)
+      if (region && eurCC.has(region)) {
+        return 'EUR';
+      }
+    } catch {}
+    
+    // Default to USD (majority of users)
+    return 'USD';
+  };
+  
+  const currency = getCurrency();
 
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);

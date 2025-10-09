@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
       const tierRaw = (body.tier || 'pro').toLowerCase();
       const tier = tierRaw;
       const billing = (body.billing || 'monthly').toLowerCase();
-      const currency = (body.currency || 'EUR').toUpperCase();
+      const currency = (body.currency || 'USD').toUpperCase();
       const env = process.env as Record<string, string | undefined>;
 
       const key = `${tier}_${billing}_${currency}`; // e.g., pro_monthly_EUR

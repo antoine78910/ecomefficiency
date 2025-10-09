@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
 
     const tier = body.tier || 'pro';
     const billing = body.billing || 'monthly';
-    const currency = (body.currency || 'EUR').toUpperCase();
+    const currency = (body.currency || 'USD').toUpperCase();
     const customerId = body.customerId;
     const couponCode = body.couponCode;
     
