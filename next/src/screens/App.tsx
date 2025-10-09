@@ -193,12 +193,12 @@ const App = () => {
           <ToolCard 
             service="pipiads" 
             title="Pipiads" 
-            description="Access to 2 Pipiads accounts (Pro plan only)"
+            description="Access to a 100k credits account ($99) directly in your web browser"
           />
           <ToolCard 
             service="elevenlabs" 
             title="Eleven Labs" 
-            description="Access to 4 Eleven Labs accounts (Pro plan only)"
+            description="Access to a 500k credits account ($99) directly in your web browser"
           />
         </div>
         
@@ -1183,11 +1183,15 @@ function ToolCard({ service, title, description }: { service: 'pipiads'|'elevenl
   const logoSvg = service === 'elevenlabs' ? '/tools-logos/elevenlabs.svg' : '/tools-logos/pipiads.svg'
   const host = appHostBase()
   const baseLink = service === 'elevenlabs' ? `${host}/elevenlabs/reset` : `${host}/pipiads/dashboard`
-  const accounts = service === 'elevenlabs' ? [1,2,3,4] : [1,2]
 
   return (
     <div className={`relative bg-gray-900 border border-white/10 rounded-2xl p-4 flex flex-col ${unlocked ? '' : 'opacity-60'}`}>
-
+      {/* Pro only badge */}
+      {!unlocked && (
+        <span className="absolute -top-2 -left-2 text-[10px] px-2 py-0.5 rounded-full bg-[linear-gradient(135deg,#ffd70055,#ffcc00)] text-white border border-[#ffcc00]/30 shadow-[0_0_12px_rgba(255,215,0,0.45)]">
+          Pro only
+        </span>
+      )}
 
       {/* Logo zone: full width, 3:2 aspect, rounded corners; enforce pure black background for square logos */}
       <div className="w-full aspect-[3/2] rounded-xl bg-[#000000] border border-white/10 overflow-hidden flex items-center justify-center">
@@ -1200,27 +1204,14 @@ function ToolCard({ service, title, description }: { service: 'pipiads'|'elevenl
       <div className="mt-4">
         <div className="text-white font-semibold text-lg">{title}</div>
         <div className="text-xs text-gray-400 mb-3">{description}</div>
-        <div>
-          <div className="text-xs text-gray-400 mb-2">Accounts</div>
-          <div className="flex flex-wrap items-center gap-2">
-            {accounts.map((n) => {
-              const href = service === 'pipiads'
-                ? (n === 1 ? baseLink : `${baseLink}?acc=${n}`)
-                : `${baseLink}${baseLink.includes('?') ? '&' : '?'}acc=${n}`
-  return (
-                <a
-                  key={n}
-          href={href}
+        <a
+          href={baseLink}
           target="_blank"
           rel="noreferrer"
-                  className={`px-3 py-1.5 rounded-md text-sm border border-[#8B5CF6]/40 ${unlocked ? 'bg-[#5c3dfa]/20 hover:bg-[#5c3dfa]/30 text-white' : 'bg-gray-800 text-gray-400 cursor-not-allowed pointer-events-none'}`}
-                >
-                  Account {n}
-                </a>
-              )
-            })}
-          </div>
-        </div>
+          className={`block w-full px-3 py-2 rounded-md text-sm text-center border border-[#8B5CF6]/40 ${unlocked ? 'bg-[#5c3dfa]/20 hover:bg-[#5c3dfa]/30 text-white' : 'bg-gray-800 text-gray-400 cursor-not-allowed pointer-events-none'}`}
+        >
+          Click on it
+        </a>
       </div>
     </div>
   )
