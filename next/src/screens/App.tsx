@@ -185,13 +185,11 @@ const App = () => {
       </div>
           <CredentialsPanel />
         </div>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <BrainCredsCard disabled={appPlan === 'free'} />
           <CanvaFlipCard inviteLink={canvaInvite || undefined} disabled={appPlan === 'free'} />
-        </div>
-
-        {/* Pro Tools - Pipiads & Eleven Labs */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          
+          {/* Pro Tools - Pipiads & Eleven Labs */}
           <ToolCard 
             service="pipiads" 
             title="Pipiads" 
