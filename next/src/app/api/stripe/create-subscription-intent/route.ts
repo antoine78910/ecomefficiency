@@ -202,7 +202,7 @@ export async function POST(req: NextRequest) {
       payment_behavior: 'default_incomplete',
       payment_settings: {
         save_default_payment_method: 'on_subscription',
-        payment_method_types: ['card', 'paypal', 'amazon_pay'],
+        payment_method_types: ['card'],
       },
       // Important: expand PaymentIntent on the latest invoice so we can confirm it client-side
       expand: ['latest_invoice.payment_intent'],
