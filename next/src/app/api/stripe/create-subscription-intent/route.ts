@@ -129,30 +129,33 @@ export async function POST(req: NextRequest) {
       }, { status: 400 });
     }
 
-    // CRITICAL: Prevent duplicate subscriptions created within last 60 seconds
+    // SECURITY: Prevent rapid duplicate subscriptions (anti double-click)
+    // Only block if 3+ subscriptions created in last 10 seconds
     const recentSubs = await stripe.subscriptions.list({
       customer: customer.id,
-      limit: 5
+      limit: 10
     });
     
-    const sixtySecondsAgo = Math.floor(Date.now() / 1000) - 60;
-    const veryRecentSub = recentSubs.data.find(sub => sub.created >= sixtySecondsAgo);
+    const tenSecondsAgo = Math.floor(Date.now() / 1000) - 10;
+    const veryRecentSubs = recentSubs.data.filter(sub => sub.created >= tenSecondsAgo);
     
-    if (veryRecentSub) {
-      console.log('[create-subscription-intent] ⚠️ Duplicate request blocked:', {
-        existingSubId: veryRecentSub.id,
-        createdAt: new Date(veryRecentSub.created * 1000).toISOString()
+    if (veryRecentSubs.length >= 3) {
+      console.log('[create-subscription-intent] ⚠️ Too many rapid subscription attempts:', {
+        count: veryRecentSubs.length,
+        recent: veryRecentSubs.map(s => ({ id: s.id, created: new Date(s.created * 1000).toISOString() }))
       });
       
-      // Return existing subscription's payment intent instead of creating new
+      // Try to return the most recent one if possible
       try {
-        const existing = await stripe.subscriptions.retrieve(veryRecentSub.id, {
+        const mostRecent = veryRecentSubs[0];
+        const existing = await stripe.subscriptions.retrieve(mostRecent.id, {
           expand: ['latest_invoice.payment_intent']
         });
         const li: any = existing.latest_invoice;
         const pi: any = li?.payment_intent;
         
         if (pi && pi.client_secret) {
+          console.log('[create-subscription-intent] ✅ Reusing most recent subscription');
           return NextResponse.json({
             subscriptionId: existing.id,
             invoiceId: li.id,
@@ -164,11 +167,11 @@ export async function POST(req: NextRequest) {
         }
       } catch {}
       
-      // If can't reuse, block completely
+      // If can't reuse, block temporarily
       return NextResponse.json({ 
-        error: "duplicate_request",
-        message: "Please wait before creating another subscription.",
-        retryAfter: 60
+        error: "too_many_requests",
+        message: "Too many subscription attempts. Please wait 10 seconds.",
+        retryAfter: 10
       }, { status: 429 });
     }
 
