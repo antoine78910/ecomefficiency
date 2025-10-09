@@ -370,77 +370,30 @@ function CheckoutContent() {
 
             <div className="space-y-1.5">
               <p className="text-xs text-gray-400 font-medium mb-2">What's included:</p>
-              {tier === 'starter' ? (
-                <>
-                  <div className="flex items-start gap-2 text-xs text-gray-300">
-                    <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
-                    <span>Trusted by 350+ ecom brands & agencies</span>
-                  </div>
-                  <div className="flex items-start gap-2 text-xs text-gray-300">
-                    <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
-                    <span>Instant access to 40+ premium tools (AI, Spy, SEO & more)</span>
-                  </div>
-                  <div className="flex items-start gap-2 text-xs text-gray-300">
-                    <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
-                    <span>Access $4,000+ worth of tools to scale your business faster</span>
-                  </div>
-                  <div className="flex items-start gap-2 text-xs text-gray-300">
-                    <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
-                    <span>+30 premium Shopify themes included</span>
-                  </div>
-                  <div className="flex items-start gap-2 text-xs text-gray-300">
-                    <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
-                    <span>+300 Canva ad templates to boost your creatives</span>
-                  </div>
-                  <div className="flex items-start gap-2 text-xs text-gray-300">
-                    <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
-                    <span>Support team available 7/7 on Discord</span>
-                  </div>
-                  <div className="flex items-start gap-2 text-xs text-gray-300">
-                    <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
-                    <span>Join a community of 1,500+ ecom founders & agencies</span>
-                  </div>
-                  <div className="flex items-start gap-2 text-xs text-gray-300">
-                    <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
-                    <span>...and so much more inside!</span>
-                  </div>
-                </>
-              ) : (
-                <>
-                  <div className="flex items-start gap-2 text-xs text-gray-300">
-                    <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
-                    <span>Trusted by 350+ ecom brands & agencies</span>
-                  </div>
-                  <div className="flex items-start gap-2 text-xs text-gray-300">
-                    <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
-                    <span>Instant access to 50+ premium tools (AI, Spy, SEO & more)</span>
-                  </div>
-                  <div className="flex items-start gap-2 text-xs text-gray-300">
-                    <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
-                    <span>Access $4,000+ worth of tools to scale your business faster</span>
-                  </div>
-                  <div className="flex items-start gap-2 text-xs text-gray-300">
-                    <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
-                    <span>+30 premium Shopify themes included</span>
-                  </div>
-                  <div className="flex items-start gap-2 text-xs text-gray-300">
-                    <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
-                    <span>+300 Canva ad templates to boost your creatives</span>
-                  </div>
-                  <div className="flex items-start gap-2 text-xs text-gray-300">
-                    <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
-                    <span>Support team available 7/7 on Discord</span>
-                  </div>
-                  <div className="flex items-start gap-2 text-xs text-gray-300">
-                    <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
-                    <span>Join a community of 1,500+ ecom founders & agencies</span>
-                  </div>
-                  <div className="flex items-start gap-2 text-xs text-gray-300">
-                    <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
-                    <span>...and so much more inside!</span>
-                  </div>
-                </>
-              )}
+              <div className="flex items-start gap-2 text-xs text-gray-300">
+                <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
+                <span>Trusted by 350+ ecom brands & agencies</span>
+              </div>
+              <div className="flex items-start gap-2 text-xs text-gray-300">
+                <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
+                <span>Access 50+ premium tools (AI, Spy, SEO & more)</span>
+              </div>
+              <div className="flex items-start gap-2 text-xs text-gray-300">
+                <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
+                <span>$3,000+ worth of tools included</span>
+              </div>
+              <div className="flex items-start gap-2 text-xs text-gray-300">
+                <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
+                <span>+30 Shopify themes & 300 Static canva templates</span>
+              </div>
+              <div className="flex items-start gap-2 text-xs text-gray-300">
+                <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
+                <span>7/7 Discord support & 1,500+ member community</span>
+              </div>
+              <div className="flex items-start gap-2 text-xs text-gray-300">
+                <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
+                <span>...and more inside!</span>
+              </div>
             </div>
           </div>
 
@@ -456,17 +409,21 @@ function CheckoutContent() {
               </div>
             </div>
             
-            <Elements key={clientSecret || 'default'} stripe={stripePromise} options={{ clientSecret, appearance: {
-              theme: 'night',
-              variables: {
-                colorPrimary: '#9541e0',
-                colorBackground: '#1f2937',
-                colorText: '#ffffff',
-                colorDanger: '#ef4444',
-                fontFamily: 'Inter, system-ui, sans-serif',
-                borderRadius: '8px',
-              }
-            }}}>
+            <Elements key={clientSecret || 'default'} stripe={stripePromise} options={{ 
+              clientSecret, 
+              appearance: {
+                theme: 'night',
+                variables: {
+                  colorPrimary: '#9541e0',
+                  colorBackground: '#1f2937',
+                  colorText: '#ffffff',
+                  colorDanger: '#ef4444',
+                  fontFamily: 'Inter, system-ui, sans-serif',
+                  borderRadius: '8px',
+                }
+              },
+              paymentMethodOrder: ['card', 'amazon_pay', 'paypal', 'apple_pay']
+            }}>
               <CheckoutForm 
                 tier={tier} 
                 billing={billing} 
