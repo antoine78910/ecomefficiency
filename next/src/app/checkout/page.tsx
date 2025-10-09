@@ -421,9 +421,8 @@ function CheckoutContent() {
                   fontFamily: 'Inter, system-ui, sans-serif',
                   borderRadius: '8px',
                 }
-              },
-              paymentMethodOrder: ['card', 'amazon_pay', 'paypal', 'apple_pay']
-            }}>
+              }
+            } as any}>
               <CheckoutForm 
                 tier={tier} 
                 billing={billing} 
