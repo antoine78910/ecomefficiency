@@ -1184,8 +1184,17 @@ function ToolCard({ service, title, description }: { service: 'pipiads'|'elevenl
   const host = appHostBase()
   const baseLink = service === 'elevenlabs' ? `${host}/elevenlabs/reset` : `${host}/pipiads/dashboard`
 
+  const handleClick = () => {
+    if (unlocked) {
+      window.open(baseLink, '_blank', 'noreferrer')
+    }
+  }
+
   return (
-    <div className={`relative bg-gray-900 border border-white/10 rounded-2xl p-4 flex flex-col ${unlocked ? '' : 'opacity-60'}`}>
+    <div 
+      onClick={handleClick}
+      className={`relative bg-gray-900 border border-white/10 rounded-2xl p-2 md:p-3 flex flex-col ${unlocked ? 'cursor-pointer hover:border-white/20' : 'opacity-60'}`}
+    >
       {/* Pro only badge */}
       {!unlocked && (
         <span className="absolute -top-2 -left-2 text-[10px] px-2 py-0.5 rounded-full bg-[linear-gradient(135deg,#ffd70055,#ffcc00)] text-white border border-[#ffcc00]/30 shadow-[0_0_12px_rgba(255,215,0,0.45)]">
@@ -1193,25 +1202,25 @@ function ToolCard({ service, title, description }: { service: 'pipiads'|'elevenl
         </span>
       )}
 
-      {/* Logo zone: full width, 3:2 aspect, rounded corners; enforce pure black background for square logos */}
-      <div className="w-full aspect-[3/2] rounded-xl bg-[#000000] border border-white/10 overflow-hidden flex items-center justify-center">
+      {/* Logo zone: same aspect ratio as Canva (16/9) */}
+      <div className="w-full rounded-xl bg-[#000000] border border-white/10 overflow-hidden relative" style={{ aspectRatio: '16 / 9' }}>
         <picture>
           <source srcSet={logoPng} type="image/png" />
-          <img src={logoSvg} alt={`${title} logo`} className="w-full h-full object-contain" />
+          <img src={logoSvg} alt={`${title} logo`} className="w-full h-full object-contain p-2" />
         </picture>
       </div>
+      
       {/* Info zone */}
-      <div className="mt-4">
-        <div className="text-white font-semibold text-lg">{title}</div>
-        <div className="text-xs text-gray-400 mb-3">{description}</div>
-        <a
-          href={baseLink}
-          target="_blank"
-          rel="noreferrer"
-          className={`block w-full px-3 py-2 rounded-md text-sm text-center border border-[#8B5CF6]/40 ${unlocked ? 'bg-[#5c3dfa]/20 hover:bg-[#5c3dfa]/30 text-white' : 'bg-gray-800 text-gray-400 cursor-not-allowed pointer-events-none'}`}
-        >
-          Click on it
-        </a>
+      <div className="mt-2">
+        <div className="text-white font-semibold text-sm md:text-base">{title}</div>
+        {unlocked ? (
+          <>
+            <div className="text-[11px] text-gray-400">{description}</div>
+            <div className="mt-1 text-[10px] text-gray-500">Click on it</div>
+          </>
+        ) : (
+          <div className="text-[11px] text-gray-400">Subscribe to Pro plan to access</div>
+        )}
       </div>
     </div>
   )
