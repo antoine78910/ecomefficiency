@@ -60,25 +60,51 @@ function buildUpstreamHeaders(req: NextRequest, sessionPrefix: string): Headers 
   })
   // Normalize a few for upstream context
   upstream.set('accept-encoding', 'identity')
+  upstream.set('accept', 'application/json, text/plain, */*')
   // Normalize origin/referrer to upstream host to satisfy CSRF checks
   upstream.set('origin', UPSTREAM)
-  if (!upstream.get('referer')) upstream.set('referer', UPSTREAM + '/')
+  upstream.set('referer', UPSTREAM + '/')
   // Hint XHR
   if (!upstream.get('x-requested-with')) upstream.set('x-requested-with', 'XMLHttpRequest')
+  // Add common headers that APIs expect
+  upstream.set('sec-fetch-dest', 'empty')
+  upstream.set('sec-fetch-mode', 'cors')
+  upstream.set('sec-fetch-site', 'same-origin')
   upstream.delete('host')
   upstream.delete('content-length')
-  // Forward only cookies for this session, strip the prefix before sending upstream
+  
+  // CRITICAL: Ensure device_id header is present (Pipiads requires this for ALL API calls)
+  if (!upstream.get('device_id') && !upstream.get('device-id')) {
+    // Use a consistent device_id (can be extracted from login or use a fixed value)
+    upstream.set('device_id', '213036279')
+  }
+  
+  // Add other required Pipiads headers if missing
+  if (!upstream.get('language_code')) {
+    upstream.set('language_code', 'en')
+  }
+  if (!upstream.get('time_zone_id')) {
+    upstream.set('time_zone_id', 'Europe/Paris')
+  }
+  if (!upstream.get('timezone_offset')) {
+    upstream.set('timezone_offset', '-120')
+  }
+  // Forward all Pipiads cookies (both prefixed and essential ones like uid)
   try {
     const raw = req.headers.get('cookie') || ''
     const pairs = raw.split(';').map(s=>s.trim()).filter(Boolean)
     const kept: string[] = []
+    const essentialCookies = ['uid', 'PP-userInfo'] // Always forward these
     for (const kv of pairs) {
       const eq = kv.indexOf('=')
       if (eq <= 0) continue
       const name = kv.slice(0, eq)
       const val = kv.slice(eq + 1)
+      // Forward cookies with session prefix (remove prefix) OR essential cookies
       if (name.startsWith(sessionPrefix)) {
         kept.push(name.slice(sessionPrefix.length) + '=' + val)
+      } else if (essentialCookies.some(essential => name === essential || name === `${sessionPrefix}${essential}`)) {
+        kept.push(kv)
       }
     }
     if (kept.length > 0) upstream.set('cookie', kept.join('; '))
@@ -89,17 +115,38 @@ function buildUpstreamHeaders(req: NextRequest, sessionPrefix: string): Headers 
   // Try to extract access_token from PP-userInfo cookie if not present
   if (!accessToken) {
     try {
-      const cookie = upstream.get('cookie') || ''
-      const m = cookie.split(';').map(s=>s.trim()).find(kv=>kv.startsWith('PP-userInfo='))
-      if (m) {
-        const valEnc = m.substring('PP-userInfo='.length)
+      const rawCookie = req.headers.get('cookie') || ''
+      // Check both prefixed and non-prefixed versions
+      const cookies = rawCookie.split(';').map(s=>s.trim())
+      
+      // Try PP-userInfo (with or without prefix)
+      let userInfoCookie = cookies.find(kv=>kv.startsWith('PP-userInfo=') || kv.startsWith(`${sessionPrefix}PP-userInfo=`))
+      if (userInfoCookie) {
+        const key = userInfoCookie.includes('PP-userInfo=') ? 'PP-userInfo=' : `${sessionPrefix}PP-userInfo=`
+        const valEnc = userInfoCookie.substring(key.length).split(';')[0]  // Remove any trailing attributes
         const val = decodeURIComponent(valEnc)
         const json = JSON.parse(val)
-        if (json && typeof json==='object' && json.access_token) accessToken = String(json.access_token)
+        if (json && typeof json==='object' && json.access_token) {
+          accessToken = String(json.access_token)
+          console.log('[Pipiads Proxy] Found access_token in PP-userInfo cookie, length:', accessToken.length, 'preview:', accessToken.substring(0, 20) + '...' + accessToken.substring(accessToken.length - 5))
+        }
       }
-    } catch {}
+      
+      // Also try uid cookie (Pipiads uses this too)
+      if (!accessToken) {
+        let uidCookie = cookies.find(kv=>kv.startsWith('uid=') || kv.startsWith(`${sessionPrefix}uid=`))
+        if (uidCookie) {
+          const key = uidCookie.includes('uid=') ? 'uid=' : `${sessionPrefix}uid=`
+          accessToken = uidCookie.substring(key.length).split(';')[0]
+          console.log('[Pipiads Proxy] Using uid cookie as access_token')
+        }
+      }
+    } catch (e) {
+      console.error('[Pipiads Proxy] Failed to extract access_token:', e)
+    }
   }
   if (accessToken) {
+    console.log('[Pipiads Proxy] Setting access_token in headers, full token length:', accessToken.length, 'token:', accessToken)
     if (!upstream.get('access_token')) upstream.set('access_token', accessToken)
     if (!upstream.get('Access-Token')) upstream.set('Access-Token', accessToken)
     if (!upstream.get('x-access-token')) upstream.set('x-access-token', accessToken)
@@ -107,9 +154,18 @@ function buildUpstreamHeaders(req: NextRequest, sessionPrefix: string): Headers 
     if (!upstream.get('Authorization')) upstream.set('Authorization', 'Bearer ' + accessToken)
     // Some backends accept this variant
     if (!upstream.get('x-authorization')) upstream.set('x-authorization', 'access_token ' + accessToken)
+  } else {
+    // For login requests without token, remove empty access_token headers that cause 500 errors
+    if (upstream.get('access_token') === '') upstream.delete('access_token')
+    if (upstream.get('Access-Token') === '') upstream.delete('Access-Token')
+    if (upstream.get('x-access-token') === '') upstream.delete('x-access-token')
   }
-  // Avoid Cloudflare IP binding headers
+  // Avoid Cloudflare IP binding headers and problematic custom headers
   upstream.delete('cf-connecting-ip'); upstream.delete('cf-visitor')
+  // Remove proxy-related headers
+  upstream.delete('x-forwarded-host')
+  upstream.delete('x-forwarded-port')
+  upstream.delete('x-forwarded-proto')
   const fwd = req.headers.get('x-forwarded-for') || ''
   const clientIp = (fwd.split(',')[0] || '').trim() || req.headers.get('x-real-ip') || ''
   if (clientIp) {
@@ -202,7 +258,39 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   const upstream = new URL(p + (qs ? ('?' + qs) : ''), UPSTREAM)
   const acc = parseInt(url.searchParams.get('acc') || '1', 10) || 1
   const sessionPrefix = `PP_s${acc}_`
-  let res = await fetch(upstream.toString(), { method:'GET', headers: buildUpstreamHeaders(req, sessionPrefix), redirect:'follow' })
+  const headers = buildUpstreamHeaders(req, sessionPrefix)
+  
+  // Log API calls for debugging
+  const isApi = /^\/(v\d+|api)\//.test(p)
+  if (isApi) {
+    console.log('[Pipiads Proxy] GET API call:', {
+      path: p,
+      hasAccessToken: !!headers.get('access_token'),
+      accessTokenValue: headers.get('access_token')?.substring(0, 20) + '...',
+      hasCookie: !!headers.get('cookie'),
+      deviceId: headers.get('device_id'),
+      languageCode: headers.get('language_code'),
+      allAuthHeaders: {
+        'access_token': headers.get('access_token')?.substring(0, 30),
+        'Access-Token': headers.get('Access-Token')?.substring(0, 30),
+        'authorization': headers.get('authorization')?.substring(0, 40),
+        'device_id': headers.get('device_id'),
+        'language_code': headers.get('language_code'),
+        'time_zone_id': headers.get('time_zone_id'),
+        'timezone_offset': headers.get('timezone_offset')
+      }
+    })
+  }
+  
+  let res = await fetch(upstream.toString(), { method:'GET', headers, redirect:'follow' })
+  
+  // Log errors for debugging but pass them through - let Pipiads handle them
+  if (isApi && (res.status === 401 || res.status === 500)) {
+    const cloned = res.clone()
+    const body = await cloned.text().catch(() => '')
+    console.log(`[Pipiads Proxy] ${res.status} error on ${p}:`, body.substring(0, 200))
+  }
+  
   // Fallback for hash-SPA: if non-API path returns HTML error (e.g., /login or any unknown path), fetch root /
   try {
     const ct0 = res.headers.get('content-type') || ''
@@ -251,6 +339,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
 }catch(e){}})();</script>`
     // Loader overlay: show while on /login, hide on /dashboard
     const loader = `\n<script>(function(){try{\n  function ensureLoader(){\n    try{ if(document.getElementById('pp-loader')) return;\n      var style=document.createElement('style'); style.id='pp-loader-style'; style.textContent='#pp-loader{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:#000000;z-index:2147483647}#pp-loader .bars{display:flex;align-items:center}#pp-loader .bar{display:inline-block;width:3px;height:20px;background:#9e4cfc;border-radius:10px;animation:pp-scale 1s linear infinite}#pp-loader .bar:nth-child(2){height:35px;margin:0 5px;animation-delay:.25s}#pp-loader .bar:nth-child(3){animation-delay:.5s}@keyframes pp-scale{20%{transform:scaleY(1.5)}40%{transform:scaleY(1)}}';\n      document.head.appendChild(style);\n      var d=document.createElement('div'); d.id='pp-loader'; d.innerHTML='<div class="bars"><span class="bar"></span><span class="bar"></span><span class="bar"></span></div>';\n      document.body.appendChild(d);\n    }catch{}\n  }\n  window.ppShowLoader=function(){ try{ ensureLoader(); var el=document.getElementById('pp-loader'); if(el) el.style.display='flex'; }catch{} };\n  window.ppHideLoader=function(){ try{ var el=document.getElementById('pp-loader'); if(el) el.style.display='none'; }catch{} };\n  try{ var p=location.pathname; if(p.includes('/proxy/pipiads/') && p.includes('/login')) { window.ppShowLoader(); } }catch{}\n  try{ var p2=location.pathname; if(p2.includes('/proxy/pipiads/') && (p2.includes('/dashboard')||p2.includes('/analysis')||p2.includes('/home'))) { window.ppHideLoader(); } }catch{}\n  var iv=setInterval(function(){ try{ var p=location.pathname; if(p.includes('/proxy/pipiads/') && (p.includes('/dashboard')||p.includes('/analysis')||p.includes('/home'))) { window.ppHideLoader(); } }catch{} }, 500);\n}catch(e){}})();</script>`
+    
     rewritten = rewritten.replace('</head>', shim + loader + '\n</head>')
     // Auto-login if on /login and env vars set
     const defaultEmail = process.env.PIPIADS_EMAIL
@@ -320,7 +409,32 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   const headers = buildUpstreamHeaders(req, sessionPrefix)
   // Many endpoints expect urlencoded
   if (!headers.get('content-type')) headers.set('content-type', 'application/x-www-form-urlencoded; charset=UTF-8')
+  
+  // Log API calls
+  const isApi = /^\/(v\d+|api)\//.test(p)
+  if (isApi) {
+    console.log('[Pipiads Proxy] POST API call:', {
+      path: p,
+      hasAccessToken: !!headers.get('access_token'),
+      accessToken: headers.get('access_token')?.substring(0, 30),
+      deviceId: headers.get('device_id'),
+      allRequiredHeaders: {
+        'device_id': headers.get('device_id'),
+        'language_code': headers.get('language_code'),
+        'time_zone_id': headers.get('time_zone_id'),
+        'timezone_offset': headers.get('timezone_offset')
+      }
+    })
+  }
+  
   const res = await fetchUpstreamWithRedirects(upstream, { method: 'POST', headers, body }, sessionPrefix)
+  
+  // Log errors for debugging but pass them through
+  if (isApi && (res.status === 401 || res.status === 500)) {
+    const cloned = res.clone()
+    const responseBody = await cloned.text().catch(() => '')
+    console.log(`[Pipiads Proxy] POST ${res.status} on ${p}:`, responseBody.substring(0, 200))
+  }
   const h = new Headers(res.headers); normalizeHeaders(h, `acc=${acc}`); copyAndRewriteSetCookies(res.headers, h, new URL(req.url).protocol === 'https:', sessionPrefix)
   return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h })
 }
@@ -334,22 +448,113 @@ export async function PUT(req: NextRequest, ctx: Ctx) {
   const body = await req.arrayBuffer()
   const acc = parseInt(url.searchParams.get('acc') || '1', 10) || 1
   const sessionPrefix = `PP_s${acc}_`
-  const headers = buildUpstreamHeaders(req, sessionPrefix)
-  // Force urlencoded for login
-  if (!headers.get('content-type') || /json/i.test(String(headers.get('content-type'))||'')) headers.set('content-type', 'application/x-www-form-urlencoded; charset=UTF-8')
+  
+  // For login endpoints, use minimal headers to match working direct API call
+  const isLogin = /\/api\/member\/login$/.test(p)
+  const headers = isLogin ? new Headers() : buildUpstreamHeaders(req, sessionPrefix)
+  
+  if (isLogin) {
+    // Only essential headers for login (matching the working curl test)
+    headers.set('content-type', 'application/json')
+    headers.set('origin', UPSTREAM)
+    headers.set('referer', UPSTREAM + '/')
+    headers.set('accept', 'application/json, text/plain, */*')
+    headers.set('user-agent', req.headers.get('user-agent') || 'Mozilla/5.0')
+    // Pass through Pipiads-specific headers from client
+    const deviceId = req.headers.get('device_id') || req.headers.get('device-id')
+    if (deviceId) headers.set('device_id', deviceId)
+    const langCode = req.headers.get('language_code')
+    if (langCode) headers.set('language_code', langCode)
+    const tzId = req.headers.get('time_zone_id')
+    if (tzId) headers.set('time_zone_id', tzId)
+    const tzOffset = req.headers.get('timezone_offset')
+    if (tzOffset) headers.set('timezone_offset', tzOffset)
+  } else {
+    // For non-login requests, keep the full headers
+    // (code continues below)
+  }
+  
+  // Log login attempts for debugging
+  if (p.includes('/login')) {
+    try {
+      const bodyText = new TextDecoder().decode(body)
+      console.log('[Pipiads Proxy] Login attempt:', {
+        path: p,
+        method: 'PUT',
+        contentType: headers.get('content-type'),
+        bodySize: body.byteLength,
+        bodyContent: bodyText,
+        upstream: upstream.toString(),
+        allHeaders: Object.fromEntries(headers.entries())
+      })
+    } catch (e) {
+      console.log('[Pipiads Proxy] Login attempt (body decode failed):', {
+        path: p,
+        method: 'PUT',
+        upstream: upstream.toString()
+      })
+    }
+  }
+  
+  // For non-login: Force urlencoded if not already set
+  if (!isLogin) {
+    if (!headers.get('content-type') || /json/i.test(String(headers.get('content-type'))||'')) headers.set('content-type', 'application/x-www-form-urlencoded; charset=UTF-8')
+  }
+  // For login: content-type already set to application/json above
+  
   let res = await fetchUpstreamWithRedirects(upstream, { method: 'PUT', headers, body }, sessionPrefix)
-  // If still redirecting, try POST and versionless path as fallbacks
+  
+  // Log response for debugging
+  if (p.includes('/login')) {
+    const clonedRes = res.clone()
+    const responseText = await clonedRes.text().catch(() => '')
+    console.log('[Pipiads Proxy] Login response:', {
+      status: res.status,
+      statusText: res.statusText,
+      headers: Object.fromEntries(res.headers.entries()),
+      bodyFull: responseText,
+      bodyLength: responseText.length
+    })
+    
+    // Try to parse JSON error
+    try {
+      const jsonBody = JSON.parse(responseText)
+      console.log('[Pipiads Proxy] Login JSON response:', jsonBody)
+    } catch {}
+  }
+  
+  // If error, try POST as fallback (login typically works with both PUT and POST)
   try {
-    if (res.status >= 300 && res.status < 400 && /\/api\/member\/login$/.test(p)) {
-      const altPost = await fetchUpstreamWithRedirects(upstream, { method: 'POST', headers: buildUpstreamHeaders(req, sessionPrefix), body }, sessionPrefix)
-      if (!(altPost.status >= 200 && altPost.status < 300)) {
-        const altUrl = new URL(p.replace('/v1/api/', '/api/') + (qs ? ('?' + qs) : ''), UPSTREAM)
-        res = await fetchUpstreamWithRedirects(altUrl, { method: 'POST', headers: buildUpstreamHeaders(req, sessionPrefix), body }, sessionPrefix)
-      } else {
+    if ((res.status >= 300 || res.status === 500) && isLogin) {
+      console.log('[Pipiads Proxy] PUT failed, trying POST with minimal headers')
+      // Use same minimal headers for POST
+      const postHeaders = new Headers()
+      postHeaders.set('content-type', 'application/json')
+      postHeaders.set('origin', UPSTREAM)
+      postHeaders.set('referer', UPSTREAM + '/')
+      postHeaders.set('accept', 'application/json, text/plain, */*')
+      postHeaders.set('user-agent', req.headers.get('user-agent') || 'Mozilla/5.0')
+      
+      const altPost = await fetchUpstreamWithRedirects(upstream, { method: 'POST', headers: postHeaders, body }, sessionPrefix)
+      if (altPost.status >= 200 && altPost.status < 300) {
+        console.log('[Pipiads Proxy] POST fallback succeeded ✅')
         res = altPost
+      } else {
+        console.log('[Pipiads Proxy] POST also failed:', altPost.status)
       }
     }
-  } catch {}
+  } catch (e) {
+    console.error('[Pipiads Proxy] Fallback error:', e)
+  }
+  
+  // Log errors for debugging but pass them through
+  const isApi = /^\/(v\d+|api)\//.test(p)
+  if (isApi && !isLogin && (res.status === 401 || res.status === 500)) {
+    const cloned = res.clone()
+    const responseBody = await cloned.text().catch(() => '')
+    console.log(`[Pipiads Proxy] PUT ${res.status} on ${p}:`, responseBody.substring(0, 200))
+  }
+  
   const h = new Headers(res.headers); normalizeHeaders(h, `acc=${acc}`); copyAndRewriteSetCookies(res.headers, h, new URL(req.url).protocol === 'https:', sessionPrefix)
   return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h })
 }

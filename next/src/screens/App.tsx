@@ -272,7 +272,7 @@ function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'sta
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({})
   const toggleExpand = (key: string) => setExpanded((s) => ({ ...s, [key]: !s[key] }))
 
-  const [currency, setCurrency] = React.useState<'EUR'|'USD'>('USD')
+  const [currency, setCurrency] = React.useState<'EUR'|'USD'>('EUR')
   const [ready, setReady] = React.useState(false)
   const [loadingPlan, setLoadingPlan] = React.useState<null|'starter'|'pro'>(null)
 
@@ -758,8 +758,8 @@ function CredentialsPanel() {
   }
 
   const startCheckout = (tier: 'starter' | 'pro', billing: 'monthly' | 'yearly') => {
-    // Detect currency instantly - DEFAULT TO USD, only EUR for EU countries
-    let currency: 'EUR' | 'USD' = 'USD'; // Changed default from EUR to USD
+    // Detect currency instantly - DEFAULT TO EUR for Europe
+    let currency: 'EUR' | 'USD' = 'EUR';
     
     try {
       const eurCC = new Set(['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE']);
@@ -1080,7 +1080,7 @@ function PlanPicker({ onChoose }: { onChoose: (tier: 'starter'|'pro', billing: '
       const loc = Intl.DateTimeFormat().resolvedOptions().locale.toUpperCase()
       const eu = /(AT|BE|BG|HR|CY|CZ|DK|EE|FI|FR|DE|GR|HU|IE|IT|LV|LT|LU|MT|NL|PL|PT|RO|SK|SI|ES|SE)/
       return eu.test(loc) ? 'EUR' : 'USD'
-    } catch { return 'USD' } // Changed default from EUR to USD
+    } catch { return 'EUR' } // Default to EUR for Europe-first approach
   })
   const fmt = (n: number) => {
     const v = currency === 'EUR' ? n : n * 1.07
