@@ -33,11 +33,16 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   const p = '/' + ((path && path.join('/')) || '')
   const url = new URL(req.url)
   const upstreamUrl = new URL(p + (url.search || ''), UPSTREAM)
-  const res = await fetch(upstreamUrl.toString(), {
+  let res = await fetch(upstreamUrl.toString(), {
     method: 'GET',
     headers: buildUpstreamHeaders(req),
     redirect: 'manual',
   })
+  // Fallback: some builds serve assets under /app/_next/...
+  if (res.status === 404 && p.startsWith('/_next/')) {
+    const alt = new URL('/app' + p + (url.search || ''), UPSTREAM)
+    try { res = await fetch(alt.toString(), { method:'GET', headers: buildUpstreamHeaders(req), redirect:'manual' }) } catch {}
+  }
   const respHeaders = new Headers(res.headers)
   normalizeHeaders(respHeaders)
   // Set cache headers for static assets
@@ -53,11 +58,15 @@ export async function HEAD(req: NextRequest, ctx: Ctx) {
   const p = '/' + ((path && path.join('/')) || '')
   const url = new URL(req.url)
   const upstreamUrl = new URL(p + (url.search || ''), UPSTREAM)
-  const res = await fetch(upstreamUrl.toString(), {
+  let res = await fetch(upstreamUrl.toString(), {
     method: 'HEAD',
     headers: buildUpstreamHeaders(req),
     redirect: 'manual',
   })
+  if (res.status === 404 && p.startsWith('/_next/')) {
+    const alt = new URL('/app' + p + (url.search || ''), UPSTREAM)
+    try { res = await fetch(alt.toString(), { method:'HEAD', headers: buildUpstreamHeaders(req), redirect:'manual' }) } catch {}
+  }
   const respHeaders = new Headers(res.headers)
   normalizeHeaders(respHeaders)
   if (p.startsWith('/_next/') || p.includes('/static/')) {
