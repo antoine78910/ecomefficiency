@@ -29,7 +29,8 @@ type Ctx = { params: Promise<{ path?: string[] }> }
 
 export async function GET(req: NextRequest, ctx: Ctx) {
   const { path } = await ctx.params
-  const p = '/app_assets/' + ((path && path.join('/')) || '')
+  // Remove /app_assets prefix; upstream expects /_next/static/... directly
+  const p = '/' + ((path && path.join('/')) || '')
   const url = new URL(req.url)
   const upstreamUrl = new URL(p + (url.search || ''), UPSTREAM)
   const res = await fetch(upstreamUrl.toString(), {
@@ -39,12 +40,17 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   })
   const respHeaders = new Headers(res.headers)
   normalizeHeaders(respHeaders)
+  // Set cache headers for static assets
+  if (p.startsWith('/_next/') || p.includes('/static/')) {
+    respHeaders.set('cache-control', 'public, max-age=31536000, immutable')
+  }
   return new Response(res.body, { status: res.status, statusText: res.statusText, headers: respHeaders })
 }
 
 export async function HEAD(req: NextRequest, ctx: Ctx) {
   const { path } = await ctx.params
-  const p = '/app_assets/' + ((path && path.join('/')) || '')
+  // Remove /app_assets prefix; upstream expects /_next/static/... directly
+  const p = '/' + ((path && path.join('/')) || '')
   const url = new URL(req.url)
   const upstreamUrl = new URL(p + (url.search || ''), UPSTREAM)
   const res = await fetch(upstreamUrl.toString(), {
@@ -54,6 +60,9 @@ export async function HEAD(req: NextRequest, ctx: Ctx) {
   })
   const respHeaders = new Headers(res.headers)
   normalizeHeaders(respHeaders)
+  if (p.startsWith('/_next/') || p.includes('/static/')) {
+    respHeaders.set('cache-control', 'public, max-age=31536000, immutable')
+  }
   return new Response(null, { status: res.status, statusText: res.statusText, headers: respHeaders })
 }
 
