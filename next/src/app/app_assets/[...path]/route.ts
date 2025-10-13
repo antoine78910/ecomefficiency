@@ -38,10 +38,14 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     headers: buildUpstreamHeaders(req),
     redirect: 'manual',
   })
-  // Fallback: some builds serve assets under /app/_next/...
+  // Fallback: some builds serve assets under /app/_next/... or /app_assets/_next/...
   if (res.status === 404 && p.startsWith('/_next/')) {
     const alt = new URL('/app' + p + (url.search || ''), UPSTREAM)
     try { res = await fetch(alt.toString(), { method:'GET', headers: buildUpstreamHeaders(req), redirect:'manual' }) } catch {}
+    if (res.status === 404) {
+      const alt2 = new URL('/app_assets' + p + (url.search || ''), UPSTREAM)
+      try { res = await fetch(alt2.toString(), { method:'GET', headers: buildUpstreamHeaders(req), redirect:'manual' }) } catch {}
+    }
   }
   const respHeaders = new Headers(res.headers)
   normalizeHeaders(respHeaders)
@@ -66,6 +70,10 @@ export async function HEAD(req: NextRequest, ctx: Ctx) {
   if (res.status === 404 && p.startsWith('/_next/')) {
     const alt = new URL('/app' + p + (url.search || ''), UPSTREAM)
     try { res = await fetch(alt.toString(), { method:'HEAD', headers: buildUpstreamHeaders(req), redirect:'manual' }) } catch {}
+    if (res.status === 404) {
+      const alt2 = new URL('/app_assets' + p + (url.search || ''), UPSTREAM)
+      try { res = await fetch(alt2.toString(), { method:'HEAD', headers: buildUpstreamHeaders(req), redirect:'manual' }) } catch {}
+    }
   }
   const respHeaders = new Headers(res.headers)
   normalizeHeaders(respHeaders)
