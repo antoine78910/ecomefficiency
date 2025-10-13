@@ -189,6 +189,12 @@ const App = () => {
           <BrainCredsCard disabled={appPlan === 'free'} />
           <CanvaFlipCard inviteLink={canvaInvite || undefined} disabled={appPlan === 'free'} />
         </div>
+
+        {/* Tool quick-open cards (proxy) */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+          <ElevenLabsCard disabled={appPlan === 'free'} />
+          <PipiadsCard disabled={appPlan === 'free'} />
+        </div>
         
       </div>
       <HowToAccess renderTrigger={false} />
@@ -1314,6 +1320,42 @@ function CanvaFlipCard({ inviteLink, disabled }: { inviteLink?: string | null; d
           <div className="mt-1 text-[10px] leading-snug text-gray-500">
             Invite link rotates monthly. If you lose access, click this card again to refresh.
           </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function ElevenLabsCard({ disabled }: { disabled?: boolean }) {
+  return (
+    <div onClick={() => { if (!disabled) window.open('/elevenlabs/reset?acc=1', '_blank', 'noreferrer') }} className={`relative bg-gray-900 border border-white/10 rounded-2xl p-2 md:p-3 flex flex-col ${disabled ? 'opacity-60' : 'cursor-pointer hover:border-white/20'}`}>
+      <div className="w-full rounded-xl bg-[#000000] border border-white/10 overflow-hidden relative" style={{ aspectRatio: '16 / 9' }}>
+        <Image src="/tools-logos/elevenlabs.png" alt="ElevenLabs logo" fill className="object-contain p-2 bg-[#000000]" sizes="(max-width: 768px) 100vw, 50vw" />
+      </div>
+      <div className="mt-2">
+        <div className="text-white font-semibold text-sm md:text-base">ElevenLabs</div>
+        {disabled ? (
+          <div className="text-[11px] text-gray-400">Subscribe to access</div>
+        ) : (
+          <div className="text-[11px] text-gray-400">Access to a 500k credits account</div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+function PipiadsCard({ disabled }: { disabled?: boolean }) {
+  return (
+    <div onClick={() => { if (!disabled) window.open('/pipiads', '_blank', 'noreferrer') }} className={`relative bg-gray-900 border border-white/10 rounded-2xl p-2 md:p-3 flex flex-col ${disabled ? 'opacity-60' : 'cursor-pointer hover:border-white/20'}`}>
+      <div className="w-full rounded-xl bg-[#000000] border border-white/10 overflow-hidden relative" style={{ aspectRatio: '16 / 9' }}>
+        <Image src="/tools-logos/pipiads.png" alt="Pipiads logo" fill className="object-contain p-2 bg-[#000000]" sizes="(max-width: 768px) 100vw, 50vw" />
+      </div>
+      <div className="mt-2">
+        <div className="text-white font-semibold text-sm md:text-base">Pipiads</div>
+        {disabled ? (
+          <div className="text-[11px] text-gray-400">Subscribe to access</div>
+        ) : (
+          <div className="text-[11px] text-gray-400">Access to a 100k credits account</div>
         )}
       </div>
     </div>
