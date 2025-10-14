@@ -252,6 +252,16 @@ export async function GET(req: NextRequest, ctx: Ctx) {
       url: upstreamUrl.toString()
     })
     
+    // Get credentials from environment variables instead of Google Sheet
+    const email = process.env.ELEVENLABS_EMAIL_1 || ''
+    const password = process.env.ELEVENLABS_PASSWORD_1 || ''
+    console.log('[EE][EL][env_creds]', { 
+      emailLength: email.length,
+      passwordLength: password.length,
+      hasEmail: !!email,
+      hasPassword: !!password
+    })
+    
     let rewritten = html
       .replaceAll('href="/_next/', 'href="/elevenlabs/_next/')
       .replaceAll('src="/_next/', 'src="/elevenlabs/_next/')
@@ -275,7 +285,57 @@ export async function GET(req: NextRequest, ctx: Ctx) {
       .replaceAll('href="/public_app_assets/', 'href="/public_app_assets/')
       .replaceAll('src="/public_app_assets/', 'src="/public_app_assets/')
       .replaceAll('https://payload.elevenlabs.io', '/proxy/elapi')
-      // Firebase auth iframe/handler to same-origin to avoid third-party storage restrictions
+    
+    // Add auto-login script if credentials are available
+    if (email && password && upstreamPath.includes('/sign-in')) {
+      const autoLoginScript = `
+        <script>
+        (function() {
+          console.log('[EE][EL][AUTO] start', {acc: ${accFromPath}, emailLen: ${email.length}, passLen: ${password.length}, path: '${upstreamPath}'});
+          let tries = 0;
+          const maxTries = 100;
+          
+          function poll() {
+            tries++;
+            const emailInput = document.querySelector('input[type="email"], input[name="email"], input[placeholder*="email" i]');
+            const passwordInput = document.querySelector('input[type="password"], input[name="password"]');
+            const submitBtn = document.querySelector('button[type="submit"], input[type="submit"], button:contains("Sign in"), button:contains("Log in")');
+            
+            console.log('[EE][EL][AUTO] poll', {tries, hasEmail: !!emailInput, hasPass: !!passwordInput, hasBtn: !!submitBtn});
+            
+            if (emailInput && passwordInput && submitBtn && tries <= maxTries) {
+              emailInput.value = '${email}';
+              emailInput.dispatchEvent(new Event('input', { bubbles: true }));
+              emailInput.dispatchEvent(new Event('change', { bubbles: true }));
+              
+              passwordInput.value = '${password}';
+              passwordInput.dispatchEvent(new Event('input', { bubbles: true }));
+              passwordInput.dispatchEvent(new Event('change', { bubbles: true }));
+              
+              setTimeout(() => {
+                console.log('[EE][EL][AUTO] submitting via button.click');
+                submitBtn.click();
+              }, 100);
+            } else if (tries < maxTries) {
+              setTimeout(poll, 500);
+            }
+          }
+          
+          setTimeout(poll, 1000);
+        })();
+        </script>
+      `;
+      
+      // Insert script before closing body tag
+      if (rewritten.includes('</body>')) {
+        rewritten = rewritten.replace('</body>', autoLoginScript + '</body>');
+      } else {
+        rewritten += autoLoginScript;
+      }
+    }
+    
+    // Firebase auth iframe/handler to same-origin to avoid third-party storage restrictions
+    rewritten = rewritten
       .replace(/src=\"\/?__\/auth\//g, 'src="'+`${publicRoot}`+'/__/auth/')
       .replace(/href=\"\/?__\/auth\//g, 'href="'+`${publicRoot}`+'/__/auth/')
       .replace(/src=\"https:\/\/elevenlabs\.io\/__\/auth\//g, 'src="'+`${publicRoot}`+'/__/auth/')
