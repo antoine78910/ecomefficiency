@@ -232,7 +232,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   }
   
   if (elevenlabsCookies) {
-    headers['cookie'] = elevenlabsCookies
+    (headers as any)['cookie'] = elevenlabsCookies
   }
   
   // Reverse proxy sign-in as well (no external redirect)
