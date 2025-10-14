@@ -18,9 +18,9 @@ function normalizeHeadersForBrowser(resHeaders: Headers, proxyBase: string) {
     try {
       const u = new URL(loc, UPSTREAM)
       if (u.origin === UPSTREAM) {
-        // Static assets go to /app_assets, app/pages go to the session-aware proxyBase
+        // Static assets go to /elevenlabs, app/pages go to the session-aware proxyBase
         const rewrittenPath = u.pathname.startsWith('/_next') || u.pathname.includes('/static/')
-          ? '/app_assets' + u.pathname
+          ? '/elevenlabs' + u.pathname
           : proxyBase + u.pathname
         const proxied = rewrittenPath + (u.search || '')
         resHeaders.set('location', proxied)
@@ -241,28 +241,29 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   // Bind and namespace cookies to the session path
   const isHttps = (new URL(req.url)).protocol === 'https:'
   rewriteSetCookiesForSession(res.headers, respHeaders, publicBase, sessionKey, isHttps)
-  // HTML: best-effort rewrite of asset URLs to /app_assets
+  // HTML: best-effort rewrite of asset URLs to /elevenlabs
   const ct = respHeaders.get('content-type') || ''
   if (ct.includes('text/html')) {
     const html = await res.text()
     console.log('[EE][EL][html_debug]', { 
       htmlLength: html.length,
       hasNextAssets: html.includes('/_next/'),
-      hasStaticAssets: html.includes('/static/')
+      hasStaticAssets: html.includes('/static/'),
+      url: upstreamUrl.toString()
     })
     
     let rewritten = html
-      .replaceAll('href="/_next/', 'href="/app_assets/_next/')
-      .replaceAll('src="/_next/', 'src="/app_assets/_next/')
-      .replaceAll('href="/static/', 'href="/app_assets/static/')
-      .replaceAll('src="/static/', 'src="/app_assets/static/')
-      .replaceAll('href="https://elevenlabs.io/_next/', 'href="/app_assets/_next/')
-      .replaceAll('src="https://elevenlabs.io/_next/', 'src="/app_assets/_next/')
+      .replaceAll('href="/_next/', 'href="/elevenlabs/_next/')
+      .replaceAll('src="/_next/', 'src="/elevenlabs/_next/')
+      .replaceAll('href="/static/', 'href="/elevenlabs/static/')
+      .replaceAll('src="/static/', 'src="/elevenlabs/static/')
+      .replaceAll('href="https://elevenlabs.io/_next/', 'href="/elevenlabs/_next/')
+      .replaceAll('src="https://elevenlabs.io/_next/', 'src="/elevenlabs/_next/')
     
     console.log('[EE][EL][html_rewrite]', { 
       originalLength: html.length,
       rewrittenLength: rewritten.length,
-      hasAppAssets: rewritten.includes('/app_assets/')
+      hasElevenlabsAssets: rewritten.includes('/elevenlabs/_next/')
     })
     
     rewritten = rewritten
