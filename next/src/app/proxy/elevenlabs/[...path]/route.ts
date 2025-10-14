@@ -202,7 +202,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   const { path } = await ctx.params
   
   // Direct access - no authentication required
-  const upstreamPath = '/' + path.join('/')
+  const upstreamPath = '/' + (path || []).join('/')
   const proxyBase = '/elevenlabs'
   const publicBase = proxyBase
   const publicRoot = proxyBase
