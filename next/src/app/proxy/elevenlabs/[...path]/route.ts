@@ -321,60 +321,78 @@ export async function GET(req: NextRequest, ctx: Ctx) {
             if (loader) loader.style.display = 'none';
           }, 10000);
           
-          // Auto-login only on sign-in page
+          // Auto-login only on sign-in page and only if not already logged in
           if (location.pathname.includes('/sign-in')) {
-            let tries = 0;
-            const maxTries = 50;
+            // Check if already logged in by looking for user elements
+            const isLoggedIn = document.querySelector('[data-testid="user-menu"], .user-avatar, .profile-menu') || 
+                              document.body.textContent.includes('Sign out') ||
+                              document.body.textContent.includes('Logout') ||
+                              !document.querySelector('input[type="email"], input[name="email"], input[type="password"], input[name="password"]');
             
-            function poll() {
-              tries++;
+            if (!isLoggedIn) {
+              let tries = 0;
+              const maxTries = 50;
               
-              // Find email input using multiple strategies
-              let emailInput = document.querySelector('input[type="email"], input[name="email"]');
-              if (!emailInput) {
-                const inputs = document.querySelectorAll('input[placeholder]');
-                for (const input of inputs) {
-                  const placeholder = input.getAttribute('placeholder')?.toLowerCase() || '';
-                  if (placeholder.includes('email') || placeholder.includes('mail')) {
-                    emailInput = input;
-                    break;
+              function poll() {
+                tries++;
+                
+                // Find email input using multiple strategies
+                let emailInput = document.querySelector('input[type="email"], input[name="email"]');
+                if (!emailInput) {
+                  const inputs = document.querySelectorAll('input[placeholder]');
+                  for (const input of inputs) {
+                    const placeholder = input.getAttribute('placeholder')?.toLowerCase() || '';
+                    if (placeholder.includes('email') || placeholder.includes('mail')) {
+                      emailInput = input;
+                      break;
+                    }
                   }
+                }
+                
+                const passwordInput = document.querySelector('input[type="password"], input[name="password"]');
+                
+                // Find submit button using multiple strategies
+                let submitBtn = document.querySelector('button[type="submit"], input[type="submit"]');
+                if (!submitBtn) {
+                  const buttons = document.querySelectorAll('button');
+                  for (const btn of buttons) {
+                    const text = btn.textContent?.toLowerCase() || '';
+                    if (text.includes('sign in') || text.includes('log in') || text.includes('login') || text.includes('submit')) {
+                      submitBtn = btn;
+                      break;
+                    }
+                  }
+                }
+                
+                if (emailInput && passwordInput && submitBtn && tries <= maxTries) {
+                  // Prevent password save notification
+                  emailInput.setAttribute('autocomplete', 'off');
+                  passwordInput.setAttribute('autocomplete', 'new-password');
+                  emailInput.setAttribute('data-form-type', 'other');
+                  passwordInput.setAttribute('data-form-type', 'other');
+                  
+                  // Fill form
+                  emailInput.value = '${email}';
+                  emailInput.dispatchEvent(new Event('input', { bubbles: true }));
+                  emailInput.dispatchEvent(new Event('change', { bubbles: true }));
+                  
+                  passwordInput.value = '${password}';
+                  passwordInput.dispatchEvent(new Event('input', { bubbles: true }));
+                  passwordInput.dispatchEvent(new Event('change', { bubbles: true }));
+                  
+                  setTimeout(() => {
+                    submitBtn.click();
+                  }, 100);
+                } else if (tries < maxTries) {
+                  setTimeout(poll, 1000);
                 }
               }
               
-              const passwordInput = document.querySelector('input[type="password"], input[name="password"]');
-              
-              // Find submit button using multiple strategies
-              let submitBtn = document.querySelector('button[type="submit"], input[type="submit"]');
-              if (!submitBtn) {
-                const buttons = document.querySelectorAll('button');
-                for (const btn of buttons) {
-                  const text = btn.textContent?.toLowerCase() || '';
-                  if (text.includes('sign in') || text.includes('log in') || text.includes('login') || text.includes('submit')) {
-                    submitBtn = btn;
-                    break;
-                  }
-                }
-              }
-              
-              if (emailInput && passwordInput && submitBtn && tries <= maxTries) {
-                emailInput.value = '${email}';
-                emailInput.dispatchEvent(new Event('input', { bubbles: true }));
-                emailInput.dispatchEvent(new Event('change', { bubbles: true }));
-                
-                passwordInput.value = '${password}';
-                passwordInput.dispatchEvent(new Event('input', { bubbles: true }));
-                passwordInput.dispatchEvent(new Event('change', { bubbles: true }));
-                
-                setTimeout(() => {
-                  submitBtn.click();
-                }, 100);
-              } else if (tries < maxTries) {
-                setTimeout(poll, 1000);
-              }
+              setTimeout(poll, 2000);
+            } else {
+              // Already logged in, hide loader immediately
+              if (loader) loader.style.display = 'none';
             }
-            
-            setTimeout(poll, 2000);
           }
         })();
         </script>
