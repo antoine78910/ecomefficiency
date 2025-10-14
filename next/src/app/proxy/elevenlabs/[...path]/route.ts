@@ -291,8 +291,8 @@ export async function GET(req: NextRequest, ctx: Ctx) {
       .replaceAll('src="/public_app_assets/', 'src="/public_app_assets/')
       .replaceAll('https://payload.elevenlabs.io', '/proxy/elapi')
     
-    // Add auto-login script if credentials are available
-    if (email && password && upstreamPath.includes('/sign-in')) {
+    // Add loader and auto-login script if credentials are available
+    if (email && password) {
       const autoLoginScript = `
         <div id="elevenlabs-loader" style="
           position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
@@ -302,19 +302,8 @@ export async function GET(req: NextRequest, ctx: Ctx) {
           <div style="text-align: center; max-width: 400px; padding: 40px;">
             <div style="width: 60px; height: 60px; border: 4px solid #374151; border-top: 4px solid #7c3aed; 
                         border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 30px;"></div>
-            <h2 style="margin: 0 0 15px; font-size: 28px; font-weight: 600; color: white;">Logging you to the ElevenLabs account...</h2>
-            <p style="margin: 0 0 40px; opacity: 0.7; color: #9ca3af; font-size: 16px;">Please wait while we automatically log you in.</p>
-            
-            <div style="display: flex; flex-direction: column; gap: 15px; max-width: 300px; margin: 0 auto;">
-              <div style="background: #1a1a1a; border: 1px solid #374151; border-radius: 8px; padding: 15px; text-align: left;">
-                <div style="color: #7c3aed; font-size: 12px; font-weight: 500; margin-bottom: 5px;">EMAIL</div>
-                <div style="color: #e5e7eb; font-size: 14px;">wczznbezhttdvtnjqe@enotj.com</div>
-              </div>
-              <div style="background: #1a1a1a; border: 1px solid #374151; border-radius: 8px; padding: 15px; text-align: left;">
-                <div style="color: #7c3aed; font-size: 12px; font-weight: 500; margin-bottom: 5px;">PASSWORD</div>
-                <div style="color: #e5e7eb; font-size: 14px;">••••••••</div>
-              </div>
-            </div>
+            <h2 style="margin: 0 0 15px; font-size: 28px; font-weight: 600; color: white;">Loading ElevenLabs...</h2>
+            <p style="margin: 0; opacity: 0.7; color: #9ca3af; font-size: 16px;">Please wait while we prepare your access.</p>
           </div>
           <style>
             @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
@@ -323,87 +312,70 @@ export async function GET(req: NextRequest, ctx: Ctx) {
         
         <script>
         (function() {
-          // Show loader immediately
+          // Show loader immediately on all ElevenLabs pages
           const loader = document.getElementById('elevenlabs-loader');
           if (loader) loader.style.display = 'flex';
           
-          // Hide loader and redirect to home after successful login
-          function checkForRedirect() {
-            if (location.pathname.includes('/app/home') || location.pathname.includes('/app/dashboard')) {
-              if (loader) loader.style.display = 'none';
-              return true;
-            }
-            return false;
-          }
-          
-          // Check every 2 seconds for redirect
-          const redirectChecker = setInterval(() => {
-            if (checkForRedirect()) {
-              clearInterval(redirectChecker);
-            }
-          }, 2000);
-          
-          // Hide loader after 30 seconds max
+          // Hide loader after 10 seconds
           setTimeout(() => {
             if (loader) loader.style.display = 'none';
-            clearInterval(redirectChecker);
-          }, 30000);
+          }, 10000);
           
-          let tries = 0;
-          const maxTries = 50;
-          
-          function poll() {
-            tries++;
+          // Auto-login only on sign-in page
+          if (location.pathname.includes('/sign-in')) {
+            let tries = 0;
+            const maxTries = 50;
             
-            // Find email input using multiple strategies
-            let emailInput = document.querySelector('input[type="email"], input[name="email"]');
-            if (!emailInput) {
-              const inputs = document.querySelectorAll('input[placeholder]');
-              for (const input of inputs) {
-                const placeholder = input.getAttribute('placeholder')?.toLowerCase() || '';
-                if (placeholder.includes('email') || placeholder.includes('mail')) {
-                  emailInput = input;
-                  break;
+            function poll() {
+              tries++;
+              
+              // Find email input using multiple strategies
+              let emailInput = document.querySelector('input[type="email"], input[name="email"]');
+              if (!emailInput) {
+                const inputs = document.querySelectorAll('input[placeholder]');
+                for (const input of inputs) {
+                  const placeholder = input.getAttribute('placeholder')?.toLowerCase() || '';
+                  if (placeholder.includes('email') || placeholder.includes('mail')) {
+                    emailInput = input;
+                    break;
+                  }
                 }
+              }
+              
+              const passwordInput = document.querySelector('input[type="password"], input[name="password"]');
+              
+              // Find submit button using multiple strategies
+              let submitBtn = document.querySelector('button[type="submit"], input[type="submit"]');
+              if (!submitBtn) {
+                const buttons = document.querySelectorAll('button');
+                for (const btn of buttons) {
+                  const text = btn.textContent?.toLowerCase() || '';
+                  if (text.includes('sign in') || text.includes('log in') || text.includes('login') || text.includes('submit')) {
+                    submitBtn = btn;
+                    break;
+                  }
+                }
+              }
+              
+              if (emailInput && passwordInput && submitBtn && tries <= maxTries) {
+                emailInput.value = '${email}';
+                emailInput.dispatchEvent(new Event('input', { bubbles: true }));
+                emailInput.dispatchEvent(new Event('change', { bubbles: true }));
+                
+                passwordInput.value = '${password}';
+                passwordInput.dispatchEvent(new Event('input', { bubbles: true }));
+                passwordInput.dispatchEvent(new Event('change', { bubbles: true }));
+                
+                setTimeout(() => {
+                  submitBtn.click();
+                }, 100);
+              } else if (tries < maxTries) {
+                setTimeout(poll, 1000);
               }
             }
             
-            const passwordInput = document.querySelector('input[type="password"], input[name="password"]');
-            
-            // Find submit button using multiple strategies
-            let submitBtn = document.querySelector('button[type="submit"], input[type="submit"]');
-            if (!submitBtn) {
-              const buttons = document.querySelectorAll('button');
-              for (const btn of buttons) {
-                const text = btn.textContent?.toLowerCase() || '';
-                if (text.includes('sign in') || text.includes('log in') || text.includes('login') || text.includes('submit')) {
-                  submitBtn = btn;
-                  break;
-                }
-              }
-            }
-            
-            if (emailInput && passwordInput && submitBtn && tries <= maxTries) {
-              emailInput.value = '${email}';
-              emailInput.dispatchEvent(new Event('input', { bubbles: true }));
-              emailInput.dispatchEvent(new Event('change', { bubbles: true }));
-              
-              passwordInput.value = '${password}';
-              passwordInput.dispatchEvent(new Event('input', { bubbles: true }));
-              passwordInput.dispatchEvent(new Event('change', { bubbles: true }));
-              
-              setTimeout(() => {
-                submitBtn.click();
-              }, 100);
-            } else if (tries < maxTries) {
-              setTimeout(poll, 1000);
-            } else {
-              // Hide loader if max tries reached
-              if (loader) loader.style.display = 'none';
-            }
+            setTimeout(poll, 2000);
           }
-          
-          setTimeout(poll, 2000);
         })();
         </script>
       `;
