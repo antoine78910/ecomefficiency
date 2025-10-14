@@ -6,6 +6,10 @@ const UPSTREAM = 'https://elevenlabs.io'
 // Force deployment: Extended session cookies to 30 days
 const SHEET_HTML_URL = process.env.ELEVENLABS_SHEET_HTML_URL || 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQpOisYNfPcQUJoqTXDLoUw3-jrwGkgXNHXg7uHT4-e0uKYVOZwqbzmGzG1bLVXz3Ork-KlhAyGo57V/pubhtml'
 
+// Session pool to maintain active sessions
+const sessionPool = new Map<string, { cookies: string, lastUsed: number }>()
+const SESSION_TIMEOUT = 30 * 60 * 1000 // 30 minutes
+
 function normalizeHeadersForBrowser(resHeaders: Headers, proxyBase: string) {
   // Avoid double-decoding errors in the browser
   resHeaders.delete('content-encoding')
@@ -210,10 +214,31 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   const accFromPath = 1
   const url = new URL(req.url)
   const upstreamUrl = new URL(upstreamPath + (url.search || ''), UPSTREAM)
+  // Build headers with cookie forwarding for session persistence
+  const headers = buildUpstreamHeaders(req, sessionKey)
+  
+  // Check for existing session in pool
+  const sessionKeyStr = `${sessionKey}_${accFromPath}`
+  const existingSession = sessionPool.get(sessionKeyStr)
+  const now = Date.now()
+  
+  // Forward ElevenLabs cookies from request to maintain session
+  let elevenlabsCookies = req.headers.get('cookie') || ''
+  
+  // Use existing session cookies if available and not expired
+  if (existingSession && (now - existingSession.lastUsed) < SESSION_TIMEOUT) {
+    elevenlabsCookies = existingSession.cookies
+    console.log('[EE][EL][session_reuse]', { sessionKey: sessionKeyStr, cookieLength: elevenlabsCookies.length })
+  }
+  
+  if (elevenlabsCookies) {
+    headers['cookie'] = elevenlabsCookies
+  }
+  
   // Reverse proxy sign-in as well (no external redirect)
   const res = await fetch(upstreamUrl.toString(), {
     method: 'GET',
-    headers: buildUpstreamHeaders(req, sessionKey),
+    headers: headers,
     redirect: 'manual',
   })
   const respHeaders = new Headers(res.headers)
@@ -221,6 +246,22 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   // Bind and namespace cookies to the session path
   const isHttps = (new URL(req.url)).protocol === 'https:'
   rewriteSetCookiesForSession(res.headers, respHeaders, publicBase, sessionKey, isHttps)
+  
+  // Forward ElevenLabs response cookies to maintain session
+  const setCookieHeaders = res.headers.getSetCookie?.() || []
+  for (const cookie of setCookieHeaders) {
+    respHeaders.append('set-cookie', cookie)
+  }
+  
+  // Update session pool with new cookies
+  if (setCookieHeaders.length > 0) {
+    const newCookies = setCookieHeaders.join('; ')
+    sessionPool.set(sessionKeyStr, {
+      cookies: newCookies,
+      lastUsed: now
+    })
+    console.log('[EE][EL][session_update]', { sessionKey: sessionKeyStr, cookieCount: setCookieHeaders.length })
+  }
   // HTML: best-effort rewrite of asset URLs to /elevenlabs
   const ct = respHeaders.get('content-type') || ''
   if (ct.includes('text/html')) {
