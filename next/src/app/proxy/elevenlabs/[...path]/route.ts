@@ -264,6 +264,8 @@ export async function GET(req: NextRequest, ctx: Ctx) {
       rewrittenLength: rewritten.length,
       hasAppAssets: rewritten.includes('/app_assets/')
     })
+    
+    rewritten = rewritten
       .replaceAll('href="/app/', `href="${publicBase}/app/`)
       .replaceAll('src="/app/', `src="${publicBase}/app/`)
       .replaceAll('action="/app/', `action="${publicBase}/app/`)
