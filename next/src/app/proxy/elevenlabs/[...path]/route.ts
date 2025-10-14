@@ -252,14 +252,44 @@ export async function GET(req: NextRequest, ctx: Ctx) {
       url: upstreamUrl.toString()
     })
     
-    // Get credentials from environment variables instead of Google Sheet
-    const email = process.env.ELEVENLABS_EMAIL_1 || ''
-    const password = process.env.ELEVENLABS_PASSWORD_1 || ''
-    console.log('[EE][EL][env_creds]', { 
-      emailLength: email.length,
-      passwordLength: password.length,
-      hasEmail: !!email,
-      hasPassword: !!password
+    // Get credentials from Google Sheet or environment variables
+    let email = process.env.ELEVENLABS_EMAIL_1 || ''
+    let password = process.env.ELEVENLABS_PASSWORD_1 || ''
+    
+    // If no credentials from env vars, try Google Sheet
+    if ((!email || !password) && process.env.ELEVENLABS_SHEET_CSV_URL) {
+      try {
+        console.log('[EE][EL][sheet_html] fetching credentials from sheet')
+        const sheetRes = await fetch(process.env.ELEVENLABS_SHEET_CSV_URL, { cache: 'no-store' })
+        console.log('[EE][EL][sheet_html] fetched', { status: sheetRes.status, ok: sheetRes.ok })
+        
+        if (sheetRes.ok) {
+          const text = await sheetRes.text()
+          const rows = text.split(/\r?\n/).filter(Boolean)
+          const elRows = rows.filter(l => /(^|,)\s*ElevenLabs\s*(,|$)/i.test(l))
+          const idx = Math.max(0, (accFromPath || 1) - 1)
+          const row = elRows[idx]
+          
+          if (row) {
+            const cells = row.match(/\"[^\"]*\"|[^,]+/g) || []
+            const emailCell = (cells[1] || '').replace(/^\"|\"$/g, '').trim()
+            const passCell = (cells[2] || '').replace(/^\"|\"$/g, '').trim()
+            if (emailCell) email = emailCell
+            if (passCell) password = passCell
+          }
+        }
+      } catch (e) {
+        console.log('[EE][EL][sheet_html][error]', String(e))
+      }
+    }
+    
+    console.log('[EE][EL][creds]', { 
+      sessionKey,
+      acc: accFromPath,
+      source: email && password ? (process.env.ELEVENLABS_EMAIL_1 ? 'env_vars' : 'sheet_html_none') : 'none',
+      emailLen: email.length,
+      passLen: password.length,
+      path: upstreamPath
     })
     
     let rewritten = html
