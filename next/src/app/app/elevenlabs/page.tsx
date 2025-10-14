@@ -59,7 +59,7 @@ export default function ElevenLabsPage() {
         const isLocalhost = currentHost.includes('localhost')
         const baseUrl = isLocalhost ? 'app.localhost:5000' : currentHost
         
-        window.location.href = `https://ecomefficiency.com/elevenlabs/app/sign-in`
+        window.location.href = `https://app.ecomefficiency.com/elevenlabs/app/sign-in`
         
       } catch (err) {
         console.error('Error checking access:', err)

@@ -1328,7 +1328,7 @@ function CanvaFlipCard({ inviteLink, disabled }: { inviteLink?: string | null; d
 
 function ElevenLabsCard({ disabled }: { disabled?: boolean }) {
   return (
-    <div onClick={() => { if (!disabled) window.open('https://ecomefficiency.com/elevenlabs', '_blank', 'noreferrer') }} className={`relative bg-gray-900 border border-white/10 rounded-2xl p-2 md:p-3 flex flex-col ${disabled ? 'opacity-60' : 'cursor-pointer hover:border-white/20'}`}>
+    <div onClick={() => { if (!disabled) window.open('https://app.ecomefficiency.com/elevenlabs', '_blank', 'noreferrer') }} className={`relative bg-gray-900 border border-white/10 rounded-2xl p-2 md:p-3 flex flex-col ${disabled ? 'opacity-60' : 'cursor-pointer hover:border-white/20'}`}>
       <div className="w-full rounded-xl bg-[#000000] border border-white/10 overflow-hidden relative" style={{ aspectRatio: '16 / 9' }}>
         <Image src="/tools-logos/elevenlabs.png" alt="ElevenLabs logo" fill className="object-contain p-2 bg-[#000000]" sizes="(max-width: 768px) 100vw, 50vw" />
       </div>
