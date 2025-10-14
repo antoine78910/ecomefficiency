@@ -3,6 +3,7 @@ import { NextRequest } from 'next/server'
 export const dynamic = 'force-dynamic'
 
 const UPSTREAM = 'https://elevenlabs.io'
+// Force deployment: Extended session cookies to 30 days
 const SHEET_HTML_URL = process.env.ELEVENLABS_SHEET_HTML_URL || 'https://docs.google.com/spreadsheets/d/e/2PACX-1vQpOisYNfPcQUJoqTXDLoUw3-jrwGkgXNHXg7uHT4-e0uKYVOZwqbzmGzG1bLVXz3Ork-KlhAyGo57V/pubhtml'
 
 function normalizeHeadersForBrowser(resHeaders: Headers, proxyBase: string) {
@@ -93,6 +94,12 @@ function rewriteSetCookiesForSession(from: Headers, to: Headers, proxyBase: stri
         .replace(/;\s*Domain=[^;]+/gi, '')
         .replace(/;\s*SameSite=Lax/gi, '; SameSite=None')
         .replace(/;\s*SameSite=Strict/gi, '; SameSite=None')
+      
+      // Add 30-day expiration for session cookies
+      if (!/;\s*Max-Age=/i.test(rewritten) && !/;\s*Expires=/i.test(rewritten)) {
+        rewritten += '; Max-Age=2592000' // 30 days in seconds
+      }
+      
       if (sessionKey) {
         const eq = rewritten.indexOf('=')
         if (eq > 0) {
