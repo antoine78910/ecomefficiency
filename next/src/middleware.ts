@@ -75,7 +75,7 @@ export function middleware(req: NextRequest) {
       return NextResponse.redirect(r)
     }
     // Disallow marketing routes under app.* (but don't affect API or Next internals)
-    if (!pathname.startsWith('/api') && !pathname.startsWith('/_next') && !pathname.startsWith('/public_app_assets')) {
+    if (!pathname.startsWith('/api') && !pathname.startsWith('/_next') && !pathname.startsWith('/public_app_assets') && !pathname.startsWith('/app_assets')) {
       // Allow static assets like /tools-logos/* under app.*
       if (/^\/tools(\/|$)/.test(pathname)) {
         const r = url.clone(); r.pathname = '/';
@@ -93,7 +93,7 @@ export function middleware(req: NextRequest) {
 // Skip middleware for Next.js internals and assets
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|public_app_assets).*)',
+    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|public_app_assets|app_assets).*)',
   ],
 }
 

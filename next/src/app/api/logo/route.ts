@@ -9,7 +9,7 @@ export async function GET() {
     const imageBuffer = await readFile(logoPath);
 
     // Return the image with proper headers for email clients
-    return new NextResponse(imageBuffer, {
+    return new NextResponse(new Uint8Array(imageBuffer), {
       status: 200,
       headers: {
         'Content-Type': 'image/png',

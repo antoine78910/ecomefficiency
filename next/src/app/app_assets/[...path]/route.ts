@@ -29,39 +29,57 @@ type Ctx = { params: Promise<{ path?: string[] }> }
 
 export async function GET(req: NextRequest, ctx: Ctx) {
   const { path } = await ctx.params
-  // Map /app_assets/_next/... to /_next/... on ElevenLabs
-  const assetPath = ((path && path.join('/')) || '')
-  const upstreamPath = assetPath.startsWith('_next/') || assetPath.startsWith('static/') 
-    ? '/' + assetPath  // Remove /app_assets prefix
-    : '/app_assets/' + assetPath  // Keep original path for other assets
+  // Remove /app_assets prefix; upstream expects /_next/static/... directly
+  const p = '/' + ((path && path.join('/')) || '')
   const url = new URL(req.url)
-  const upstreamUrl = new URL(upstreamPath + (url.search || ''), UPSTREAM)
-  const res = await fetch(upstreamUrl.toString(), {
+  const upstreamUrl = new URL(p + (url.search || ''), UPSTREAM)
+  let res = await fetch(upstreamUrl.toString(), {
     method: 'GET',
     headers: buildUpstreamHeaders(req),
     redirect: 'manual',
   })
+  // Fallback: some builds serve assets under /app/_next/... or /app_assets/_next/...
+  if (res.status === 404 && p.startsWith('/_next/')) {
+    const alt = new URL('/app' + p + (url.search || ''), UPSTREAM)
+    try { res = await fetch(alt.toString(), { method:'GET', headers: buildUpstreamHeaders(req), redirect:'manual' }) } catch {}
+    if (res.status === 404) {
+      const alt2 = new URL('/app_assets' + p + (url.search || ''), UPSTREAM)
+      try { res = await fetch(alt2.toString(), { method:'GET', headers: buildUpstreamHeaders(req), redirect:'manual' }) } catch {}
+    }
+  }
   const respHeaders = new Headers(res.headers)
   normalizeHeaders(respHeaders)
+  // Set cache headers for static assets
+  if (p.startsWith('/_next/') || p.includes('/static/')) {
+    respHeaders.set('cache-control', 'public, max-age=31536000, immutable')
+  }
   return new Response(res.body, { status: res.status, statusText: res.statusText, headers: respHeaders })
 }
 
 export async function HEAD(req: NextRequest, ctx: Ctx) {
   const { path } = await ctx.params
-  // Map /app_assets/_next/... to /_next/... on ElevenLabs
-  const assetPath = ((path && path.join('/')) || '')
-  const upstreamPath = assetPath.startsWith('_next/') || assetPath.startsWith('static/') 
-    ? '/' + assetPath  // Remove /app_assets prefix
-    : '/app_assets/' + assetPath  // Keep original path for other assets
+  // Remove /app_assets prefix; upstream expects /_next/static/... directly
+  const p = '/' + ((path && path.join('/')) || '')
   const url = new URL(req.url)
-  const upstreamUrl = new URL(upstreamPath + (url.search || ''), UPSTREAM)
-  const res = await fetch(upstreamUrl.toString(), {
+  const upstreamUrl = new URL(p + (url.search || ''), UPSTREAM)
+  let res = await fetch(upstreamUrl.toString(), {
     method: 'HEAD',
     headers: buildUpstreamHeaders(req),
     redirect: 'manual',
   })
+  if (res.status === 404 && p.startsWith('/_next/')) {
+    const alt = new URL('/app' + p + (url.search || ''), UPSTREAM)
+    try { res = await fetch(alt.toString(), { method:'HEAD', headers: buildUpstreamHeaders(req), redirect:'manual' }) } catch {}
+    if (res.status === 404) {
+      const alt2 = new URL('/app_assets' + p + (url.search || ''), UPSTREAM)
+      try { res = await fetch(alt2.toString(), { method:'HEAD', headers: buildUpstreamHeaders(req), redirect:'manual' }) } catch {}
+    }
+  }
   const respHeaders = new Headers(res.headers)
   normalizeHeaders(respHeaders)
+  if (p.startsWith('/_next/') || p.includes('/static/')) {
+    respHeaders.set('cache-control', 'public, max-age=31536000, immutable')
+  }
   return new Response(null, { status: res.status, statusText: res.statusText, headers: respHeaders })
 }
 
