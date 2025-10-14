@@ -1,4 +1,4 @@
-import { NextRequest } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 
@@ -200,35 +200,15 @@ function extractFromSheetHtml(html: string, rowIndex1: number): { email?: string
 
 export async function GET(req: NextRequest, ctx: Ctx) {
   const { path } = await ctx.params
-  const { sessionKey, proxyBase, publicBase, upstreamPath, accFromPath } = extractSession(path)
-  const publicRoot = publicBase
+  
+  // Direct access - no authentication required
+  const upstreamPath = '/' + path.join('/')
+  const proxyBase = '/elevenlabs'
+  const publicBase = proxyBase
+  const publicRoot = proxyBase
+  const sessionKey = 'simple'
+  const accFromPath = 1
   const url = new URL(req.url)
-  // If session key not present, but an account is provided (via query or trailing segment),
-  // redirect to a stable session-scoped path /elevenlabs/s/<key>/...
-  const accIdxForSess = parseInt(url.searchParams.get('acc') || '0', 10)
-  if (!sessionKey && accIdxForSess >= 1 && accIdxForSess <= 4) {
-    const sk = String(90000 + accIdxForSess)
-    const base = '/elevenlabs/s/' + sk
-    const visiblePath = upstreamPath
-    const stable = base + visiblePath + (url.search || '')
-    return Response.redirect(new URL(stable, url.origin), 302)
-  }
-  // Hard reset if requested: /elevenlabs/reset?acc=1..4 → clear cookies/storage and jump to session path
-  if (upstreamPath === '/reset') {
-    const acc = accIdxForSess >= 1 && accIdxForSess <= 4 ? accIdxForSess : 1
-    const sk = String(90000 + acc)
-    const pb = '/elevenlabs/s/' + sk
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>Reset</title></head><body>
-    <script>(function(){try{
-      try{ localStorage.clear(); }catch{}
-      try{ sessionStorage.clear(); }catch{}
-      try{ if (window.indexedDB && indexedDB.databases){ indexedDB.databases().then(function(dbs){ try{ (dbs||[]).forEach(function(db){ try{ if(db && db.name) indexedDB.deleteDatabase(db.name); }catch{} }); }catch{} }); } }catch{}
-      try{ document.cookie.split(';').forEach(function(c){ try{ var n=c.split('=')[0].trim(); if(!n) return; document.cookie = n+'=; Path=/; Max-Age=0'; }catch{} }); }catch{}
-      location.replace('${pb}/app/sign-in?redirect='+encodeURIComponent('/app/home')+'&acc='+${acc});
-    }catch(e){ location.href='${pb}/app/sign-in?redirect=%2Fapp%2Fhome&acc='+${acc}; }})();</script>
-    </body></html>`
-    return new Response(html, { status: 200, headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store' } })
-  }
   const upstreamUrl = new URL(upstreamPath + (url.search || ''), UPSTREAM)
   // Reverse proxy sign-in as well (no external redirect)
   const res = await fetch(upstreamUrl.toString(), {
@@ -245,65 +225,60 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   const ct = respHeaders.get('content-type') || ''
   if (ct.includes('text/html')) {
     const html = await res.text()
+    // Log actual asset URLs found in HTML
+    const assetMatches = html.match(/src="[^"]*\.(js|css)"/g) || []
+    const assetUrls = assetMatches.slice(0, 5) // Show first 5 assets
+    
     console.log('[EE][EL][html_debug]', { 
       htmlLength: html.length,
       hasNextAssets: html.includes('/_next/'),
       hasStaticAssets: html.includes('/static/'),
+      assetUrls: assetUrls,
       url: upstreamUrl.toString()
     })
     
-    // Get credentials from Google Sheet or environment variables
-    let email = process.env.ELEVENLABS_EMAIL_1 || ''
-    let password = process.env.ELEVENLABS_PASSWORD_1 || ''
+    // Get credentials - hardcoded for local testing
+    const email = 'wczznbezhttdvtnjqe@enotj.com'
+    const password = 'test123??'
     
-    // If no credentials from env vars, try Google Sheet
-    if ((!email || !password) && process.env.ELEVENLABS_SHEET_CSV_URL) {
-      try {
-        console.log('[EE][EL][sheet_html] fetching credentials from sheet')
-        const sheetRes = await fetch(process.env.ELEVENLABS_SHEET_CSV_URL, { cache: 'no-store' })
-        console.log('[EE][EL][sheet_html] fetched', { status: sheetRes.status, ok: sheetRes.ok })
-        
-        if (sheetRes.ok) {
-          const text = await sheetRes.text()
-          const rows = text.split(/\r?\n/).filter(Boolean)
-          const elRows = rows.filter(l => /(^|,)\s*ElevenLabs\s*(,|$)/i.test(l))
-          const idx = Math.max(0, (accFromPath || 1) - 1)
-          const row = elRows[idx]
-          
-          if (row) {
-            const cells = row.match(/\"[^\"]*\"|[^,]+/g) || []
-            const emailCell = (cells[1] || '').replace(/^\"|\"$/g, '').trim()
-            const passCell = (cells[2] || '').replace(/^\"|\"$/g, '').trim()
-            if (emailCell) email = emailCell
-            if (passCell) password = passCell
-          }
-        }
-      } catch (e) {
-        console.log('[EE][EL][sheet_html][error]', String(e))
-      }
-    }
+    console.log('[EE][EL][local_creds]', { 
+      emailLength: email.length,
+      passwordLength: password.length,
+      hasEmail: !!email,
+      hasPassword: !!password
+    })
     
     console.log('[EE][EL][creds]', { 
       sessionKey,
       acc: accFromPath,
-      source: email && password ? (process.env.ELEVENLABS_EMAIL_1 ? 'env_vars' : 'sheet_html_none') : 'none',
+      source: 'hardcoded_local',
       emailLen: email.length,
       passLen: password.length,
       path: upstreamPath
     })
     
     let rewritten = html
+      .replaceAll('href="/app_assets/', 'href="/elevenlabs/app_assets/')
+      .replaceAll('src="/app_assets/', 'src="/elevenlabs/app_assets/')
       .replaceAll('href="/_next/', 'href="/elevenlabs/_next/')
       .replaceAll('src="/_next/', 'src="/elevenlabs/_next/')
       .replaceAll('href="/static/', 'href="/elevenlabs/static/')
       .replaceAll('src="/static/', 'src="/elevenlabs/static/')
+      .replaceAll('href="https://elevenlabs.io/app_assets/', 'href="/elevenlabs/app_assets/')
+      .replaceAll('src="https://elevenlabs.io/app_assets/', 'src="/elevenlabs/app_assets/')
       .replaceAll('href="https://elevenlabs.io/_next/', 'href="/elevenlabs/_next/')
       .replaceAll('src="https://elevenlabs.io/_next/', 'src="/elevenlabs/_next/')
+      .replaceAll('href="https://elevenlabs.io/static/', 'href="/elevenlabs/static/')
+      .replaceAll('src="https://elevenlabs.io/static/', 'src="/elevenlabs/static/')
+      .replaceAll('https://elevenlabs.io/app_assets/', '/elevenlabs/app_assets/')
+      .replaceAll('https://elevenlabs.io/_next/', '/elevenlabs/_next/')
+      .replaceAll('https://elevenlabs.io/static/', '/elevenlabs/static/')
     
     console.log('[EE][EL][html_rewrite]', { 
       originalLength: html.length,
       rewrittenLength: rewritten.length,
-      hasElevenlabsAssets: rewritten.includes('/elevenlabs/_next/')
+      hasElevenlabsAssets: rewritten.includes('/elevenlabs/_next/') || rewritten.includes('/elevenlabs/app_assets/'),
+      hasAppAssets: rewritten.includes('/elevenlabs/app_assets/')
     })
     
     rewritten = rewritten
@@ -319,19 +294,94 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     // Add auto-login script if credentials are available
     if (email && password && upstreamPath.includes('/sign-in')) {
       const autoLoginScript = `
+        <div id="elevenlabs-loader" style="
+          position: fixed; top: 0; left: 0; width: 100%; height: 100%; 
+          background: #000000; color: white; display: flex; flex-direction: column; 
+          justify-content: center; align-items: center; z-index: 9999; font-family: system-ui;
+        ">
+          <div style="text-align: center; max-width: 400px; padding: 40px;">
+            <div style="width: 60px; height: 60px; border: 4px solid #374151; border-top: 4px solid #7c3aed; 
+                        border-radius: 50%; animation: spin 1s linear infinite; margin: 0 auto 30px;"></div>
+            <h2 style="margin: 0 0 15px; font-size: 28px; font-weight: 600; color: white;">Logging you to the ElevenLabs account...</h2>
+            <p style="margin: 0 0 40px; opacity: 0.7; color: #9ca3af; font-size: 16px;">Please wait while we automatically log you in.</p>
+            
+            <div style="display: flex; flex-direction: column; gap: 15px; max-width: 300px; margin: 0 auto;">
+              <div style="background: #1a1a1a; border: 1px solid #374151; border-radius: 8px; padding: 15px; text-align: left;">
+                <div style="color: #7c3aed; font-size: 12px; font-weight: 500; margin-bottom: 5px;">EMAIL</div>
+                <div style="color: #e5e7eb; font-size: 14px;">wczznbezhttdvtnjqe@enotj.com</div>
+              </div>
+              <div style="background: #1a1a1a; border: 1px solid #374151; border-radius: 8px; padding: 15px; text-align: left;">
+                <div style="color: #7c3aed; font-size: 12px; font-weight: 500; margin-bottom: 5px;">PASSWORD</div>
+                <div style="color: #e5e7eb; font-size: 14px;">••••••••</div>
+              </div>
+            </div>
+          </div>
+          <style>
+            @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+          </style>
+        </div>
+        
         <script>
         (function() {
-          console.log('[EE][EL][AUTO] start', {acc: ${accFromPath}, emailLen: ${email.length}, passLen: ${password.length}, path: '${upstreamPath}'});
+          // Show loader immediately
+          const loader = document.getElementById('elevenlabs-loader');
+          if (loader) loader.style.display = 'flex';
+          
+          // Hide loader and redirect to home after successful login
+          function checkForRedirect() {
+            if (location.pathname.includes('/app/home') || location.pathname.includes('/app/dashboard')) {
+              if (loader) loader.style.display = 'none';
+              return true;
+            }
+            return false;
+          }
+          
+          // Check every 2 seconds for redirect
+          const redirectChecker = setInterval(() => {
+            if (checkForRedirect()) {
+              clearInterval(redirectChecker);
+            }
+          }, 2000);
+          
+          // Hide loader after 30 seconds max
+          setTimeout(() => {
+            if (loader) loader.style.display = 'none';
+            clearInterval(redirectChecker);
+          }, 30000);
+          
           let tries = 0;
-          const maxTries = 100;
+          const maxTries = 50;
           
           function poll() {
             tries++;
-            const emailInput = document.querySelector('input[type="email"], input[name="email"], input[placeholder*="email" i]');
-            const passwordInput = document.querySelector('input[type="password"], input[name="password"]');
-            const submitBtn = document.querySelector('button[type="submit"], input[type="submit"], button:contains("Sign in"), button:contains("Log in")');
             
-            console.log('[EE][EL][AUTO] poll', {tries, hasEmail: !!emailInput, hasPass: !!passwordInput, hasBtn: !!submitBtn});
+            // Find email input using multiple strategies
+            let emailInput = document.querySelector('input[type="email"], input[name="email"]');
+            if (!emailInput) {
+              const inputs = document.querySelectorAll('input[placeholder]');
+              for (const input of inputs) {
+                const placeholder = input.getAttribute('placeholder')?.toLowerCase() || '';
+                if (placeholder.includes('email') || placeholder.includes('mail')) {
+                  emailInput = input;
+                  break;
+                }
+              }
+            }
+            
+            const passwordInput = document.querySelector('input[type="password"], input[name="password"]');
+            
+            // Find submit button using multiple strategies
+            let submitBtn = document.querySelector('button[type="submit"], input[type="submit"]');
+            if (!submitBtn) {
+              const buttons = document.querySelectorAll('button');
+              for (const btn of buttons) {
+                const text = btn.textContent?.toLowerCase() || '';
+                if (text.includes('sign in') || text.includes('log in') || text.includes('login') || text.includes('submit')) {
+                  submitBtn = btn;
+                  break;
+                }
+              }
+            }
             
             if (emailInput && passwordInput && submitBtn && tries <= maxTries) {
               emailInput.value = '${email}';
@@ -343,15 +393,17 @@ export async function GET(req: NextRequest, ctx: Ctx) {
               passwordInput.dispatchEvent(new Event('change', { bubbles: true }));
               
               setTimeout(() => {
-                console.log('[EE][EL][AUTO] submitting via button.click');
                 submitBtn.click();
               }, 100);
             } else if (tries < maxTries) {
-              setTimeout(poll, 500);
+              setTimeout(poll, 1000);
+            } else {
+              // Hide loader if max tries reached
+              if (loader) loader.style.display = 'none';
             }
           }
           
-          setTimeout(poll, 1000);
+          setTimeout(poll, 2000);
         })();
         </script>
       `;
@@ -694,7 +746,8 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   }catch(e){}
 })();</script>`;
     finalHtml = finalHtml.replace('</head>', inject + '\n</head>')
-    // Auto-login selection by account number (acc=1..4): ENV first, optional CSV fallback
+    // DISABLED: Auto-login selection by account number - using hardcoded credentials instead
+    /*
     let autoEmail = '' + (process.env.ELEVENLABS_EMAIL || '')
     let autoPass = '' + (process.env.ELEVENLABS_PASSWORD || '')
     const accFromQuery = parseInt(url.searchParams.get('acc') || '0', 10)
@@ -773,13 +826,18 @@ export async function GET(req: NextRequest, ctx: Ctx) {
         }
       } catch {}
     }
-    if ((upstreamUrl.pathname.startsWith('/app/sign-in') || upstreamUrl.pathname.startsWith('/app/sso')) && autoEmail && autoPass) {
+    */
+    // Use hardcoded credentials for auto-login
+    const hardcodedEmail = 'wczznbezhttdvtnjqe@enotj.com'
+    const hardcodedPassword = 'test123??'
+    
+    if ((upstreamUrl.pathname.startsWith('/app/sign-in') || upstreamUrl.pathname.startsWith('/app/sso')) && hardcodedEmail && hardcodedPassword) {
       const autologin = `
 <script>(function(){
   try{ document.cookie.split(';').forEach(function(c){ var n=c.split('=')[0].trim(); if(!n) return; document.cookie = n+'=; Path=${proxyBase}; Max-Age=0'; document.cookie = n+'=; Path=/; Max-Age=0'; }); }catch{}
-  var email = ${JSON.stringify(''+autoEmail)};
-  var password = ${JSON.stringify(''+autoPass)};
-  try { console.log('[EE][EL][AUTO] start', { acc: ${accDisplay}, emailLen: (email||'').length, passLen: (password||'').length, path: location.pathname }); } catch{}
+  var email = ${JSON.stringify(''+hardcodedEmail)};
+  var password = ${JSON.stringify(''+hardcodedPassword)};
+  try { console.log('[EE][EL][AUTO] start', { acc: ${accFromPath || 1}, emailLen: (email||'').length, passLen: (password||'').length, path: location.pathname }); } catch{}
   try { window.eeShowLoader && window.eeShowLoader(); } catch{}
   // Safety: never leave loader on sign-in for too long
   try { setTimeout(function(){ try{ if ((location.pathname||'').indexOf('/app/sign-in')!==-1) { window.eeHideLoader && window.eeHideLoader(); } }catch{} }, 2000); }catch{}
