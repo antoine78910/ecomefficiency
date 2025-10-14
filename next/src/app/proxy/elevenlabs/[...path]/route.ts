@@ -287,6 +287,8 @@ export async function GET(req: NextRequest, ctx: Ctx) {
       .replaceAll('action="/app/', `action="${publicBase}/app/`)
       .replaceAll('href="https://elevenlabs.io/app/', `href="${publicBase}/app/`)
       .replaceAll('src="https://elevenlabs.io/app/', `src="${publicBase}/app/`)
+      .replaceAll('href="/app_assets/', `href="${publicBase}/app_assets/`)
+      .replaceAll('src="/app_assets/', `src="${publicBase}/app_assets/`)
       .replaceAll('href="/public_app_assets/', 'href="/public_app_assets/')
       .replaceAll('src="/public_app_assets/', 'src="/public_app_assets/')
       .replaceAll('https://payload.elevenlabs.io', '/proxy/elapi')
