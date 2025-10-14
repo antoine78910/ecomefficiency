@@ -138,6 +138,8 @@ function decodeEntities(s: string): string {
 
 function extractFromSheetHtml(html: string, rowIndex1: number): { email?: string; password?: string } {
   try {
+    console.log('[EE][EL][sheet_debug]', { rowIndex1, htmlLength: html.length })
+    
     const trMatches = Array.from(html.matchAll(/<tr[^>]*>([\s\S]*?)<\/tr>/gi))
     const rows: Array<{ cells: string[]; raw: string }> = trMatches.map(m => {
       const raw = m[0] || ''
@@ -153,16 +155,47 @@ function extractFromSheetHtml(html: string, rowIndex1: number): { email?: string
       const cells = tdMatches.map(toText)
       return { cells, raw }
     })
+    
+    console.log('[EE][EL][sheet_debug]', { 
+      totalRows: rows.length,
+      rowsPreview: rows.slice(0, 3).map(r => ({ 
+        firstCell: r.cells[0]?.substring(0, 50), 
+        cellCount: r.cells.length 
+      }))
+    })
+    
     // Prefer rows whose first cell mentions ElevenLabs
     const serviceRows = rows.filter(r => (r.cells[0] || '').toLowerCase().includes('elevenlabs') && r.cells.length >= 3)
     const pickFrom = serviceRows.length ? serviceRows : rows.filter(r => r.cells.length >= 3)
     const idx = Math.max(1, rowIndex1) - 1
     const chosen = pickFrom[idx] || pickFrom[0]
-    if (!chosen) return {}
+    
+    console.log('[EE][EL][sheet_debug]', { 
+      serviceRows: serviceRows.length,
+      pickFromRows: pickFrom.length,
+      chosenIndex: idx,
+      hasChosen: !!chosen
+    })
+    
+    if (!chosen) {
+      console.log('[EE][EL][sheet_error]', 'No suitable row found')
+      return {}
+    }
+    
     const email = chosen.cells[1] || ''
     const password = chosen.cells[2] || ''
+    
+    console.log('[EE][EL][sheet_extracted]', { 
+      email, 
+      passwordLength: password.length,
+      allCells: chosen.cells.map(c => c.substring(0, 20))
+    })
+    
     return { email, password }
-  } catch { return {} }
+  } catch (error) { 
+    console.log('[EE][EL][sheet_error]', error)
+    return {} 
+  }
 }
 
 export async function GET(req: NextRequest, ctx: Ctx) {
@@ -212,6 +245,12 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   const ct = respHeaders.get('content-type') || ''
   if (ct.includes('text/html')) {
     const html = await res.text()
+    console.log('[EE][EL][html_debug]', { 
+      htmlLength: html.length,
+      hasNextAssets: html.includes('/_next/'),
+      hasStaticAssets: html.includes('/static/')
+    })
+    
     let rewritten = html
       .replaceAll('href="/_next/', 'href="/app_assets/_next/')
       .replaceAll('src="/_next/', 'src="/app_assets/_next/')
@@ -219,6 +258,12 @@ export async function GET(req: NextRequest, ctx: Ctx) {
       .replaceAll('src="/static/', 'src="/app_assets/static/')
       .replaceAll('href="https://elevenlabs.io/_next/', 'href="/app_assets/_next/')
       .replaceAll('src="https://elevenlabs.io/_next/', 'src="/app_assets/_next/')
+    
+    console.log('[EE][EL][html_rewrite]', { 
+      originalLength: html.length,
+      rewrittenLength: rewritten.length,
+      hasAppAssets: rewritten.includes('/app_assets/')
+    })
       .replaceAll('href="/app/', `href="${publicBase}/app/`)
       .replaceAll('src="/app/', `src="${publicBase}/app/`)
       .replaceAll('action="/app/', `action="${publicBase}/app/`)

@@ -33,10 +33,25 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   const p = '/' + ((path && path.join('/')) || '')
   const url = new URL(req.url)
   const upstreamUrl = new URL(p + (url.search || ''), UPSTREAM)
+  
+  console.log('[EE][EL][assets_debug]', { 
+    path: path,
+    joinedPath: p,
+    upstreamUrl: upstreamUrl.toString(),
+    userAgent: req.headers.get('user-agent')?.substring(0, 50)
+  })
+  
   let res = await fetch(upstreamUrl.toString(), {
     method: 'GET',
     headers: buildUpstreamHeaders(req),
     redirect: 'manual',
+  })
+  
+  console.log('[EE][EL][assets_response]', { 
+    status: res.status,
+    statusText: res.statusText,
+    contentType: res.headers.get('content-type'),
+    contentLength: res.headers.get('content-length')
   })
   // Fallback: some builds serve assets under /app/_next/... or /app_assets/_next/...
   if (res.status === 404 && p.startsWith('/_next/')) {
