@@ -29,9 +29,13 @@ type Ctx = { params: Promise<{ path?: string[] }> }
 
 export async function GET(req: NextRequest, ctx: Ctx) {
   const { path } = await ctx.params
-  const p = '/app_assets/' + ((path && path.join('/')) || '')
+  // Map /app_assets/_next/... to /_next/... on ElevenLabs
+  const assetPath = ((path && path.join('/')) || '')
+  const upstreamPath = assetPath.startsWith('_next/') || assetPath.startsWith('static/') 
+    ? '/' + assetPath  // Remove /app_assets prefix
+    : '/app_assets/' + assetPath  // Keep original path for other assets
   const url = new URL(req.url)
-  const upstreamUrl = new URL(p + (url.search || ''), UPSTREAM)
+  const upstreamUrl = new URL(upstreamPath + (url.search || ''), UPSTREAM)
   const res = await fetch(upstreamUrl.toString(), {
     method: 'GET',
     headers: buildUpstreamHeaders(req),
@@ -44,9 +48,13 @@ export async function GET(req: NextRequest, ctx: Ctx) {
 
 export async function HEAD(req: NextRequest, ctx: Ctx) {
   const { path } = await ctx.params
-  const p = '/app_assets/' + ((path && path.join('/')) || '')
+  // Map /app_assets/_next/... to /_next/... on ElevenLabs
+  const assetPath = ((path && path.join('/')) || '')
+  const upstreamPath = assetPath.startsWith('_next/') || assetPath.startsWith('static/') 
+    ? '/' + assetPath  // Remove /app_assets prefix
+    : '/app_assets/' + assetPath  // Keep original path for other assets
   const url = new URL(req.url)
-  const upstreamUrl = new URL(p + (url.search || ''), UPSTREAM)
+  const upstreamUrl = new URL(upstreamPath + (url.search || ''), UPSTREAM)
   const res = await fetch(upstreamUrl.toString(), {
     method: 'HEAD',
     headers: buildUpstreamHeaders(req),
