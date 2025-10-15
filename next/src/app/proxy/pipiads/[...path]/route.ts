@@ -39,6 +39,8 @@ function copyAndRewriteSetCookies(from: Headers, to: Headers, isHttps: boolean, 
       // Namespace cookie names for per-account session isolation
       rewritten = rewritten.replace(/^([^=;]+)=/, (_m, name) => `${sessionPrefix}${name}=`)
       to.append('set-cookie', rewritten)
+      console.log('[Pipiads Proxy] Set-Cookie (prefixed):', rewritten.split(';')[0])
+      
       // Also duplicate without prefix so client code can read original names
       try {
         let dup = v.replace(/;\s*Domain=[^;]+/gi, '')
@@ -47,7 +49,10 @@ function copyAndRewriteSetCookies(from: Headers, to: Headers, isHttps: boolean, 
           dup = dup.replace(/;\s*SameSite=None/gi, '; SameSite=Lax')
         }
         to.append('set-cookie', dup)
-      } catch {}
+        console.log('[Pipiads Proxy] Set-Cookie (original):', dup.split(';')[0])
+      } catch (e) {
+        console.error('[Pipiads Proxy] Cookie duplication error:', e)
+      }
     }
   }
 }
@@ -89,76 +94,246 @@ function buildUpstreamHeaders(req: NextRequest, sessionPrefix: string): Headers 
   if (!upstream.get('timezone_offset')) {
     upstream.set('timezone_offset', '-120')
   }
-  // Forward all Pipiads cookies (both prefixed and essential ones like uid)
-  try {
-    const raw = req.headers.get('cookie') || ''
-    const pairs = raw.split(';').map(s=>s.trim()).filter(Boolean)
-    const kept: string[] = []
-    const essentialCookies = ['uid', 'PP-userInfo'] // Always forward these
-    for (const kv of pairs) {
-      const eq = kv.indexOf('=')
-      if (eq <= 0) continue
-      const name = kv.slice(0, eq)
-      const val = kv.slice(eq + 1)
-      // Forward cookies with session prefix (remove prefix) OR essential cookies
-      if (name.startsWith(sessionPrefix)) {
-        kept.push(name.slice(sessionPrefix.length) + '=' + val)
-      } else if (essentialCookies.some(essential => name === essential || name === `${sessionPrefix}${essential}`)) {
-        kept.push(kv)
-      }
-    }
-    if (kept.length > 0) upstream.set('cookie', kept.join('; '))
-    else upstream.delete('cookie')
-  } catch {}
-  // Ensure access_token header is present; derive from cookie if missing
-  let accessToken = upstream.get('access_token') || upstream.get('Access-Token') || upstream.get('x-access-token')
-  // Try to extract access_token from PP-userInfo cookie if not present
-  if (!accessToken) {
+  // Fix headers to make it look like the request comes directly from pipiads.com
+  upstream.set('origin', 'https://pipiads.com')
+  upstream.set('referer', 'https://pipiads.com/')
+  upstream.set('sec-fetch-site', 'same-origin')
+  upstream.set('host', 'pipiads.com')
+  
+  // Remove headers that might indicate we're a proxy
+  upstream.delete('x-forwarded-for')
+  upstream.delete('x-forwarded-host')
+  upstream.delete('x-forwarded-port')
+  upstream.delete('x-forwarded-proto')
+  upstream.delete('x-real-ip')
+  upstream.delete('cf-connecting-ip')
+  upstream.delete('cf-visitor')
+  upstream.delete('cf-ray')
+  upstream.delete('cf-request-id')
+  
+  // Keep original user-agent and other browser headers intact
+  // Don't modify user-agent, accept-language, etc.
+  
+  // Debug: Log the exact request being made to Pipiads
+  const urlPath = new URL(req.url).pathname
+  console.log('[Pipiads Proxy] Request debug:', {
+    method: req.method,
+    url: req.url,
+    path: urlPath,
+    origin: upstream.get('origin'),
+    referer: upstream.get('referer'),
+    host: upstream.get('host'),
+    hasCookies: !!req.headers.get('cookie')
+  })
+  
+  // Clear, simple logic for different request types
+  if (urlPath.includes('/v1/api/member/info')) {
+    // Special case: /member/info - essential cookies + access_token
+    console.log('[Pipiads Proxy] /member/info API - essential cookies + access_token')
+    
     try {
-      const rawCookie = req.headers.get('cookie') || ''
-      // Check both prefixed and non-prefixed versions
-      const cookies = rawCookie.split(';').map(s=>s.trim())
+      const raw = req.headers.get('cookie') || ''
+      const pairs = raw.split(';').map(s=>s.trim()).filter(Boolean)
+      const cookiesToSend = []
       
-      // Try PP-userInfo (with or without prefix)
-      let userInfoCookie = cookies.find(kv=>kv.startsWith('PP-userInfo=') || kv.startsWith(`${sessionPrefix}PP-userInfo=`))
-      if (userInfoCookie) {
-        const key = userInfoCookie.includes('PP-userInfo=') ? 'PP-userInfo=' : `${sessionPrefix}PP-userInfo=`
-        const valEnc = userInfoCookie.substring(key.length).split(';')[0]  // Remove any trailing attributes
-        const val = decodeURIComponent(valEnc)
-        const json = JSON.parse(val)
-        if (json && typeof json==='object' && json.access_token) {
-          accessToken = String(json.access_token)
-          console.log('[Pipiads Proxy] Found access_token in PP-userInfo cookie, length:', accessToken.length, 'preview:', accessToken.substring(0, 20) + '...' + accessToken.substring(accessToken.length - 5))
+      for (const kv of pairs) {
+        const eq = kv.indexOf('=')
+        if (eq <= 0) continue
+        const name = kv.slice(0, eq)
+        
+        // Forward uid and PP-userInfo (with or without prefix)
+        if (name === 'uid' || name.startsWith('PP_s1_uid')) {
+          cookiesToSend.push(kv)
+        }
+        if (name === 'PP-userInfo' || name.startsWith('PP_s1_PP-userInfo')) {
+          cookiesToSend.push(kv)
         }
       }
       
-      // Also try uid cookie (Pipiads uses this too)
-      if (!accessToken) {
-        let uidCookie = cookies.find(kv=>kv.startsWith('uid=') || kv.startsWith(`${sessionPrefix}uid=`))
-        if (uidCookie) {
-          const key = uidCookie.includes('uid=') ? 'uid=' : `${sessionPrefix}uid=`
-          accessToken = uidCookie.substring(key.length).split(';')[0]
-          console.log('[Pipiads Proxy] Using uid cookie as access_token')
-        }
+      if (cookiesToSend.length > 0) {
+        const cookieString = cookiesToSend.join('; ')
+        upstream.set('cookie', cookieString)
+        console.log('[Pipiads Proxy] Forwarding cookies for /member/info:', cookiesToSend.length, 'cookies:', cookiesToSend.map(c => c.split('=')[0]).join(', '))
+      } else {
+        upstream.delete('cookie')
+        console.log('[Pipiads Proxy] No essential cookies found for /member/info')
       }
     } catch (e) {
-      console.error('[Pipiads Proxy] Failed to extract access_token:', e)
+      console.error('[Pipiads Proxy] Error setting essential cookies:', e)
+      upstream.delete('cookie')
     }
-  }
-  if (accessToken) {
-    console.log('[Pipiads Proxy] Setting access_token in headers, full token length:', accessToken.length, 'token:', accessToken)
-    if (!upstream.get('access_token')) upstream.set('access_token', accessToken)
-    if (!upstream.get('Access-Token')) upstream.set('Access-Token', accessToken)
-    if (!upstream.get('x-access-token')) upstream.set('x-access-token', accessToken)
-    if (!upstream.get('authorization')) upstream.set('authorization', 'Bearer ' + accessToken)
-    if (!upstream.get('Authorization')) upstream.set('Authorization', 'Bearer ' + accessToken)
-    // Some backends accept this variant
-    if (!upstream.get('x-authorization')) upstream.set('x-authorization', 'access_token ' + accessToken)
+    
+    // Set access_token for /member/info (it needs it!)
+    let accessToken = upstream.get('access_token') || upstream.get('Access-Token') || upstream.get('x-access-token')
+    if (!accessToken) {
+      try {
+        const rawCookie = req.headers.get('cookie') || ''
+        const cookies = rawCookie.split(';').map(s=>s.trim())
+        
+        let userInfoCookie = cookies.find(kv=>kv.startsWith('PP-userInfo=') || kv.startsWith(`${sessionPrefix}PP-userInfo=`))
+        if (userInfoCookie) {
+          const key = userInfoCookie.includes('PP-userInfo=') ? 'PP-userInfo=' : `${sessionPrefix}PP-userInfo=`
+          const valEnc = userInfoCookie.substring(key.length).split(';')[0]
+          const val = decodeURIComponent(valEnc)
+          const json = JSON.parse(val)
+          if (json && typeof json==='object' && json.access_token) {
+            accessToken = String(json.access_token)
+            console.log('[Pipiads Proxy] Found access_token for /member/info, length:', accessToken.length, 'preview:', accessToken.substring(0, 20) + '...')
+          }
+        }
+      } catch (e) {
+        console.error('[Pipiads Proxy] Failed to extract access_token for /member/info:', e)
+      }
+    }
+    if (accessToken) {
+      console.log('[Pipiads Proxy] Setting access_token for /member/info, full token length:', accessToken.length, 'token:', accessToken)
+      if (!upstream.get('access_token')) upstream.set('access_token', accessToken)
+      if (!upstream.get('Access-Token')) upstream.set('Access-Token', accessToken)
+      if (!upstream.get('x-access-token')) upstream.set('x-access-token', accessToken)
+      if (!upstream.get('authorization')) upstream.set('authorization', 'Bearer ' + accessToken)
+      if (!upstream.get('Authorization')) upstream.set('Authorization', 'Bearer ' + accessToken)
+      if (!upstream.get('x-authorization')) upstream.set('x-authorization', 'access_token ' + accessToken)
+    } else {
+      console.log('[Pipiads Proxy] No access_token found for /member/info')
+    }
+    
+  } else if (urlPath.includes('/api/')) {
+    // Other API calls - try essential cookies first, then ALL cookies
+    console.log('[Pipiads Proxy] Other API call - trying essential cookies first')
+    
+    try {
+      const raw = req.headers.get('cookie') || ''
+      const pairs = raw.split(';').map(s=>s.trim()).filter(Boolean)
+      const cookiesToSend = []
+      
+      for (const kv of pairs) {
+        const eq = kv.indexOf('=')
+        if (eq <= 0) continue
+        const name = kv.slice(0, eq)
+        
+        // Forward uid and PP-userInfo (with or without prefix)
+        if (name === 'uid' || name.startsWith('PP_s1_uid')) {
+          cookiesToSend.push(kv)
+        }
+        if (name === 'PP-userInfo' || name.startsWith('PP_s1_PP-userInfo')) {
+          cookiesToSend.push(kv)
+        }
+      }
+      
+      if (cookiesToSend.length > 0) {
+        const cookieString = cookiesToSend.join('; ')
+        upstream.set('cookie', cookieString)
+        console.log('[Pipiads Proxy] Forwarding cookies for other API call:', cookiesToSend.length, 'cookies:', cookiesToSend.map(c => c.split('=')[0]).join(', '))
+      } else {
+        // Fallback to ALL cookies if essential ones not found
+        upstream.set('cookie', raw)
+        console.log('[Pipiads Proxy] Essential cookies not found, using ALL cookies for other API call, length:', raw.length)
+      }
+    } catch (e) {
+      console.error('[Pipiads Proxy] Error setting cookies for other API call:', e)
+      upstream.delete('cookie')
+    }
+    
+    // Set access_token for other API calls too
+    let accessToken = upstream.get('access_token') || upstream.get('Access-Token') || upstream.get('x-access-token')
+    if (!accessToken) {
+      try {
+        const rawCookie = req.headers.get('cookie') || ''
+        const cookies = rawCookie.split(';').map(s=>s.trim())
+        
+        let userInfoCookie = cookies.find(kv=>kv.startsWith('PP-userInfo=') || kv.startsWith(`${sessionPrefix}PP-userInfo=`))
+        if (userInfoCookie) {
+          const key = userInfoCookie.includes('PP-userInfo=') ? 'PP-userInfo=' : `${sessionPrefix}PP-userInfo=`
+          const valEnc = userInfoCookie.substring(key.length).split(';')[0]
+          const val = decodeURIComponent(valEnc)
+          const json = JSON.parse(val)
+          if (json && typeof json==='object' && json.access_token) {
+            accessToken = String(json.access_token)
+            console.log('[Pipiads Proxy] Found access_token for other API call, length:', accessToken.length, 'preview:', accessToken.substring(0, 20) + '...')
+          }
+        }
+      } catch (e) {
+        console.error('[Pipiads Proxy] Failed to extract access_token for other API call:', e)
+      }
+    }
+    if (accessToken) {
+      console.log('[Pipiads Proxy] Setting access_token for other API call, full token length:', accessToken.length, 'token:', accessToken)
+      if (!upstream.get('access_token')) upstream.set('access_token', accessToken)
+      if (!upstream.get('Access-Token')) upstream.set('Access-Token', accessToken)
+      if (!upstream.get('x-access-token')) upstream.set('x-access-token', accessToken)
+      if (!upstream.get('authorization')) upstream.set('authorization', 'Bearer ' + accessToken)
+      if (!upstream.get('Authorization')) upstream.set('Authorization', 'Bearer ' + accessToken)
+      if (!upstream.get('x-authorization')) upstream.set('x-authorization', 'access_token ' + accessToken)
+    } else {
+      console.log('[Pipiads Proxy] No access_token found for other API call')
+    }
+    
   } else {
-    // For login requests without token, remove empty access_token headers that cause 500 errors
-    if (upstream.get('access_token') === '') upstream.delete('access_token')
-    if (upstream.get('Access-Token') === '') upstream.delete('Access-Token')
-    if (upstream.get('x-access-token') === '') upstream.delete('x-access-token')
+    // Non-API calls (pages) - filtered cookies + access_token
+    console.log('[Pipiads Proxy] Non-API call - filtered cookies + access_token')
+    
+    try {
+      const raw = req.headers.get('cookie') || ''
+      const pairs = raw.split(';').map(s=>s.trim()).filter(Boolean)
+      const pipiadsCookies = []
+      
+      for (const kv of pairs) {
+        const eq = kv.indexOf('=')
+        if (eq <= 0) continue
+        const name = kv.slice(0, eq)
+        const val = kv.slice(eq + 1)
+        
+        if (name.includes('PP') || name === 'uid' || name === 'session' || name.includes('pipiads') || name.includes('auth')) {
+          pipiadsCookies.push(`${name}=${val}`)
+        }
+      }
+      
+      if (pipiadsCookies.length > 0) {
+        const cookieString = pipiadsCookies.join('; ')
+        upstream.set('cookie', cookieString)
+        console.log('[Pipiads Proxy] Forwarding filtered cookies for non-API call:', pipiadsCookies.length, 'cookies')
+      } else {
+        upstream.delete('cookie')
+        console.log('[Pipiads Proxy] No cookies to forward for non-API call')
+      }
+    } catch (e) {
+      console.error('[Pipiads Proxy] Cookie forwarding error:', e)
+      upstream.delete('cookie')
+    }
+    
+    // Set access_token for non-API calls
+    let accessToken = upstream.get('access_token') || upstream.get('Access-Token') || upstream.get('x-access-token')
+    if (!accessToken) {
+      try {
+        const rawCookie = req.headers.get('cookie') || ''
+        const cookies = rawCookie.split(';').map(s=>s.trim())
+        
+        let userInfoCookie = cookies.find(kv=>kv.startsWith('PP-userInfo=') || kv.startsWith(`${sessionPrefix}PP-userInfo=`))
+        if (userInfoCookie) {
+          const key = userInfoCookie.includes('PP-userInfo=') ? 'PP-userInfo=' : `${sessionPrefix}PP-userInfo=`
+          const valEnc = userInfoCookie.substring(key.length).split(';')[0]
+          const val = decodeURIComponent(valEnc)
+          const json = JSON.parse(val)
+          if (json && typeof json==='object' && json.access_token) {
+            accessToken = String(json.access_token)
+            console.log('[Pipiads Proxy] Found access_token for non-API call, length:', accessToken.length, 'preview:', accessToken.substring(0, 20) + '...')
+          }
+        }
+      } catch (e) {
+        console.error('[Pipiads Proxy] Failed to extract access_token for non-API call:', e)
+      }
+    }
+    if (accessToken) {
+      console.log('[Pipiads Proxy] Setting access_token for non-API call, full token length:', accessToken.length, 'token:', accessToken)
+      if (!upstream.get('access_token')) upstream.set('access_token', accessToken)
+      if (!upstream.get('Access-Token')) upstream.set('Access-Token', accessToken)
+      if (!upstream.get('x-access-token')) upstream.set('x-access-token', accessToken)
+      if (!upstream.get('authorization')) upstream.set('authorization', 'Bearer ' + accessToken)
+      if (!upstream.get('Authorization')) upstream.set('Authorization', 'Bearer ' + accessToken)
+      if (!upstream.get('x-authorization')) upstream.set('x-authorization', 'access_token ' + accessToken)
+    } else {
+      console.log('[Pipiads Proxy] No access_token found for non-API call')
+    }
   }
   // Avoid Cloudflare IP binding headers and problematic custom headers
   upstream.delete('cf-connecting-ip'); upstream.delete('cf-visitor')
@@ -303,7 +478,16 @@ export async function GET(req: NextRequest, ctx: Ctx) {
   const h = new Headers(res.headers); normalizeHeaders(h, `acc=${acc}`); copyAndRewriteSetCookies(res.headers, h, new URL(req.url).protocol === 'https:', sessionPrefix)
   // Drop report-only CSP to reduce console noise and avoid blocking injected script in some browsers
   h.delete('content-security-policy-report-only')
+  h.delete('content-security-policy')
   h.set('cache-control','no-store')
+  // Remove CSP completely to avoid any blocking
+  h.delete('content-security-policy')
+  
+  // Add CORS headers to allow external requests
+  h.set('access-control-allow-origin', '*')
+  h.set('access-control-allow-methods', 'GET, POST, PUT, DELETE, OPTIONS')
+  h.set('access-control-allow-headers', 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Access-Control-Request-Method, Access-Control-Request-Headers')
+  h.set('access-control-allow-credentials', 'true')
   const ct = h.get('content-type') || ''
   if (ct.includes('text/html')) {
     const html = await res.text()
@@ -341,9 +525,9 @@ export async function GET(req: NextRequest, ctx: Ctx) {
     const loader = `\n<script>(function(){try{\n  function ensureLoader(){\n    try{ if(document.getElementById('pp-loader')) return;\n      var style=document.createElement('style'); style.id='pp-loader-style'; style.textContent='#pp-loader{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:#000000;z-index:2147483647}#pp-loader .bars{display:flex;align-items:center}#pp-loader .bar{display:inline-block;width:3px;height:20px;background:#9e4cfc;border-radius:10px;animation:pp-scale 1s linear infinite}#pp-loader .bar:nth-child(2){height:35px;margin:0 5px;animation-delay:.25s}#pp-loader .bar:nth-child(3){animation-delay:.5s}@keyframes pp-scale{20%{transform:scaleY(1.5)}40%{transform:scaleY(1)}}';\n      document.head.appendChild(style);\n      var d=document.createElement('div'); d.id='pp-loader'; d.innerHTML='<div class="bars"><span class="bar"></span><span class="bar"></span><span class="bar"></span></div>';\n      document.body.appendChild(d);\n    }catch{}\n  }\n  window.ppShowLoader=function(){ try{ ensureLoader(); var el=document.getElementById('pp-loader'); if(el) el.style.display='flex'; }catch{} };\n  window.ppHideLoader=function(){ try{ var el=document.getElementById('pp-loader'); if(el) el.style.display='none'; }catch{} };\n  try{ var p=location.pathname; if(p.includes('/proxy/pipiads/') && p.includes('/login')) { window.ppShowLoader(); } }catch{}\n  try{ var p2=location.pathname; if(p2.includes('/proxy/pipiads/') && (p2.includes('/dashboard')||p2.includes('/analysis')||p2.includes('/home'))) { window.ppHideLoader(); } }catch{}\n  var iv=setInterval(function(){ try{ var p=location.pathname; if(p.includes('/proxy/pipiads/') && (p.includes('/dashboard')||p.includes('/analysis')||p.includes('/home'))) { window.ppHideLoader(); } }catch{} }, 500);\n}catch(e){}})();</script>`
     
     rewritten = rewritten.replace('</head>', shim + loader + '\n</head>')
-    // Auto-login if on /login and env vars set
-    const defaultEmail = process.env.PIPIADS_EMAIL
-    const defaultPassword = process.env.PIPIADS_PASSWORD
+    // Auto-login if on /login and credentials available
+    const defaultEmail = process.env.PIPIADS_EMAIL || 'efficiencyecom@gmail.com'
+    const defaultPassword = process.env.PIPIADS_PASSWORD || 'EcoEff2024!'
     // Render-time acc selection; choose env per account if provided
     const email1 = process.env.PIPIADS_EMAIL_1 || process.env.PIPIADS_EMAIL1 || defaultEmail
     const pass1 = process.env.PIPIADS_PASSWORD_1 || process.env.PIPIADS_PASSWORD1 || defaultPassword
@@ -437,6 +621,20 @@ export async function POST(req: NextRequest, ctx: Ctx) {
   }
   const h = new Headers(res.headers); normalizeHeaders(h, `acc=${acc}`); copyAndRewriteSetCookies(res.headers, h, new URL(req.url).protocol === 'https:', sessionPrefix)
   return new Response(res.body, { status: res.status, statusText: res.statusText, headers: h })
+}
+
+export async function OPTIONS(req: NextRequest, ctx: Ctx) {
+  // Handle CORS preflight requests
+  return new Response(null, {
+    status: 200,
+    headers: {
+      'access-control-allow-origin': '*',
+      'access-control-allow-methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'access-control-allow-headers': 'Content-Type, Authorization, X-Requested-With, Accept, Origin, Access-Control-Request-Method, Access-Control-Request-Headers',
+      'access-control-allow-credentials': 'true',
+      'access-control-max-age': '86400',
+    },
+  })
 }
 
 export async function PUT(req: NextRequest, ctx: Ctx) {

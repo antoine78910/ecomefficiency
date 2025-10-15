@@ -421,7 +421,8 @@ function CheckoutContent() {
                   fontFamily: 'Inter, system-ui, sans-serif',
                   borderRadius: '8px',
                 }
-              }
+              },
+              paymentMethodOrder: ['card']
             } as any}>
               <CheckoutForm 
                 tier={tier} 
@@ -584,7 +585,14 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
 
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
-      <PaymentElement />
+      <PaymentElement options={{ 
+        layout: 'tabs',
+        paymentMethodOrder: ['card', 'link'],
+        wallets: {
+          applePay: 'auto',
+          googlePay: 'auto'
+        }
+      }} />
       
       {message && (
         <div className="text-xs text-red-300 bg-red-500/10 border border-red-500/30 rounded-lg p-2">

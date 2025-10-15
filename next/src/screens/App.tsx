@@ -142,12 +142,19 @@ const App = () => {
     let active = true
     ;(async () => {
       try {
-        const s = await fetch('/api/ip-region', { cache: 'no-store' }).then(r=>r.json()).catch(()=>({}))
-        if (!active) return
-        const country = (s?.country || null) as string|null
-        const currency = (s?.currency === 'EUR' ? 'EUR' : 'USD') as 'EUR'|'USD'
-        setIpInfo({ country, currency })
-      } catch {}
+        // Use client-side IP detection via ipapi.co (works in localhost)
+        const g = await fetch('https://ipapi.co/json/', { cache: 'no-store' })
+        const gj = await g.json().catch(() => ({} as any))
+        const cc = String(gj?.country_code || gj?.country || '').toUpperCase()
+        const eu = new Set(['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE'])
+        if (cc && active) {
+          const currency = eu.has(cc) ? 'EUR' : 'USD'
+          setIpInfo({ country: cc, currency })
+          console.log('[App] Detected country/currency:', cc, currency)
+        }
+      } catch (e) {
+        console.warn('[App] IP detection failed:', e)
+      }
     })()
     return () => { active = false }
   }, [])
@@ -190,11 +197,11 @@ const App = () => {
           <CanvaFlipCard inviteLink={canvaInvite || undefined} disabled={appPlan === 'free'} />
         </div>
 
-        {/* Tool quick-open cards (proxy) */}
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+        {/* Tool quick-open cards (proxy) - TEMPORARILY DISABLED */}
+        {/* <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
           <ElevenLabsCard disabled={appPlan === 'free'} />
           <PipiadsCard disabled={appPlan === 'free'} />
-        </div>
+        </div> */}
         
       </div>
       <HowToAccess renderTrigger={false} />
@@ -261,59 +268,107 @@ function PlanBadgeInline() {
   )
 }
 
-function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'starter'|'pro', billing: 'monthly'|'yearly') => void, onOpenSeoModal?: () => void }) {
+function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'starter'|'pro', billing: 'monthly'|'yearly', currency: 'EUR'|'USD') => void, onOpenSeoModal?: () => void }) {
   const [billing, setBilling] = React.useState<'monthly'|'yearly'>('monthly')
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({})
   const toggleExpand = (key: string) => setExpanded((s) => ({ ...s, [key]: !s[key] }))
 
-  const [currency, setCurrency] = React.useState<'EUR'|'USD'>('EUR')
+  // Initialize currency from localStorage or default to USD
+  const [currency, setCurrency] = React.useState<'EUR'|'USD'>(() => {
+    try {
+      const stored = localStorage.getItem('ee_detected_currency')
+      if (stored === 'EUR' || stored === 'USD') {
+        console.log('[PricingModal] 💾 Loaded currency from localStorage:', stored)
+        return stored
+      }
+    } catch {}
+    return 'USD'
+  })
   const [ready, setReady] = React.useState(false)
   const [loadingPlan, setLoadingPlan] = React.useState<null|'starter'|'pro'>(null)
 
   React.useEffect(() => {
     let cancelled = false
+    console.log('[PricingModal] 🔍 Starting currency detection...')
     ;(async () => {
+      // Default to USD, will be updated if detection succeeds
+      setReady(true) // Make buttons clickable immediately with stored/USD default
+      console.log('[PricingModal] ✅ Ready set to true, initial currency:', currency)
+      
       // URL override like landing: ?currency=EUR|USD
       try {
         const url = new URL(window.location.href)
         const override = url.searchParams.get('currency')
         if (override === 'EUR' || override === 'USD') {
-          if (!cancelled) setCurrency(override)
-          setReady(true)
+          if (!cancelled) {
+            setCurrency(override)
+            localStorage.setItem('ee_detected_currency', override)
+            console.log('[PricingModal] ✅ Currency set from URL:', override)
+          }
           return
         }
-      } catch {}
+      } catch (e) {
+        console.log('[PricingModal] ⚠️ URL check failed:', e)
+      }
+      
       // Prefer browser IP first for consistency with checkout
+      console.log('[PricingModal] 🌍 Fetching IP from ipapi.co...')
       try {
         const g = await fetch('https://ipapi.co/json/', { cache: 'no-store' })
         const gj = await g.json().catch(() => ({} as any))
-        const cc = String(gj?.country || '').toUpperCase()
+        console.log('[PricingModal] 📡 ipapi.co response:', gj)
+        const cc = String(gj?.country_code || gj?.country || '').toUpperCase()
         const eu = new Set(['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE'])
         if (cc) {
-          if (!cancelled) setCurrency(eu.has(cc) ? 'EUR' : 'USD')
-          setReady(true)
+          const detectedCurrency = eu.has(cc) ? 'EUR' : 'USD'
+          if (!cancelled) {
+            setCurrency(detectedCurrency)
+            localStorage.setItem('ee_detected_currency', detectedCurrency)
+            console.log('[PricingModal] ✅ Currency SET from IP:', detectedCurrency, 'country:', cc)
+          }
           return
+        } else {
+          console.log('[PricingModal] ⚠️ No country code from ipapi.co')
         }
-      } catch {}
+      } catch (e) {
+        console.warn('[PricingModal] ❌ IP detection failed:', e)
+      }
+      
       // Fallback to server IP
+      console.log('[PricingModal] 🔄 Trying server IP...')
       try {
         const r = await fetch('/api/ip-region', { cache: 'no-store' })
         const j = await r.json().catch(() => ({} as any))
+        console.log('[PricingModal] 📡 /api/ip-region response:', j)
         if (!cancelled && j && (j.currency === 'EUR' || j.currency === 'USD')) {
           setCurrency(j.currency)
-          setReady(true)
+          localStorage.setItem('ee_detected_currency', j.currency)
+          console.log('[PricingModal] ✅ Currency SET from server:', j.currency)
           return
         }
-      } catch {}
+      } catch (e) {
+        console.warn('[PricingModal] ❌ Server IP detection failed:', e)
+      }
+      
       // Fallback: locale
+      console.log('[PricingModal] 🔄 Trying locale...')
       try {
         const loc = Intl.DateTimeFormat().resolvedOptions().locale.toUpperCase()
         const euRE = /(AT|BE|BG|HR|CY|CZ|DK|EE|FI|FR|DE|GR|HU|IE|IT|LV|LT|LU|MT|NL|PL|PT|RO|SK|SI|ES|SE)/
-        if (!cancelled) setCurrency(euRE.test(loc) ? 'EUR' : 'USD')
-        setReady(true)
-      } catch {}
+        const detectedCurrency = euRE.test(loc) ? 'EUR' : 'USD'
+        if (!cancelled) {
+          setCurrency(detectedCurrency)
+          localStorage.setItem('ee_detected_currency', detectedCurrency)
+          console.log('[PricingModal] ✅ Currency SET from locale:', detectedCurrency, 'locale:', loc)
+        }
+      } catch (e) {
+        console.warn('[PricingModal] ❌ Locale detection failed:', e)
+      }
     })()
-    return () => { cancelled = true }
+    return () => { 
+      cancelled = true
+      console.log('[PricingModal] 🛑 Effect cleanup')
+    }
   }, [])
 
   const isYearly = billing === 'yearly'
@@ -336,17 +391,6 @@ function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'sta
       <span className="w-4 h-4 rounded-full border-2 border-white/30 border-t-white animate-spin" />
     </span>
   )
-
-  if (!ready) {
-    return (
-      <section className="py-6 bg-transparent">
-        <div className="flex items-center justify-center">
-          <div className="h-5 w-5 rounded-full border-2 border-white/30 border-t-white animate-spin" />
-          <span className="ml-2 text-xs text-gray-400">Loading localized pricing…</span>
-        </div>
-      </section>
-    )
-  }
 
   return (
     <section className="py-2 bg-transparent relative">
@@ -421,13 +465,33 @@ function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'sta
                 {(() => {
                   const planKey = (plan.name==='Starter' ? 'starter' : 'pro') as 'starter'|'pro'
                   const isLoading = loadingPlan === planKey
-                  const onClick = () => { setLoadingPlan(planKey); try { onSelect(planKey, isYearly?'yearly':'monthly') } catch {} }
+                  const isDisabled = !!loadingPlan
+                  const onClick = () => { 
+                    console.log('[PricingModal] 🖱️ Button clicked! Current state:', { 
+                      currency, 
+                      ready, 
+                      planKey, 
+                      billing: isYearly?'yearly':'monthly' 
+                    });
+                    setLoadingPlan(planKey);
+                    // Ensure currency is always defined (fallback to USD)
+                    const safeCurrency = currency || 'USD';
+                    console.log('[PricingModal] 📤 Calling onSelect with:', { 
+                      tier: planKey, 
+                      billing: isYearly?'yearly':'monthly', 
+                      currency: safeCurrency,
+                      currencyWasUndefined: !currency
+                    });
+                    try { onSelect(planKey, isYearly?'yearly':'monthly', safeCurrency) } catch (e) {
+                      console.error('[PricingModal] ❌ onSelect failed:', e)
+                    } 
+                  }
                   return plan.highlight ? (
-                    <button onClick={onClick} disabled={!!loadingPlan} className={`w-full h-9 md:h-10 rounded-full text-xs font-semibold transition-colors ${loadingPlan ? 'opacity-80 cursor-not-allowed' : 'cursor-pointer'} bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] text-white border border-[#9541e0] shadow-[0_4px_24px_rgba(149,65,224,0.45)] hover:shadow-[0_6px_28px_rgba(149,65,224,0.6)] hover:brightness-110`}>
+                    <button onClick={onClick} disabled={isDisabled} className={`w-full h-9 md:h-10 rounded-full text-xs font-semibold transition-colors ${isDisabled ? 'opacity-80 cursor-not-allowed' : 'cursor-pointer'} bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] text-white border border-[#9541e0] shadow-[0_4px_24px_rgba(149,65,224,0.45)] hover:shadow-[0_6px_28px_rgba(149,65,224,0.6)] hover:brightness-110`}>
                       {isLoading ? renderSpinner() : 'Subscribe'}
                     </button>
                   ) : (
-                    <button onClick={onClick} disabled={!!loadingPlan} className={`group w-full h-9 md:h-10 rounded-full text-xs font-semibold ${loadingPlan ? 'opacity-80 cursor-not-allowed' : 'cursor-pointer'} bg-[#2b2b2f]/70 text-white/90 border border-white/10 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)] hover:bg-[rgba(158,76,252,0.28)] hover:text-white hover:shadow-[0_8px_36px_rgba(158,76,252,0.38),0_0_0_1px_rgba(255,255,255,0.06)] transition-shadow`}>
+                    <button onClick={onClick} disabled={isDisabled} className={`group w-full h-9 md:h-10 rounded-full text-xs font-semibold ${isDisabled ? 'opacity-80 cursor-not-allowed' : 'cursor-pointer'} bg-[#2b2b2f]/70 text-white/90 border border-white/10 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)] hover:bg-[rgba(158,76,252,0.28)] hover:text-white hover:shadow-[0_8px_36px_rgba(158,76,252,0.38),0_0_0_1px_rgba(255,255,255,0.06)] transition-shadow`}>
                       <span className="transition-colors text-white group-hover:text-white">{isLoading ? renderSpinner() : 'Subscribe'}</span>
                     </button>
                   )
@@ -751,34 +815,24 @@ function CredentialsPanel() {
     } catch {}
   }
 
-  const startCheckout = (tier: 'starter' | 'pro', billing: 'monthly' | 'yearly') => {
-    // Detect currency instantly - DEFAULT TO EUR for Europe
-    let currency: 'EUR' | 'USD' = 'EUR';
+  const startCheckout = (tier: 'starter' | 'pro', billing: 'monthly' | 'yearly', currency?: 'EUR' | 'USD') => {
+    console.log('[App startCheckout] 📥 Received params:', { 
+      tier, 
+      billing, 
+      currency,
+      currencyType: typeof currency,
+      currencyIsUndefined: currency === undefined
+    });
     
-    try {
-      const eurCC = new Set(['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE']);
-      
-      // 1. Check timezone first
-      const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-      if (timeZone.startsWith('Europe/')) {
-        // Could be Europe but not EU, so still check locale
-        const locale = Intl.DateTimeFormat().resolvedOptions().locale || '';
-        const regionMatch = locale.match(/[-_]([A-Z]{2})/);
-        const region = regionMatch ? regionMatch[1] : '';
-        currency = (region && eurCC.has(region)) ? 'EUR' : 'USD';
-      } else {
-        // 2. Not in Europe timezone, check locale for region
-        const locale = Intl.DateTimeFormat().resolvedOptions().locale || '';
-        const regionMatch = locale.match(/[-_]([A-Z]{2})/);
-        const region = regionMatch ? regionMatch[1] : '';
-        currency = (region && eurCC.has(region)) ? 'EUR' : 'USD';
-      }
-    } catch {}
+    // Use the currency detected by the pricing modal, fallback to USD if undefined
+    const safeCurrency = currency || 'USD';
+    console.log('[App startCheckout] ✅ Safe currency:', safeCurrency);
     
-    console.log('[App startCheckout] INSTANT redirect', { tier, billing, currency });
+    const redirectUrl = `/checkout?tier=${tier}&billing=${billing}&currency=${safeCurrency}`;
+    console.log('[App startCheckout] 🚀 Redirecting to:', redirectUrl);
     
-    // Instant redirect - no await
-    window.location.href = `/checkout?tier=${tier}&billing=${billing}&currency=${currency}`;
+    // Instant redirect - use currency from popup (with USD fallback)
+    window.location.href = redirectUrl;
   }
 
   if (plan === 'checking') {
@@ -974,7 +1028,7 @@ function CredentialsPanel() {
           <h3 className="text-white text-lg font-semibold mb-2 text-center">Choose a subscription</h3>
           {banner && <p className="text-red-300 text-xs mb-2 text-center">{banner}</p>}
           <p className="text-gray-400 text-xs mb-3 text-center">Subscribe to unlock all features.</p>
-          <PricingCardsModal onSelect={(tier, billing)=>{ try { postGoal('pricing_cta_click', { plan: tier, billing }); } catch {}; startCheckout(tier, billing) }} onOpenSeoModal={()=>setSeoModalOpen(true)} />
+          <PricingCardsModal onSelect={(tier, billing, currency)=>{ try { postGoal('pricing_cta_click', { plan: tier, billing }); } catch {}; startCheckout(tier, billing, currency) }} onOpenSeoModal={()=>setSeoModalOpen(true)} />
           <div className="flex items-center justify-end mt-1">
             <form method="POST" action="/create-customer-portal-session">
               <input type="hidden" name="customerId" value={customerId || ''} />
@@ -1329,6 +1383,11 @@ function CanvaFlipCard({ inviteLink, disabled }: { inviteLink?: string | null; d
 function ElevenLabsCard({ disabled }: { disabled?: boolean }) {
   return (
     <div onClick={() => { if (!disabled) window.open('https://app.ecomefficiency.com/elevenlabs', '_blank', 'noreferrer') }} className={`relative bg-gray-900 border border-white/10 rounded-2xl p-2 md:p-3 flex flex-col ${disabled ? 'opacity-60' : 'cursor-pointer hover:border-white/20'}`}>
+      {/* New Badge */}
+      <div className="absolute -top-1 -right-1 z-20 bg-gradient-to-r from-purple-500 to-purple-600 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-xl border-2 border-white/20 transform rotate-12 hover:rotate-0 transition-transform duration-200">
+        New
+      </div>
+      
       <div className="w-full rounded-xl bg-[#000000] border border-white/10 overflow-hidden relative" style={{ aspectRatio: '16 / 9' }}>
         <Image src="/tools-logos/elevenlabs.png" alt="ElevenLabs logo" fill className="object-contain p-2 bg-[#000000]" sizes="(max-width: 768px) 100vw, 50vw" />
       </div>
@@ -1347,6 +1406,11 @@ function ElevenLabsCard({ disabled }: { disabled?: boolean }) {
 function PipiadsCard({ disabled }: { disabled?: boolean }) {
   return (
     <div onClick={() => { if (!disabled) window.open('/pipiads', '_blank', 'noreferrer') }} className={`relative bg-gray-900 border border-white/10 rounded-2xl p-2 md:p-3 flex flex-col ${disabled ? 'opacity-60' : 'cursor-pointer hover:border-white/20'}`}>
+      {/* New Badge */}
+      <div className="absolute -top-1 -right-1 z-20 bg-gradient-to-r from-purple-500 to-purple-600 text-white text-xs font-bold px-2.5 py-1 rounded-full shadow-xl border-2 border-white/20 transform rotate-12 hover:rotate-0 transition-transform duration-200">
+        New
+      </div>
+      
       <div className="w-full rounded-xl bg-[#000000] border border-white/10 overflow-hidden relative" style={{ aspectRatio: '16 / 9' }}>
         <Image src="/tools-logos/pipiads.png" alt="Pipiads logo" fill className="object-contain p-2 bg-[#000000]" sizes="(max-width: 768px) 100vw, 50vw" />
       </div>

@@ -83,6 +83,24 @@ function RouteLoaderProvider({ children }: { children: ReactNode }) {
   );
 }
 
+function RecoveryRedirect({ children }: { children: ReactNode }) {
+  const pathname = usePathname();
+  
+  useEffect(() => {
+    // Redirect to /reset-password if user arrives with recovery token
+    if (typeof window !== 'undefined' && pathname !== '/reset-password') {
+      const hash = window.location.hash;
+      // Check if URL contains recovery/password reset parameters
+      if (hash.includes('type=recovery') || hash.includes('type=password_recovery')) {
+        console.log('[RecoveryRedirect] Detected recovery token, redirecting to /reset-password');
+        window.location.href = '/reset-password' + hash;
+      }
+    }
+  }, [pathname]);
+  
+  return <>{children}</>;
+}
+
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
   return (
@@ -90,9 +108,11 @@ export function Providers({ children }: { children: ReactNode }) {
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <RouteLoaderProvider>
-          {children}
-        </RouteLoaderProvider>
+        <RecoveryRedirect>
+          <RouteLoaderProvider>
+            {children}
+          </RouteLoaderProvider>
+        </RecoveryRedirect>
       </TooltipProvider>
     </QueryClientProvider>
   );

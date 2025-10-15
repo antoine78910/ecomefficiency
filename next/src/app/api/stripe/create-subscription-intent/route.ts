@@ -193,7 +193,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Create subscription with default_incomplete
+    // Create subscription with default_incomplete - ONLY CARD ALLOWED
     const subscriptionParams: any = {
       customer: customer.id,
       items: [{ price: priceId }],
@@ -202,7 +202,12 @@ export async function POST(req: NextRequest) {
       payment_behavior: 'default_incomplete',
       payment_settings: {
         save_default_payment_method: 'on_subscription',
-        payment_method_types: ['card'],
+        payment_method_types: ['card', 'link'], // Card + Link (includes Apple Pay & Google Pay)
+        payment_method_options: {
+          card: {
+            request_three_d_secure: 'automatic'
+          }
+        }
       },
       // Important: expand PaymentIntent on the latest invoice so we can confirm it client-side
       expand: ['latest_invoice.payment_intent'],

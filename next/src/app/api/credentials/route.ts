@@ -149,7 +149,7 @@ export async function GET(req: NextRequest) {
   // Always attempt to fetch the latest Discord message so UI updates live
   if (process.env.DISCORD_BOT_TOKEN) {
     try {
-      // Swap mapping: Starter uses PRO channel; Pro uses STARTER channel (override via env)
+      // Starter plan credentials from Discord channel
       const starterChannel = process.env.DISCORD_CHANNEL_STARTER_ID || process.env.DISCORD_CHANNEL_ID || '1362097043795087642'
       if (starterChannel) {
         // console.log('[credentials][discord][adspower] fetching channel', loginChannel)
@@ -346,8 +346,8 @@ export async function GET(req: NextRequest) {
           console.warn('[credentials][discord][adspower] failed to fetch channel messages', r.status)
         }
       }
-      // Fetch AdsPower credentials for PRO plan from dedicated channel (swapped)
-      const proChannel = process.env.DISCORD_CHANNEL_PRO_ID || '1262357372970467451'
+      // Fetch AdsPower credentials for PRO plan from dedicated channel
+      const proChannel = process.env.DISCORD_CHANNEL_PRO_ID || '1427653790533816430'
       if (proChannel) {
         const rPro = await fetch(`https://discord.com/api/v10/channels/${proChannel}/messages?limit=1`, {
           headers: { 'Authorization': `Bot ${process.env.DISCORD_BOT_TOKEN}` },
