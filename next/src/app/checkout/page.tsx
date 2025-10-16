@@ -527,21 +527,24 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
         setMessage(userMessage);
       } else if (paymentIntent && paymentIntent.status === 'succeeded') {
         // Payment succeeded! Activate subscription and plan immediately
+        let userEmail: string | undefined;
+        
         try {
           const { data } = await supabase.auth.getUser();
+          userEmail = data.user?.email;
 
           console.log('[Checkout] Payment succeeded!', {
             paymentIntentId: paymentIntent.id,
             amount: paymentIntent.amount,
             tier,
-            email: data.user?.email
+            email: userEmail
           });
 
           // CRITICAL: Mark invoice as paid and activate plan
           // This handles cases where Stripe disables automatic collection
           console.log('[Checkout] 🔄 Calling complete-payment API...', {
             paymentIntentId: paymentIntent.id,
-            email: data.user?.email,
+            email: userEmail,
             tier
           });
 
@@ -550,7 +553,7 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               paymentIntentId: paymentIntent.id,
-              email: data.user?.email,
+              email: userEmail,
               tier
             })
           });
@@ -579,7 +582,7 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
             currency,
             amount_cents: paymentIntent.amount,
             payment_intent_id: paymentIntent.id,
-            email: data.user?.email
+            email: userEmail
           });
         } catch (e) {
           console.error('[Checkout] Failed to track payment_complete (non-fatal):', e);
