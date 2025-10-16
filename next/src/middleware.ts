@@ -1,7 +1,13 @@
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
+import { updateSession } from './integrations/supabase/middleware'
 
-export function middleware(req: NextRequest) {
+export async function middleware(req: NextRequest) {
+  // Update Supabase session cookies first
+  const supabaseResponse = await updateSession(req)
+  
+  // If Supabase middleware returned a response, use it as base
+  let response = supabaseResponse
   const url = req.nextUrl
   const pathname = url.pathname
   const hostHeader = (req.headers.get('host') || '')
@@ -17,27 +23,33 @@ export function middleware(req: NextRequest) {
   // Pretty aliases to proxy routes
   if (pathname === '/pipiads' || pathname === '/pipiads/') {
     const r = url.clone(); r.pathname = '/proxy/pipiads/dashboard';
-    return NextResponse.rewrite(r)
+    response = NextResponse.rewrite(r, { request: { headers: req.headers } })
+    return response
   }
   if (pathname.startsWith('/elevenlabs/')) {
     const r = url.clone(); r.pathname = '/proxy/elevenlabs' + pathname.slice('/elevenlabs'.length);
-    return NextResponse.rewrite(r)
+    response = NextResponse.rewrite(r, { request: { headers: req.headers } })
+    return response
   }
   if (pathname.startsWith('/pipiads/')) {
     const r = url.clone(); r.pathname = '/proxy/pipiads' + pathname.slice('/pipiads'.length);
-    return NextResponse.rewrite(r)
+    response = NextResponse.rewrite(r, { request: { headers: req.headers } })
+    return response
   }
   if (pathname === '/proxy/pipiads' || pathname === '/proxy/pipiads/') {
     const r = url.clone(); r.pathname = '/proxy/pipiads/dashboard';
-    return NextResponse.rewrite(r)
+    response = NextResponse.rewrite(r, { request: { headers: req.headers } })
+    return response
   }
   if (/^\/\d+\.\d+\.\d+-[^/]+\//.test(pathname)) {
     const r = url.clone(); r.pathname = '/proxy/pipiads' + pathname;
-    return NextResponse.rewrite(r)
+    response = NextResponse.rewrite(r, { request: { headers: req.headers } })
+    return response
   }
   if (/^\/v\d+\//.test(pathname)) {
     const r = url.clone(); r.pathname = '/proxy/pipiads' + pathname;
-    return NextResponse.rewrite(r)
+    response = NextResponse.rewrite(r, { request: { headers: req.headers } })
+    return response
   }
 
   // tools subdomain routes
@@ -87,7 +99,7 @@ export function middleware(req: NextRequest) {
 
   // Do not auto-redirect signed-in users from main domain to app.*; stay on landing or current page
 
-  return NextResponse.next()
+  return response
 }
 
 // Skip middleware for Next.js internals and assets
