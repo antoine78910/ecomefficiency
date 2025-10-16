@@ -32,6 +32,25 @@ const App = () => {
             await mod.supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
             try { await fetch('/api/auth/flag', { method: 'POST' }) } catch {}
 
+            // Track DataFast sign_up goal after OAuth sign-up (only if just_signed_in flag present)
+            const justSignedIn = params.get('just_signed_in')
+            if (justSignedIn === '1') {
+              try {
+                const { data } = await mod.supabase.auth.getUser()
+                if (data.user?.email) {
+                  console.log('[App] 📊 Tracking sign_up goal after OAuth sign-up');
+                  (window as any)?.datafast?.('sign_up', {
+                    email: data.user.email,
+                    user_id: data.user.id,
+                    provider: data.user.app_metadata?.provider || 'email',
+                    verified_at: new Date().toISOString()
+                  });
+                }
+              } catch (e) {
+                console.error('[App] Failed to track sign_up (non-fatal):', e);
+              }
+            }
+
             // Redirect to app.localhost subdomain after OAuth
             const protocol = window.location.protocol
             const hostname = window.location.hostname
@@ -58,6 +77,21 @@ const App = () => {
           const mod = await import("@/integrations/supabase/client")
           await mod.supabase.auth.exchangeCodeForSession(window.location.href)
           try { await fetch('/api/auth/flag', { method: 'POST' }) } catch {}
+
+          // Track DataFast sign_up goal after email verification
+          try {
+            const { data } = await mod.supabase.auth.getUser()
+            if (data.user?.email) {
+              console.log('[App] 📊 Tracking sign_up goal after email verification');
+              (window as any)?.datafast?.('sign_up', {
+                email: data.user.email,
+                user_id: data.user.id,
+                verified_at: new Date().toISOString()
+              });
+            }
+          } catch (e) {
+            console.error('[App] Failed to track sign_up (non-fatal):', e);
+          }
 
           // Redirect to app.localhost if on plain localhost
           const protocol = window.location.protocol
