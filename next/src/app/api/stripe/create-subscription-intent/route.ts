@@ -354,6 +354,51 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'no_client_secret' }, { status: 500 });
     }
 
+    // Track DataFast goal: checkout_initiated (server-side for reliability)
+    try {
+      const datafastApiKey = process.env.DATAFAST_API_KEY;
+      const datafastVisitorId = req.cookies.get('datafast_visitor_id')?.value;
+      
+      if (datafastApiKey && datafastVisitorId) {
+        console.log('[create-subscription-intent] 📊 Tracking checkout_initiated goal');
+        
+        const goalRes = await fetch('https://app.datafast.io/api/v1/events', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${datafastApiKey}`
+          },
+          body: JSON.stringify({
+            datafast_visitor_id: datafastVisitorId,
+            name: 'checkout_initiated',
+            metadata: {
+              tier,
+              billing,
+              currency,
+              price_cents: prices[tier][billing],
+              email: userEmail,
+              customer_id: customer.id,
+              subscription_id: subscription.id
+            }
+          })
+        });
+        
+        if (goalRes.ok) {
+          console.log('[create-subscription-intent] ✅ checkout_initiated goal tracked');
+        } else {
+          const errorText = await goalRes.text().catch(() => '');
+          console.warn('[create-subscription-intent] ⚠️ Failed to track goal:', goalRes.status, errorText);
+        }
+      } else {
+        console.log('[create-subscription-intent] ℹ️ DataFast tracking skipped:', {
+          hasApiKey: !!datafastApiKey,
+          hasVisitorId: !!datafastVisitorId
+        });
+      }
+    } catch (e) {
+      console.error('[create-subscription-intent] Failed to track DataFast goal (non-blocking):', e);
+    }
+
     return NextResponse.json({
       subscriptionId: subscription.id,
       invoiceId,

@@ -570,6 +570,21 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
           // Continue anyway, user can retry
         }
 
+        // Track DataFast goal: payment_complete
+        try {
+          console.log('[Checkout] 📊 Tracking payment_complete goal');
+          (window as any)?.datafast?.('payment_complete', {
+            tier,
+            billing,
+            currency,
+            amount_cents: paymentIntent.amount,
+            payment_intent_id: paymentIntent.id,
+            email: data.user?.email
+          });
+        } catch (e) {
+          console.error('[Checkout] Failed to track payment_complete (non-fatal):', e);
+        }
+
         // Redirect to success page
         sessionStorage.removeItem(sessionKey); // Clear lock on success
         window.location.href = `/checkout/success?tier=${tier}&billing=${billing}`;
