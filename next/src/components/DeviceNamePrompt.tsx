@@ -2,33 +2,50 @@
 
 import { useState, useEffect } from 'react'
 import { parseUserAgent } from '@/lib/parseUserAgent'
+import { supabase } from '@/integrations/supabase/client'
 
-interface DeviceNamePromptProps {
-  onDeviceNameSet: (deviceName: string) => void
-}
-
-export default function DeviceNamePrompt({ onDeviceNameSet }: DeviceNamePromptProps) {
+export default function DeviceNamePrompt() {
   const [showPrompt, setShowPrompt] = useState(false)
   const [deviceName, setDeviceName] = useState('')
   const [suggestedName, setSuggestedName] = useState('')
+  const [userName, setUserName] = useState('')
   
   useEffect(() => {
     // Vérifier si un nom de device existe déjà
     const existingName = localStorage.getItem('device_name')
     
-    if (existingName) {
-      // Nom existant, l'envoyer immédiatement
-      onDeviceNameSet(existingName)
-    } else {
-      // Pas de nom, générer une suggestion et afficher le prompt
+    if (!existingName) {
+      // Pas de nom, récupérer le nom de l'utilisateur
+      const getUserName = async () => {
+        try {
+          const { data } = await supabase.auth.getUser()
+          if (data.user) {
+            const meta = data.user.user_metadata || {}
+            const firstName = meta.first_name || ''
+            setUserName(firstName)
+          }
+        } catch (error) {
+          console.error('Error getting user:', error)
+        }
+      }
+      
+      getUserName()
+      
+      // Générer une suggestion basée sur le user agent
       const ua = navigator.userAgent
       const parsed = parseUserAgent(ua)
       
       let suggested = ''
       if (parsed.device === 'Mobile' && parsed.deviceModel) {
-        suggested = parsed.deviceModel
+        suggested = `${parsed.deviceModel}`
       } else if (parsed.device === 'Tablet' && parsed.deviceModel) {
-        suggested = parsed.deviceModel
+        suggested = `${parsed.deviceModel}`
+      } else if (parsed.os === 'macOS') {
+        suggested = 'MacBook'
+      } else if (parsed.os === 'Windows') {
+        suggested = 'PC Windows'
+      } else if (parsed.os === 'Linux') {
+        suggested = 'PC Linux'
       } else {
         suggested = `${parsed.os} ${parsed.device}`
       }
@@ -37,21 +54,63 @@ export default function DeviceNamePrompt({ onDeviceNameSet }: DeviceNamePromptPr
       setDeviceName(suggested)
       
       // Afficher le prompt après un court délai
-      setTimeout(() => setShowPrompt(true), 1000)
+      setTimeout(() => setShowPrompt(true), 1500)
     }
-  }, [onDeviceNameSet])
+  }, [])
   
-  const handleSave = () => {
-    const finalName = deviceName.trim() || suggestedName
+  const handleSave = async () => {
+    let finalName = deviceName.trim() || suggestedName
+    
+    // Ajouter le prénom si disponible
+    if (userName && !finalName.toLowerCase().includes(userName.toLowerCase())) {
+      finalName = `${finalName} de ${userName}`
+    }
+    
     localStorage.setItem('device_name', finalName)
-    onDeviceNameSet(finalName)
+    
+    // Mettre à jour la session en cours dans Supabase
+    try {
+      const sessionId = sessionStorage.getItem('current_session_id')
+      if (sessionId) {
+        await supabase
+          .from('user_sessions')
+          .update({ device_name: finalName } as any)
+          .eq('id', sessionId)
+        
+        console.log('Device name updated in current session:', finalName)
+      }
+    } catch (error) {
+      console.error('Error updating device name:', error)
+    }
+    
     setShowPrompt(false)
   }
   
-  const handleSkip = () => {
-    const finalName = suggestedName
+  const handleSkip = async () => {
+    let finalName = suggestedName
+    
+    // Ajouter le prénom si disponible
+    if (userName && !finalName.toLowerCase().includes(userName.toLowerCase())) {
+      finalName = `${finalName} de ${userName}`
+    }
+    
     localStorage.setItem('device_name', finalName)
-    onDeviceNameSet(finalName)
+    
+    // Mettre à jour la session en cours dans Supabase
+    try {
+      const sessionId = sessionStorage.getItem('current_session_id')
+      if (sessionId) {
+        await supabase
+          .from('user_sessions')
+          .update({ device_name: finalName } as any)
+          .eq('id', sessionId)
+        
+        console.log('Device name auto-set in current session:', finalName)
+      }
+    } catch (error) {
+      console.error('Error updating device name:', error)
+    }
+    
     setShowPrompt(false)
   }
   
@@ -66,7 +125,10 @@ export default function DeviceNamePrompt({ onDeviceNameSet }: DeviceNamePromptPr
             Nommez cet appareil
           </h2>
           <p className="text-gray-400 text-sm">
-            Donnez un nom à cet appareil pour le reconnaître facilement dans votre historique de connexions
+            {userName 
+              ? `Bonjour ${userName} ! Donnez un nom à cet appareil`
+              : 'Donnez un nom à cet appareil pour le reconnaître facilement'
+            }
           </p>
         </div>
         
@@ -79,22 +141,28 @@ export default function DeviceNamePrompt({ onDeviceNameSet }: DeviceNamePromptPr
               type="text"
               value={deviceName}
               onChange={(e) => setDeviceName(e.target.value)}
-              placeholder={suggestedName}
+              placeholder={userName ? `${suggestedName} de ${userName}` : suggestedName}
               className="w-full px-4 py-3 bg-black/50 border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white placeholder-gray-500"
               maxLength={50}
               autoFocus
             />
             <p className="text-xs text-gray-500 mt-1">
-              Exemples : "MacBook de Julien", "iPhone perso", "PC bureau"
+              {userName 
+                ? `Ex: "${suggestedName} de ${userName}", "iPhone de ${userName}"`
+                : 'Exemples : "MacBook de Julien", "iPhone perso", "PC bureau"'
+              }
             </p>
           </div>
           
           <div className="flex gap-3">
             <button
               onClick={handleSkip}
-              className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-gray-300 font-medium transition-colors"
+              className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg text-gray-300 font-medium transition-colors text-sm"
             >
-              Utiliser "{suggestedName}"
+              {userName 
+                ? `Utiliser "${suggestedName} de ${userName}"`
+                : `Utiliser "${suggestedName}"`
+              }
             </button>
             <button
               onClick={handleSave}
