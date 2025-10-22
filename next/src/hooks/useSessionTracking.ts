@@ -32,6 +32,7 @@ interface SessionData {
 
 export const useSessionTracking = () => {
   const [isLoading, setIsLoading] = useState(false);
+  const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
 
   const getLocationData = useCallback(async (): Promise<LocationData> => {
     try {
@@ -139,14 +140,21 @@ export const useSessionTracking = () => {
         await supabase.from('profiles').upsert({ id: userId || '', ...profileUpdate });
       } catch {}
 
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from('user_sessions')
-        .insert([sessionData]);
+        .insert([sessionData])
+        .select('id')
+        .single();
 
       if (error) {
         console.error('Error while saving session:', error);
       } else {
-        console.log('Session saved successfully');
+        console.log('Session saved successfully', data);
+        if (data?.id) {
+          setCurrentSessionId(data.id);
+          // Stocker l'ID de session dans sessionStorage pour le tracking d'activité
+          sessionStorage.setItem('current_session_id', data.id);
+        }
       }
     } catch (error) {
       console.error('Error while tracking session:', error);
@@ -170,5 +178,5 @@ export const useSessionTracking = () => {
     return () => subscription.unsubscribe();
   }, [trackSession]);
 
-  return { trackSession, isLoading };
+  return { trackSession, isLoading, currentSessionId };
 };
