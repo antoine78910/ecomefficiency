@@ -140,6 +140,25 @@ export const useSessionTracking = () => {
         await supabase.from('profiles').upsert({ id: userId || '', ...profileUpdate });
       } catch {}
 
+      // Avant de créer une nouvelle session, marquer toutes les anciennes sessions de cet utilisateur comme inactives
+      if (userId) {
+        try {
+          await supabase
+            .from('user_sessions')
+            .update({ 
+              is_active: false,
+              ended_at: new Date().toISOString()
+            })
+            .eq('user_id', userId)
+            .eq('is_active', true);
+          
+          console.log('Marked old sessions as inactive for user:', userId);
+        } catch (updateError) {
+          console.error('Error marking old sessions as inactive:', updateError);
+        }
+      }
+
+      // Créer la nouvelle session
       const { data, error } = await supabase
         .from('user_sessions')
         .insert([sessionData])

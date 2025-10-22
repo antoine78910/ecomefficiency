@@ -17,11 +17,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Database not configured' }, { status: 500 })
     }
     
-    // Mettre à jour le last_activity de la session
+    const now = new Date().toISOString()
+    
+    // Mettre à jour le last_activity de la session courante
     const { error } = await supabaseAdmin
       .from('user_sessions')
       .update({ 
-        last_activity: new Date().toISOString(),
+        last_activity: now,
         is_active: true
       })
       .eq('id', session_id)
@@ -29,6 +31,25 @@ export async function POST(req: NextRequest) {
     if (error) {
       console.error('[heartbeat] Error updating session:', error)
       return NextResponse.json({ error: 'Failed to update session' }, { status: 500 })
+    }
+    
+    // Désactiver automatiquement les sessions qui n'ont pas de heartbeat depuis plus de 2 minutes
+    const twoMinutesAgo = new Date(Date.now() - 2 * 60 * 1000).toISOString()
+    
+    try {
+      await supabaseAdmin
+        .from('user_sessions')
+        .update({ 
+          is_active: false,
+          ended_at: now
+        })
+        .eq('is_active', true)
+        .lt('last_activity', twoMinutesAgo)
+      
+      console.log('[heartbeat] Auto-disabled expired sessions')
+    } catch (cleanupError) {
+      console.error('[heartbeat] Error cleaning up expired sessions:', cleanupError)
+      // Non-fatal, continuer
     }
     
     return NextResponse.json({ success: true })
