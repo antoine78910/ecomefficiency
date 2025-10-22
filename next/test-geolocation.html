@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Géolocalisation API</title>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #000;
+            color: #fff;
+        }
+        .card {
+            background: #111;
+            border: 1px solid #333;
+            border-radius: 12px;
+            padding: 24px;
+            margin-bottom: 20px;
+        }
+        h1 {
+            color: #3b82f6;
+            margin-bottom: 10px;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: 600;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        pre {
+            background: #000;
+            border: 1px solid #333;
+            padding: 16px;
+            border-radius: 8px;
+            overflow-x: auto;
+            font-size: 14px;
+        }
+        .success { color: #10b981; }
+        .error { color: #ef4444; }
+        .label {
+            color: #9ca3af;
+            font-size: 14px;
+            margin-bottom: 8px;
+        }
+        .value {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 16px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🌍 Test API de Géolocalisation</h1>
+    <p style="color: #9ca3af;">Cliquez sur le bouton pour tester l'API /api/geolocation</p>
+
+    <div class="card">
+        <button onclick="testGeolocation()">🚀 Tester l'API</button>
+        <div id="loading" style="display: none; margin-top: 16px; color: #3b82f6;">
+            ⏳ Chargement...
+        </div>
+    </div>
+
+    <div id="results" style="display: none;">
+        <div class="card">
+            <h2>📊 Résultats</h2>
+            
+            <div class="label">📍 Adresse IP</div>
+            <div class="value" id="ip">-</div>
+            
+            <div class="label">🌍 Pays</div>
+            <div class="value" id="country">-</div>
+            
+            <div class="label">🏙️ Ville</div>
+            <div class="value" id="city">-</div>
+            
+            <div class="label">📍 Région</div>
+            <div class="value" id="region">-</div>
+            
+            <div class="label">🕒 Fuseau horaire</div>
+            <div class="value" id="timezone">-</div>
+            
+            <div class="label">🏢 Fournisseur (ISP)</div>
+            <div class="value" id="isp">-</div>
+            
+            <div class="label">📍 Coordonnées</div>
+            <div class="value" id="coords">-</div>
+        </div>
+
+        <div class="card">
+            <h3>📄 JSON Complet</h3>
+            <pre id="json"></pre>
+        </div>
+    </div>
+
+    <script>
+        async function testGeolocation() {
+            const loading = document.getElementById('loading');
+            const results = document.getElementById('results');
+            
+            loading.style.display = 'block';
+            results.style.display = 'none';
+            
+            try {
+                const response = await fetch('/api/geolocation');
+                const data = await response.json();
+                
+                // Afficher les résultats
+                document.getElementById('ip').textContent = data.ip || '—';
+                document.getElementById('country').textContent = data.country || '—';
+                document.getElementById('city').textContent = data.city || '—';
+                document.getElementById('region').textContent = data.region || '—';
+                document.getElementById('timezone').textContent = data.timezone || '—';
+                document.getElementById('isp').textContent = data.isp || '—';
+                
+                const coords = data.latitude && data.longitude 
+                    ? `${data.latitude}, ${data.longitude}` 
+                    : '—';
+                document.getElementById('coords').textContent = coords;
+                
+                document.getElementById('json').textContent = JSON.stringify(data, null, 2);
+                
+                loading.style.display = 'none';
+                results.style.display = 'block';
+                
+            } catch (error) {
+                loading.style.display = 'none';
+                alert('❌ Erreur: ' + error.message);
+            }
+        }
+
+        // Test automatique au chargement
+        window.addEventListener('load', () => {
+            setTimeout(() => {
+                testGeolocation();
+            }, 500);
+        });
+    </script>
+</body>
+</html>
+

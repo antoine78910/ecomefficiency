@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Check, Clipboard, Crown, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { postGoal } from "@/lib/analytics";
+import TrendTrackStatus from "@/components/TrendTrackStatus";
 
 const App = () => {
   // no docker launch on this page anymore
@@ -226,6 +227,14 @@ const App = () => {
       </div>
           <CredentialsPanel />
         </div>
+        
+        {/* TrendTrack Status - Pro Only Feature - TEMPORARILY DISABLED */}
+        {/* {appPlan === 'pro' && (
+          <div className="mb-6">
+            <TrendTrackStatus />
+          </div>
+        )} */}
+
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <BrainCredsCard disabled={appPlan === 'free'} />
           <CanvaFlipCard inviteLink={canvaInvite || undefined} disabled={appPlan === 'free'} />

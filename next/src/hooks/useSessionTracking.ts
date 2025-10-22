@@ -8,6 +8,8 @@ interface LocationData {
   region?: string;
   latitude?: number;
   longitude?: number;
+  timezone?: string;
+  isp?: string;
 }
 
 interface SessionData {
@@ -23,6 +25,9 @@ interface SessionData {
   region?: string;
   latitude?: number;
   longitude?: number;
+  timezone?: string;
+  isp?: string;
+  device_name?: string;
 }
 
 export const useSessionTracking = () => {
@@ -30,16 +35,18 @@ export const useSessionTracking = () => {
 
   const getLocationData = useCallback(async (): Promise<LocationData> => {
     try {
-      // Use a free IP geolocation API
-      const response = await fetch('https://ipapi.co/json/');
+      // Utiliser notre API serveur pour une meilleure géolocalisation
+      const response = await fetch('/api/geolocation');
       if (response.ok) {
         const data = await response.json();
         return {
-          country: data.country_name,
+          country: data.country,
           city: data.city,
           region: data.region,
           latitude: data.latitude,
           longitude: data.longitude,
+          timezone: data.timezone,
+          isp: data.isp,
         };
       }
     } catch (error) {
@@ -50,10 +57,11 @@ export const useSessionTracking = () => {
 
   const getIPAddress = useCallback(async (): Promise<string> => {
     try {
-      const response = await fetch('https://api.ipify.org?format=json');
+      // Utiliser notre API /api/ip pour récupérer l'IP
+      const response = await fetch('/api/ip');
       if (response.ok) {
         const data = await response.json();
-        return data.ip;
+        return data.ip || 'unknown';
       }
     } catch (error) {
       console.error('Error while fetching IP address:', error);
@@ -90,6 +98,11 @@ export const useSessionTracking = () => {
         getIPAddress()
       ]);
 
+      // Récupérer le nom du device depuis localStorage
+      const deviceName = typeof window !== 'undefined' 
+        ? localStorage.getItem('device_name') || undefined 
+        : undefined;
+
       const sessionData: SessionData = {
         user_id: userId || null,
         ip_address: ipAddress,
@@ -98,6 +111,7 @@ export const useSessionTracking = () => {
         email,
         first_name: firstName,
         last_name: lastName,
+        device_name: deviceName,
         ...locationData,
       };
 

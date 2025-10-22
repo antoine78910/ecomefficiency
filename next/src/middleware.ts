@@ -3,13 +3,19 @@ import { NextResponse } from 'next/server'
 import { updateSession } from './integrations/supabase/middleware'
 
 export async function middleware(req: NextRequest) {
-  // Update Supabase session cookies first
-  const supabaseResponse = await updateSession(req)
+  const pathname = req.nextUrl.pathname
   
-  // If Supabase middleware returned a response, use it as base
-  let response = supabaseResponse
+  // Skip Supabase session update for admin routes (they have their own auth)
+  let response: NextResponse
+  if (pathname.startsWith('/admin')) {
+    response = NextResponse.next({ request: { headers: req.headers } })
+  } else {
+    // Update Supabase session cookies first
+    const supabaseResponse = await updateSession(req)
+    // If Supabase middleware returned a response, use it as base
+    response = supabaseResponse
+  }
   const url = req.nextUrl
-  const pathname = url.pathname
   const hostHeader = (req.headers.get('host') || '')
   const hostname = hostHeader.toLowerCase().split(':')[0]
   const bareHostname = hostname.replace(/^www\./, '')
