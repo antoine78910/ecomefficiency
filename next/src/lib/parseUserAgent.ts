@@ -137,3 +137,63 @@ export function formatUserAgentShort(parsed: ParsedUserAgent): string {
   return parts.join(' • ')
 }
 
+// Fonction pour obtenir un nom de device complet et lisible (style AdsPower)
+export function getDeviceDisplayName(ua: string | null | undefined): string {
+  if (!ua) return 'Unknown Device'
+  
+  const parsed = parseUserAgent(ua)
+  
+  // Pour mobile/tablet, retourner le modèle si disponible
+  if (parsed.device === 'Mobile' || parsed.device === 'Tablet') {
+    if (parsed.deviceModel) {
+      return parsed.deviceModel
+    }
+    // Sinon retourner OS + type
+    return `${parsed.os} ${parsed.device}`
+  }
+  
+  // Pour desktop, détecter le modèle exact
+  // MacBook Pro, MacBook Air, iMac, etc.
+  if (parsed.os === 'macOS') {
+    // Essayer de détecter le modèle spécifique
+    if (/Macintosh.*Mac/.test(ua)) {
+      if (/MacBookPro/i.test(ua)) return 'MacBook Pro'
+      if (/MacBookAir/i.test(ua)) return 'MacBook Air'
+      if (/MacBook/i.test(ua)) return 'MacBook'
+      if (/iMac/i.test(ua)) return 'iMac'
+      if (/Mac Pro/i.test(ua)) return 'Mac Pro'
+      if (/Mac mini/i.test(ua)) return 'Mac mini'
+      // Par défaut pour macOS
+      return 'Mac'
+    }
+    return 'Mac'
+  }
+  
+  // Pour Windows, inclure la version
+  if (parsed.os === 'Windows') {
+    if (parsed.osVersion === '10/11') {
+      // Essayer de détecter si c'est Windows 11
+      if (/Windows NT 10\.0/.test(ua) && /Win64; x64/.test(ua)) {
+        // Windows 11 a généralement un user agent similaire à Win 10
+        // On ne peut pas différencier facilement, donc on dit juste "Windows PC"
+        return 'Windows PC'
+      }
+      return 'Windows 10 PC'
+    }
+    return `Windows ${parsed.osVersion || ''} PC`.trim()
+  }
+  
+  // Pour Linux
+  if (parsed.os === 'Linux') {
+    return 'Linux PC'
+  }
+  
+  // Pour Chrome OS
+  if (parsed.os === 'Chrome OS') {
+    return 'Chromebook'
+  }
+  
+  // Fallback
+  return `${parsed.os} ${parsed.device}`
+}
+

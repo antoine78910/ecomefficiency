@@ -1,6 +1,7 @@
 
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
+import { getDeviceDisplayName } from "@/lib/parseUserAgent";
 
 interface LocationData {
   country?: string;
@@ -99,15 +100,14 @@ export const useSessionTracking = () => {
         getIPAddress()
       ]);
 
-      // Récupérer le nom du device depuis localStorage
-      const deviceName = typeof window !== 'undefined' 
-        ? localStorage.getItem('device_name') || undefined 
-        : undefined;
+      // Détecter automatiquement le nom du device depuis le User Agent
+      const userAgent = navigator.userAgent;
+      const deviceName = getDeviceDisplayName(userAgent);
 
       const sessionData: SessionData = {
         user_id: userId || null,
         ip_address: ipAddress,
-        user_agent: navigator.userAgent,
+        user_agent: userAgent,
         session_type: sessionType,
         email,
         first_name: firstName,

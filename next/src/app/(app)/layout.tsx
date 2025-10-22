@@ -3,7 +3,6 @@
 import { useEffect } from 'react'
 import AppTopNav from "@/components/AppTopNav";
 import ActivityTracker from "@/components/ActivityTracker";
-import DeviceNamePrompt from "@/components/DeviceNamePrompt";
 
 export default function AppSectionLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -38,9 +37,6 @@ export default function AppSectionLayout({ children }: { children: React.ReactNo
     <div className="theme-app min-h-screen bg-black text-white flex">
       {/* Tracker d'activité en arrière-plan */}
       <ActivityTracker />
-      
-      {/* Prompt pour nommer le device (première connexion uniquement) */}
-      <DeviceNamePrompt />
       
       <main className="flex-1 flex flex-col min-h-screen">
         <AppTopNav />

@@ -2,7 +2,7 @@ import { supabaseAdmin } from '@/integrations/supabase/server'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import AdminLogoutButton from '@/components/AdminLogoutButton'
-import { parseUserAgent, formatUserAgentShort } from '@/lib/parseUserAgent'
+import { parseUserAgent, formatUserAgentShort, getDeviceDisplayName } from '@/lib/parseUserAgent'
 
 export const dynamic = 'force-dynamic'
 
@@ -277,12 +277,8 @@ function UserSessionCard({ summary }: { summary: GroupSummary }) {
             const parsedUA = parseUserAgent(session.user_agent)
             const deviceIcon = parsedUA.device === 'Mobile' ? '📱' : parsedUA.device === 'Tablet' ? '📱' : '💻'
             
-            // Utiliser le nom personnalisé du device s'il existe
-            const displayDeviceName = session.device_name || (
-              parsedUA.device === 'Mobile' || parsedUA.device === 'Tablet' 
-                ? (parsedUA.deviceModel || parsedUA.device)
-                : parsedUA.device
-            )
+            // Utiliser le device_name enregistré ou détecter automatiquement
+            const displayDeviceName = session.device_name || getDeviceDisplayName(session.user_agent)
             
             return (
               <div 
@@ -297,11 +293,6 @@ function UserSessionCard({ summary }: { summary: GroupSummary }) {
                   <span className="text-sm text-white font-semibold">
                     {displayDeviceName}
                   </span>
-                  {session.device_name && (
-                    <span className="text-xs px-2 py-0.5 bg-green-500/10 text-green-400 rounded border border-green-500/20">
-                      Nommé
-                    </span>
-                  )}
                 </div>
                 
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 text-sm">
