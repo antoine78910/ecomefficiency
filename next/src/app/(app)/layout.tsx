@@ -2,6 +2,7 @@
 
 import { useEffect } from 'react'
 import AppTopNav from "@/components/AppTopNav";
+import ActivityTracker from "@/components/ActivityTracker";
 
 export default function AppSectionLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -34,6 +35,9 @@ export default function AppSectionLayout({ children }: { children: React.ReactNo
 
   return (
     <div className="theme-app min-h-screen bg-black text-white flex">
+      {/* Tracker d'activité en arrière-plan */}
+      <ActivityTracker />
+      
       <main className="flex-1 flex flex-col min-h-screen">
         <AppTopNav />
         <div className="flex-1">{children}</div>
