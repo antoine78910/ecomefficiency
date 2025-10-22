@@ -148,7 +148,7 @@ export const useSessionTracking = () => {
             .update({ 
               is_active: false,
               ended_at: new Date().toISOString()
-            })
+            } as any)
             .eq('user_id', userId)
             .eq('is_active', true);
           
@@ -161,7 +161,7 @@ export const useSessionTracking = () => {
       // Créer la nouvelle session
       const { data, error } = await supabase
         .from('user_sessions')
-        .insert([sessionData])
+        .insert([sessionData as any])
         .select('id')
         .single();
 
