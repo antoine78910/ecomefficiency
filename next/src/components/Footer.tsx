@@ -116,7 +116,6 @@ const Footer = () => {
         {/* Bottom Bar (no separator line) */}
         <div className="pt-6 md:pt-8 flex flex-col md:flex-row justify-between items-center gap-2">
           <p className="text-gray-400 text-xs md:text-sm">© 2025 EcomEfficiency. All rights reserved.</p>
-          <CurrentIpBadge />
         </div>
       </div>
     </footer>
