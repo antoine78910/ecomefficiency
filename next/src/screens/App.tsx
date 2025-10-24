@@ -172,27 +172,6 @@ const App = () => {
   }, [])
 
   // Bottom-right server country/currency badge for debugging currency decision
-  const [ipInfo, setIpInfo] = React.useState<{ country?: string|null, currency?: 'EUR'|'USD' } | null>(null)
-  React.useEffect(() => {
-    let active = true
-    ;(async () => {
-      try {
-        // Use client-side IP detection via ipapi.co (works in localhost)
-        const g = await fetch('https://ipapi.co/json/', { cache: 'no-store' })
-        const gj = await g.json().catch(() => ({} as any))
-        const cc = String(gj?.country_code || gj?.country || '').toUpperCase()
-        const eu = new Set(['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE'])
-        if (cc && active) {
-          const currency = eu.has(cc) ? 'EUR' : 'USD'
-          setIpInfo({ country: cc, currency })
-          console.log('[App] Detected country/currency:', cc, currency)
-        }
-      } catch (e) {
-        console.warn('[App] IP detection failed:', e)
-      }
-    })()
-    return () => { active = false }
-  }, [])
 
   return (
     <div>
@@ -219,11 +198,6 @@ const App = () => {
               <h2 className="text-2xl font-bold text-white">Tools</h2>
               <PlanBadgeInline />
         </div>
-            {ipInfo ? (
-              <div className="fixed bottom-3 right-3 z-40 text-[10px] md:text-xs text-gray-300 bg-black/60 border border-white/10 rounded-md px-2 py-1">
-                <span>{ipInfo.country || '—'}</span>
-              </div>
-            ) : null}
       </div>
           <CredentialsPanel />
         </div>

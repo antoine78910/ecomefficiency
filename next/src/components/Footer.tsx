@@ -123,41 +123,5 @@ const Footer = () => {
   );
 };
 
-function CurrentIpBadge() {
-  const [country, setCountry] = React.useState<string | null>(null)
-  const [browserIp, setBrowserIp] = React.useState<string | null>(null)
-  
-  React.useEffect(() => {
-    let mounted = true
-    ;(async () => {
-      try {
-        // Get country and IP from ipapi.co
-        const r = await fetch('https://ipapi.co/json/', { cache: 'no-store' })
-        const j = await r.json().catch(() => ({}))
-        if (mounted) {
-          if (j?.country) setCountry(j.country)
-          if (j?.ip) setBrowserIp(j.ip)
-        }
-      } catch {
-        // Fallback: just get IP
-        try {
-          const r = await fetch('https://api.ipify.org?format=json', { cache: 'no-store' })
-          const j = await r.json().catch(() => ({}))
-          if (j?.ip && mounted) setBrowserIp(j.ip)
-        } catch {}
-      }
-    })()
-    return () => { mounted = false }
-  }, [])
-  
-  return (
-    <div className="text-[10px] md:text-xs text-gray-500">
-      {country && <span className="text-gray-300 font-semibold">{country}</span>}
-      {country && browserIp && <span className="mx-1">·</span>}
-      {browserIp && <span className="text-gray-400">{browserIp}</span>}
-      {!country && !browserIp && <span>—</span>}
-    </div>
-  )
-}
 
 export default Footer;
