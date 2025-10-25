@@ -2,6 +2,7 @@ import { supabaseAdmin } from '@/integrations/supabase/server'
 import { cookies } from 'next/headers'
 import { redirect } from 'next/navigation'
 import AdminLogoutButton from '@/components/AdminLogoutButton'
+import AdminNavigation from '@/components/AdminNavigation'
 import { parseUserAgent, formatUserAgentShort, getDeviceDisplayName } from '@/lib/parseUserAgent'
 
 export const dynamic = 'force-dynamic'
@@ -177,6 +178,8 @@ export default async function AdminSessionsPage() {
   return (
     <div className="min-h-screen bg-black text-white px-6 py-10">
       <div className="max-w-7xl mx-auto">
+        <AdminNavigation />
+        
         <div className="flex items-center justify-between mb-6">
           <div>
             <h1 className="text-3xl font-bold">User IP Sessions - Complete History</h1>

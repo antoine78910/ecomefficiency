@@ -1,5 +1,6 @@
 "use client";
 import React from "react";
+import AdminNavigation from '@/components/AdminNavigation';
 
 type Row = { date: string; source: string; members_count: number; subscribers_count: number }
 
@@ -82,7 +83,9 @@ export default function AdminAnalytics() {
 
   return (
     <div className="min-h-screen bg-black text-white p-6">
-      <h1 className="text-2xl font-bold mb-4">Discord Traffic Analytics</h1>
+      <div className="max-w-7xl mx-auto">
+        <AdminNavigation />
+        <h1 className="text-2xl font-bold mb-4">Discord Traffic Analytics</h1>
       <div className="flex flex-wrap items-end gap-3 mb-4">
         <div className="flex items-end gap-2">
           <button onClick={()=>{ const d=new Date(date||new Date()); d.setDate(d.getDate()-1); const s=d.toISOString().slice(0,10); setDate(s); setStart(s); setEnd(s); setRangeMode('custom'); load(); }} className="px-3 py-2 rounded border border-white/10 hover:bg-white/10">◀</button>
@@ -187,6 +190,7 @@ export default function AdminAnalytics() {
             </tbody>
           </table>
         </div>
+      </div>
       </div>
     </div>
   )

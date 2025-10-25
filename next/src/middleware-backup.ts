@@ -1,82 +1,9 @@
 import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { updateSession } from './integrations/supabase/middleware'
-import { performSecurityCheck, getClientIP } from './lib/security'
 
 export async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname
-  
-  // 🔒 SÉCURITÉ : Vérification des blocages IP et pays
-  // Skip security check for admin routes and static assets
-  if (!pathname.startsWith('/admin') && 
-      !pathname.startsWith('/_next') && 
-      !pathname.startsWith('/api/admin') &&
-      !pathname.includes('.')) {
-    
-    try {
-      const clientIP = getClientIP(req)
-      const userAgent = req.headers.get('user-agent') || ''
-      
-      const securityCheck = await performSecurityCheck(
-        clientIP, 
-        userAgent, 
-        pathname
-      )
-      
-      if (securityCheck.isBlocked) {
-        console.log(`🚫 Accès bloqué: ${clientIP} - ${securityCheck.reason}`)
-        
-        // Retourner une page de service indisponible simple
-        const blockedResponse = new NextResponse(
-          `
-          <!DOCTYPE html>
-          <html lang="fr">
-          <head>
-            <meta charset="UTF-8">
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Service indisponible</title>
-            <style>
-              body { 
-                font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-                background: #000;
-                margin: 0; padding: 0; min-height: 100vh;
-                display: flex; align-items: center; justify-content: center;
-                color: white;
-              }
-              .container { 
-                text-align: center; max-width: 400px; margin: 2rem;
-              }
-              .icon { font-size: 3rem; margin-bottom: 1rem; }
-              h1 { color: white; margin-bottom: 1rem; font-size: 1.5rem; }
-              p { color: #999; line-height: 1.6; }
-            </style>
-          </head>
-          <body>
-            <div class="container">
-              <div class="icon">🚫</div>
-              <h1>Service indisponible</h1>
-              <p>Notre service est momentanément indisponible.</p>
-            </div>
-          </body>
-          </html>
-          `,
-          {
-            status: 503,
-            headers: {
-              'Content-Type': 'text/html; charset=utf-8',
-              'Cache-Control': 'no-cache, no-store, must-revalidate',
-              'X-Security-Block': 'true',
-              'X-Block-Reason': securityCheck.reason || 'unknown'
-            }
-          }
-        )
-        return blockedResponse
-      }
-    } catch (error) {
-      console.error('Erreur lors de la vérification de sécurité:', error)
-      // En cas d'erreur, on continue (ne pas bloquer l'app)
-    }
-  }
   
   // Skip Supabase session update for admin routes (they have their own auth)
   let response: NextResponse
@@ -108,8 +35,6 @@ export async function middleware(req: NextRequest) {
   if (pathname.startsWith('/elevenlabs/')) {
     const r = url.clone(); r.pathname = '/proxy/elevenlabs' + pathname.slice('/elevenlabs'.length);
     response = NextResponse.rewrite(r, { request: { headers: req.headers } })
-    return response
-  }
   if (pathname.startsWith('/pipiads/')) {
     const r = url.clone(); r.pathname = '/proxy/pipiads' + pathname.slice('/pipiads'.length);
     response = NextResponse.rewrite(r, { request: { headers: req.headers } })
@@ -187,4 +112,3 @@ export const config = {
     '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|public_app_assets|app_assets).*)',
   ],
 }
-

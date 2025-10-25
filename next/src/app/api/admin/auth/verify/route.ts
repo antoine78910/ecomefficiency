@@ -8,6 +8,7 @@ export async function GET() {
     
     if (!sessionCookie?.value) {
       return NextResponse.json({ 
+        success: false,
         authenticated: false 
       }, { status: 401 })
     }
@@ -16,6 +17,7 @@ export async function GET() {
     const correctPassword = process.env.ADMIN_PASSWORD || ''
     if (!correctPassword) {
       return NextResponse.json({ 
+        success: false,
         authenticated: false 
       }, { status: 500 })
     }
@@ -25,20 +27,24 @@ export async function GET() {
       const decoded = Buffer.from(sessionCookie.value, 'base64').toString()
       if (!decoded.startsWith(correctPassword + '-')) {
         return NextResponse.json({ 
+          success: false,
           authenticated: false 
         }, { status: 401 })
       }
     } catch {
       return NextResponse.json({ 
+        success: false,
         authenticated: false 
       }, { status: 401 })
     }
     
     return NextResponse.json({ 
+      success: true,
       authenticated: true 
     })
   } catch (error) {
     return NextResponse.json({ 
+      success: false,
       authenticated: false 
     }, { status: 500 })
   }
