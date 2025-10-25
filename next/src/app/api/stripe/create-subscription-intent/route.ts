@@ -359,8 +359,32 @@ export async function POST(req: NextRequest) {
       const datafastApiKey = process.env.DATAFAST_API_KEY;
       const datafastVisitorId = req.cookies.get('datafast_visitor_id')?.value;
       
+      console.log('🎯 [CHECKOUT GOAL] Tentative de déclenchement checkout_initiated:', {
+        hasApiKey: !!datafastApiKey,
+        hasVisitorId: !!datafastVisitorId,
+        tier,
+        billing,
+        currency
+      });
+      
       if (datafastApiKey && datafastVisitorId) {
         console.log('[create-subscription-intent] 📊 Tracking checkout_initiated goal');
+        
+        const goalPayload = {
+          datafast_visitor_id: datafastVisitorId,
+          name: 'checkout_initiated',
+          metadata: {
+            tier,
+            billing,
+            currency,
+            price_cents: prices[tier][billing],
+            email: userEmail,
+            customer_id: customer.id,
+            subscription_id: subscription.id
+          }
+        };
+        
+        console.log('🎯 [CHECKOUT GOAL] Payload envoyé à DataFast:', JSON.stringify(goalPayload, null, 2));
         
         const goalRes = await fetch('https://app.datafast.io/api/v1/events', {
           method: 'POST',
@@ -368,35 +392,28 @@ export async function POST(req: NextRequest) {
             'Content-Type': 'application/json',
             'Authorization': `Bearer ${datafastApiKey}`
           },
-          body: JSON.stringify({
-            datafast_visitor_id: datafastVisitorId,
-            name: 'checkout_initiated',
-            metadata: {
-              tier,
-              billing,
-              currency,
-              price_cents: prices[tier][billing],
-              email: userEmail,
-              customer_id: customer.id,
-              subscription_id: subscription.id
-            }
-          })
+          body: JSON.stringify(goalPayload)
         });
         
         if (goalRes.ok) {
-          console.log('[create-subscription-intent] ✅ checkout_initiated goal tracked');
+          const responseData = await goalRes.json().catch(() => ({}));
+          console.log('[create-subscription-intent] ✅ checkout_initiated goal tracked:', responseData);
+          console.log('🎯 [CHECKOUT GOAL] ✅ Goal checkout_initiated déclenché avec succès!');
         } else {
           const errorText = await goalRes.text().catch(() => '');
           console.warn('[create-subscription-intent] ⚠️ Failed to track goal:', goalRes.status, errorText);
+          console.log('🎯 [CHECKOUT GOAL] ❌ Échec du tracking:', goalRes.status, errorText);
         }
       } else {
         console.log('[create-subscription-intent] ℹ️ DataFast tracking skipped:', {
           hasApiKey: !!datafastApiKey,
           hasVisitorId: !!datafastVisitorId
         });
+        console.log('🎯 [CHECKOUT GOAL] ⚠️ Tracking non effectué - données manquantes');
       }
     } catch (e) {
       console.error('[create-subscription-intent] Failed to track DataFast goal (non-blocking):', e);
+      console.log('🎯 [CHECKOUT GOAL] ❌ Erreur lors du tracking:', e);
     }
 
     return NextResponse.json({

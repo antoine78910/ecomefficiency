@@ -309,11 +309,10 @@ export default function SecurityPage() {
                 <div className="text-center max-w-lg w-full mx-4">
                   <div className="text-5xl mb-4">🚫</div>
                   <h1 className="text-2xl font-bold text-white mb-4">
-                    Service indisponible
+                  Service unavailable
                   </h1>
                   <p className="text-gray-400 leading-relaxed">
-                    Notre service est momentanément indisponible.
-                  </p>
+                  Our service is temporarily unavailable.                  </p>
                 </div>
               </div>
             </div>

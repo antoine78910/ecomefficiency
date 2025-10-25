@@ -34,7 +34,7 @@ export async function middleware(req: NextRequest) {
           <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Service indisponible</title>
+            <title>Service unavailable</title>
             <style>
               body { 
                 font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -54,8 +54,8 @@ export async function middleware(req: NextRequest) {
           <body>
             <div class="container">
               <div class="icon">🚫</div>
-              <h1>Service indisponible</h1>
-              <p>Notre service est momentanément indisponible.</p>
+              <h1>Service unavailable</h1>
+              <p>Our service is temporarily unavailable</p>
             </div>
           </body>
           </html>
