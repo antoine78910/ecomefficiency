@@ -359,9 +359,13 @@ export async function POST(req: NextRequest) {
       const datafastApiKey = process.env.DATAFAST_API_KEY;
       const datafastVisitorId = req.cookies.get('datafast_visitor_id')?.value;
       
+      // DEBUG: Log all cookies to see what's available
+      console.log('🍪 [DEBUG] All cookies:', req.cookies.getAll().map(c => c.name));
       console.log('🎯 [CHECKOUT GOAL] Tentative de déclenchement checkout_initiated:', {
         hasApiKey: !!datafastApiKey,
         hasVisitorId: !!datafastVisitorId,
+        visitorIdValue: datafastVisitorId,
+        allCookies: req.cookies.getAll().map(c => ({ name: c.name, hasValue: !!c.value })),
         tier,
         billing,
         currency
