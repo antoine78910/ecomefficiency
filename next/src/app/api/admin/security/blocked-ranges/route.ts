@@ -73,7 +73,7 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Supabase non configuré' }, { status: 500 })
     }
     
-    const { error } = await supabase
+    const { error } = await supabaseAdmin
       .from('blocked_ip_ranges')
       .delete()
       .eq('id', id)
