@@ -4,6 +4,8 @@ import { rateLimit } from "@/lib/rateLimit";
 import { supabaseAdmin } from "@/integrations/supabase/server";
 
 export async function POST(req: NextRequest) {
+  const requestId = `csireq_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+  console.log('🚀 [CREATE-SUBSCRIPTION-INTENT]', requestId, 'Route appelée');
   try {
     const body = await req.json().catch(() => ({})) as { 
       tier?: 'starter'|'pro'; 
@@ -13,11 +15,14 @@ export async function POST(req: NextRequest) {
       couponCode?: string;
     };
 
+    console.log('🚀 [CREATE-SUBSCRIPTION-INTENT]', requestId, 'Body reçu:', body);
+
     if (!process.env.STRIPE_SECRET_KEY) {
       return NextResponse.json({ error: "stripe_not_configured" }, { status: 500 });
     }
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-07-30.basil" });
+    console.log('[create-subscription-intent]', requestId, 'Stripe client initialisé');
 
     // SECURITY: Rate limit by IP (10 requests per minute)
     const ip = req.headers.get('x-forwarded-for')?.split(',')[0] || 
@@ -25,7 +30,7 @@ export async function POST(req: NextRequest) {
                 'unknown';
     
     if (!rateLimit(`checkout:${ip}`, 10, 60000)) {
-      console.warn('[create-subscription-intent] ⚠️ Rate limit exceeded for IP:', ip);
+      console.warn('[create-subscription-intent]', requestId, '⚠️ Rate limit exceeded for IP:', ip);
       return NextResponse.json({ 
         error: "rate_limit_exceeded",
         message: "Too many requests. Please wait a moment and try again."
@@ -74,7 +79,7 @@ export async function POST(req: NextRequest) {
         const { data: user, error } = await supabaseAdmin.auth.admin.getUserById(userId);
         
         if (error || !user || user.email !== userEmail) {
-          console.warn('[create-subscription-intent] ⚠️ userId/email mismatch (continuing anyway):', { 
+          console.warn('[create-subscription-intent]', requestId, '⚠️ userId/email mismatch (continuing anyway):', { 
             providedUserId: userId,
             providedEmail: userEmail,
             actualEmail: user?.email,
@@ -82,14 +87,14 @@ export async function POST(req: NextRequest) {
           });
           // Don't block - validation is advisory only
         } else {
-          console.log('[create-subscription-intent] ✅ User validated:', userId);
+          console.log('[create-subscription-intent]', requestId, '✅ User validated:', userId);
         }
       } catch (e) {
-        console.error('[create-subscription-intent] Failed to validate user:', e);
+        console.error('[create-subscription-intent]', requestId, 'Failed to validate user:', e);
         // Continue anyway - non-blocking validation
       }
     } else {
-      console.log('[create-subscription-intent] ℹ️ User validation skipped:', {
+      console.log('[create-subscription-intent]', requestId, 'ℹ️ User validation skipped:', {
         hasUserId: !!userId,
         hasEmail: !!userEmail,
         hasSupabaseAdmin: !!supabaseAdmin
@@ -123,6 +128,7 @@ export async function POST(req: NextRequest) {
     });
 
     if (activeSubs.data.length > 0) {
+      console.log('[create-subscription-intent]', requestId, 'User already subscribed, aborting');
       return NextResponse.json({ 
         error: "already_subscribed",
         message: "You already have an active subscription."
@@ -140,7 +146,7 @@ export async function POST(req: NextRequest) {
     const veryRecentSubs = recentSubs.data.filter(sub => sub.created >= tenSecondsAgo);
     
     if (veryRecentSubs.length >= 3) {
-      console.log('[create-subscription-intent] ⚠️ Too many rapid subscription attempts:', {
+      console.log('[create-subscription-intent]', requestId, '⚠️ Too many rapid subscription attempts:', {
         count: veryRecentSubs.length,
         recent: veryRecentSubs.map(s => ({ id: s.id, created: new Date(s.created * 1000).toISOString() }))
       });
@@ -155,7 +161,7 @@ export async function POST(req: NextRequest) {
         const pi: any = li?.payment_intent;
         
         if (pi && pi.client_secret) {
-          console.log('[create-subscription-intent] ✅ Reusing most recent subscription');
+          console.log('[create-subscription-intent]', requestId, '✅ Reusing most recent subscription');
           return NextResponse.json({
             subscriptionId: existing.id,
             invoiceId: li.id,
@@ -175,21 +181,47 @@ export async function POST(req: NextRequest) {
       }, { status: 429 });
     }
 
-    // Clean up incomplete subscriptions to avoid accumulation and anti-fraud flags
+    // Handle existing incomplete subscriptions gracefully: reuse most recent if possible
     const incompleteSubs = await stripe.subscriptions.list({
       customer: customer.id,
       status: 'incomplete',
       limit: 10
     });
 
-    console.log('[create-subscription-intent] Found incomplete subs to clean:', incompleteSubs.data.length);
-
-    for (const oldSub of incompleteSubs.data) {
+    if (incompleteSubs.data.length > 0) {
+      console.log('[create-subscription-intent]', requestId, 'Found incomplete subs:', incompleteSubs.data.map(s=>s.id));
+      // Sort by creation date desc and try to reuse the newest one
+      const newestIncomplete = [...incompleteSubs.data].sort((a, b) => b.created - a.created)[0];
       try {
-        await stripe.subscriptions.cancel(oldSub.id);
-        console.log('[create-subscription-intent] ✅ Cleaned incomplete sub:', oldSub.id);
+        const reused = await stripe.subscriptions.retrieve(newestIncomplete.id, { expand: ['latest_invoice.payment_intent'] });
+        const li: any = reused.latest_invoice;
+        const pi: any = li?.payment_intent;
+        if (pi?.client_secret) {
+          console.log('[create-subscription-intent]', requestId, '♻️ Reusing existing incomplete subscription PI:', { subId: reused.id, invoiceId: li?.id, piId: pi.id });
+          return NextResponse.json({
+            subscriptionId: reused.id,
+            invoiceId: li.id,
+            paymentIntentId: pi.id,
+            clientSecret: pi.client_secret,
+            customerId: customer.id,
+            note: 'Reused existing incomplete subscription'
+          });
+        }
       } catch (e) {
-        console.error('[create-subscription-intent] Failed to cancel incomplete sub:', oldSub.id);
+        console.warn('[create-subscription-intent]', requestId, 'Failed to reuse incomplete subscription, will create a new one');
+      }
+
+      // Optionally clean up very old incomplete subs (> 1 hour) to reduce clutter
+      const oneHourAgo = Math.floor(Date.now() / 1000) - 3600;
+      for (const oldSub of incompleteSubs.data) {
+        if (oldSub.created < oneHourAgo) {
+          try {
+            await stripe.subscriptions.cancel(oldSub.id);
+            console.log('[create-subscription-intent]', requestId, '🧹 Cleaned old incomplete sub:', oldSub.id);
+          } catch (e) {
+            console.error('[create-subscription-intent]', requestId, 'Failed to cancel old incomplete sub:', oldSub.id);
+          }
+        }
       }
     }
 
@@ -201,13 +233,9 @@ export async function POST(req: NextRequest) {
       collection_method: 'charge_automatically',
       payment_behavior: 'default_incomplete',
       payment_settings: {
-        save_default_payment_method: 'on_subscription',
-        payment_method_types: ['card', 'link'], // Card + Link (includes Apple Pay & Google Pay)
-        payment_method_options: {
-          card: {
-            request_three_d_secure: 'automatic'
-          }
-        }
+        // Keep it minimal: let Stripe create a PI on the invoice with supported methods
+        payment_method_types: ['card', 'link'],
+        save_default_payment_method: 'on_subscription'
       },
       // Important: expand PaymentIntent on the latest invoice so we can confirm it client-side
       expand: ['latest_invoice.payment_intent'],
@@ -260,9 +288,18 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const subscription = await stripe.subscriptions.create(subscriptionParams);
+    console.log('[create-subscription-intent]', requestId, 'Creating subscription with params:', {
+      customer: subscriptionParams.customer,
+      price: priceId,
+      tier,
+      billing
+    });
+    // Use idempotency to avoid duplicate subs on quick reloads; combined with reuse logic above
+    // Include a version suffix so changes to params won't clash with previous keys
+    const idemKey = `sub_${customer.id}_${priceId}_${tier}_${billing}_v2`;
+    const subscription = await stripe.subscriptions.create(subscriptionParams, { idempotencyKey: idemKey });
 
-    console.log('[create-subscription-intent] Subscription created', {
+    console.log('[create-subscription-intent]', requestId, 'Subscription created', {
       id: subscription.id,
       status: subscription.status,
       discounts: (subscription as any)?.discounts,
@@ -280,8 +317,9 @@ export async function POST(req: NextRequest) {
     let invoice = typeof latestInvoice === 'object'
       ? latestInvoice
       : await stripe.invoices.retrieve(invoiceId, { expand: ['payment_intent'] });
+    console.log('[create-subscription-intent]', requestId, 'Invoice retrieved', { invoiceId, hasPI: !!(invoice as any)?.payment_intent });
 
-    // If PaymentIntent is missing, try to finalize and retry expansion
+    // If PaymentIntent is missing, attempt safe retries to let Stripe attach it to the invoice
     if (!invoice || !(invoice as any).payment_intent) {
       try {
         const status = (invoice as any)?.status;
@@ -290,48 +328,37 @@ export async function POST(req: NextRequest) {
         }
       } catch {}
 
-      // Brief delay to allow Stripe to attach PI after finalization
-      try { await new Promise(r => setTimeout(r, 800)); } catch {}
-
-      // Retry retrieving with expansion
-      try {
-        invoice = await stripe.invoices.retrieve(invoiceId, { expand: ['payment_intent'] });
-      } catch {}
-    }
-
-    if (!invoice || !(invoice as any).payment_intent) {
-      // Try to create a PaymentIntent directly tied to the invoice amount
-      try {
-        const amount = (invoice as any)?.amount_due;
-        if (typeof amount === 'number' && amount > 0) {
-          const pi = await stripe.paymentIntents.create({
-            amount,
-            currency: currency.toLowerCase(),
-            customer: customer.id,
-            automatic_payment_methods: { enabled: true },
-            description: `Ecom Efficiency - ${tier} ${billing}`,
-            metadata: { subscription_id: subscription.id, invoice_id: invoiceId, ...(userId ? { userId } : {}) },
-          });
-          if (pi && pi.client_secret) {
-            return NextResponse.json({
-              subscriptionId: subscription.id,
-              invoiceId,
-              paymentIntentId: pi.id,
-              clientSecret: pi.client_secret,
-              customerId: customer.id,
-            });
-          }
-        }
-      } catch {}
+      // Perform a few short retries to retrieve the invoice PI instead of creating a standalone PI
+      for (let i = 0; i < 4; i++) {
+        try { await new Promise(r => setTimeout(r, 600)); } catch {}
+        try {
+          invoice = await stripe.invoices.retrieve(invoiceId, { expand: ['payment_intent'] });
+          const hasPI = !!(invoice as any)?.payment_intent;
+          console.log('[create-subscription-intent]', requestId, `Retry ${i+1}/4 invoice fetch`, { hasPI });
+          if (hasPI) break;
+        } catch {}
+      }
 
       // As a last attempt, re-fetch subscription expanded (Stripe eventual consistency)
-      try {
-        const refreshed = await stripe.subscriptions.retrieve(subscription.id, { expand: ['latest_invoice.payment_intent'] });
-        const li: any = refreshed.latest_invoice;
-        if (li && li.payment_intent) {
-          invoice = li;
+      if (!(invoice as any)?.payment_intent) {
+        for (let i = 0; i < 3; i++) {
+          try { await new Promise(r => setTimeout(r, 500)); } catch {}
+          try {
+            const refreshed = await stripe.subscriptions.retrieve(subscription.id, { expand: ['latest_invoice.payment_intent'] });
+            const li: any = refreshed.latest_invoice;
+            if (li && li.payment_intent) {
+              invoice = li;
+              break;
+            }
+          } catch {}
         }
-      } catch {}
+      }
+    }
+
+    // Still no PI? Return an error so client can retry instead of creating an out-of-band charge
+    if (!invoice || !(invoice as any).payment_intent) {
+      console.error('[create-subscription-intent]', requestId, 'No PaymentIntent on invoice after retries', { invoiceId, subId: subscription.id });
+      return NextResponse.json({ error: 'no_payment_intent', requestId, message: 'Payment is initializing. Please retry in a few seconds.' }, { status: 503 });
     }
 
     if (!invoice || !(invoice as any).payment_intent) {
@@ -344,7 +371,7 @@ export async function POST(req: NextRequest) {
       ? await stripe.paymentIntents.retrieve((invoice as any).payment_intent)
       : (invoice as any).payment_intent;
 
-    console.log('[create-subscription-intent] Using invoice PaymentIntent', {
+    console.log('[create-subscription-intent]', requestId, 'Using invoice PaymentIntent', {
       id: paymentIntent.id,
       amount: paymentIntent.amount,
       hasSecret: !!paymentIntent.client_secret
@@ -360,8 +387,8 @@ export async function POST(req: NextRequest) {
       const datafastVisitorId = req.cookies.get('datafast_visitor_id')?.value;
       
       // DEBUG: Log all cookies to see what's available
-      console.log('🍪 [DEBUG] All cookies:', req.cookies.getAll().map(c => c.name));
-      console.log('🎯 [CHECKOUT GOAL] Tentative de déclenchement checkout_initiated:', {
+      console.log('🍪 [DEBUG]', requestId, 'All cookies:', req.cookies.getAll().map(c => c.name));
+      console.log('🎯 [CHECKOUT GOAL]', requestId, 'Tentative de déclenchement checkout_initiated:', {
         hasApiKey: !!datafastApiKey,
         hasVisitorId: !!datafastVisitorId,
         visitorIdValue: datafastVisitorId,
@@ -372,7 +399,7 @@ export async function POST(req: NextRequest) {
       });
       
       if (datafastApiKey && datafastVisitorId) {
-        console.log('[create-subscription-intent] 📊 Tracking checkout_initiated goal');
+        console.log('[create-subscription-intent]', requestId, '📊 Tracking checkout_initiated goal');
         
         const goalPayload = {
           datafast_visitor_id: datafastVisitorId,
@@ -388,7 +415,7 @@ export async function POST(req: NextRequest) {
           }
         };
         
-        console.log('🎯 [CHECKOUT GOAL] Payload envoyé à DataFast:', JSON.stringify(goalPayload, null, 2));
+        console.log('🎯 [CHECKOUT GOAL]', requestId, 'Payload envoyé à DataFast:', JSON.stringify(goalPayload, null, 2));
         
         const goalRes = await fetch('https://app.datafast.io/api/v1/events', {
           method: 'POST',
@@ -401,38 +428,41 @@ export async function POST(req: NextRequest) {
         
         if (goalRes.ok) {
           const responseData = await goalRes.json().catch(() => ({}));
-          console.log('[create-subscription-intent] ✅ checkout_initiated goal tracked:', responseData);
-          console.log('🎯 [CHECKOUT GOAL] ✅ Goal checkout_initiated déclenché avec succès!');
+          console.log('[create-subscription-intent]', requestId, '✅ checkout_initiated goal tracked:', responseData);
+          console.log('🎯 [CHECKOUT GOAL]', requestId, '✅ Goal checkout_initiated déclenché avec succès!');
         } else {
           const errorText = await goalRes.text().catch(() => '');
-          console.warn('[create-subscription-intent] ⚠️ Failed to track goal:', goalRes.status, errorText);
-          console.log('🎯 [CHECKOUT GOAL] ❌ Échec du tracking:', goalRes.status, errorText);
+          console.warn('[create-subscription-intent]', requestId, '⚠️ Failed to track goal:', goalRes.status, errorText);
+          console.log('🎯 [CHECKOUT GOAL]', requestId, '❌ Échec du tracking:', goalRes.status, errorText);
         }
       } else {
-        console.log('[create-subscription-intent] ℹ️ DataFast tracking skipped:', {
+        console.log('[create-subscription-intent]', requestId, 'ℹ️ DataFast tracking skipped:', {
           hasApiKey: !!datafastApiKey,
           hasVisitorId: !!datafastVisitorId
         });
-        console.log('🎯 [CHECKOUT GOAL] ⚠️ Tracking non effectué - données manquantes');
+        console.log('🎯 [CHECKOUT GOAL]', requestId, '⚠️ Tracking non effectué - données manquantes');
       }
     } catch (e) {
-      console.error('[create-subscription-intent] Failed to track DataFast goal (non-blocking):', e);
-      console.log('🎯 [CHECKOUT GOAL] ❌ Erreur lors du tracking:', e);
+      console.error('[create-subscription-intent]', requestId, 'Failed to track DataFast goal (non-blocking):', e);
+      console.log('🎯 [CHECKOUT GOAL]', requestId, '❌ Erreur lors du tracking:', e);
     }
 
+    console.log('[create-subscription-intent]', requestId, '✅ Returning client secret');
     return NextResponse.json({
       subscriptionId: subscription.id,
       invoiceId,
       paymentIntentId: paymentIntent.id,
       clientSecret: paymentIntent.client_secret,
       customerId: customer.id,
+      requestId,
     });
 
   } catch (e: any) {
-    console.error('[create-subscription-intent] error', e);
+    console.error('[create-subscription-intent] error', requestId, e);
     return NextResponse.json({ 
       error: 'stripe_error', 
-      message: e?.message || 'Unknown error' 
+      message: e?.message || 'Unknown error',
+      requestId
     }, { status: 500 });
   }
 }

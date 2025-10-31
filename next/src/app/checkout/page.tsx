@@ -98,51 +98,67 @@ function CheckoutContent() {
     let cancelled = false;
     (async () => {
       try {
-        // Get user info
+        // Get user info, then immediately create a Checkout Session and redirect
         const { data } = await supabase.auth.getUser();
         const email = data.user?.email;
         const userId = data.user?.id;
         const meta = (data.user?.user_metadata as any) || {};
         const existingCustomerId = meta.stripe_customer_id;
-        
-        if (email && !cancelled) {
-          setUserEmail(email);
-        }
 
-        // Check if user is authenticated
-        if (!email && !userId) {
-          throw new Error('You must be signed in to checkout. Please sign in or create an account first.');
-        }
-
+        if (email && !cancelled) setUserEmail(email);
+        if (!email && !userId) throw new Error('You must be signed in to checkout. Please sign in or create an account first.');
         if (existingCustomerId) setCustomerId(existingCustomerId);
 
-        // Create subscription intent
+        // Create a Stripe Checkout Session (server handles single transaction semantics)
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (email) headers['x-user-email'] = email;
         if (userId) headers['x-user-id'] = userId;
 
-        const res = await fetch('/api/stripe/create-subscription-intent', {
+        const res = await fetch('/api/stripe/checkout', {
           method: 'POST',
           headers,
-          body: JSON.stringify({ tier, billing, currency, customerId: existingCustomerId })
+          body: JSON.stringify({ tier, billing, currency })
         });
-
         const json = await res.json();
-        if (!res.ok || !json.clientSecret) {
-          const errorMsg = json.message || json.error || 'Failed to create payment intent';
+        if (!res.ok || !json.url) {
+          const errorMsg = json.message || json.error || 'Failed to start checkout';
           throw new Error(errorMsg);
         }
-
-        if (!cancelled) {
-          setClientSecret(json.clientSecret);
-          if (json.customerId) setCustomerId(json.customerId);
-        }
+        if (!cancelled) window.location.href = json.url;
       } catch (e: any) {
         if (!cancelled) setError(e.message || 'Failed to initialize checkout');
       }
     })();
     return () => { cancelled = true; };
   }, [tier, billing, currency]);
+
+  const startCheckout = async () => {
+    try {
+      setError(null);
+      const { data } = await supabase.auth.getUser();
+      const email = data.user?.email;
+      const userId = data.user?.id;
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (email) headers['x-user-email'] = email;
+      if (userId) headers['x-user-id'] = userId;
+
+      const res = await fetch('/api/stripe/create-subscription-intent', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ tier, billing, currency, customerId })
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.clientSecret) {
+        const errorMsg = json.message || json.error || 'Failed to create payment intent';
+        throw new Error(errorMsg);
+      }
+      setClientSecret(json.clientSecret);
+      if (json.customerId) setCustomerId(json.customerId);
+    } catch (e: any) {
+      setError(e.message || 'Failed to start checkout');
+    }
+  };
 
   const formatPrice = (amount: number, c: 'USD' | 'EUR') => {
     if (c === 'EUR') {
@@ -235,7 +251,7 @@ function CheckoutContent() {
       <div className="min-h-screen bg-black flex items-center justify-center">
         <div className="text-center">
           <div className="h-10 w-10 rounded-full border-2 border-white/30 border-t-white animate-spin mx-auto mb-3" />
-          <p className="text-gray-400 text-sm">Preparing your checkout...</p>
+          <p className="text-gray-400 text-sm">Redirecting to secure checkout...</p>
         </div>
       </div>
     );
@@ -398,39 +414,8 @@ function CheckoutContent() {
           </div>
 
           {/* Payment Form */}
-          <div className="bg-gray-900/50 border border-purple-500/20 rounded-2xl p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-white font-semibold text-base">Payment Details</h2>
-              <div className="flex items-center gap-2 text-xs text-gray-400">
-                <svg className="w-3 h-3 text-green-500" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd"/>
-                </svg>
-                256-bit encryption
-              </div>
-            </div>
-            
-            <Elements key={clientSecret || 'default'} stripe={stripePromise} options={{ 
-              clientSecret, 
-              appearance: {
-                theme: 'night',
-                variables: {
-                  colorPrimary: '#9541e0',
-                  colorBackground: '#1f2937',
-                  colorText: '#ffffff',
-                  colorDanger: '#ef4444',
-                  fontFamily: 'Inter, system-ui, sans-serif',
-                  borderRadius: '8px',
-                }
-              },
-              paymentMethodOrder: ['card']
-            } as any}>
-              <CheckoutForm 
-                tier={tier} 
-                billing={billing} 
-                currency={currency}
-                customerId={customerId}
-              />
-            </Elements>
+          <div className="bg-gray-900/50 border border-purple-500/20 rounded-2xl p-4 text-center text-gray-400">
+            Redirecting to Stripe Checkout...
           </div>
         </div>
       </div>

@@ -5,6 +5,7 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
+  const requestId = `wh_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
   const sig = req.headers.get('stripe-signature');
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!process.env.STRIPE_SECRET_KEY || !secret) {
@@ -23,12 +24,14 @@ export async function POST(req: NextRequest) {
   }
 
   try {
+    console.log('[webhook]', requestId, 'Event received:', event.type);
     switch (event.type) {
       case 'checkout.session.completed': {
         // Only process completed checkouts with successful payment
         const session = (event as any).data?.object;
         const paymentStatus = session?.payment_status;
         const status = session?.status;
+        console.log('[webhook]', requestId, 'checkout.session.completed', { paymentStatus, status, sessionId: session?.id, customer: session?.customer });
         
         // Only upgrade plan if payment is actually completed
         if (paymentStatus === 'paid' && status === 'complete') {
@@ -54,6 +57,7 @@ export async function POST(req: NextRequest) {
         const subscriptionStatus = subscription?.status;
         const clientRef = subscription?.metadata?.userId;
         const customerId = subscription?.customer;
+        console.log('[webhook]', requestId, 'subscription event', { subscriptionStatus, subscriptionId: subscription?.id, clientRef, customerId });
 
         if (clientRef && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL) {
           if (subscriptionStatus === 'active' || subscriptionStatus === 'trialing') {
@@ -85,6 +89,7 @@ export async function POST(req: NextRequest) {
           const pi: any = (event as any).data?.object;
           const invoiceId: string | undefined = pi?.metadata?.invoice_id;
           const subscriptionId: string | undefined = pi?.metadata?.subscription_id;
+          console.log('[webhook]', requestId, 'payment_intent.succeeded', { piId: pi?.id, invoiceId, subscriptionId });
           if (invoiceId && subscriptionId) {
             try { await stripe.invoices.finalizeInvoice(invoiceId).catch(()=>{}); } catch {}
             try {
@@ -116,6 +121,7 @@ export async function POST(req: NextRequest) {
         // Activate plan when payment succeeds - THIS IS THE CRITICAL PATH
         const invoice = (event as any).data?.object;
         const subscriptionId = invoice?.subscription;
+        console.log('[webhook]', requestId, 'invoice.payment_succeeded', { invoiceId: invoice?.id, subscriptionId, customer: invoice?.customer, amount_paid: invoice?.amount_paid });
 
         if (subscriptionId) {
           try {
@@ -128,7 +134,7 @@ export async function POST(req: NextRequest) {
             // Map tier to plan: starter → starter, pro/growth → pro
             const plan = tier === 'starter' ? 'starter' : 'pro';
 
-            console.log('[webhook][invoice.payment_succeeded] 🔔 ACTIVATING PLAN:', {
+            console.log('[webhook][invoice.payment_succeeded]', requestId, '🔔 ACTIVATING PLAN:', {
               userId: clientRef,
               tier,
               plan,
@@ -155,7 +161,7 @@ export async function POST(req: NextRequest) {
 
               const updateData = await updateRes.json();
               if (updateRes.ok) {
-                console.log('[webhook][invoice.payment_succeeded] ✅ USER PLAN ACTIVATED:', { userId: clientRef, plan, tier });
+                console.log('[webhook][invoice.payment_succeeded]', requestId, '✅ USER PLAN ACTIVATED:', { userId: clientRef, plan, tier });
                 
                 // Send welcome email via Resend
                 try {
@@ -175,24 +181,24 @@ export async function POST(req: NextRequest) {
                         invoiceUrl
                       })
                     });
-                    console.log('[webhook][invoice.payment_succeeded] 📧 Welcome email sent to:', userEmail);
+                    console.log('[webhook][invoice.payment_succeeded]', requestId, '📧 Welcome email sent to:', userEmail);
                   }
                 } catch (emailError: any) {
-                  console.error('[webhook][invoice.payment_succeeded] Failed to send welcome email:', emailError.message);
+                  console.error('[webhook][invoice.payment_succeeded]', requestId, 'Failed to send welcome email:', emailError.message);
                   // Non-fatal, continue
                 }
               } else {
-                console.error('[webhook][invoice.payment_succeeded] ❌ FAILED TO UPDATE USER:', { status: updateRes.status, data: updateData });
+                console.error('[webhook][invoice.payment_succeeded]', requestId, '❌ FAILED TO UPDATE USER:', { status: updateRes.status, data: updateData });
               }
             } else {
-              console.error('[webhook][invoice.payment_succeeded] ❌ MISSING CONFIG:', {
+              console.error('[webhook][invoice.payment_succeeded]', requestId, '❌ MISSING CONFIG:', {
                 hasUserId: !!clientRef,
                 hasSupabaseKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
                 hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL
               });
             }
           } catch (e: any) {
-            console.error('[webhook][invoice.payment_succeeded] ❌ ERROR:', e.message, e.stack);
+            console.error('[webhook][invoice.payment_succeeded]', requestId, '❌ ERROR:', e.message, e.stack);
           }
         }
         break;
@@ -234,10 +240,11 @@ export async function POST(req: NextRequest) {
         break;
       }
       default:
+        console.log('[webhook]', requestId, 'Unhandled event:', event.type);
         break;
     }
   } catch (e) {
-    // swallow to avoid retries storm; log in real impl
+    console.error('[webhook]', requestId, 'Handler error:', e);
   }
 
   return NextResponse.json({ received: true });
