@@ -12,7 +12,12 @@ const isValidSupabaseUrl = (u?: string) => {
   if (!u.startsWith('http')) return false;
   try {
     const host = new URL(u).hostname.toLowerCase();
-    return host.includes('.supabase.co') || host.includes('.supabase.in');
+    // Accept standard Supabase project domains and optional custom auth domain
+    return (
+      host.includes('.supabase.co') ||
+      host.includes('.supabase.in') ||
+      host === 'auth.ecomefficiency.com'
+    );
   } catch {
     return false;
   }
