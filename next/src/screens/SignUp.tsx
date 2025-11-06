@@ -152,20 +152,29 @@ const SignUp = () => {
           description: "We sent a verification link to your email address",
         });
 
-        // Redirect to verification page - use router for same domain, window.location for cross-domain
+        // Redirect to verification page - always use window.location for reliable redirect
+        const protocol = window.location.protocol;
         const hostname = window.location.hostname;
+        const port = window.location.port ? `:${window.location.port}` : '';
         
-        // If already on app subdomain or localhost, use Next.js router
+        let verifyUrl;
         if (hostname.startsWith('app.') || hostname === 'localhost' || hostname === '127.0.0.1' || hostname === 'app.localhost') {
-          router.push(`/verify-email?email=${encodeURIComponent(email)}`);
+          // Same domain - use relative path
+          verifyUrl = `/verify-email?email=${encodeURIComponent(email)}`;
         } else {
-          // Redirect to app subdomain for production (cross-domain, must use window.location)
-          const protocol = window.location.protocol;
-          const port = window.location.port ? `:${window.location.port}` : '';
+          // Cross-domain - redirect to app subdomain
           const cleanHost = hostname.replace(/^www\./, '');
-          const appOrigin = `${protocol}//app.${cleanHost}${port}`;
-          window.location.href = `${appOrigin}/verify-email?email=${encodeURIComponent(email)}`;
+          verifyUrl = `${protocol}//app.${cleanHost}${port}/verify-email?email=${encodeURIComponent(email)}`;
         }
+        
+        // Use setTimeout to ensure loader is visible before redirect
+        // Don't reset isLoading here - let it stay true during redirect
+        setTimeout(() => {
+          window.location.href = verifyUrl;
+        }, 300);
+      } else {
+        // Error case - reset loading state
+        setIsLoading(false);
       }
     } catch (error: any) {
       toast({
@@ -173,7 +182,6 @@ const SignUp = () => {
         description: error?.message ?? "An unexpected error occurred",
         variant: "destructive",
       });
-    } finally {
       setIsLoading(false);
     }
   };
