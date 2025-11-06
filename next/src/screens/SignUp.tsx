@@ -172,9 +172,6 @@ const SignUp = () => {
         setTimeout(() => {
           window.location.href = verifyUrl;
         }, 300);
-      } else {
-        // Error case - reset loading state
-        setIsLoading(false);
       }
     } catch (error: any) {
       toast({
