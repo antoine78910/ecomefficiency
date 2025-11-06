@@ -102,13 +102,24 @@ const NewHeroSection = () => {
       
       <div className="max-w-7xl mx-auto px-6 lg:px-8 py-12 md:py-16 relative z-10">
         <div className="text-center">
-          {/* Badge */}
-          <div className="inline-flex items-center px-4 py-2 rounded-full bg-purple-500/20 border border-purple-500/30 mb-4 md:mb-6">
-            <span className="text-purple-400 text-sm font-medium flex items-center">
-              <span className="w-2 h-2 bg-purple-400 rounded-full mr-2"></span>
-              ECOM EFFICIENCY TOOLS
+          {/* Announcement badge - smooth and on-brand */}
+          <div className="relative inline-flex flex-col items-center px-4 py-2 rounded-xl bg-[linear-gradient(to_bottom,rgba(149,65,224,0.18),rgba(124,48,199,0.12))] border border-[#9541e0]/40 shadow-[0_0_32px_rgba(149,65,224,0.25)] backdrop-blur-sm mb-5 overflow-visible">
+            <span className="absolute -top-2 -left-2 z-10 text-[9px] px-1.5 py-0.5 rounded-full bg-[linear-gradient(135deg,#8b5cf6,#7c3aed)] text-white border border-[#a78bfa]/40 shadow-[0_0_10px_rgba(167,139,250,0.5)]">NEW !</span>
+            <span className="absolute -top-2 -right-2 z-10">
+              <span className="group relative inline-flex">
+                <span className="inline-flex items-center justify-center w-3 h-3 rounded-full bg-white/10 text-white/80 text-[9px] border border-white/30 cursor-help">!</span>
+                <div className="absolute left-[calc(100%+6px)] top-1/2 -translate-y-1/2 hidden group-hover:flex bg-black/80 text-gray-200 text-[10px] px-2 py-1 rounded-md border border-white/20 shadow-lg whitespace-nowrap">
+                  $250 Higgsfield Creator Plan added by monthly vote in the discord community
+                </div>
+              </span>
             </span>
+            <span className="text-white text-sm font-semibold tracking-wide inline-flex items-center gap-2">
+              Higgsfield added
+            </span>
+            <span className="text-[11px] text-purple-200/90 leading-tight">Unlimited Nanobanana & Seedream 4.0 generation</span>
           </div>
+
+          {/* Removed redundant ECOM EFFICIENCY TOOLS badge per request */}
 
           {/* Main Heading with animated word cycle */}
           <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-4 leading-tight">
@@ -166,7 +177,7 @@ const NewHeroSection = () => {
             </div>
             <div className="flex items-center text-gray-300">
               <Check className="w-5 h-5 text-purple-400 mr-2" />
-              <span>Save $3000+ every month</span>
+              <span>Save $4000+ every month</span>
             </div>
           </div>
         </div>

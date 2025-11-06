@@ -105,6 +105,12 @@ export default function StarterToolsPage() {
             {proOnlyTools.map((tool) => (
               <div key={tool.name} className="relative">
                 <span className="absolute -top-2 -left-2 z-20 pointer-events-none text-[10px] px-2 py-0.5 rounded-full bg-[linear-gradient(135deg,#ffd70055,#ffcc00)] text-white border border-[#ffcc00]/30 shadow-[0_0_12px_rgba(255,215,0,0.45)]">Pro only</span>
+                {tool.name === 'Higgsfield' ? (
+                  <div className="absolute top-2 right-2 z-20 flex items-center gap-2 pointer-events-none">
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500/20 text-green-300 border border-green-500/30">NEW !</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/15 text-yellow-300 border border-yellow-500/30">$250 Creator plan</span>
+                  </div>
+                ) : null}
                 <div
                   className="tool-card rounded-2xl p-4 transition-all duration-300 relative overflow-hidden min-h-[220px] flex flex-col items-center text-center border border-white/10 bg-black/80 hover:bg-black/85 cursor-not-allowed"
                   aria-disabled="true"

@@ -8,6 +8,16 @@ const nextConfig: NextConfig = {
         hostname: 'cdn.outrank.so',
         pathname: '/**',
       },
+      {
+        protocol: 'https',
+        hostname: 'cdn1.iconfinder.com',
+        pathname: '/**',
+      },
+      {
+        protocol: 'https',
+        hostname: 'cdn.jsdelivr.net',
+        pathname: '/gh/devicons/**',
+      },
     ],
   },
   async headers() {

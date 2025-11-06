@@ -52,6 +52,8 @@
     --border: 0 0% 20%;
     --input: 0 0% 20%;
     --ring: 259 100% 65%;
+    --skeleton: 0 0% 90%;
+    --btn-border: 214 31.8% 91.4%;
     --radius: 0.5rem;
   }
 }
@@ -68,6 +70,8 @@
     --accent: 293 90% 63%; /* #b54af3 */
     --accent-foreground: 0 0% 100%;
     --ring: 6 94% 66%; /* #f96553 */
+    --skeleton: 218 36% 16%;
+    --btn-border: 217 32.6% 17.5%;
   }
   * {
     @apply border-border;
@@ -76,6 +80,23 @@
     @apply bg-background text-foreground font-sans;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
+}
+
+@layer utilities {
+  @keyframes ripple {
+    0%, 100% { transform: translate(-50%, -50%) scale(1); }
+    50% { transform: translate(-50%, -50%) scale(0.9); }
+  }
+  @keyframes orbit {
+    0% { transform: rotate(0deg) translateY(calc(var(--radius) * 1px)) rotate(0deg); }
+    100% { transform: rotate(360deg) translateY(calc(var(--radius) * 1px)) rotate(-360deg); }
+  }
+  .animate-ripple { animation: ripple 2s ease calc(var(--i, 0) * 0.2s) infinite; }
+  .animate-orbit { animation: orbit calc(var(--duration) * 1s) linear infinite; }
+}
+
+@layer components {
+  .g-button { @apply rounded-[var(--radius)] border; border-color: hsl(var(--btn-border)); }
 }
 
 .gradient-text {

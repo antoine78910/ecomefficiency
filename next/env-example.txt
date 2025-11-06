@@ -1,0 +1,9 @@
+# Configuration Discord Bot
+DISCORD_BOT_TOKEN=ton_token_bot_discord_ici
+DISCORD_ANALYTICS_SECRET=ton_secret_pour_l_api
+
+# Autres variables existantes
+NEXT_PUBLIC_SUPABASE_URL=ton_url_supabase
+SUPABASE_SERVICE_ROLE_KEY=ton_service_role_key
+ADMIN_PASSWORD=ton_mot_de_passe_admin
+DATAFAST_API_KEY=ton_api_key_datafast

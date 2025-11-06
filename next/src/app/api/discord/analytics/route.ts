@@ -113,15 +113,18 @@ export async function GET(req: Request) {
       return NextResponse.json({ ok: true, date, fallbackDate, rows: d3 || [] })
     }
 
-    // default: last N days
+    // default: last N days, but if no specific range, get all data since July 2025
     const since = new Date(Date.now() - days * 86400000).toISOString().slice(0, 10)
+    const july2025 = '2025-07-01'
+    const actualSince = since > july2025 ? since : july2025
+    
     const { data, error } = await supabase
       .from('discord_analytics')
       .select('*')
-      .gte('date', since)
+      .gte('date', actualSince)
       .order('date', { ascending: false })
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
-    return NextResponse.json({ ok: true, since, rows: data || [] })
+    return NextResponse.json({ ok: true, since: actualSince, rows: data || [] })
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || 'error' }, { status: 500 })
   }

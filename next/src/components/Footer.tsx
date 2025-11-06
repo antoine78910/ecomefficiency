@@ -104,7 +104,7 @@ const Footer = () => {
             <ul className="space-y-1.5">
               <li className="flex flex-wrap items-baseline gap-1">
                 <span className="text-gray-400 text-xs md:text-sm">Email:</span>
-                <a href="mailto:admin@ecomefficiency.com" className="text-gray-200 hover:text-white transition-colors text-xs md:text-sm break-all">admin@ecomefficiency.com</a>
+                <a href="mailto:support@ecomefficiency.com" className="text-gray-200 hover:text-white transition-colors text-xs md:text-sm break-all">support@ecomefficiency.com</a>
               </li>
               <li><a href="/privacy" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Privacy Policy</a></li>
               <li><a href="/terms" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Terms of Service</a></li>

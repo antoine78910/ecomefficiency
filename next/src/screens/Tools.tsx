@@ -19,7 +19,7 @@ const STARTER_NAMES = [
 ];
 const PRO_NAMES = [
   'Flair.ai','ChatGPT','Gemini','Gemini & NanoBanana','Midjourney','Exploding Topics','Pipiads','Kalodata','WinningHunter','Capcut','SendShort','Helium10','Dropship.io','ShopHunter','Atria','Heygen','Fotor','ForePlay','ElevenLabs','Runway','Trendtrack','Veo 3',
-  'BrandSearch'
+  'BrandSearch','Higgsfield'
 ];
 
 const Tools = () => {

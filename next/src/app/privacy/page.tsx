@@ -76,7 +76,7 @@ export default function PrivacyPage() {
               <li>Request data portability.</li>
             </ul>
             <p className="mt-3">
-              To exercise these rights, contact us at: <a className="underline" href="mailto:admin@ecomefficiency.com">admin@ecomefficiency.com</a>
+              To exercise these rights, contact us at: <a className="underline" href="mailto:support@ecomefficiency.com">support@ecomefficiency.com</a>
             </p>
           </div>
 

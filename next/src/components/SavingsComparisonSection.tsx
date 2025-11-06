@@ -43,6 +43,7 @@ const tools = [
   { name: 'GPT', price: 20 },
   { name: 'Semrush', price: 399 },
   { name: 'Similarweb', price: 199 },
+  { name: 'Higgsfield', price: 250 },
   { name: '+30 other SEO tools', price: 1000 },
 ];
 

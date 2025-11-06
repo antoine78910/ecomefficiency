@@ -391,7 +391,7 @@ function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'sta
   const isYearly = billing === 'yearly'
   const proExtras = [
     'Pipiads', 'Atria', 'Runway', 'Heygen', 'Veo3/Gemini', 'Flair AI',
-    'Exploding topics', 'TrendTrack', 'BrandSearch', 'Eleven labs',
+    'Exploding topics', 'TrendTrack', 'BrandSearch', 'Eleven labs', 'Higgsfield',
     'Fotor', 'Foreplay', 'Kalodata'
   ]
 
@@ -472,7 +472,13 @@ function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'sta
                   <div className="flex items-center gap-2 text-[11px]"><Check className="w-3.5 h-3.5 text-purple-400" /><span>Includes everything in Starter, plus:</span></div>
                   <ul className="grid grid-cols-2 gap-x-4 gap-y-1">
                     {proExtras.map((t) => (
-                      <li key={t} className="flex items-center gap-2 text-[11px]"><Check className="w-3.5 h-3.5 text-purple-400" /><span>{t}</span></li>
+                      <li key={t} className="flex items-center gap-2 text-[11px]">
+                        <Check className="w-3.5 h-3.5 text-purple-400" />
+                        <span>{t}</span>
+                        {t === 'Higgsfield' ? (
+                          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[linear-gradient(135deg,#8b5cf6,#7c3aed)] text-white/95 border border-[#a78bfa]/40">NEW</span>
+                        ) : null}
+                      </li>
                     ))}
                   </ul>
                 </div>

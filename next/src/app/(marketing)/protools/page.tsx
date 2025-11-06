@@ -48,8 +48,23 @@ export default function ProToolsPage() {
                 href={LINK_MAP[tool.name] || '#'}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="tool-card rounded-2xl p-4 transition-all duration-300 relative overflow-hidden min-h-[200px] flex flex-col items-center text-center border border-white/10 hover:border-white/20 bg-black hover:scale-[1.03] active:scale-95 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/40"
+                className={`tool-card rounded-2xl p-4 transition-all duration-300 relative overflow-hidden min-h-[200px] flex flex-col items-center text-center border bg-black hover:scale-[1.03] active:scale-95 cursor-pointer focus:outline-none focus-visible:ring-2 focus-visible:ring-purple-400/40 ${tool.name==='Higgsfield' ? 'group backdrop-blur-md bg-white/10 hover:bg-white/20 border-white/20 hover:border-white/30' : 'border-white/10 hover:border-white/20'}`}
               >
+                {tool.name === 'Higgsfield' ? (
+                  <>
+                    <style>{`@keyframes subtlePulse{0%,100%{opacity:.4}50%{opacity:.6}}`}</style>
+                    <div
+                      className="pointer-events-none absolute w-[200%] h-[200%] rounded-full bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 blur-3xl opacity-40"
+                      style={{ top: '50%', left: '50%', transform: 'translate(-50%, -50%)', transition: 'transform 150ms ease-out', animation: 'subtlePulse 6s ease-in-out infinite' }}
+                    />
+                  </>
+                ) : null}
+                {tool.name === 'Higgsfield' ? (
+                  <div className="absolute top-2 right-2 flex items-center gap-2 z-10">
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500/20 text-green-300 border border-green-500/30">NEW !</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/15 text-yellow-300 border border-yellow-500/30">$250 Creator plan</span>
+                  </div>
+                ) : null}
                 <div className="w-full h-36 md:h-40 mb-4 rounded-xl overflow-hidden" style={{ aspectRatio: '16 / 9' }}>
                   <img
                     src={tool.icon.startsWith('/') ? tool.icon : (logoDomainMap[tool.name.toLowerCase()] ? `https://logo.clearbit.com/${logoDomainMap[tool.name.toLowerCase()]}` : '/placeholder.svg')}
@@ -71,6 +86,12 @@ export default function ProToolsPage() {
                 </div>
                 <h3 className="text-white font-semibold text-base mb-2">{tool.name}</h3>
                 <p className="text-gray-300 text-sm leading-relaxed">{tool.description}</p>
+                {tool.name === 'Higgsfield' ? (
+                  <div className="mt-2 flex items-center justify-center gap-2">
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-500/20 text-green-300 border border-green-500/30">NEW !</span>
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/15 text-yellow-300 border border-yellow-500/30">$250 Creator plan</span>
+                  </div>
+                ) : null}
                 {/* In Pro page, everything is accessible: remove disabled overlay and badges */}
                 {tool.name === '+30 SEO Tools' ? (
                   <div className="flex items-center gap-3 mt-2 opacity-90">

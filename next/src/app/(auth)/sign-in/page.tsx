@@ -1,5 +1,5 @@
 "use client";
-import SignIn from "@/screens/SignIn";
+import SignIn from "@/pages/SignIn";
 import { useEffect } from "react";
 import { postGoal } from "@/lib/analytics";
 

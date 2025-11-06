@@ -23,10 +23,6 @@ const FaqSection = () => {
     {
       question: "What should I do if I have a problem with logins?",
       answer: "No worries, you just need to let us know by opening a ticket on our discord server to explain your problem to us, and we will help you resolve your problem."
-    },
-    {
-      question: "Is there a free trial?",
-      answer: "No, there isn’t. Once you get access, you directly unlock paid resources and some invitation link—for example Canva—so you can connect your own account."
     }
   ];
 

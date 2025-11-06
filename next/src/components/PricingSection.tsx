@@ -43,16 +43,17 @@ type Currency = 'USD' | 'EUR';
 ];
 
 const proExtras = [
+  "TrendTrack",
   "Pipiads",
+  "ElevenLabs",
+  "Higgsfield",
   "Atria",
   "Runway",
   "Heygen",
   "Veo3/Gemini",
   "Flair AI",
   "Exploding topics",
-  "TrendTrack",
   "BrandSearch",
-  "Eleven labs",
   "Fotor",
   "Foreplay",
   "Kalodata",
@@ -233,9 +234,9 @@ const PricingSection = () => {
                   </div>
 
                  <div className="text-xs text-gray-300 mt-3 mb-0">
-											{plan.name === 'Starter' && 'Access to 40 Ecom tools'}
-											{plan.name === 'Pro' && 'Access to +50 Ecom tools'}
-										</div>
+                                            {plan.name === 'Starter' && 'Access to 40 Ecom tools'}
+                                            {plan.name === 'Pro' && 'Access to +50 Ecom tools'}
+                                        </div>
 								</div>
 								
                 {/* Features per plan */}
@@ -301,7 +302,13 @@ const PricingSection = () => {
                     <div className="flex items-center gap-2 text-xs"><Check className="w-4 h-4 text-purple-400" /><span>Starter tools, plus:</span></div>
                     <ul className="space-y-1.5">
                       {proExtras.map((t) => (
-                        <li key={t} className="flex items-center gap-2 text-xs"><Check className="w-4 h-4 text-purple-400" /><span>{t}</span></li>
+                        <li key={t} className="flex items-center gap-2 text-xs">
+                          <Check className="w-4 h-4 text-purple-400" />
+                          <span>{t}</span>
+                          {t === 'Higgsfield' ? (
+                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[linear-gradient(135deg,#8b5cf6,#7c3aed)] text-white/95 border border-[#a78bfa]/40">NEW</span>
+                          ) : null}
+                        </li>
                       ))}
                     </ul>
                   </div>

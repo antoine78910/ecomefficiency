@@ -188,7 +188,46 @@
   --color-ds-gray-900: var(----ds-gray-900);
   --color-ds-gray-800: var(----ds-gray-800);
   --color-ds-gray-100: var(----ds-gray-100)
-}
+;
+  --animate-ripple: ripple 2s ease calc(var(--i, 0) * 0.2s) infinite;
+  --animate-orbit: orbit calc(var(--duration) * 1s) linear infinite;
+  --radius: var(----radius);
+  --color-btn-border: var(----btn-border);
+  --color-skeleton: var(----skeleton);
+
+  @keyframes ripple {
+    0%, 100% {
+      transform: translate(-50%, -50%) scale(1);
+    }
+    50% {
+      transform: translate(-50%, -50%) scale(0.9);
+    }
+  }
+
+  @keyframes orbit {
+    0% {
+      transform: rotate(0deg) translateY(calc(var(--radius) * 1px)) rotate(0deg);
+    }
+    100% {
+      transform: rotate(360deg) translateY(calc(var(--radius) * 1px)) rotate(-360deg);
+    }
+  }
+  @keyframes ripple {
+  0%, 100% {
+    transform: translate(-50%, -50%) scale(1);
+    }
+  50% {
+    transform: translate(-50%, -50%) scale(0.9);
+    }
+  }
+  @keyframes orbit {
+  0% {
+    transform: rotate(0deg) translateY(calc(var(--radius) * 1px)) rotate(0deg);
+    }
+  100% {
+    transform: rotate(360deg) translateY(calc(var(--radius) * 1px)) rotate(-360deg);
+    }
+  }}
 
 :root {
   --radius: 0.625rem;
@@ -235,6 +274,8 @@
   --ds-gray-900: hsla(0, 0%, 40%, 1);
   --ds-gray-1000: hsla(0, 0%, 9%, 1);
   --ds-gray-alpha-400: hsla(0, 0%, 0%, 0.08);
+  --skeleton: hsl(0, 0%, 90%);
+  --btn-border: hsl(214deg, 31.8%, 91.4%);
 }
 
 .dark {
@@ -278,6 +319,9 @@
   --ds-gray-900: hsla(0, 0%, 63%, 1);
   --ds-gray-1000: hsla(0, 0%, 93%, 1);
   --ds-gray-alpha-400: hsla(0, 0%, 100%, 0.14);
+  --skeleton: hsl(218, 36%, 16%);
+  --btn-border: hsl(217deg, 32.6%, 17.5%);
+  --radius: 0.5rem;
 }
 
 @layer base {

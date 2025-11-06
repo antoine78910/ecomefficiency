@@ -299,7 +299,7 @@ function Faq() {
     },
     {
       q: 'Need more help?',
-      a: 'If you have any more questions, you can ask Antoine by email at admin@ecomefficiency.com',
+      a: 'If you have any more questions, you can ask Antoine by email at support@ecomefficiency.com',
     },
   ];
   const [open, setOpen] = React.useState<number | null>(0);
