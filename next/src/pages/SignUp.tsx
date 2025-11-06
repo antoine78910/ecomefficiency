@@ -28,12 +28,28 @@ export default function SignUp() {
         email,
         password,
         options: {
+          // After email verification, Supabase will redirect back to the app/root
           emailRedirectTo: `${window.location.origin}/`,
           data: { name }
         }
       });
       if (error) { setPending(false); return; }
-      window.location.href = '/';
+
+      // Redirect the user to a lightweight verify screen
+      const protocol = window.location.protocol;
+      const hostname = window.location.hostname;
+      const port = window.location.port ? `:${window.location.port}` : '';
+
+      let verifyUrl: string;
+      if (hostname.startsWith('app.') || hostname === 'localhost' || hostname === '127.0.0.1' || hostname === 'app.localhost') {
+        verifyUrl = `/verify-email?email=${encodeURIComponent(email)}`;
+      } else {
+        const cleanHost = hostname.replace(/^www\./, '');
+        verifyUrl = `${protocol}//app.${cleanHost}${port}/verify-email?email=${encodeURIComponent(email)}`;
+      }
+
+      // Let the loader render for a brief moment before navigating
+      setTimeout(() => { window.location.href = verifyUrl; }, 200);
     } catch { setPending(false); }
   };
 
@@ -95,7 +111,17 @@ export default function SignUp() {
                   </button>
                 </div>
               </InputWithHalo>
-              <button type="submit" disabled={!canSubmit} className={`w-full rounded-lg py-2 font-medium border ${canSubmit ? 'cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] border-[#9541e0] text-white shadow-[0_8px_40px_rgba(149,65,224,0.35)] hover:brightness-110' : 'bg-white/5 border-white/10 text-white/50 cursor-not-allowed'}`}>Create account</button>
+              <button
+                type="submit"
+                disabled={!canSubmit}
+                className={`w-full rounded-lg py-2 font-medium border flex items-center justify-center ${canSubmit ? 'cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] border-[#9541e0] text-white shadow-[0_8px_40px_rgba(149,65,224,0.35)] hover:brightness-110' : 'bg-white/5 border-white/10 text-white/50 cursor-not-allowed'}`}
+              >
+                {pending ? (
+                  <span className="inline-block h-4 w-4 rounded-full border-2 border-white/90 border-b-transparent animate-spin" />
+                ) : (
+                  'Create account'
+                )}
+              </button>
             </form>
 
             <div className="mt-4 text-center text-gray-400 text-sm">
