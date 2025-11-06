@@ -7,7 +7,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { supabase, SUPABASE_CONFIG_OK } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import Link from "next/link";
-import { Eye, EyeOff } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useSessionTracking } from "@/hooks/useSessionTracking";
 import GoogleButton from "@/components/GoogleButton";
 // Discord removed per request
@@ -22,6 +23,7 @@ const SignUp = () => {
   const [lastName, setLastName] = useState('');
   const { toast } = useToast();
   const { trackSession } = useSessionTracking();
+  const router = useRouter();
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -150,22 +152,20 @@ const SignUp = () => {
           description: "We sent a verification link to your email address",
         });
 
-        // Redirect to verification page on app subdomain
-        const protocol = window.location.protocol;
+        // Redirect to verification page - use router for same domain, window.location for cross-domain
         const hostname = window.location.hostname;
-        const port = window.location.port ? `:${window.location.port}` : '';
         
-        let appOrigin;
-        if (hostname.startsWith('app.')) {
-          appOrigin = `${protocol}//${hostname}${port}`;
-        } else if (hostname === 'localhost' || hostname === '127.0.0.1') {
-          appOrigin = `${protocol}//app.localhost${port}`;
+        // If already on app subdomain or localhost, use Next.js router
+        if (hostname.startsWith('app.') || hostname === 'localhost' || hostname === '127.0.0.1' || hostname === 'app.localhost') {
+          router.push(`/verify-email?email=${encodeURIComponent(email)}`);
         } else {
+          // Redirect to app subdomain for production (cross-domain, must use window.location)
+          const protocol = window.location.protocol;
+          const port = window.location.port ? `:${window.location.port}` : '';
           const cleanHost = hostname.replace(/^www\./, '');
-          appOrigin = `${protocol}//app.${cleanHost}${port}`;
+          const appOrigin = `${protocol}//app.${cleanHost}${port}`;
+          window.location.href = `${appOrigin}/verify-email?email=${encodeURIComponent(email)}`;
         }
-        
-        window.location.href = `${appOrigin}/verify-email?email=${encodeURIComponent(email)}`;
       }
     } catch (error: any) {
       toast({
@@ -307,9 +307,16 @@ const SignUp = () => {
               <Button
                 type="submit"
                 disabled={isLoading}
-                className="w-full bg-[#9541e0] hover:bg-[#8636d2] text-white font-medium py-3 rounded-lg transition-colors"
+                className="w-full bg-[#9541e0] hover:bg-[#8636d2] disabled:opacity-70 disabled:cursor-not-allowed text-white font-medium py-3 rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
               >
-                {isLoading ? "Creating account..." : "Create Account"}
+                {isLoading ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                    <span>Creating account...</span>
+                  </>
+                ) : (
+                  "Create Account"
+                )}
               </Button>
             </form>
 
