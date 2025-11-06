@@ -51,12 +51,27 @@ const SignUp = () => {
         return;
       }
 
+      // Build redirect URL for email verification callback
+      const protocol = window.location.protocol;
+      const hostname = window.location.hostname;
+      const port = window.location.port ? `:${window.location.port}` : '';
+      
+      let emailRedirectUrl;
+      if (hostname.startsWith('app.')) {
+        emailRedirectUrl = `${protocol}//${hostname}${port}/`;
+      } else if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        emailRedirectUrl = `${protocol}//${hostname}${port}/`;
+      } else {
+        const cleanHost = hostname.replace(/^www\./, '');
+        emailRedirectUrl = `${protocol}//app.${cleanHost}${port}/`;
+      }
+
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          // Don't specify emailRedirectTo - let Supabase use its default Site URL
-          // We'll handle the redirect client-side after email verification
+          // Specify emailRedirectTo to ensure email verification link points to the app, not auth domain
+          emailRedirectTo: emailRedirectUrl,
           data: { first_name: firstName, last_name: lastName, plan: 'free' }
         }
       });
@@ -86,18 +101,54 @@ const SignUp = () => {
           setIsLoading(false);
           return;
         }
-        // Track session with IP and geolocation
-        if (data.user) {
+
+        // Check if user was created and if email verification is required
+        const user = data.user;
+        const session = data.session;
+        
+        // If session exists, user was auto-confirmed (email verification disabled)
+        // If no session, email verification is required and email was sent
+        if (session) {
+          // Email verification is disabled - user is already logged in
+          toast({
+            title: "Account created!",
+            description: "Welcome to Ecom Efficiency",
+          });
+          // Redirect to app
+          const protocol = window.location.protocol;
+          const hostname = window.location.hostname;
+          const port = window.location.port ? `:${window.location.port}` : '';
+          let appOrigin;
+          if (hostname.startsWith('app.')) {
+            appOrigin = `${protocol}//${hostname}${port}`;
+          } else if (hostname === 'localhost' || hostname === '127.0.0.1') {
+            appOrigin = `${protocol}//app.localhost${port}`;
+          } else {
+            const cleanHost = hostname.replace(/^www\./, '');
+            appOrigin = `${protocol}//app.${cleanHost}${port}`;
+          }
+          window.location.href = appOrigin;
+          return;
+        }
+
+        // Email verification required - email was sent
+        if (user) {
           await trackSession(
-            data.user.id,
+            user.id,
             'signup',
-            data.user.email || undefined,
+            user.email || undefined,
             firstName || undefined,
             lastName || undefined,
           );
         }
         // Send lead to FirstPromoter for referral attribution (if available)
         try { (window as any).fpr && (window as any).fpr('referral', { email }); } catch {}
+
+        // Show success message
+        toast({
+          title: "Check your email",
+          description: "We sent a verification link to your email address",
+        });
 
         // Redirect to verification page on app subdomain
         const protocol = window.location.protocol;
