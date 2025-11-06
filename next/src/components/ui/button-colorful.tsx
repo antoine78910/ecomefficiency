@@ -41,4 +41,4 @@ export function ButtonColorful({
     );
 }
 
-export { ButtonColorful }
+// named export already declared above
