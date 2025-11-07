@@ -3,7 +3,8 @@
 import React from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
-import { supabase } from "@/integrations/supabase/client";
+import { supabase, SUPABASE_CONFIG_OK } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff } from "lucide-react";
 import { motion, useMotionTemplate, useMotionValue } from 'framer-motion';
 
@@ -12,8 +13,26 @@ export default function SignIn() {
   const [password, setPassword] = React.useState("");
   const [show, setShow] = React.useState(false);
   const [pending, setPending] = React.useState(false);
+  const { toast } = useToast();
 
-  const canSubmit = email.trim().length > 3 && password.trim().length >= 6 && !pending;
+  const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+  const canSubmit = isValidEmail(email) && password.trim().length >= 6 && !pending;
+
+  const getAppBaseUrl = () => {
+    try {
+      const protocol = window.location.protocol;
+      const hostname = window.location.hostname;
+      const port = window.location.port ? `:${window.location.port}` : '';
+
+      if (hostname.startsWith('app.')) return `${protocol}//${hostname}${port}/`;
+      // Force the app service on :5000 when developing locally
+      if (hostname === 'localhost' || hostname === '127.0.0.1') return `http://app.localhost:5000/`;
+      const cleanHost = hostname.replace(/^www\./, '');
+      return `${protocol}//app.${cleanHost}${port}/`;
+    } catch {
+      return '/';
+    }
+  };
 
   const oauth = async (provider: 'google'|'apple') => {
     try {
@@ -24,13 +43,70 @@ export default function SignIn() {
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!canSubmit) return;
+    if (!canSubmit) {
+      const reason = !isValidEmail(email)
+        ? "Invalid email."
+        : password.trim().length < 6
+          ? "Password must be at least 6 characters."
+          : "Incomplete fields.";
+      toast({ title: "Cannot continue", description: reason, variant: "destructive" });
+      return;
+    }
+
     try {
       setPending(true);
-      const { error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) { setPending(false); return; }
-      window.location.href = '/';
-    } catch { setPending(false); }
+      try { await supabase.auth.signOut(); } catch {}
+
+      if (!SUPABASE_CONFIG_OK) {
+        toast({ title: "Configuration required", description: "Set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY", variant: "destructive" });
+        setPending(false);
+        return;
+      }
+
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        const status: any = (error as any)?.status;
+        const msg = (error?.message || "");
+        let description = msg;
+        if (status === 400 || /invalid login credentials/i.test(msg)) {
+          description = "Incorrect email or password.";
+        } else if (/email not confirmed/i.test(msg) || status === 401) {
+          description = "Email address not confirmed. Please check your inbox.";
+        } else if (/rate|too many|over quota/i.test(msg)) {
+          description = "Too many attempts. Please try again later.";
+        } else if (/network|fetch/i.test(msg)) {
+          description = "Network issue. Check your internet connection.";
+        }
+        toast({ title: "Sign-in failed", description, variant: "destructive" });
+        setPending(false);
+        return;
+      }
+
+      if (!data.user) {
+        toast({ title: "Sign-in failed", description: "Could not retrieve user session.", variant: "destructive" });
+        setPending(false);
+        return;
+      }
+
+      toast({ title: "Signed in", description: "Welcome to Ecom Efficiency" });
+      // Redirect to the app subdomain with tokens so the app can set the session cross-subdomain
+      try {
+        const at = data.session?.access_token;
+        const rt = data.session?.refresh_token;
+        const appBase = getAppBaseUrl();
+        if (at && rt) {
+          window.location.href = `${appBase}#access_token=${encodeURIComponent(at)}&refresh_token=${encodeURIComponent(rt)}&just_signed_in=1`;
+        } else {
+          window.location.href = appBase;
+        }
+      } catch {
+        window.location.href = getAppBaseUrl();
+      }
+    } catch (err: any) {
+      toast({ title: "Error", description: err?.message ?? "An unexpected error occurred", variant: "destructive" });
+    } finally {
+      setPending(false);
+    }
   };
 
   // Bottom gradient component for Google button

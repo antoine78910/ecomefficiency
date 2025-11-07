@@ -20,32 +20,20 @@ const SignIn = () => {
   const { toast } = useToast();
   const { trackSession } = useSessionTracking();
 
-  const getAppBaseUrl = () => {
-    try {
-      const protocol = window.location.protocol;
-      const hostname = window.location.hostname;
-      const port = window.location.port ? `:${window.location.port}` : '';
+  const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+  const canSubmit = isValidEmail(email) && password.trim().length >= 6 && !isLoading;
 
-      // If already on app subdomain, keep it
-      if (hostname.startsWith('app.')) {
-        return `${protocol}//${hostname}${port}/`;
-      }
-
-      // For localhost dev, redirect to app.localhost subdomain
-      if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        return `${protocol}//app.localhost${port}/`;
-      }
-
-      // For production domains, remove www and add app prefix
-      const cleanHost = hostname.replace(/^www\./, '');
-      return `${protocol}//app.${cleanHost}${port}/`;
-    } catch {
-      return '/';
+  const submitSignIn = async () => {
+    if (!canSubmit) {
+      const reason = !isValidEmail(email)
+        ? "Email invalide."
+        : password.trim().length < 6
+          ? "Le mot de passe doit contenir au moins 6 caractères."
+          : "Champs incomplets.";
+      toast({ title: "Impossible de continuer", description: reason, variant: "destructive" });
+      return;
     }
-  };
 
-  const handleSignIn = async (e: React.FormEvent) => {
-    e.preventDefault();
     setIsLoading(true);
 
     try {
@@ -68,11 +56,20 @@ const SignIn = () => {
       });
 
       if (error) {
-        toast({
-          title: "Sign in error",
-          description: error.message,
-          variant: "destructive",
-        });
+        const status: any = (error as any)?.status;
+        const msg = (error?.message || "");
+        let description = msg;
+        if (status === 400 || /invalid login credentials/i.test(msg)) {
+          description = "Email ou mot de passe incorrect.";
+        } else if (/email not confirmed/i.test(msg) || status === 401) {
+          description = "Adresse e-mail non confirmée. Vérifie ta boîte mail.";
+        } else if (/rate|too many|over quota/i.test(msg)) {
+          description = "Trop de tentatives. Réessaie dans quelques minutes.";
+        } else if (/network|fetch/i.test(msg)) {
+          description = "Problème réseau. Vérifie ta connexion internet.";
+        }
+        toast({ title: "Connexion échouée", description, variant: "destructive" });
+        return;
       } else {
         // Track session with IP and geolocation
         if (data.user) {
@@ -84,6 +81,11 @@ const SignIn = () => {
             meta.first_name || undefined,
             meta.last_name || undefined,
           );
+        }
+
+        if (!data.user) {
+          toast({ title: "Connexion échouée", description: "Impossible de récupérer la session utilisateur.", variant: "destructive" });
+          return;
         }
 
         // Mark auth for middleware across domains/subdomains
@@ -115,19 +117,8 @@ const SignIn = () => {
         } catch {}
 
         toast({ title: "Sign in successful!", description: "Welcome to Ecom Efficiency" });
-        // Redirect to app subdomain with session tokens in hash so App can set session
-        try {
-          const at = data.session?.access_token;
-          const rt = data.session?.refresh_token;
-          const appBase = getAppBaseUrl();
-          if (at && rt) {
-            window.location.href = `${appBase}#access_token=${encodeURIComponent(at)}&refresh_token=${encodeURIComponent(rt)}&just_signed_in=1`;
-          } else {
-            window.location.href = appBase;
-          }
-        } catch {
-          window.location.href = getAppBaseUrl();
-        }
+        // Simple, reliable redirect to in-app area
+        window.location.href = "/app";
       }
     } catch (error: any) {
       toast({
@@ -138,6 +129,35 @@ const SignIn = () => {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const getAppBaseUrl = () => {
+    try {
+      const protocol = window.location.protocol;
+      const hostname = window.location.hostname;
+      const port = window.location.port ? `:${window.location.port}` : '';
+
+      // If already on app subdomain, keep it
+      if (hostname.startsWith('app.')) {
+        return `${protocol}//${hostname}${port}/`;
+      }
+
+      // For localhost dev, redirect to app.localhost subdomain
+      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return `${protocol}//app.localhost${port}/`;
+      }
+
+      // For production domains, remove www and add app prefix
+      const cleanHost = hostname.replace(/^www\./, '');
+      return `${protocol}//app.${cleanHost}${port}/`;
+    } catch {
+      return '/';
+    }
+  };
+
+  const handleSignIn = async (e: React.FormEvent) => {
+    e.preventDefault();
+    await submitSignIn();
   };
 
   const handleSocialSignIn = async (provider: 'google' | 'discord') => {
@@ -258,7 +278,8 @@ const SignIn = () => {
 
               <Button
                 type="submit"
-                disabled={isLoading}
+                disabled={!canSubmit || isLoading}
+                onClick={(e) => { e.preventDefault(); submitSignIn(); }}
                 className="w-full bg-[#9541e0] hover:bg-[#8636d2] text-white font-medium py-3 rounded-lg transition-colors"
               >
                 {isLoading ? "Signing in..." : "Sign In"}
