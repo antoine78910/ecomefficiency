@@ -187,6 +187,26 @@ const App = () => {
     })()
   }, [])
 
+  // Last guard for complete_signup if user lands authenticated without code/tokens
+  React.useEffect(() => {
+    (async () => {
+      try {
+        if (typeof window === 'undefined') return
+        const sentKey = '__ee_complete_signup_sent'
+        const already = window.localStorage.getItem(sentKey)
+        if (already) return
+        const mod = await import("@/integrations/supabase/client")
+        const { data } = await mod.supabase.auth.getUser()
+        const user = data.user
+        const confirmed = (user as any)?.email_confirmed_at || (user as any)?.confirmed_at
+        if (user && confirmed) {
+          try { await postGoal('complete_signup', { ...(user.email?{email:String(user.email)}:{}), ...(user.id?{user_id:String(user.id)}:{}) }) } catch {}
+          try { window.localStorage.setItem(sentKey, '1') } catch {}
+        }
+      } catch {}
+    })()
+  }, [])
+
   // Bottom-right server country/currency badge for debugging currency decision
 
   return (
