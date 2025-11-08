@@ -26,7 +26,7 @@ const App = () => {
     if (just) {
       (async () => {
         try {
-          const mod = await import(\"@/integrations/supabase/client\")
+          const mod = await import("@/integrations/supabase/client")
           const { data } = await mod.supabase.auth.getUser()
           if (data.user?.id || data.user?.email) {
             try { await postGoal('complete_signup', { ...(data.user.email?{ email: String(data.user.email) }:{}), ...(data.user.id?{ user_id: String(data.user.id) }:{}) }); } catch {}
