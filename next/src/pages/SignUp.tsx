@@ -30,8 +30,16 @@ export default function SignUp() {
         email,
         password,
         options: {
-          // After email verification, Supabase will redirect back to the app/root
-          emailRedirectTo: `${window.location.origin}/`,
+          // Redirect email verification back to the app workspace route
+          emailRedirectTo: (() => {
+            const protocol = window.location.protocol;
+            const hostname = window.location.hostname;
+            const port = window.location.port ? `:${window.location.port}` : '';
+            if (hostname.startsWith('app.')) return `${protocol}//${hostname}${port}/app`;
+            if (hostname === 'localhost' || hostname === '127.0.0.1') return `http://app.localhost${port}/app`;
+            const clean = hostname.replace(/^www\./, '');
+            return `${protocol}//app.${clean}${port}/app`;
+          })(),
           data: { name }
         }
       });
