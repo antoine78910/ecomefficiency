@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { supabase } from "@/integrations/supabase/client";
 import { motion, useMotionTemplate, useMotionValue } from 'framer-motion';
 import { Eye, EyeOff } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 export default function SignUp() {
   const [name, setName] = React.useState("");
@@ -12,6 +13,7 @@ export default function SignUp() {
   const [password, setPassword] = React.useState("");
   const [show, setShow] = React.useState(false);
   const [pending, setPending] = React.useState(false);
+  const { toast } = useToast();
 
   const canSubmit = name.trim().length > 1 && email.trim().length > 3 && password.length >= 6 && !pending;
 
@@ -24,7 +26,7 @@ export default function SignUp() {
     if (!canSubmit) return;
     try {
       setPending(true);
-      const { error } = await supabase.auth.signUp({
+      const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
@@ -33,7 +35,29 @@ export default function SignUp() {
           data: { name }
         }
       });
-      if (error) { setPending(false); return; }
+      if (error) {
+        const raw = String(error.message || '').toLowerCase();
+        const already = /already\s*(registered|exists)/i.test(raw) || /duplicate/i.test(raw);
+        toast({
+          title: already ? 'Account already exists' : 'Sign up error',
+          description: already ? 'This email is already registered. Please sign in instead.' : (error.message || 'Unexpected error'),
+          variant: 'destructive'
+        });
+        setPending(false);
+        return;
+      }
+
+      // Some Supabase setups return user.identities:[] when email exists
+      const identities = (data as any)?.user?.identities as any[] | undefined;
+      if (Array.isArray(identities) && identities.length === 0) {
+        toast({
+          title: 'Account already exists',
+          description: 'This email is already registered. Please sign in instead.',
+          variant: 'destructive'
+        });
+        setPending(false);
+        return;
+      }
 
       // Redirect the user to a lightweight verify screen
       const protocol = window.location.protocol;
