@@ -1,11 +1,20 @@
 "use client";
-import React from "react";
+import React, { useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
+import { postGoal } from "@/lib/analytics";
 
 export default function VerifyEmailPage() {
   const params = new URLSearchParams(typeof window !== 'undefined' ? window.location.search : '')
   const email = params.get('email') || ''
+
+  useEffect(() => {
+    try {
+      const meta: Record<string, string> = {};
+      if (email) meta.email = email;
+      postGoal('verify_email', meta);
+    } catch {}
+  }, [email]);
 
   return (
     <div className="min-h-screen bg-black text-white flex items-center justify-center px-4">

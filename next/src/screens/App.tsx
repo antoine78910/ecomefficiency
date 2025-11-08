@@ -46,6 +46,7 @@ const App = () => {
                     provider: data.user.app_metadata?.provider || 'email',
                     verified_at: new Date().toISOString()
                   });
+                  try { await postGoal('complete_signup', { email: String(data.user.email), user_id: String(data.user.id) }); } catch {}
                 }
               } catch (e) {
                 console.error('[App] Failed to track sign_up (non-fatal):', e);
@@ -89,6 +90,7 @@ const App = () => {
                 user_id: data.user.id,
                 verified_at: new Date().toISOString()
               });
+              try { await postGoal('complete_signup', { email: String(data.user.email), user_id: String(data.user.id) }); } catch {}
             }
           } catch (e) {
             console.error('[App] Failed to track sign_up (non-fatal):', e);

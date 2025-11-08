@@ -6,12 +6,15 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useToast } from "@/hooks/use-toast";
 import { supabase, SUPABASE_CONFIG_OK } from "@/integrations/supabase/client";
+import { Eye, EyeOff } from "lucide-react";
 
 const ResetPassword = () => {
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const { toast } = useToast();
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   useEffect(() => {
     // When the user arrives from magic link, Supabase sets a recovery session
@@ -50,37 +53,66 @@ const ResetPassword = () => {
   };
 
   return (
-    <div className="min-h-screen bg-black flex items-center justify-center p-4">
-      <div className="w-full max-w-md">
-        <div className="text-center mb-8">
-          <img src="/ecomefficiency.png" alt="Ecom Efficiency Logo" className="h-12 w-auto mx-auto mb-4" />
-          <h1 className="text-2xl font-bold text-white">Set a new password</h1>
-          <p className="text-gray-400 mt-2">Choose a strong password to secure your account</p>
+    <div className="min-h-screen bg-black text-white flex items-center justify-center px-4">
+      <div className="max-w-md w-full">
+        <div className="flex flex-col items-center mb-6">
+          <img src="/ecomefficiency.png" alt="Ecom Efficiency" className="h-16 w-auto object-contain" />
         </div>
-        <Card className="bg-gray-900/50 border border-purple-500/20 backdrop-blur-sm">
-          <CardHeader className="text-center">
-            <CardTitle className="text-white">New password</CardTitle>
-            <CardDescription className="text-gray-400">Enter and confirm your new password</CardDescription>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="space-y-2">
-                <label htmlFor="password" className="text-sm font-medium text-white">Password</label>
-                <Input id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required className="bg-gray-800/50 border-gray-700 text-white placeholder:text-gray-400 focus:border-purple-500" />
+
+        <div className="bg-black/60 border border-white/10 rounded-2xl shadow-[0_20px_80px_rgba(149,65,224,0.15)]">
+          <div className="p-6 md:p-8">
+            <h1 className="text-center text-2xl font-semibold">Reset your password</h1>
+            <p className="text-center text-gray-400 mt-2 mb-5">Choose a strong password to secure your account.</p>
+
+            <form onSubmit={handleSubmit} className="space-y-5">
+              <div>
+                <label htmlFor="password" className="block text-sm font-medium text-white mb-2">New password</label>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    className="w-full rounded-lg border border-white/15 bg-white/5 placeholder:text-gray-500 text-white px-3 py-2 pr-10 focus:outline-none focus:border-white/20 transition-colors text-sm"
+                  />
+                  <button type="button" onClick={() => setShowPassword(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white cursor-pointer">
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
-              <div className="space-y-2">
-                <label htmlFor="confirm" className="text-sm font-medium text-white">Confirm password</label>
-                <Input id="confirm" type="password" value={confirm} onChange={(e) => setConfirm(e.target.value)} required className="bg-gray-800/50 border-gray-700 text-white placeholder:text-gray-400 focus:border-purple-500" />
+
+              <div>
+                <label htmlFor="confirm" className="block text-sm font-medium text-white mb-2">Confirm password</label>
+                <div className="relative">
+                  <Input
+                    id="confirm"
+                    type={showConfirm ? "text" : "password"}
+                    value={confirm}
+                    onChange={(e) => setConfirm(e.target.value)}
+                    required
+                    className="w-full rounded-lg border border-white/15 bg-white/5 placeholder:text-gray-500 text-white px-3 py-2 pr-10 focus:outline-none focus:border-white/20 transition-colors text-sm"
+                  />
+                  <button type="button" onClick={() => setShowConfirm(v => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white cursor-pointer">
+                    {showConfirm ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
               </div>
-              <Button type="submit" disabled={isLoading} className="w-full bg-[#9541e0] hover:bg-[#8636d2] text-white font-medium py-3 rounded-lg transition-colors">
-                {isLoading ? "Updating..." : "Update password"}
-              </Button>
+
+              <button
+                type="submit"
+                disabled={isLoading}
+                className={`w-full rounded-lg py-2 font-medium border ${isLoading ? 'opacity-80 cursor-not-allowed bg-white/5 border-white/10 text-white/70' : 'cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] border-[#9541e0] text-white shadow-[0_8px_40px_rgba(149,65,224,0.35)] hover:brightness-110'}`}
+              >
+                {isLoading ? 'Updating…' : 'Update password'}
+              </button>
             </form>
-            <div className="text-center mt-6">
-              <Link href="/sign-in" className="text-gray-400 hover:text-white transition-colors">← Back to sign in</Link>
+
+            <div className="mt-4 text-center">
+              <Link href="/sign-in" className="text-sm text-purple-300 hover:text-purple-200">Back to sign in</Link>
             </div>
-          </CardContent>
-        </Card>
+          </div>
+        </div>
       </div>
     </div>
   );
