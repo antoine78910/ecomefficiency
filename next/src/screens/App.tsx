@@ -19,7 +19,21 @@ const App = () => {
     const hash = window.location.hash || ''
     const url = new URL(window.location.href)
     const code = url.searchParams.get('code')
+    const just = url.searchParams.get('just') === '1'
     const hasHashTokens = /access_token=|refresh_token=/.test(hash)
+
+    // Fallback: if just=1 param present and user is already authenticated, mark complete_signup
+    if (just) {
+      (async () => {
+        try {
+          const mod = await import(\"@/integrations/supabase/client\")
+          const { data } = await mod.supabase.auth.getUser()
+          if (data.user?.id || data.user?.email) {
+            try { await postGoal('complete_signup', { ...(data.user.email?{ email: String(data.user.email) }:{}), ...(data.user.id?{ user_id: String(data.user.id) }:{}) }); } catch {}
+          }
+        } catch {}
+      })()
+    }
 
     if (hasHashTokens) {
       const params = new URLSearchParams(hash.replace(/^#/, ''))

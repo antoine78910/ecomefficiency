@@ -35,10 +35,10 @@ export default function SignUp() {
             const protocol = window.location.protocol;
             const hostname = window.location.hostname;
             const port = window.location.port ? `:${window.location.port}` : '';
-            if (hostname.startsWith('app.')) return `${protocol}//${hostname}${port}/app`;
-            if (hostname === 'localhost' || hostname === '127.0.0.1') return `http://app.localhost${port}/app`;
+            if (hostname.startsWith('app.')) return `${protocol}//${hostname}${port}/app?just=1`;
+            if (hostname === 'localhost' || hostname === '127.0.0.1') return `http://app.localhost${port}/app?just=1`;
             const clean = hostname.replace(/^www\./, '');
-            return `${protocol}//app.${clean}${port}/app`;
+            return `${protocol}//app.${clean}${port}/app?just=1`;
           })(),
           data: { name }
         }
@@ -61,6 +61,17 @@ export default function SignUp() {
         toast({
           title: 'Account already exists',
           description: 'This email is already registered. Please sign in instead.',
+          variant: 'destructive'
+        });
+        setPending(false);
+        return;
+      }
+
+      // Safety: ensure we have a user (required for signup flow that sends verification)
+      if (!data || !data.user) {
+        toast({
+          title: 'Sign up issue',
+          description: 'Could not start verification for this email. Please try again or sign in if you already have an account.',
           variant: 'destructive'
         });
         setPending(false);

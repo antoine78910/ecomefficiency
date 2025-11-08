@@ -16,6 +16,7 @@ export default function AppPage() {
         const m = hash.match(/access_token=([^&]+).*refresh_token=([^&]+)/);
         const url = new URL(window.location.href);
         const code = url.searchParams.get('code');
+        const just = url.searchParams.get('just') === '1';
         if (m && m[1] && m[2]) {
           // Set Supabase session on app domain from tokens passed in hash
           try {
@@ -43,6 +44,14 @@ export default function AppPage() {
           } catch {}
           // Clean URL (remove code/state)
           try { history.replaceState(null, '', window.location.pathname); } catch {}
+        } else if (just) {
+          // As a last-resort fallback: after being redirected with ?just=1 and session already present
+          try {
+            const { data } = await supabase.auth.getUser();
+            const email = data.user?.email;
+            const userId = data.user?.id;
+            if (email || userId) await postGoal('complete_signup', { ...(email?{email:String(email)}:{}), ...(userId?{user_id:String(userId)}:{}) });
+          } catch {}
         }
       } finally {
         if (!cancelled) setReady(true);
