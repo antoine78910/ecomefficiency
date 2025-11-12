@@ -5,17 +5,17 @@ import Script from "next/script";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://ecomefficiency.com"),
-  title: "Access the most powerful Ecom tools for 99% off",
-  description: "Boost your productivity while minimising your costs",
+  title: "Access +50 SEO / SPY / AI tools",
+  description: "Save $4000+ every month — #1 groupbuy for ecommerce and online business",
   openGraph: {
     type: "website",
     url: "https://ecomefficiency.com/",
-    title: "Access the most powerful Ecom tools for 99% off",
-    description: "Boost your productivity while minimising your costs",
+    title: "Access +50 SEO / SPY / AI tools",
+    description: "Save $4000+ every month — #1 groupbuy for ecommerce and online business",
     siteName: "Ecom Efficiency",
     images: [
       {
-        url: "/ecomefficiency.png",
+        url: "/header_ee.png",
         width: 1200,
         height: 630,
         alt: "Ecom Efficiency",
@@ -25,9 +25,9 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Access the most powerful Ecom tools for 99% off",
-    description: "Boost your productivity while minimising your costs",
-    images: ["/ecomefficiency.png"],
+    title: "Access +50 SEO / SPY / AI tools",
+    description: "Save $4000+ every month — #1 groupbuy for ecommerce and online business",
+    images: ["/header_ee.png"],
   },
   icons: {
     icon: "/favicon.png",
