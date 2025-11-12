@@ -4,8 +4,31 @@ import { Providers } from "./providers";
 import Script from "next/script";
 
 export const metadata: Metadata = {
-  title: "Ecom Efficiency",
-  description: "50+ premium tools with a modern UI",
+  metadataBase: new URL("https://ecomefficiency.com"),
+  title: "Access the most powerful Ecom tools for 99% off",
+  description: "Boost your productivity while minimising your costs",
+  openGraph: {
+    type: "website",
+    url: "https://ecomefficiency.com/",
+    title: "Access the most powerful Ecom tools for 99% off",
+    description: "Boost your productivity while minimising your costs",
+    siteName: "Ecom Efficiency",
+    images: [
+      {
+        url: "/ecomefficiency.png",
+        width: 1200,
+        height: 630,
+        alt: "Ecom Efficiency",
+      },
+    ],
+    locale: "en_US",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Access the most powerful Ecom tools for 99% off",
+    description: "Boost your productivity while minimising your costs",
+    images: ["/ecomefficiency.png"],
+  },
   icons: {
     icon: "/favicon.png",
     shortcut: "/favicon.png",
