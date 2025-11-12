@@ -573,6 +573,19 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
           console.error('[Checkout] Failed to track payment_complete (non-fatal):', e);
         }
 
+        // Track FirstPromoter conversion (best effort)
+        try {
+          const amount = typeof paymentIntent.amount === 'number' ? (paymentIntent.amount / 100) : undefined;
+          (window as any)?.fpr && (window as any).fpr('conversion', {
+            email: userEmail || undefined,
+            amount: amount !== undefined ? String(amount) : undefined,
+            currency: currency || undefined,
+            plan: tier
+          });
+        } catch (e) {
+          console.error('[Checkout] Failed to track FirstPromoter conversion (non-fatal):', e);
+        }
+
         // Redirect to success page
         sessionStorage.removeItem(sessionKey); // Clear lock on success
         window.location.href = `/checkout/success?tier=${tier}&billing=${billing}`;

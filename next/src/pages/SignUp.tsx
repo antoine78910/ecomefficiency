@@ -67,6 +67,9 @@ export default function SignUp() {
         return;
       }
 
+      // Track referral with FirstPromoter (best effort)
+      try { (window as any).fpr && (window as any).fpr('referral', { email }); } catch {}
+
       // Safety: ensure we have a user (required for signup flow that sends verification)
       if (!data || !data.user) {
         toast({
