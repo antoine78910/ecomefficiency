@@ -16,9 +16,9 @@ export const metadata: Metadata = {
     siteName: "Ecom Efficiency",
     images: [
       {
-        url: "/header_ee.png",
-        width: 1465,
-        height: 816,
+        url: "/header_ee.png?v=8",
+        width: 1200,
+        height: 630,
         alt: "Ecom Efficiency",
       },
     ],
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Access +50 SEO / SPY / AI tools",
     description: "Save $4000+ every month — #1 groupbuy for ecommerce and online business",
-    images: ["/header_ee.png"],
+    images: ["/header_ee.png?v=8"],
   },
   icons: {
     icon: "/favicon.png",
