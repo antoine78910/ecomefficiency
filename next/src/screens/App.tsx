@@ -60,6 +60,15 @@ const App = () => {
                     provider: data.user.app_metadata?.provider || 'email',
                     verified_at: new Date().toISOString()
                   });
+                  // FirstPromoter referral (only once per browser)
+                  try {
+                    const sentKey = '__ee_fpr_referral_sent'
+                    const already = typeof window !== 'undefined' ? window.localStorage.getItem(sentKey) : '1'
+                    if (!already && (window as any)?.fpr) {
+                      (window as any).fpr('referral', { email: String(data.user.email) })
+                      try { window.localStorage.setItem(sentKey, '1') } catch {}
+                    }
+                  } catch {}
                   try { await postGoal('complete_signup', { email: String(data.user.email), user_id: String(data.user.id) }); } catch {}
                 }
               } catch (e) {
@@ -104,6 +113,15 @@ const App = () => {
                 user_id: data.user.id,
                 verified_at: new Date().toISOString()
               });
+              // FirstPromoter referral (only once per browser)
+              try {
+                const sentKey = '__ee_fpr_referral_sent'
+                const already = typeof window !== 'undefined' ? window.localStorage.getItem(sentKey) : '1'
+                if (!already && (window as any)?.fpr) {
+                  (window as any).fpr('referral', { email: String(data.user.email) })
+                  try { window.localStorage.setItem(sentKey, '1') } catch {}
+                }
+              } catch {}
               try { await postGoal('complete_signup', { email: String(data.user.email), user_id: String(data.user.id) }); } catch {}
             }
           } catch (e) {
