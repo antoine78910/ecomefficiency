@@ -7,7 +7,7 @@ import Script from "next/script";
 export const metadata: Metadata = {
   metadataBase: new URL("https://ecomefficiency.com"),
   title: "Ecom Efficiency",
-  description: "Save $4000+ every month — #1 groupbuy for ecommerce and online business",
+  description: "#1 groupbuy for ecommerce and online business - Save $4000+ every month",
   openGraph: {
     type: "website",
     url: "https://ecomefficiency.com/",
