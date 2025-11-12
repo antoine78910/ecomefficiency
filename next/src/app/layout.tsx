@@ -6,7 +6,7 @@ import Script from "next/script";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://ecomefficiency.com"),
-  title: "Access +50 SEO / SPY / AI tools",
+  title: "Ecom Efficiency",
   description: "Save $4000+ every month — #1 groupbuy for ecommerce and online business",
   openGraph: {
     type: "website",
@@ -17,8 +17,8 @@ export const metadata: Metadata = {
     images: [
       {
         url: "/header_ee.png",
-        width: 1200,
-        height: 630,
+        width: 1465,
+        height: 816,
         alt: "Ecom Efficiency",
       },
     ],
