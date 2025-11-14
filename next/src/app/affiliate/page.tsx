@@ -303,6 +303,8 @@ function Faq() {
     },
   ];
   const [open, setOpen] = React.useState<number | null>(0);
+  // Close all FAQ items by default
+  React.useEffect(() => { setOpen(null); }, [])
   return (
     <div className="space-y-3">
       {items.map((it, idx) => (
