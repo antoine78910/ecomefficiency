@@ -216,11 +216,6 @@ const Tools = () => {
                       </div>
                       <h3 className="text-white font-semibold text-sm md:text-base mb-1">{tool.name}</h3>
                       <p className="text-gray-400 text-xs md:text-sm leading-relaxed">{tool.description}</p>
-                      <div className="flex items-center gap-3 mt-2 opacity-90">
-                        <img src="/tools-logos/ubersuggest.png" alt="Ubersuggest" className="w-8 h-8 md:w-10 md:h-10 object-contain" />
-                        <img src="/tools-logos/semrush.png" alt="Semrush" className="w-8 h-8 md:w-10 md:h-10 object-contain" />
-                        <span className="text-gray-400 text-sm">…</span>
-                      </div>
                       {/* Removed explicit CTA chip per request */}
                     </Card>
                 </div>
