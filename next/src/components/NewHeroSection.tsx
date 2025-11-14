@@ -31,7 +31,7 @@ const NewHeroSection = () => {
         { ml: -36, mr: -36 },  // AI even tighter spacing
         { ml: 0, mr: 0 },    // Ecom
       ];
-      const widthBuffer = 4; // prevent clipping due to subpixel rounding
+      const widthBuffer = 8; // extra buffer to prevent clipping due to subpixel rounding
 
       // Apply base wrapper styles
       wrapper.style.display = 'inline-block';
@@ -81,7 +81,7 @@ const NewHeroSection = () => {
   }, []);
 
   return (
-    <div className="bg-black min-h-screen flex items-center relative overflow-hidden">
+    <div className="bg-black min-h-screen flex items-center relative overflow-visible">
       {/* Grid Background - White lines with fade to bottom */}
       <div 
         className="absolute inset-0 opacity-30"
@@ -122,12 +122,12 @@ const NewHeroSection = () => {
           {/* Removed redundant ECOM EFFICIENCY TOOLS badge per request */}
 
           {/* Main Heading with animated word cycle */}
-          <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-4 leading-tight">
+          <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-4 leading-[1.06] tracking-normal">
             <span className="block">Access the</span>
             <span className="block">
               Most Powerful{' '}
-              <span ref={wordWrapperRef} className="relative inline-block align-text-bottom h-[1.1em] overflow-hidden whitespace-nowrap text-purple-400 -translate-y-[7px] pr-[2px]">
-                <div ref={wordTrackRef} className="leading-none">
+              <span ref={wordWrapperRef} className="relative inline-block align-text-bottom h-[1.1em] overflow-hidden whitespace-nowrap text-purple-400 -translate-y-[7px] pr-[4px]">
+                <div ref={wordTrackRef} className="leading-[1]">
                   <span className="block">Ecom</span>
                   <span className="block">SPY</span>
                   <span className="block">SEO</span>

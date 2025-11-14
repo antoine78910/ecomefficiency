@@ -43,7 +43,6 @@ type Currency = 'USD' | 'EUR';
 ];
 
 const proExtras = [
-  "TrendTrack",
   "Pipiads",
   "ElevenLabs",
   "Higgsfield",

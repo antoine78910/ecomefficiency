@@ -38,7 +38,6 @@ export const carouselTools: CarouselTool[] = [
   { name: 'Runway', description: 'AI video editing', icon: '/tools-logos/runway.png' },
   { name: 'Pipiads', description: 'TikTok/Facebook ad spy', icon: '/tools-logos/pipiads.png' },
   { name: 'SendShort', description: 'Auto subtitles & translation', icon: '/tools-logos/sendshort.png' },
-  { name: 'Trendtrack', description: 'E‑com trend tracking', icon: '/tools-logos/trendtrack.png' },
   { name: 'Kalodata', description: 'TikTok shop analytics', icon: '/tools-logos/kalodata.png' },
   { name: 'Fotor', description: 'AI photo editor', icon: '/tools-logos/fotor.png' },
   { name: 'ForePlay', description: 'Save ads, build briefs', icon: '/tools-logos/foreplay.png' },
