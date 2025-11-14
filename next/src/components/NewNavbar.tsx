@@ -86,10 +86,15 @@ const NewNavbar = () => {
               </Button>
             </Link>
             <Link href="/sign-up">
-              <Button
-                className="cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_24px_rgba(149,65,224,0.55)] px-5 py-2 rounded-xl border border-[#9541e0] text-white font-medium md:px-6 md:py-2 md:text-base hover:brightness-110"
-              >
-                Get Started
+              <Button className="cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_24px_rgba(149,65,224,0.55)] px-5 py-2 rounded-xl border border-[#9541e0] text-white font-medium md:px-6 md:py-2 md:text-base hover:brightness-110 group overflow-hidden">
+                <div className="relative overflow-hidden w-full text-center">
+                  <span className="inline-block transition-transform group-hover:-translate-y-7 duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)]">
+                    Get Started
+                  </span>
+                  <span className="absolute left-1/2 -translate-x-1/2 top-7 group-hover:top-0 transition-all duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)]">
+                    Get Started
+                  </span>
+                </div>
               </Button>
             </Link>
 
