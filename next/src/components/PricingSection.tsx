@@ -52,7 +52,6 @@ const proExtras = [
   "Veo3/Gemini",
   "Flair AI",
   "Exploding topics",
-  "BrandSearch",
   "Fotor",
   "Foreplay",
   "Kalodata",

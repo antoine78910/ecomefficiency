@@ -30,7 +30,7 @@ const tools = [
   { name: 'Flair AI', price: 149 },
   { name: 'Exploding Topics', price: 39 },
   { name: 'TrendTrack', price: 89 },
-  { name: 'BrandSearch', price: 79 },
+  // BrandSearch removed
   { name: 'SendShort', price: 59 },
   { name: 'Eleven Labs', price: 220 },
   { name: 'Fotor', price: 15 },

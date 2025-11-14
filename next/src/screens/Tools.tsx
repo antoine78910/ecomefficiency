@@ -18,8 +18,8 @@ const STARTER_NAMES = [
   'ChatGPT','Midjourney','SendShort','Capcut','Helium10','Dropship.io','ShopHunter','WinningHunter'
 ];
 const PRO_NAMES = [
-  'Flair.ai','ChatGPT','Gemini','Gemini & NanoBanana','Midjourney','Exploding Topics','Pipiads','Kalodata','WinningHunter','Capcut','SendShort','Helium10','Dropship.io','ShopHunter','Atria','Heygen','Fotor','ForePlay','ElevenLabs','Runway','Trendtrack','Veo 3',
-  'BrandSearch','Higgsfield'
+  'Flair.ai','ChatGPT','Gemini','Gemini & NanoBanana','Midjourney','Exploding Topics','Pipiads','Kalodata','WinningHunter','Capcut','SendShort','Helium10','Dropship.io','ShopHunter','Atria','Heygen','Fotor','ForePlay','ElevenLabs','Runway','Veo 3',
+  'Higgsfield'
 ];
 
 const Tools = () => {
@@ -92,7 +92,7 @@ const Tools = () => {
     'Semrush': 399,
     'Similarweb': 199,
     '+30 SEO Tools': 1000,
-    'BrandSearch': 79,
+    
     'Higgsfield': 250,
     'SendShort': 59,
     'Capcut': 23,
