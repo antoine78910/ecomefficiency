@@ -94,7 +94,7 @@ const Tools = () => {
     '+30 SEO Tools': 1000,
     'BrandSearch': 79,
     'Higgsfield': 250,
-    'SendShort': 29,
+    'SendShort': 59,
     'Capcut': 23,
     'Brain.fm': 9.99,
   }

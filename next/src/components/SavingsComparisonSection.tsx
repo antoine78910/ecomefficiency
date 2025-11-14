@@ -31,6 +31,7 @@ const tools = [
   { name: 'Exploding Topics', price: 39 },
   { name: 'TrendTrack', price: 89 },
   { name: 'BrandSearch', price: 79 },
+  { name: 'SendShort', price: 59 },
   { name: 'Eleven Labs', price: 220 },
   { name: 'Fotor', price: 15 },
   { name: 'Foreplay', price: 149 },
