@@ -86,8 +86,8 @@ const NewNavbar = () => {
               </Button>
             </Link>
             <Link href="/sign-up">
-              <Button 
-                className="bg-[#9541e0] hover:bg-[#7c30c7] text-white px-4 py-1.5 rounded-lg font-medium text-sm md:px-6 md:py-2 md:text-base"
+              <Button
+                className="cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_24px_rgba(149,65,224,0.55)] px-5 py-2 rounded-xl border border-[#9541e0] text-white font-medium md:px-6 md:py-2 md:text-base hover:brightness-110"
               >
                 Get Started
               </Button>
