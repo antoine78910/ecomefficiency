@@ -3,7 +3,7 @@ import React from "react";
 import { carouselTools, logoDomainMap } from "@/data/carouselTools";
 
 export default function ProToolsPage() {
-  const seoTile = { name: '+30 SEO Tools', description: 'Includes: Semrush, Ubersuggest, and more…', icon: '/tools-logos/seo.png' } as const;
+  const seoTile = { name: '+30 SEO Tools', description: 'Includes: Semrush, Ubersuggest, ...', icon: '/tools-logos/seo.png' } as const;
   const LINK_MAP: Record<string, string> = {
     '+30 SEO Tools': 'https://rankerfox.com/login/',
     // starter set

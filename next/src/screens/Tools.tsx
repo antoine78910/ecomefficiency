@@ -39,7 +39,7 @@ const Tools = () => {
   // Build list with "+30 SEO Tools" tile replacing Ubersuggest/Semrush
   const withSeoTile: GalleryTool[] = React.useMemo(() => {
     const list = galleryTools.filter(t => t.name !== 'Ubersuggest' && t.name !== 'Semrush')
-    const seoTile: GalleryTool = { id: 0, name: '+30 SEO Tools', description: 'Includes: Semrush, Ubersuggest, and more…', icon: '/tools-logos/seo.png' }
+    const seoTile: GalleryTool = { id: 0, name: '+30 SEO Tools', description: 'Includes: Semrush, Ubersuggest, …', icon: '/tools-logos/seo.png' }
     const base = [...list, seoTile]
     const weight = (n: string) => (n === 'Gemini' ? 0 : (n === '+30 SEO Tools' ? 9999 : 1))
     const ordered = base.sort((a, b) => weight(a.name) - weight(b.name))

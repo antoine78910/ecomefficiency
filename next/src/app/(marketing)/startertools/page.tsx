@@ -22,7 +22,7 @@ const PRO_ONLY_TOOL_NAMES = [
 ];
 
 export default function StarterToolsPage() {
-  const seoTile = { name: '+30 SEO Tools', description: 'Includes: Semrush, Ubersuggest, and more…', icon: '/tools-logos/seo.png' } as const;
+  const seoTile = { name: '+30 SEO Tools', description: 'Includes: Semrush, Ubersuggest, …', icon: '/tools-logos/seo.png' } as const;
   const starterTools = [seoTile, ...carouselTools.filter(t => STARTER_TOOL_NAMES.includes(t.name) && t.name !== 'Ubersuggest' && t.name !== 'Semrush')
     .filter(t => t.name !== 'Canva' && t.name !== 'Brain.fm')
   ];
