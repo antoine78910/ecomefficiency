@@ -29,7 +29,6 @@ const tools = [
   { name: 'Gemini', price: 20 },
   { name: 'Flair AI', price: 149 },
   { name: 'Exploding Topics', price: 39 },
-  { name: 'TrendTrack', price: 89 },
   // BrandSearch removed
   { name: 'SendShort', price: 59 },
   { name: 'Eleven Labs', price: 220 },
