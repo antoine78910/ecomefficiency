@@ -6,7 +6,7 @@ import GoalClient from "@/components/GoalClient";
 
 // Static marketing page to avoid runtime cost
 export const dynamic = 'force-static';
-export const revalidate = 60 * 60 * 24; // 1 day
+export const revalidate = 86400; // 1 day
 
 function PricingClient() {
   return (

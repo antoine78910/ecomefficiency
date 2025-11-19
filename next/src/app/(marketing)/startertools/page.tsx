@@ -4,7 +4,7 @@ import { carouselTools, logoDomainMap } from "@/data/carouselTools";
 
 // Prefer fully static generation for marketing to reduce runtime costs
 export const dynamic = 'force-static';
-export const revalidate = 60 * 60 * 24; // 1 day
+export const revalidate = 86400; // 1 day
 
 const STARTER_TOOL_NAMES = [
   'Ubersuggest',
