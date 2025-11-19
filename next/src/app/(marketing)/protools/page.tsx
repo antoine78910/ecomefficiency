@@ -1,4 +1,3 @@
-"use client";
 import React from "react";
 import { carouselTools, logoDomainMap } from "@/data/carouselTools";
 
