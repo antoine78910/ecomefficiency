@@ -74,17 +74,6 @@ export default function ProToolsPage() {
                     alt={tool.name}
                     className="w-full h-full object-contain bg-black"
                     loading="lazy"
-                    onError={(e) => {
-                      const target = e.currentTarget as HTMLImageElement;
-                      const domain = logoDomainMap[tool.name.toLowerCase()];
-                      const fallback = domain ? `https://logo.clearbit.com/${domain}` : '/placeholder.svg';
-                      if ((target as any).dataset.retry !== '1' && target.src !== fallback) {
-                        (target as any).dataset.retry = '1';
-                        target.src = fallback;
-                      } else if (target.src.indexOf('/placeholder.svg') === -1) {
-                        target.src = '/placeholder.svg';
-                      }
-                    }}
                   />
                 </div>
                 <h3 className="text-white font-semibold text-base mb-2">{tool.name}</h3>
