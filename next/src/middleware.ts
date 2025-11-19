@@ -184,7 +184,8 @@ export async function middleware(req: NextRequest) {
 // Skip middleware for Next.js internals and assets
 export const config = {
   matcher: [
-    '/((?!_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|public_app_assets|app_assets).*)',
+    // Exclude Next internals, API routes, and common static assets/folders to save Edge CPU
+    '/((?!api/|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|public_app_assets|app_assets|tools-logos|images|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|txt|xml|css|js|map)).*)',
   ],
 }
 

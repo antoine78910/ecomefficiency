@@ -16,7 +16,7 @@ const JoinMembersSection = () => {
             {/* Text Content */}
             <div className="flex-1 text-center md:text-left">
               <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">
-                Join <span className="gradient-text">+1000 Members</span>
+                Join <span className="gradient-text">+2000 Members</span>
               </h2>
               <p className="text-lg text-white">
                 Join our free Discord community of e‑commerce founders and experts.

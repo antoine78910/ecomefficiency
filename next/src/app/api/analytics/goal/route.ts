@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 
+// Run on Edge to avoid Serverless Function invocations (cheaper, lower latency)
+export const runtime = 'edge';
+export const preferredRegion = 'iad1'; // optional hint
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({})) as { name?: string; metadata?: Record<string,string> };

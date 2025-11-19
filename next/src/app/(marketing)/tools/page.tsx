@@ -1,12 +1,17 @@
-"use client";
 import Tools from "@/screens/Tools";
-import { postGoal } from "@/lib/analytics";
+import GoalClient from "@/components/GoalClient";
+
+// Static marketing page to avoid runtime cost
+export const dynamic = 'force-static';
+export const revalidate = 60 * 60 * 24; // 1 day
 
 export default function ToolsPage() {
-  if (typeof window !== 'undefined') {
-    postGoal('view_tools');
-  }
-  return <Tools />;
+  return (
+    <>
+      <GoalClient name="view_tools" />
+      <Tools />
+    </>
+  );
 }
 
 

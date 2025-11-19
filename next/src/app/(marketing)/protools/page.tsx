@@ -2,6 +2,10 @@
 import React from "react";
 import { carouselTools, logoDomainMap } from "@/data/carouselTools";
 
+// Prefer fully static generation for marketing to reduce runtime costs
+export const dynamic = 'force-static';
+export const revalidate = 60 * 60 * 24; // 1 day
+
 export default function ProToolsPage() {
   const seoTile = { name: '+30 SEO Tools', description: 'Includes: Semrush, Ubersuggest, ...', icon: '/tools-logos/seo.png' } as const;
   const LINK_MAP: Record<string, string> = {
