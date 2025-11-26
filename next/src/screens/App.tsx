@@ -22,17 +22,17 @@ const App = () => {
     const just = url.searchParams.get('just') === '1'
     const hasHashTokens = /access_token=|refresh_token=/.test(hash)
 
+    // Helper pour vérifier si l'utilisateur est "nouveau" (créé il y a moins de 2 minutes)
+    const isUserNew = (user: any) => {
+      if (!user?.created_at) return false;
+      const created = new Date(user.created_at).getTime();
+      const now = new Date().getTime();
+      return (now - created) < 2 * 60 * 1000; // 2 minutes
+    };
+
     // Fallback: if just=1 param present and user is already authenticated, mark complete_signup
     if (just) {
-      (async () => {
-        try {
-          const mod = await import("@/integrations/supabase/client")
-          const { data } = await mod.supabase.auth.getUser()
-          if (data.user?.id || data.user?.email) {
-            try { await postGoal('complete_signup', { ...(data.user.email?{ email: String(data.user.email) }:{}), ...(data.user.id?{ user_id: String(data.user.id) }:{}) }); } catch {}
-          }
-        } catch {}
-      })()
+      // No op: complete_signup removed
     }
 
     if (hasHashTokens) {
@@ -52,7 +52,16 @@ const App = () => {
             if (justSignedIn === '1') {
               try {
                 const { data } = await mod.supabase.auth.getUser()
+                // AJOUT: Identifier l'utilisateur pour DataFast
                 if (data.user?.email) {
+                  try {
+                    (window as any)?.datafast?.('identify', {
+                      email: data.user.email,
+                      user_id: data.user.id
+                    });
+                  } catch {}
+               }
+                if (data.user?.email && isUserNew(data.user)) {
                   console.log('[App] 📊 Tracking sign_up goal after OAuth sign-up');
                   (window as any)?.datafast?.('sign_up', {
                     email: data.user.email,
@@ -69,7 +78,6 @@ const App = () => {
                       try { window.localStorage.setItem(sentKey, '1') } catch {}
                     }
                   } catch {}
-                  try { await postGoal('complete_signup', { email: String(data.user.email), user_id: String(data.user.id) }); } catch {}
                 }
               } catch (e) {
                 console.error('[App] Failed to track sign_up (non-fatal):', e);
@@ -106,7 +114,16 @@ const App = () => {
           // Track DataFast sign_up goal after email verification
           try {
             const { data } = await mod.supabase.auth.getUser()
+            // AJOUT: Identifier l'utilisateur pour DataFast
             if (data.user?.email) {
+              try {
+                (window as any)?.datafast?.('identify', {
+                  email: data.user.email,
+                  user_id: data.user.id
+                });
+              } catch {}
+           }
+            if (data.user?.email && isUserNew(data.user)) {
               console.log('[App] 📊 Tracking sign_up goal after email verification');
               (window as any)?.datafast?.('sign_up', {
                 email: data.user.email,
@@ -122,7 +139,6 @@ const App = () => {
                   try { window.localStorage.setItem(sentKey, '1') } catch {}
                 }
               } catch {}
-              try { await postGoal('complete_signup', { email: String(data.user.email), user_id: String(data.user.id) }); } catch {}
             }
           } catch (e) {
             console.error('[App] Failed to track sign_up (non-fatal):', e);
@@ -200,26 +216,6 @@ const App = () => {
         } catch {
           // SECURITY: On any error, default to free plan
           setAppPlan('free')
-        }
-      } catch {}
-    })()
-  }, [])
-
-  // Last guard for complete_signup if user lands authenticated without code/tokens
-  React.useEffect(() => {
-    (async () => {
-      try {
-        if (typeof window === 'undefined') return
-        const sentKey = '__ee_complete_signup_sent'
-        const already = window.localStorage.getItem(sentKey)
-        if (already) return
-        const mod = await import("@/integrations/supabase/client")
-        const { data } = await mod.supabase.auth.getUser()
-        const user = data.user
-        const confirmed = (user as any)?.email_confirmed_at || (user as any)?.confirmed_at
-        if (user && confirmed) {
-          try { await postGoal('complete_signup', { ...(user.email?{email:String(user.email)}:{}), ...(user.id?{user_id:String(user.id)}:{}) }) } catch {}
-          try { window.localStorage.setItem(sentKey, '1') } catch {}
         }
       } catch {}
     })()
@@ -451,8 +447,8 @@ function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'sta
 
   const formatPrice = (amount: number, c: 'USD' | 'EUR') => {
     if (c === 'EUR') {
-      const formatted = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
-      return formatted.replace(/\s/g, '\u00A0') + '€';
+      // user requested English only, so we use English formatting even for EUR
+      return new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR' }).format(amount);
     }
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   }

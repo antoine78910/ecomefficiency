@@ -35,10 +35,10 @@ const App = () => {
                 <div>
                   <CardTitle className="text-white flex items-center gap-2">
                     <Crown className="w-5 h-5 text-purple-400" />
-                    Abonnement Premium
+                    Premium Subscription
                   </CardTitle>
                   <CardDescription className="text-gray-400">
-                    Gérez votre abonnement et accédez à tous les outils
+                    Manage your subscription and access all tools
                   </CardDescription>
                 </div>
                 <Badge className="bg-purple-500/20 text-purple-400 border-purple-500/20">
@@ -49,22 +49,22 @@ const App = () => {
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <p className="text-sm text-gray-400">Plan actuel</p>
+                  <p className="text-sm text-gray-400">Current Plan</p>
                   <p className="text-lg font-semibold text-white">Premium Monthly</p>
                 </div>
                 <div className="space-y-2">
-                  <p className="text-sm text-gray-400">Prochaine facturation</p>
-                  <p className="text-lg font-semibold text-white">15 Février 2024</p>
+                  <p className="text-sm text-gray-400">Next Billing</p>
+                  <p className="text-lg font-semibold text-white">February 15, 2024</p>
                 </div>
                 <div className="space-y-2">
-                  <p className="text-sm text-gray-400">Prix</p>
-                  <p className="text-lg font-semibold text-white">€39.99/mois</p>
+                  <p className="text-sm text-gray-400">Price</p>
+                  <p className="text-lg font-semibold text-white">€39.99/month</p>
                 </div>
                 <div className="space-y-2">
-                  <p className="text-sm text-gray-400">Statut</p>
+                  <p className="text-sm text-gray-400">Status</p>
                   <div className="flex items-center gap-2">
                     <div className="w-2 h-2 bg-green-400 rounded-full"></div>
-                    <span className="text-green-400">Actif</span>
+                    <span className="text-green-400">Active</span>
                   </div>
                 </div>
               </div>
@@ -72,11 +72,11 @@ const App = () => {
               <div className="flex flex-wrap gap-3 pt-4">
                 <Button variant="outline" className="border-gray-600 text-white hover:bg-gray-800">
                   <CreditCard className="w-4 h-4 mr-2" />
-                  Gérer le paiement
+                  Manage Payment
                 </Button>
                 <Button variant="outline" className="border-gray-600 text-white hover:bg-gray-800">
                   <Calendar className="w-4 h-4 mr-2" />
-                  Modifier le plan
+                  Change Plan
                 </Button>
               </div>
             </CardContent>
@@ -87,25 +87,25 @@ const App = () => {
             <CardHeader>
               <CardTitle className="text-white flex items-center gap-2">
                 <Users className="w-5 h-5 text-purple-400" />
-                Accès Discord
+                Discord Access
               </CardTitle>
               <CardDescription className="text-gray-400">
-                Rejoignez la communauté exclusive
+                Join the exclusive community
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-3">
                 <div className="flex items-center gap-3">
                   <Check className="w-4 h-4 text-green-400" />
-                  <span className="text-sm text-gray-300">Accès aux canaux premium</span>
+                  <span className="text-sm text-gray-300">Access to premium channels</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <Check className="w-4 h-4 text-green-400" />
-                  <span className="text-sm text-gray-300">Support prioritaire</span>
+                  <span className="text-sm text-gray-300">Priority Support</span>
                 </div>
                 <div className="flex items-center gap-3">
                   <Check className="w-4 h-4 text-green-400" />
-                  <span className="text-sm text-gray-300">Ressources exclusives</span>
+                  <span className="text-sm text-gray-300">Exclusive Resources</span>
                 </div>
               </div>
               
@@ -117,7 +117,7 @@ const App = () => {
               </Button>
               
               <p className="text-xs text-gray-500 text-center">
-                Votre rôle sera automatiquement attribué
+                Your role will be automatically assigned
               </p>
             </CardContent>
           </Card>
@@ -126,7 +126,7 @@ const App = () => {
 
         {/* Tools Connect Section (updates via Discord/Discohook to /api/credentials) */}
         <div className="mt-12">
-          <h2 className="text-2xl font-bold text-white mb-6">Connexion aux outils</h2>
+          <h2 className="text-2xl font-bold text-white mb-6">Tools Connection</h2>
           <CredentialsPanel />
         </div>
       </div>
@@ -181,14 +181,14 @@ function CredentialsPanel() {
   return (
     <Card className="bg-gray-900 border-gray-700">
       <CardHeader>
-        <CardTitle className="text-white">Identifiants AdsPower</CardTitle>
+        <CardTitle className="text-white">AdsPower Credentials</CardTitle>
         <CardDescription className="text-gray-400">
-          Cette section se met à jour automatiquement depuis votre bot Discord (Discohook → POST /api/credentials).
+          This section updates automatically from your Discord bot (Discohook → POST /api/credentials).
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         {loading ? (
-          <p className="text-gray-400 text-sm">Chargement…</p>
+          <p className="text-gray-400 text-sm">Loading…</p>
         ) : error ? (
           <p className="text-red-400 text-sm">{error}</p>
         ) : creds && (creds.adspower_email || creds.adspower_password) ? (
@@ -203,7 +203,7 @@ function CredentialsPanel() {
               </div>
             </div>
             <div>
-              <p className="text-xs text-gray-400 mb-1">Mot de passe</p>
+              <p className="text-xs text-gray-400 mb-1">Password</p>
               <div className="flex items-center gap-2">
                 <span className="text-white break-all">{creds.adspower_password}</span>
                 <Button size="sm" variant="outline" className="border-gray-600" onClick={() => copy(creds.adspower_password)}>
@@ -217,11 +217,11 @@ function CredentialsPanel() {
                 <p className="text-white whitespace-pre-wrap">{creds.note}</p>
               </div>
             )}
-            <p className="text-xs text-gray-500 md:col-span-2">Dernière mise à jour: {creds?.updatedAt ? new Date(creds.updatedAt).toLocaleString() : '—'}</p>
+            <p className="text-xs text-gray-500 md:col-span-2">Last update: {creds?.updatedAt ? new Date(creds.updatedAt).toLocaleString() : '—'}</p>
           </div>
         ) : (
           <div className="text-gray-400 text-sm">
-            En attente d’identifiants… Configurez Discohook pour envoyer un POST JSON vers <code className="text-gray-300">/api/credentials</code>.
+            Waiting for credentials… Configure Discohook to send a JSON POST to <code className="text-gray-300">/api/credentials</code>.
           </div>
         )}
       </CardContent>

@@ -29,7 +29,7 @@ export default function AppPage() {
             const { data } = await supabase.auth.getUser();
             const email = data.user?.email;
             const userId = data.user?.id;
-            if (email || userId) await postGoal('complete_signup', { ...(email?{email:String(email)}:{}), ...(userId?{user_id:String(userId)}:{}) });
+            // if (email || userId) await postGoal('complete_signup', { ...(email?{email:String(email)}:{}), ...(userId?{user_id:String(userId)}:{}) });
           } catch {}
         } else if (code) {
           // Magic link/email verification flow: exchange code and mark complete_signup
@@ -40,7 +40,7 @@ export default function AppPage() {
             const { data } = await supabase.auth.getUser();
             const email = data.user?.email;
             const userId = data.user?.id;
-            if (email || userId) await postGoal('complete_signup', { ...(email?{email:String(email)}:{}), ...(userId?{user_id:String(userId)}:{}) });
+            // if (email || userId) await postGoal('complete_signup', { ...(email?{email:String(email)}:{}), ...(userId?{user_id:String(userId)}:{}) });
           } catch {}
           // Clean URL (remove code/state)
           try { history.replaceState(null, '', window.location.pathname); } catch {}
@@ -50,25 +50,10 @@ export default function AppPage() {
             const { data } = await supabase.auth.getUser();
             const email = data.user?.email;
             const userId = data.user?.id;
-            if (email || userId) await postGoal('complete_signup', { ...(email?{email:String(email)}:{}), ...(userId?{user_id:String(userId)}:{}) });
+            // if (email || userId) await postGoal('complete_signup', { ...(email?{email:String(email)}:{}), ...(userId?{user_id:String(userId)}:{}) });
           } catch {}
         } else {
-          // Final safeguard: if user is already authenticated on app root AND we never sent the goal in this browser, send it once
-          try {
-            const sentKey = '__ee_complete_signup_sent';
-            const already = typeof window !== 'undefined' ? window.localStorage.getItem(sentKey) : '1';
-            if (!already) {
-              const { data } = await supabase.auth.getUser();
-              const user = data.user;
-              const email = user?.email;
-              const userId = user?.id;
-              const confirmed = (user as any)?.email_confirmed_at || (user as any)?.confirmed_at;
-              if ((email || userId) && confirmed) {
-                await postGoal('complete_signup', { ...(email?{email:String(email)}:{}), ...(userId?{user_id:String(userId)}:{}) });
-                try { window.localStorage.setItem(sentKey, '1'); } catch {}
-              }
-            }
-          } catch {}
+          // Final safeguard removed
         }
       } finally {
         if (!cancelled) setReady(true);

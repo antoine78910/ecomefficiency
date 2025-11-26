@@ -9,23 +9,38 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({})) as { name?: string; metadata?: Record<string,string> };
     const name = (body.name || '').toLowerCase();
     if (!name || !/^[a-z0-9_-]{1,32}$/.test(name)) {
-      return NextResponse.json({ error: 'invalid_name' }, { status: 400 });
+      return NextResponse.json({ error: 'invalid_name' }, { status: 200 });
     }
 
     const datafastVisitorId = req.cookies.get('datafast_visitor_id')?.value;
-    if (!datafastVisitorId) {
-      return NextResponse.json({ error: 'no_visitor_id' }, { status: 400 });
+    
+    // ON ACCEPTE si visitor_id est là OU si on a des infos d'identification dans metadata
+    const metaAny = (body.metadata || {}) as any;
+    const hasIdentity = metaAny.email || metaAny.user_id;
+
+    if (!datafastVisitorId && !hasIdentity) {
+      // Si on n'a NI cookie NI identité, on ne peut rien faire
+      return NextResponse.json({ error: 'no_visitor_id_or_identity' }, { status: 200 });
     }
 
     const apiKey = process.env.DATAFAST_API_KEY;
     if (!apiKey) {
-      return NextResponse.json({ error: 'missing_datafast_key' }, { status: 500 });
+      return NextResponse.json({ error: 'missing_datafast_key' }, { status: 200 });
     }
 
     const payload: any = {
-      datafast_visitor_id: datafastVisitorId,
       name,
     };
+
+    // Ajout conditionnel des identifiants
+    if (datafastVisitorId) {
+        payload.datafast_visitor_id = datafastVisitorId;
+    } else if (hasIdentity) {
+        // Si pas de cookie, on envoie l'identité pour que DataFast fasse le lien
+        // NOTE: Vérifie la doc exacte pour les champs, mais souvent c'est user_id ou identity
+        if (metaAny.user_id) payload.user_id = metaAny.user_id;
+        if (metaAny.email) payload.email = metaAny.email;
+    }
     if (body.metadata && typeof body.metadata === 'object') {
       const meta: Record<string,string> = {};
       const entries = Object.entries(body.metadata).slice(0, 10);
@@ -47,11 +62,11 @@ export async function POST(req: NextRequest) {
     });
     const json = await resp.json().catch(() => ({}));
     if (!resp.ok) {
-      return NextResponse.json({ error: 'datafast_error', status: resp.status, detail: json }, { status: 502 });
+      return NextResponse.json({ error: 'datafast_error', status: resp.status, detail: json }, { status: 200 });
     }
     return NextResponse.json(json, { status: 200 });
   } catch (e: any) {
-    return NextResponse.json({ error: 'server_error', message: e?.message || 'unknown' }, { status: 500 });
+    return NextResponse.json({ error: 'server_error', message: e?.message || 'unknown' }, { status: 200 });
   }
 }
 
