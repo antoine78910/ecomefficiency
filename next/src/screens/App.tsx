@@ -68,18 +68,34 @@ const App = () => {
 
                   if (data.user?.email) {
                     // console.log('[App] 📊 Tracking sign_up goal');
+                    const userEmail = data.user.email;
+                    const userId = data.user.id;
+                    
+                    // DataFast
                     (window as any)?.datafast?.('sign_up', {
-                      email: data.user.email,
-                      user_id: data.user.id,
+                      email: userEmail,
+                      user_id: userId,
                       provider: data.user.app_metadata?.provider || 'email',
                       verified_at: new Date().toISOString()
                     });
+
+                    // Brevo Custom Event
+                    fetch('/api/brevo/track', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({
+                        email: userEmail,
+                        event: 'signup',
+                        data: { source: 'website', status: 'pending_payment' }
+                      })
+                    }).catch(() => {});
+
                     // FirstPromoter referral (only once per browser)
                     try {
                       const sentKey = '__ee_fpr_referral_sent'
                       const already = typeof window !== 'undefined' ? window.localStorage.getItem(sentKey) : '1'
                       if (!already && (window as any)?.fpr) {
-                        (window as any).fpr('referral', { email: String(data.user.email) })
+                        (window as any).fpr('referral', { email: String(userEmail) })
                         try { window.localStorage.setItem(sentKey, '1') } catch {}
                       }
                     } catch {}
@@ -131,17 +147,32 @@ const App = () => {
            }
             if (data.user?.email && isUserNew(data.user)) {
               // console.log('[App] 📊 Tracking sign_up goal after email verification');
+              const userEmail = data.user.email;
+              
+              // DataFast
               (window as any)?.datafast?.('sign_up', {
-                email: data.user.email,
+                email: userEmail,
                 user_id: data.user.id,
                 verified_at: new Date().toISOString()
               });
+
+              // Brevo Custom Event
+              fetch('/api/brevo/track', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  email: userEmail,
+                  event: 'signup',
+                  data: { source: 'website', status: 'pending_payment' }
+                })
+              }).catch(() => {});
+
               // FirstPromoter referral (only once per browser)
               try {
                 const sentKey = '__ee_fpr_referral_sent'
                 const already = typeof window !== 'undefined' ? window.localStorage.getItem(sentKey) : '1'
                 if (!already && (window as any)?.fpr) {
-                  (window as any).fpr('referral', { email: String(data.user.email) })
+                  (window as any).fpr('referral', { email: String(userEmail) })
                   try { window.localStorage.setItem(sentKey, '1') } catch {}
                 }
               } catch {}
@@ -346,17 +377,18 @@ function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'sta
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({})
   const toggleExpand = (key: string) => setExpanded((s) => ({ ...s, [key]: !s[key] }))
 
-  // Initialize currency from localStorage or default to USD
-  const [currency, setCurrency] = React.useState<'EUR'|'USD'>(() => {
+  // Initialize currency (Default USD to avoid hydration mismatch)
+  const [currency, setCurrency] = React.useState<'EUR'|'USD'>('USD')
+  
+  // Effect to load from localStorage on client side only
+  React.useEffect(() => {
     try {
       const stored = localStorage.getItem('ee_detected_currency')
       if (stored === 'EUR' || stored === 'USD') {
-        // console.log('[PricingModal] 💾 Loaded currency from localStorage:', stored)
-        return stored
+        setCurrency(stored)
       }
     } catch {}
-    return 'USD'
-  })
+  }, [])
   const [ready, setReady] = React.useState(false)
   const [loadingPlan, setLoadingPlan] = React.useState<null|'starter'|'pro'>(null)
 
@@ -1091,7 +1123,35 @@ function CredentialsPanel() {
           <h3 className="text-white text-lg font-semibold mb-2 text-center">Choose a subscription</h3>
           {banner && <p className="text-red-300 text-xs mb-2 text-center">{banner}</p>}
           <p className="text-gray-400 text-xs mb-3 text-center">Subscribe to unlock all features.</p>
-          <PricingCardsModal onSelect={(tier, billing, currency)=>{ try { postGoal('pricing_cta_click', { plan: tier, billing }); } catch {}; startCheckout(tier, billing, currency) }} onOpenSeoModal={()=>setSeoModalOpen(true)} />
+          <PricingCardsModal onSelect={(tier, billing, currency)=>{ 
+            try { postGoal('pricing_cta_click', { plan: tier, billing }); } catch {}; 
+            
+            // Brevo Checkout Initiated
+            if (email) {
+              try {
+                const basePrice = tier === 'starter' ? 19.99 : 29.99;
+                const isYearly = billing === 'yearly';
+                const amount = isYearly ? (basePrice * 12 * 0.6) : basePrice;
+                
+                fetch('/api/brevo/track', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    email: email,
+                    event: 'checkout_initiated',
+                    data: { 
+                      plan: tier, 
+                      billing,
+                      amount: Number(amount.toFixed(2)), 
+                      currency: currency || 'USD'
+                    }
+                  })
+                }).catch(() => {});
+              } catch {}
+            }
+
+            startCheckout(tier, billing, currency) 
+          }} onOpenSeoModal={()=>setSeoModalOpen(true)} />
           <div className="flex items-center justify-end mt-1">
             <form method="POST" action="/create-customer-portal-session">
               <input type="hidden" name="customerId" value={customerId || ''} />
