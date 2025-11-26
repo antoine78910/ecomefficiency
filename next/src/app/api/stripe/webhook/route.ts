@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
+import { trackBrevoEvent } from "@/lib/brevo";
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -170,6 +171,24 @@ export async function POST(req: NextRequest) {
                   const userEmail = (subscription as any).customer_email || invoice.customer_email;
                   
                   if (userEmail) {
+                    // TRACK PURCHASE IN BREVO (To stop abandoned cart flows)
+                    await trackBrevoEvent({
+                      email: userEmail,
+                      eventName: 'purchase_completed',
+                      eventProps: {
+                        plan,
+                        amount: invoice.amount_paid / 100,
+                        currency: invoice.currency?.toUpperCase() || 'USD',
+                        tier,
+                        invoice_id: invoice.id
+                      },
+                      contactProps: {
+                        plan, // Sync plan attribute
+                        customer_status: 'subscriber'
+                      }
+                    });
+                    console.log('[webhook][invoice.payment_succeeded]', requestId, '✅ Tracked purchase_completed in Brevo');
+
                     await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace('/auth/v1', '') || 'https://app.ecomefficiency.com'}/api/send-welcome-email`, {
                       method: 'POST',
                       headers: { 'Content-Type': 'application/json' },
@@ -218,6 +237,19 @@ export async function POST(req: NextRequest) {
             },
             body: JSON.stringify({ user_metadata: { plan: 'free', stripe_customer_id: customerId } })
           });
+          
+          // Track cancellation in Brevo
+          try {
+             // Fetch customer email if needed
+             const customer = await stripe.customers.retrieve(customerId as string) as any;
+             if (customer?.email) {
+               await trackBrevoEvent({
+                 email: customer.email,
+                 eventName: 'subscription_cancelled',
+                 contactProps: { plan: 'free', customer_status: 'cancelled' }
+               });
+             }
+           } catch {}
         }
         break;
       }
