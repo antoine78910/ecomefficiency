@@ -27,7 +27,7 @@ const App = () => {
       if (!user?.created_at) return false;
       const created = new Date(user.created_at).getTime();
       const now = new Date().getTime();
-      return (now - created) < 2 * 60 * 1000; // 2 minutes
+      return (now - created) < 60 * 60 * 1000; // 1 heure
     };
 
     // Fallback: if just=1 param present and user is already authenticated, mark complete_signup
