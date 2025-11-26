@@ -47,42 +47,48 @@ const App = () => {
             await mod.supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
             try { await fetch('/api/auth/flag', { method: 'POST' }) } catch {}
 
-            // Track DataFast sign_up goal after OAuth sign-up (only if just_signed_in flag present)
+            // Track DataFast sign_up goal after OAuth sign-up OR Email verification
+            // We track if 'just_signed_in' flag is present OR if the user is new (< 1 hour)
             const justSignedIn = params.get('just_signed_in')
-            if (justSignedIn === '1') {
-              try {
-                const { data } = await mod.supabase.auth.getUser()
-                // AJOUT: Identifier l'utilisateur pour DataFast
-                if (data.user?.email) {
-                  try {
-                    (window as any)?.datafast?.('identify', {
+            try {
+              const { data } = await mod.supabase.auth.getUser()
+              const isNew = data.user ? isUserNew(data.user) : false
+              
+              if (justSignedIn === '1' || isNew) {
+                try {
+                  // AJOUT: Identifier l'utilisateur pour DataFast
+                  if (data.user?.email) {
+                    try {
+                      (window as any)?.datafast?.('identify', {
+                        email: data.user.email,
+                        user_id: data.user.id
+                      });
+                    } catch {}
+                  }
+
+                  if (data.user?.email) {
+                    // console.log('[App] 📊 Tracking sign_up goal');
+                    (window as any)?.datafast?.('sign_up', {
                       email: data.user.email,
-                      user_id: data.user.id
+                      user_id: data.user.id,
+                      provider: data.user.app_metadata?.provider || 'email',
+                      verified_at: new Date().toISOString()
                     });
-                  } catch {}
-               }
-                if (data.user?.email && isUserNew(data.user)) {
-                  // console.log('[App] 📊 Tracking sign_up goal after OAuth sign-up');
-                  (window as any)?.datafast?.('sign_up', {
-                    email: data.user.email,
-                    user_id: data.user.id,
-                    provider: data.user.app_metadata?.provider || 'email',
-                    verified_at: new Date().toISOString()
-                  });
-                  // FirstPromoter referral (only once per browser)
-                  try {
-                    const sentKey = '__ee_fpr_referral_sent'
-                    const already = typeof window !== 'undefined' ? window.localStorage.getItem(sentKey) : '1'
-                    if (!already && (window as any)?.fpr) {
-                      (window as any).fpr('referral', { email: String(data.user.email) })
-                      try { window.localStorage.setItem(sentKey, '1') } catch {}
-                    }
-                  } catch {}
+                    // FirstPromoter referral (only once per browser)
+                    try {
+                      const sentKey = '__ee_fpr_referral_sent'
+                      const already = typeof window !== 'undefined' ? window.localStorage.getItem(sentKey) : '1'
+                      if (!already && (window as any)?.fpr) {
+                        (window as any).fpr('referral', { email: String(data.user.email) })
+                        try { window.localStorage.setItem(sentKey, '1') } catch {}
+                      }
+                    } catch {}
+                  }
+                } catch (e) {
+                  // console.error('[App] Failed to track sign_up (non-fatal):', e);
                 }
-              } catch (e) {
-                // console.error('[App] Failed to track sign_up (non-fatal):', e);
               }
-            }
+            } catch {}
 
             // Redirect to app.localhost subdomain after OAuth
             const protocol = window.location.protocol
