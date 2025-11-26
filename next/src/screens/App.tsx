@@ -62,7 +62,7 @@ const App = () => {
                   } catch {}
                }
                 if (data.user?.email && isUserNew(data.user)) {
-                  console.log('[App] 📊 Tracking sign_up goal after OAuth sign-up');
+                  // console.log('[App] 📊 Tracking sign_up goal after OAuth sign-up');
                   (window as any)?.datafast?.('sign_up', {
                     email: data.user.email,
                     user_id: data.user.id,
@@ -80,7 +80,7 @@ const App = () => {
                   } catch {}
                 }
               } catch (e) {
-                console.error('[App] Failed to track sign_up (non-fatal):', e);
+                // console.error('[App] Failed to track sign_up (non-fatal):', e);
               }
             }
 
@@ -124,7 +124,7 @@ const App = () => {
               } catch {}
            }
             if (data.user?.email && isUserNew(data.user)) {
-              console.log('[App] 📊 Tracking sign_up goal after email verification');
+              // console.log('[App] 📊 Tracking sign_up goal after email verification');
               (window as any)?.datafast?.('sign_up', {
                 email: data.user.email,
                 user_id: data.user.id,
@@ -141,7 +141,7 @@ const App = () => {
               } catch {}
             }
           } catch (e) {
-            console.error('[App] Failed to track sign_up (non-fatal):', e);
+            // console.error('[App] Failed to track sign_up (non-fatal):', e);
           }
 
           // Redirect to app.localhost if on plain localhost
@@ -345,7 +345,7 @@ function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'sta
     try {
       const stored = localStorage.getItem('ee_detected_currency')
       if (stored === 'EUR' || stored === 'USD') {
-        console.log('[PricingModal] 💾 Loaded currency from localStorage:', stored)
+        // console.log('[PricingModal] 💾 Loaded currency from localStorage:', stored)
         return stored
       }
     } catch {}
@@ -356,11 +356,11 @@ function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'sta
 
   React.useEffect(() => {
     let cancelled = false
-    console.log('[PricingModal] 🔍 Starting currency detection...')
+    // console.log('[PricingModal] 🔍 Starting currency detection...')
     ;(async () => {
       // Default to USD, will be updated if detection succeeds
       setReady(true) // Make buttons clickable immediately with stored/USD default
-      console.log('[PricingModal] ✅ Ready set to true, initial currency:', currency)
+      // console.log('[PricingModal] ✅ Ready set to true, initial currency:', currency)
       
       // URL override like landing: ?currency=EUR|USD
       try {
@@ -370,20 +370,20 @@ function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'sta
           if (!cancelled) {
             setCurrency(override)
             localStorage.setItem('ee_detected_currency', override)
-            console.log('[PricingModal] ✅ Currency set from URL:', override)
+            // console.log('[PricingModal] ✅ Currency set from URL:', override)
           }
           return
         }
       } catch (e) {
-        console.log('[PricingModal] ⚠️ URL check failed:', e)
+        // console.log('[PricingModal] ⚠️ URL check failed:', e)
       }
       
       // Prefer browser IP first for consistency with checkout
-      console.log('[PricingModal] 🌍 Fetching IP from ipapi.co...')
+      // console.log('[PricingModal] 🌍 Fetching IP from ipapi.co...')
       try {
         const g = await fetch('https://ipapi.co/json/', { cache: 'no-store' })
         const gj = await g.json().catch(() => ({} as any))
-        console.log('[PricingModal] 📡 ipapi.co response:', gj)
+        // console.log('[PricingModal] 📡 ipapi.co response:', gj)
         const cc = String(gj?.country_code || gj?.country || '').toUpperCase()
         const eu = new Set(['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE'])
         if (cc) {
@@ -391,34 +391,34 @@ function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'sta
           if (!cancelled) {
             setCurrency(detectedCurrency)
             localStorage.setItem('ee_detected_currency', detectedCurrency)
-            console.log('[PricingModal] ✅ Currency SET from IP:', detectedCurrency, 'country:', cc)
+            // console.log('[PricingModal] ✅ Currency SET from IP:', detectedCurrency, 'country:', cc)
           }
           return
         } else {
-          console.log('[PricingModal] ⚠️ No country code from ipapi.co')
+          // console.log('[PricingModal] ⚠️ No country code from ipapi.co')
         }
       } catch (e) {
-        console.warn('[PricingModal] ❌ IP detection failed:', e)
+        // console.warn('[PricingModal] ❌ IP detection failed:', e)
       }
       
       // Fallback to server IP
-      console.log('[PricingModal] 🔄 Trying server IP...')
+      // console.log('[PricingModal] 🔄 Trying server IP...')
       try {
         const r = await fetch('/api/ip-region', { cache: 'no-store' })
         const j = await r.json().catch(() => ({} as any))
-        console.log('[PricingModal] 📡 /api/ip-region response:', j)
+        // console.log('[PricingModal] 📡 /api/ip-region response:', j)
         if (!cancelled && j && (j.currency === 'EUR' || j.currency === 'USD')) {
           setCurrency(j.currency)
           localStorage.setItem('ee_detected_currency', j.currency)
-          console.log('[PricingModal] ✅ Currency SET from server:', j.currency)
+          // console.log('[PricingModal] ✅ Currency SET from server:', j.currency)
           return
         }
       } catch (e) {
-        console.warn('[PricingModal] ❌ Server IP detection failed:', e)
+        // console.warn('[PricingModal] ❌ Server IP detection failed:', e)
       }
       
       // Fallback: locale
-      console.log('[PricingModal] 🔄 Trying locale...')
+      // console.log('[PricingModal] 🔄 Trying locale...')
       try {
         const loc = Intl.DateTimeFormat().resolvedOptions().locale.toUpperCase()
         const euRE = /(AT|BE|BG|HR|CY|CZ|DK|EE|FI|FR|DE|GR|HU|IE|IT|LV|LT|LU|MT|NL|PL|PT|RO|SK|SI|ES|SE)/
@@ -426,15 +426,15 @@ function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'sta
         if (!cancelled) {
           setCurrency(detectedCurrency)
           localStorage.setItem('ee_detected_currency', detectedCurrency)
-          console.log('[PricingModal] ✅ Currency SET from locale:', detectedCurrency, 'locale:', loc)
+          // console.log('[PricingModal] ✅ Currency SET from locale:', detectedCurrency, 'locale:', loc)
         }
       } catch (e) {
-        console.warn('[PricingModal] ❌ Locale detection failed:', e)
+        // console.warn('[PricingModal] ❌ Locale detection failed:', e)
       }
     })()
     return () => { 
       cancelled = true
-      console.log('[PricingModal] 🛑 Effect cleanup')
+      // console.log('[PricingModal] 🛑 Effect cleanup')
     }
   }, [])
 
@@ -540,23 +540,13 @@ function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'sta
                   const isLoading = loadingPlan === planKey
                   const isDisabled = !!loadingPlan
                   const onClick = () => { 
-                    console.log('[PricingModal] 🖱️ Button clicked! Current state:', { 
-                      currency, 
-                      ready, 
-                      planKey, 
-                      billing: isYearly?'yearly':'monthly' 
-                    });
+                    // console.log('[PricingModal] 🖱️ Button clicked! Current state:', { currency, ready, planKey, billing: isYearly?'yearly':'monthly' });
                     setLoadingPlan(planKey);
                     // Ensure currency is always defined (fallback to USD)
                     const safeCurrency = currency || 'USD';
-                    console.log('[PricingModal] 📤 Calling onSelect with:', { 
-                      tier: planKey, 
-                      billing: isYearly?'yearly':'monthly', 
-                      currency: safeCurrency,
-                      currencyWasUndefined: !currency
-                    });
+                    // console.log('[PricingModal] 📤 Calling onSelect with:', { tier: planKey, billing: isYearly?'yearly':'monthly', currency: safeCurrency });
                     try { onSelect(planKey, isYearly?'yearly':'monthly', safeCurrency) } catch (e) {
-                      console.error('[PricingModal] ❌ onSelect failed:', e)
+                      // console.error('[PricingModal] ❌ onSelect failed:', e)
                     } 
                   }
                   return plan.highlight ? (
@@ -768,30 +758,30 @@ function CredentialsPanel() {
         if (email) headers['x-user-email'] = email;
         if (customerId) headers['x-stripe-customer-id'] = customerId;
 
-        console.log('[CREDENTIALS] Fetching with:', { email, customerId });
+        // console.log('[CREDENTIALS] Fetching with:', { email, customerId });
 
         // Force refresh: call GET with cache:no-store so server refetches Discord channels
         const res = await fetch('/api/credentials', { headers, cache: 'no-store' });
         if (!res.ok) {
-          console.error('[CREDENTIALS] Fetch failed:', res.status, res.statusText);
+          // console.error('[CREDENTIALS] Fetch failed:', res.status, res.statusText);
           throw new Error('Failed to load');
         }
         const json = await res.json();
 
-        console.log('[CREDENTIALS] Received:', {
+        /* console.log('[CREDENTIALS] Received:', {
           hasData: !!json,
           keys: Object.keys(json || {}),
           adspower_email: json?.adspower_email,
           adspower_starter_email: json?.adspower_starter_email,
           adspower_pro_email: json?.adspower_pro_email
-        });
+        }); */
 
         if (active) {
           setCreds(json);
           setError(null);
         }
       } catch (e: any) {
-        console.error('[CREDENTIALS] Error:', e);
+        // console.error('[CREDENTIALS] Error:', e);
         if (active) setError(e.message);
       } finally {
         if (active) setLoading(false);
@@ -802,7 +792,7 @@ function CredentialsPanel() {
     // Listen for visibility change to refresh credentials when user returns to page
     const onVisible = () => {
       if (document.visibilityState === 'visible') {
-        console.log('[CREDENTIALS] Page visible, refreshing credentials...');
+        // console.log('[CREDENTIALS] Page visible, refreshing credentials...');
         fetchCreds();
       }
     };
@@ -889,20 +879,14 @@ function CredentialsPanel() {
   }
 
   const startCheckout = (tier: 'starter' | 'pro', billing: 'monthly' | 'yearly', currency?: 'EUR' | 'USD') => {
-    console.log('[App startCheckout] 📥 Received params:', { 
-      tier, 
-      billing, 
-      currency,
-      currencyType: typeof currency,
-      currencyIsUndefined: currency === undefined
-    });
+    // console.log('[App startCheckout] 📥 Received params:', { tier, billing, currency });
     
     // Use the currency detected by the pricing modal, fallback to USD if undefined
     const safeCurrency = currency || 'USD';
-    console.log('[App startCheckout] ✅ Safe currency:', safeCurrency);
+    // console.log('[App startCheckout] ✅ Safe currency:', safeCurrency);
     
     const redirectUrl = `/checkout?tier=${tier}&billing=${billing}&currency=${safeCurrency}`;
-    console.log('[App startCheckout] 🚀 Redirecting to:', redirectUrl);
+    // console.log('[App startCheckout] 🚀 Redirecting to:', redirectUrl);
     
     // Instant redirect - use currency from popup (with USD fallback)
     window.location.href = redirectUrl;
@@ -993,13 +977,13 @@ function CredentialsPanel() {
           const hasStarterCreds = !!(creds.adspower_email || creds.adspower_password || creds.adspower_starter_email || creds.adspower_starter_password);
           const hasAnyCreds = !!(creds.adspower_email || creds.adspower_starter_email || creds.adspower_pro_email);
 
-          console.log('[CREDENTIALS] Display check:', {
+          /* console.log('[CREDENTIALS] Display check:', {
             plan,
             hasProCreds,
             hasStarterCreds,
             hasAnyCreds,
             credsKeys: Object.keys(creds || {})
-          });
+          }); */
 
           const currentPlan = plan as string; // Type assertion to avoid flow narrowing issues
           if ((currentPlan === 'pro' && hasProCreds) || (currentPlan === 'starter' && hasStarterCreds) || (currentPlan === 'checking' && hasAnyCreds)) {
