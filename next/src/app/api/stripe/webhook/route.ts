@@ -168,13 +168,15 @@ export async function POST(req: NextRequest) {
                 try {
                   const invoiceUrl = invoice.hosted_invoice_url || undefined;
                   const userName = updateData?.user_metadata?.first_name || undefined;
-                  const userEmail = (subscription as any).customer_email || invoice.customer_email;
+                  const userEmail = updateData.email || (subscription as any).customer_email || invoice.customer_email;
                   
                   if (userEmail) {
                     // TRACK PURCHASE IN BREVO (To stop abandoned cart flows)
+                    // We use the email from Supabase (updateData.email) to ensure it matches 
+                    // the one used for checkout_initiated, even if the user used a different email on Stripe.
                     await trackBrevoEvent({
                       email: userEmail,
-                      eventName: 'purchase_completed',
+                      eventName: 'payment_succeeded',
                       eventProps: {
                         plan,
                         amount: invoice.amount_paid / 100,
@@ -187,7 +189,7 @@ export async function POST(req: NextRequest) {
                         customer_status: 'subscriber'
                       }
                     });
-                    console.log('[webhook][invoice.payment_succeeded]', requestId, '✅ Tracked purchase_completed in Brevo');
+                    console.log('[webhook][invoice.payment_succeeded]', requestId, '✅ Tracked payment_succeeded in Brevo for:', userEmail);
 
                     await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace('/auth/v1', '') || 'https://app.ecomefficiency.com'}/api/send-welcome-email`, {
                       method: 'POST',
