@@ -139,7 +139,6 @@ export default function SignUp() {
         </div>
         <div className="bg-black/60 border border-white/10 rounded-2xl shadow-[0_20px_80px_rgba(149,65,224,0.15)]">
           <div className="p-6 md:p-8">
-            <style>{`@keyframes buttonPulse { 0%,100%{opacity:.35} 50%{opacity:.6} }`}</style>
             <h1 className="text-center text-2xl font-semibold">Create your account</h1>
             <p className="text-center text-gray-400 mt-2 mb-6">Join Ecom Efficiency today</p>
 
@@ -162,16 +161,16 @@ export default function SignUp() {
               <span className="absolute bg-black px-3 text-xs text-gray-400">or sign up with email</span>
             </div>
 
-            <form onSubmit={onSubmit} className="space-y-5">
+            <form onSubmit={onSubmit} className="space-y-5" suppressHydrationWarning>
               <InputWithHalo>
-                <input type="text" placeholder="Full name" autoComplete="name" value={name} onChange={(e)=>setName(e.target.value)} className="w-full rounded-lg border border-white/15 bg-white/5 placeholder:text-gray-500 text-white px-3 py-2 focus:outline-none focus:border-white/20 transition-colors text-sm" />
+                <input type="text" placeholder="Full name" autoComplete="name" value={name} onChange={(e)=>setName(e.target.value)} className="w-full rounded-lg border border-white/15 bg-white/5 placeholder:text-gray-500 text-white px-3 py-2 focus:outline-none focus:border-white/20 transition-colors text-sm" suppressHydrationWarning />
               </InputWithHalo>
               <InputWithHalo>
-                <input type="email" placeholder="Email Address" autoComplete="email" value={email} onChange={(e)=>setEmail(e.target.value)} className="w-full rounded-lg border border-white/15 bg-white/5 placeholder:text-gray-500 text-white px-3 py-2 focus:outline-none focus:border-white/20 transition-colors text-sm" />
+                <input type="email" placeholder="Email Address" autoComplete="email" value={email} onChange={(e)=>setEmail(e.target.value)} className="w-full rounded-lg border border-white/15 bg-white/5 placeholder:text-gray-500 text-white px-3 py-2 focus:outline-none focus:border-white/20 transition-colors text-sm" suppressHydrationWarning />
               </InputWithHalo>
               <InputWithHalo>
                 <div className="relative">
-                  <input type={show? 'text':'password'} placeholder="Password" autoComplete="new-password" value={password} onChange={(e)=>setPassword(e.target.value)} className="w-full rounded-lg border border-white/15 bg-white/5 placeholder:text-gray-500 text-white px-3 py-2 pr-10 focus:outline-none focus:border-white/20 transition-colors text-sm" />
+                  <input type={show? 'text':'password'} placeholder="Password" autoComplete="new-password" value={password} onChange={(e)=>setPassword(e.target.value)} className="w-full rounded-lg border border-white/15 bg-white/5 placeholder:text-gray-500 text-white px-3 py-2 pr-10 focus:outline-none focus:border-white/20 transition-colors text-sm" suppressHydrationWarning />
                   <button type="button" onClick={()=>setShow(v=>!v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white cursor-pointer">
                     {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                   </button>
