@@ -112,7 +112,6 @@ const PricingSection = () => {
           if (browser?.country) {
             const cc = String(browser.country).toUpperCase();
             const detectedCurrency = eurCC.has(cc) ? 'EUR' : 'USD';
-            console.log('[Pricing] ✅ Using', detectedCurrency, 'from IP country:', cc);
             setCurrency(detectedCurrency);
             setIsReady(true);
             return;
@@ -121,7 +120,6 @@ const PricingSection = () => {
           // 2) Fallback to server IP
           const server = await fetch('/api/ip-region', { cache: 'no-store' }).then(r => r.json()).catch(() => ({}));
           if (server?.currency === 'EUR' || server?.currency === 'USD') {
-            console.log('[Pricing] ✅ Using', server.currency, 'from server IP country:', server.country);
             setCurrency(server.currency);
             setIsReady(true);
             return;
@@ -131,7 +129,6 @@ const PricingSection = () => {
           try {
             const locale = Intl.DateTimeFormat().resolvedOptions().locale || navigator.language || 'en-US';
             const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-            console.log('[Pricing] Detected locale:', locale, 'timezone:', timeZone);
             
             const regionMatch = locale.match(/[-_]([A-Z]{2})/);
             const region = regionMatch ? regionMatch[1] : '';
@@ -142,21 +139,19 @@ const PricingSection = () => {
             if ((region && eurCC.has(region)) || isEuropeTimezone) {
               setCurrency('EUR');
               setIsReady(true);
-              console.log('[Pricing] Using EUR from locale/timezone');
               return;
             } else if (region) {
               setCurrency('USD');
               setIsReady(true);
-              console.log('[Pricing] Using USD from locale');
               return;
             }
           } catch {}
           
           // 4) Default to USD (most users outside EU)
-          console.log('[Pricing] Defaulting to USD');
           setCurrency('USD');
-        } catch (e) {
-          console.error('[Pricing] Currency detection error:', e);
+        } catch (e: any) {
+          // Safe logging to prevent DataCloneError
+          console.error('[Pricing] Currency detection error:', e?.message || String(e));
           setCurrency('USD'); // Default to USD on any error
         } finally {
           setIsReady(true);
