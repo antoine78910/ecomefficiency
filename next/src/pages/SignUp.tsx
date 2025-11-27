@@ -18,7 +18,27 @@ export default function SignUp() {
   const canSubmit = name.trim().length > 1 && email.trim().length > 3 && password.length >= 6 && !pending;
 
   const oauth = async () => {
-    try { setPending(true); await supabase.auth.signInWithOAuth({ provider: 'google', options: { redirectTo: `${window.location.origin}/` } }); } catch { setPending(false); }
+    try { 
+      setPending(true); 
+      // Ensure we use a valid redirection URL authorized in Supabase
+      const origin = window.location.origin;
+      const redirectUrl = origin.includes('localhost') 
+        ? `${origin}/` 
+        : 'https://app.ecomefficiency.com/'; // Force canonical production URL
+        
+      await supabase.auth.signInWithOAuth({ 
+        provider: 'google', 
+        options: { 
+          redirectTo: redirectUrl,
+          queryParams: {
+            access_type: 'offline',
+            prompt: 'consent'
+          }
+        } 
+      }); 
+    } catch { 
+      setPending(false); 
+    }
   };
 
   const onSubmit = async (e: React.FormEvent) => {
