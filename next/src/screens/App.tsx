@@ -574,13 +574,14 @@ function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'sta
                   const isLoading = loadingPlan === planKey
                   const isDisabled = !!loadingPlan
                   const onClick = () => { 
-                    // console.log('[PricingModal] 🖱️ Button clicked! Current state:', { currency, ready, planKey, billing: isYearly?'yearly':'monthly' });
+                    if (isDisabled || loadingPlan) return;
                     setLoadingPlan(planKey);
+                    
                     // Ensure currency is always defined (fallback to USD)
                     const safeCurrency = currency || 'USD';
-                    // console.log('[PricingModal] 📤 Calling onSelect with:', { tier: planKey, billing: isYearly?'yearly':'monthly', currency: safeCurrency });
+                    
                     try { onSelect(planKey, isYearly?'yearly':'monthly', safeCurrency) } catch (e) {
-                      // console.error('[PricingModal] ❌ onSelect failed:', e)
+                      setLoadingPlan(null); // Reset on error
                     } 
                   }
                   return plan.highlight ? (
