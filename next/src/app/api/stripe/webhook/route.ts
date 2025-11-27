@@ -124,6 +124,10 @@ export async function POST(req: NextRequest) {
         const subscriptionId = invoice?.subscription;
         console.log('[webhook]', requestId, 'invoice.payment_succeeded', { invoiceId: invoice?.id, subscriptionId, customer: invoice?.customer, amount_paid: invoice?.amount_paid });
 
+        if (!subscriptionId) {
+          console.log('[webhook][invoice.payment_succeeded]', requestId, '⚠️ No subscriptionId in invoice, skipping Brevo tracking');
+        }
+
         if (subscriptionId) {
           try {
             // Fetch subscription to get metadata
@@ -131,6 +135,8 @@ export async function POST(req: NextRequest) {
             const clientRef = subscription?.metadata?.userId;
             const customerId = subscription?.customer;
             const tier = subscription?.metadata?.tier; // 'starter' or 'pro'
+
+            console.log('[webhook][invoice.payment_succeeded]', requestId, '📋 Subscription metadata:', { clientRef, customerId, tier });
 
             // Map tier to plan: starter → starter, pro/growth → pro
             const plan = tier === 'starter' ? 'starter' : 'pro';
@@ -170,10 +176,18 @@ export async function POST(req: NextRequest) {
                   const userName = updateData?.user_metadata?.first_name || undefined;
                   const userEmail = updateData.email || (subscription as any).customer_email || invoice.customer_email;
                   
+                  console.log('[webhook][invoice.payment_succeeded]', requestId, '📧 Email resolution:', { 
+                    fromUpdateData: updateData.email, 
+                    fromSubscription: (subscription as any).customer_email, 
+                    fromInvoice: invoice.customer_email,
+                    finalEmail: userEmail 
+                  });
+                  
                   if (userEmail) {
                     // TRACK PURCHASE IN BREVO (To stop abandoned cart flows)
                     // We use the email from Supabase (updateData.email) to ensure it matches 
                     // the one used for checkout_initiated, even if the user used a different email on Stripe.
+                    console.log('[webhook][invoice.payment_succeeded]', requestId, '🚀 Calling trackBrevoEvent for:', userEmail);
                     await trackBrevoEvent({
                       email: userEmail,
                       eventName: 'payment_succeeded',
@@ -203,6 +217,12 @@ export async function POST(req: NextRequest) {
                       })
                     });
                     console.log('[webhook][invoice.payment_succeeded]', requestId, '📧 Welcome email sent to:', userEmail);
+                  } else {
+                    console.error('[webhook][invoice.payment_succeeded]', requestId, '❌ NO EMAIL FOUND for Brevo tracking:', {
+                      updateDataEmail: updateData.email,
+                      subscriptionEmail: (subscription as any).customer_email,
+                      invoiceEmail: invoice.customer_email
+                    });
                   }
                 } catch (emailError: any) {
                   console.error('[webhook][invoice.payment_succeeded]', requestId, 'Failed to send welcome email:', emailError.message);

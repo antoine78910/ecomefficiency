@@ -37,13 +37,13 @@ export async function trackBrevoEvent({ email, eventName, eventProps, contactPro
 
     if (!res.ok) {
       const err = await res.text();
-      console.error(`[Brevo] Failed to track event '${eventName}':`, res.status, err);
+      console.error(`[Brevo] Failed to track event '${eventName}' for ${email}:`, res.status, err);
     } else {
       // Success (204 No Content)
-      // console.log(`[Brevo] Tracked event '${eventName}' for ${email}`);
+      console.log(`[Brevo] ✅ SUCCESS! Tracked event '${eventName}' for ${email}`);
     }
-  } catch (e) {
-    console.error(`[Brevo] Error tracking event '${eventName}':`, e);
+  } catch (e: any) {
+    console.error(`[Brevo] Error tracking event '${eventName}' for ${email}:`, e?.message || String(e));
   }
 }
 
