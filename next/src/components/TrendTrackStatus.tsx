@@ -30,7 +30,8 @@ const TrendTrackStatus = () => {
       setStatus(data);
       setLoading(false);
     } catch (err: any) {
-      console.error('Error fetching TrendTrack status:', err);
+      // Safe logging to prevent DataCloneError
+      console.error('Error fetching TrendTrack status:', err?.message || String(err));
       setError(err.message || 'Failed to load status');
       setLoading(false);
     }

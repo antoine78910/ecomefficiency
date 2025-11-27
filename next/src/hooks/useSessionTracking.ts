@@ -51,8 +51,9 @@ export const useSessionTracking = () => {
           isp: data.isp,
         };
       }
-    } catch (error) {
-      console.error('Error while fetching geolocation:', error);
+    } catch (error: any) {
+      // Safe logging to prevent DataCloneError
+      console.error('Error while fetching geolocation:', error?.message || String(error));
     }
     return {};
   }, []);
@@ -65,8 +66,9 @@ export const useSessionTracking = () => {
         const data = await response.json();
         return data.ip || 'unknown';
       }
-    } catch (error) {
-      console.error('Error while fetching IP address:', error);
+    } catch (error: any) {
+      // Safe logging to prevent DataCloneError
+      console.error('Error while fetching IP address:', error?.message || String(error));
     }
     return 'unknown';
   }, []);
@@ -153,8 +155,9 @@ export const useSessionTracking = () => {
             .eq('is_active', true);
           
           console.log('Marked old sessions as inactive for user:', userId);
-        } catch (updateError) {
-          console.error('Error marking old sessions as inactive:', updateError);
+        } catch (updateError: any) {
+          // Safe logging to prevent DataCloneError
+          console.error('Error marking old sessions as inactive:', updateError?.message || String(updateError));
         }
       }
 
@@ -166,7 +169,8 @@ export const useSessionTracking = () => {
         .single();
 
       if (error) {
-        console.error('Error while saving session:', error);
+        // Safe logging to prevent DataCloneError
+        console.error('Error while saving session:', error.message || String(error));
       } else {
         console.log('Session saved successfully', data);
         if (data?.id) {
@@ -175,8 +179,9 @@ export const useSessionTracking = () => {
           sessionStorage.setItem('current_session_id', data.id);
         }
       }
-    } catch (error) {
-      console.error('Error while tracking session:', error);
+    } catch (error: any) {
+      // Safe logging to prevent DataCloneError
+      console.error('Error while tracking session:', error?.message || String(error));
     } finally {
       setIsLoading(false);
     }

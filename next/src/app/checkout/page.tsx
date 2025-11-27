@@ -530,12 +530,14 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
           console.log('[Checkout] Payment completion result:', activationData);
 
           if (!activationData.success) {
-            console.error('[Checkout] ❌ Failed to complete payment:', activationData);
+            // Safe logging to prevent DataCloneError
+            console.error('[Checkout] ❌ Failed to complete payment:', activationData?.error || String(activationData));
           } else {
             console.log('[Checkout] ✅ Payment completed and plan activated:', activationData.plan);
           }
-        } catch (e) {
-          console.error('[Checkout] Failed to complete payment (non-fatal):', e);
+        } catch (e: any) {
+          // Safe logging to prevent DataCloneError
+          console.error('[Checkout] Failed to complete payment (non-fatal):', e?.message || String(e));
           // Continue anyway, user can retry
         }
 
@@ -550,8 +552,9 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
             payment_intent_id: paymentIntent.id,
             email: userEmail
           });
-        } catch (e) {
-          console.error('[Checkout] Failed to track payment_complete (non-fatal):', e);
+        } catch (e: any) {
+          // Safe logging to prevent DataCloneError
+          console.error('[Checkout] Failed to track payment_complete (non-fatal):', e?.message || String(e));
         }
 
         // Track FirstPromoter conversion (best effort)
@@ -563,8 +566,9 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
             currency: currency || undefined,
             plan: tier
           });
-        } catch (e) {
-          console.error('[Checkout] Failed to track FirstPromoter conversion (non-fatal):', e);
+        } catch (e: any) {
+          // Safe logging to prevent DataCloneError
+          console.error('[Checkout] Failed to track FirstPromoter conversion (non-fatal):', e?.message || String(e));
         }
 
         // Redirect to success page

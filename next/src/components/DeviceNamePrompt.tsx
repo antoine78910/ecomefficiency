@@ -24,8 +24,9 @@ export default function DeviceNamePrompt() {
             const firstName = meta.first_name || ''
             setUserName(firstName)
           }
-        } catch (error) {
-          console.error('Error getting user:', error)
+        } catch (error: any) {
+          // Safe logging to prevent DataCloneError
+          console.error('Error getting user:', error?.message || String(error))
         }
       }
       
@@ -79,8 +80,9 @@ export default function DeviceNamePrompt() {
         
         console.log('Device name updated in current session:', finalName)
       }
-    } catch (error) {
-      console.error('Error updating device name:', error)
+    } catch (error: any) {
+      // Safe logging to prevent DataCloneError
+      console.error('Error updating device name:', error?.message || String(error))
     }
     
     setShowPrompt(false)
@@ -107,8 +109,9 @@ export default function DeviceNamePrompt() {
         
         console.log('Device name auto-set in current session:', finalName)
       }
-    } catch (error) {
-      console.error('Error updating device name:', error)
+    } catch (error: any) {
+      // Safe logging to prevent DataCloneError
+      console.error('Error updating device name:', error?.message || String(error))
     }
     
     setShowPrompt(false)
