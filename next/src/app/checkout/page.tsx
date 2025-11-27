@@ -434,14 +434,12 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     
-    console.log('[Checkout] 🎯 handleSubmit called', { 
-      hasSubmitted: hasSubmitted.current, 
-      isProcessing,
-      timestamp: new Date().toISOString()
-    });
+    // CRITICAL: Early return if already processing (prevent memory leaks from rapid clicks)
+    if (hasSubmitted.current || isProcessing) {
+      return;
+    }
 
     if (!stripe || !elements) {
-      console.log('[Checkout] ⚠️ Stripe or Elements not ready');
       return;
     }
 
@@ -449,21 +447,15 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
     const sessionKey = `checkout_processing_${tier}_${billing}`;
     const alreadyProcessing = sessionStorage.getItem(sessionKey);
     
-    if (hasSubmitted.current || isProcessing || alreadyProcessing) {
-      console.log('[Checkout] ⛔ Already processing, ignoring duplicate submit', {
-        hasSubmittedRef: hasSubmitted.current,
-        isProcessingState: isProcessing,
-        sessionStorage: alreadyProcessing
-      });
+    if (alreadyProcessing) {
       return;
     }
 
+    // Lock immediately to prevent any race conditions
     hasSubmitted.current = true;
     sessionStorage.setItem(sessionKey, 'true');
     setIsProcessing(true);
     setMessage(null);
-    
-    console.log('[Checkout] ✅ Starting payment confirmation...');
 
     try {
       const { error, paymentIntent } = await stripe.confirmPayment({
@@ -499,21 +491,8 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
           const { data } = await supabase.auth.getUser();
           userEmail = data.user?.email;
 
-          console.log('[Checkout] Payment succeeded!', {
-            paymentIntentId: paymentIntent.id,
-            amount: paymentIntent.amount,
-            tier,
-            email: userEmail
-          });
-
           // CRITICAL: Mark invoice as paid and activate plan
           // This handles cases where Stripe disables automatic collection
-          console.log('[Checkout] 🔄 Calling complete-payment API...', {
-            paymentIntentId: paymentIntent.id,
-            email: userEmail,
-            tier
-          });
-
           const activationRes = await fetch('/api/stripe/complete-payment', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
@@ -524,16 +503,10 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
             })
           });
 
-          console.log('[Checkout] complete-payment response status:', activationRes.status);
-
           const activationData = await activationRes.json();
-          console.log('[Checkout] Payment completion result:', activationData);
-
           if (!activationData.success) {
             // Safe logging to prevent DataCloneError
             console.error('[Checkout] ❌ Failed to complete payment:', activationData?.error || String(activationData));
-          } else {
-            console.log('[Checkout] ✅ Payment completed and plan activated:', activationData.plan);
           }
         } catch (e: any) {
           // Safe logging to prevent DataCloneError
@@ -543,7 +516,6 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
 
         // Track DataFast goal: payment_complete
         try {
-          console.log('[Checkout] 📊 Tracking payment_complete goal');
           (window as any)?.datafast?.('payment_complete', {
             tier,
             billing,
@@ -603,7 +575,7 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
 
       <button
         type="submit"
-        disabled={!stripe || isProcessing}
+        disabled={!stripe || isProcessing || hasSubmitted.current}
         className="w-full bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl border border-[#9541e0] shadow-[0_4px_24px_rgba(149,65,224,0.45)] transition-all"
       >
         {isProcessing ? (
