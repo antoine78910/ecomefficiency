@@ -20,11 +20,10 @@ export async function trackBrevoEvent({ email, eventName, eventProps, contactPro
   }
 
   try {
-    // Brevo Events API expects identifiers to use 'email' key, not 'email_id'
-    // Also ensure the contact exists first by using email as identifier
+    // Revert: Brevo Events API expects 'email_id', not 'email'
     const payload: any = {
       event_name: eventName,
-      identifiers: { email: email },
+      identifiers: { email_id: email },
     };
     
     if (eventProps && Object.keys(eventProps).length > 0) {
