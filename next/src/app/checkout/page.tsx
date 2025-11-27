@@ -23,6 +23,7 @@ function CheckoutContent() {
   const [promoError, setPromoError] = useState<string | null>(null);
   const [promoLoading, setPromoLoading] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
+  const isInitializing = React.useRef(false);
 
   const handleApplyPromo = async () => {
     if (!promoCode.trim()) return;
@@ -88,7 +89,12 @@ function CheckoutContent() {
   };
 
   useEffect(() => {
+    // Prevent multiple simultaneous initializations (memory leak protection)
+    if (isInitializing.current) return;
+    
     let cancelled = false;
+    isInitializing.current = true;
+    
     (async () => {
       try {
         // Get user info, then immediately create a Checkout Session and redirect
@@ -100,7 +106,7 @@ function CheckoutContent() {
 
         if (email && !cancelled) setUserEmail(email);
         if (!email && !userId) throw new Error('You must be signed in to checkout. Please sign in or create an account first.');
-        if (existingCustomerId) setCustomerId(existingCustomerId);
+        if (existingCustomerId && !cancelled) setCustomerId(existingCustomerId);
 
         // Create a Stripe Checkout Session (server handles single transaction semantics)
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
@@ -117,12 +123,21 @@ function CheckoutContent() {
           const errorMsg = json.message || json.error || 'Failed to start checkout';
           throw new Error(errorMsg);
         }
-        if (!cancelled) window.location.href = json.url;
+        if (!cancelled) {
+          window.location.href = json.url;
+        }
       } catch (e: any) {
-        if (!cancelled) setError(e.message || 'Failed to initialize checkout');
+        if (!cancelled) {
+          setError(e.message || 'Failed to initialize checkout');
+          isInitializing.current = false;
+        }
       }
     })();
-    return () => { cancelled = true; };
+    
+    return () => { 
+      cancelled = true;
+      isInitializing.current = false;
+    };
   }, [tier, billing, currency]);
 
   const startCheckout = async () => {
@@ -514,30 +529,31 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
           // Continue anyway, user can retry
         }
 
-        // Track DataFast goal: payment_complete
+        // Track DataFast goal: payment_complete (only primitives to prevent DataCloneError)
         try {
-          (window as any)?.datafast?.('payment_complete', {
-            tier,
-            billing,
-            currency,
-            amount_cents: paymentIntent.amount,
-            payment_intent_id: paymentIntent.id,
-            email: userEmail
-          });
+          const trackingData = {
+            tier: String(tier),
+            billing: String(billing),
+            currency: String(currency),
+            amount_cents: typeof paymentIntent.amount === 'number' ? paymentIntent.amount : 0,
+            payment_intent_id: String(paymentIntent.id || ''),
+            email: userEmail ? String(userEmail) : undefined
+          };
+          (window as any)?.datafast?.('payment_complete', trackingData);
         } catch (e: any) {
           // Safe logging to prevent DataCloneError
           console.error('[Checkout] Failed to track payment_complete (non-fatal):', e?.message || String(e));
         }
 
-        // Track FirstPromoter conversion (best effort)
+        // Track FirstPromoter conversion (best effort, only primitives)
         try {
           const amount = typeof paymentIntent.amount === 'number' ? (paymentIntent.amount / 100) : undefined;
-          (window as any)?.fpr && (window as any).fpr('conversion', {
-            email: userEmail || undefined,
-            amount: amount !== undefined ? String(amount) : undefined,
-            currency: currency || undefined,
-            plan: tier
-          });
+          const fprData: Record<string, string | undefined> = {};
+          if (userEmail) fprData.email = String(userEmail);
+          if (amount !== undefined) fprData.amount = String(amount);
+          if (currency) fprData.currency = String(currency);
+          if (tier) fprData.plan = String(tier);
+          (window as any)?.fpr && (window as any).fpr('conversion', fprData);
         } catch (e: any) {
           // Safe logging to prevent DataCloneError
           console.error('[Checkout] Failed to track FirstPromoter conversion (non-fatal):', e?.message || String(e));
