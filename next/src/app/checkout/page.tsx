@@ -92,8 +92,25 @@ function CheckoutContent() {
     // Prevent multiple simultaneous initializations (memory leak protection)
     if (isInitializing.current) return;
     
+    // Check if redirect is already in progress (prevent CPU spikes from rapid navigation)
+    const redirectKey = `checkout_redirect_${tier}_${billing}_${currency}`;
+    if (sessionStorage.getItem(redirectKey)) {
+      // Redirect already initiated, wait a bit and check if we're still on this page
+      const checkRedirect = setTimeout(() => {
+        if (window.location.hostname === 'checkout.stripe.com' || window.location.pathname !== '/checkout') {
+          // Already redirected or navigated away
+          return;
+        }
+        // Still here, clear the flag and retry
+        sessionStorage.removeItem(redirectKey);
+        isInitializing.current = false;
+      }, 100);
+      return () => clearTimeout(checkRedirect);
+    }
+    
     let cancelled = false;
     isInitializing.current = true;
+    sessionStorage.setItem(redirectKey, '1');
     
     (async () => {
       try {
@@ -123,12 +140,17 @@ function CheckoutContent() {
           const errorMsg = json.message || json.error || 'Failed to start checkout';
           throw new Error(errorMsg);
         }
-        if (!cancelled) {
+        if (!cancelled && json.url) {
+          // Mark redirect as complete and redirect immediately
+          sessionStorage.setItem(redirectKey, '2'); // 2 = redirect completed
           window.location.href = json.url;
+          // Stop all further execution after redirect
+          return;
         }
       } catch (e: any) {
         if (!cancelled) {
           setError(e.message || 'Failed to initialize checkout');
+          sessionStorage.removeItem(redirectKey);
           isInitializing.current = false;
         }
       }
@@ -136,7 +158,11 @@ function CheckoutContent() {
     
     return () => { 
       cancelled = true;
-      isInitializing.current = false;
+      // Don't reset isInitializing if redirect was successful (component will unmount anyway)
+      if (sessionStorage.getItem(redirectKey) !== '2') {
+        isInitializing.current = false;
+        sessionStorage.removeItem(redirectKey);
+      }
     };
   }, [tier, billing, currency]);
 
