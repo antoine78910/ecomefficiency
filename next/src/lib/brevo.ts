@@ -14,8 +14,7 @@ type BrevoEventProps = {
 export async function trackBrevoEvent({ email, eventName, eventProps, contactProps }: BrevoEventProps) {
   const apiKey = process.env.BREVO_API_KEY;
   if (!apiKey) {
-    // Fail silently in development if no key, but log a warning
-    if (process.env.NODE_ENV === 'development') console.warn('[Brevo] No API Key configured');
+    console.error('[Brevo] ❌ CRITICAL: No API Key configured in environment variables (BREVO_API_KEY is missing)');
     return;
   }
 
