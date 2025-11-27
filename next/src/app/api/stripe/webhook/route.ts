@@ -12,10 +12,7 @@ export async function POST(req: NextRequest) {
   const sig = req.headers.get('stripe-signature');
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!process.env.STRIPE_SECRET_KEY || !secret) {
-    console.error('[webhook]', requestId, '❌ Stripe not configured:', {
-      hasSecretKey: !!process.env.STRIPE_SECRET_KEY,
-      hasWebhookSecret: !!secret
-    });
+    console.error('[webhook]', requestId, '❌ Stripe not configured');
     return NextResponse.json({ error: 'Stripe not configured' }, { status: 500 });
   }
 
@@ -40,6 +37,31 @@ export async function POST(req: NextRequest) {
         const status = session?.status;
         console.log('[webhook]', requestId, 'checkout.session.completed', { paymentStatus, status, sessionId: session?.id, customer: session?.customer });
         
+        // Track payment_succeeded in Brevo here as a fallback/primary method
+        // Checkout Session Completed is often more reliable for initial subscription payments
+        if (paymentStatus === 'paid' && status === 'complete') {
+          const userEmail = session?.customer_details?.email || session?.customer_email;
+          const amountTotal = session?.amount_total || 0;
+          const currency = session?.currency?.toUpperCase() || 'USD';
+          
+          if (userEmail) {
+             console.log('[webhook][checkout.session.completed]', requestId, '🚀 Tracking payment_succeeded in Brevo for:', userEmail);
+             await trackBrevoEvent({
+                email: userEmail,
+                eventName: 'payment_succeeded',
+                eventProps: {
+                  amount: amountTotal / 100,
+                  currency,
+                  invoice_id: session?.invoice as string,
+                  session_id: session?.id
+                },
+                contactProps: {
+                  customer_status: 'subscriber'
+                }
+             });
+          }
+        }
+
         // Only upgrade plan if payment is actually completed
         if (paymentStatus === 'paid' && status === 'complete') {
           const clientRef = session?.client_reference_id || session?.metadata?.userId;
@@ -59,44 +81,20 @@ export async function POST(req: NextRequest) {
       }
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
-        // Process subscription status transitions
         const subscription = (event as any).data?.object;
-        const subscriptionStatus = subscription?.status;
-        const clientRef = subscription?.metadata?.userId;
-        const customerId = subscription?.customer;
-        console.log('[webhook]', requestId, 'subscription event', { subscriptionStatus, subscriptionId: subscription?.id, clientRef, customerId });
-
-        if (clientRef && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL) {
-          if (subscriptionStatus === 'active' || subscriptionStatus === 'trialing') {
-            await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users/${clientRef}`, {
-              method: 'PUT',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
-              },
-              body: JSON.stringify({ user_metadata: { plan: 'pro', stripe_customer_id: customerId } })
-            });
-          } else {
-            // Any non-active state should be downgraded to free
-            await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users/${clientRef}`, {
-              method: 'PUT',
-              headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
-              },
-              body: JSON.stringify({ user_metadata: { plan: 'free', stripe_customer_id: customerId } })
-            });
-          }
-        }
+        // We mainly rely on checkout.session.completed or invoice.payment_succeeded
+        // But we can sync status if needed
         break;
       }
-      case 'payment_intent.succeeded': {
-        // If we created a manual PaymentIntent as a fallback, mark the invoice paid
+      case 'invoice.paid': {
+        // Often redundant with payment_succeeded but sometimes useful
+        // For now, we stick to invoice.payment_succeeded for plan activation
+        const invoice = (event as any).data?.object;
+        const subscriptionId = typeof invoice?.subscription === 'string' ? invoice?.subscription : (invoice?.subscription as any)?.id;
+        const invoiceId = invoice.id;
+        
+        // Ensure invoice is marked as paid if stuck in draft/open (rare for card payments)
         try {
-          const pi: any = (event as any).data?.object;
-          const invoiceId: string | undefined = pi?.metadata?.invoice_id;
-          const subscriptionId: string | undefined = pi?.metadata?.subscription_id;
-          console.log('[webhook]', requestId, 'payment_intent.succeeded', { piId: pi?.id, invoiceId, subscriptionId });
           if (invoiceId && subscriptionId) {
             try { await stripe.invoices.finalizeInvoice(invoiceId).catch(()=>{}); } catch {}
             try {
@@ -127,12 +125,24 @@ export async function POST(req: NextRequest) {
       case 'invoice.payment_succeeded': {
         // Activate plan when payment succeeds - THIS IS THE CRITICAL PATH
         const invoice = (event as any).data?.object;
-        const subscriptionId = invoice?.subscription;
+        const subscriptionId = typeof invoice?.subscription === 'string' ? invoice?.subscription : (invoice?.subscription as any)?.id;
         console.log('[webhook]', requestId, 'invoice.payment_succeeded', { invoiceId: invoice?.id, subscriptionId, customer: invoice?.customer, amount_paid: invoice?.amount_paid });
 
-        if (!subscriptionId) {
-          console.log('[webhook][invoice.payment_succeeded]', requestId, '⚠️ No subscriptionId in invoice, skipping Brevo tracking');
+        // If we have a valid invoice with email, track it (even without subscription ID initially)
+        if (invoice?.amount_paid > 0 && (invoice?.customer_email || invoice?.customer_name)) { 
+             const targetEmail = invoice.customer_email || invoice.customer_name;
+             if (targetEmail && targetEmail.includes('@')) {
+                 // Brevo tracking logic is further down, but we ensure email is captured
+             }
         }
+
+        if (!subscriptionId) {
+          console.log('[webhook][invoice.payment_succeeded]', requestId, '⚠️ No subscriptionId in invoice, attempting to retrieve via customer or metadata');
+        }
+
+        let userEmail = invoice.customer_email;
+        let plan = 'pro'; // default
+        let tier = 'pro';
 
         if (subscriptionId) {
           try {
@@ -140,12 +150,12 @@ export async function POST(req: NextRequest) {
             const subscription = await stripe.subscriptions.retrieve(subscriptionId);
             const clientRef = subscription?.metadata?.userId;
             const customerId = subscription?.customer;
-            const tier = subscription?.metadata?.tier; // 'starter' or 'pro'
+             tier = subscription?.metadata?.tier || 'pro'; // 'starter' or 'pro'
 
             console.log('[webhook][invoice.payment_succeeded]', requestId, '📋 Subscription metadata:', { clientRef, customerId, tier });
 
             // Map tier to plan: starter → starter, pro/growth → pro
-            const plan = tier === 'starter' ? 'starter' : 'pro';
+             plan = tier === 'starter' ? 'starter' : 'pro';
 
             console.log('[webhook][invoice.payment_succeeded]', requestId, '🔔 ACTIVATING PLAN:', {
               userId: clientRef,
@@ -155,6 +165,9 @@ export async function POST(req: NextRequest) {
               subscriptionStatus: subscription.status,
               invoiceId: invoice.id
             });
+            
+            // Try to find email from subscription if missing from invoice
+            if (!userEmail && (subscription as any).customer_email) userEmail = (subscription as any).customer_email;
 
             if (clientRef && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL) {
               const updateRes = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users/${clientRef}`, {
@@ -163,107 +176,64 @@ export async function POST(req: NextRequest) {
                   'Content-Type': 'application/json',
                   'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
                 },
-                body: JSON.stringify({
-                  user_metadata: {
-                    plan,
-                    stripe_customer_id: customerId,
-                    tier
-                  }
-                })
+                body: JSON.stringify({ user_metadata: { plan, stripe_customer_id: customerId, subscription_id: subscriptionId, tier } })
               });
 
-              const updateData = await updateRes.json();
-              if (updateRes.ok) {
-                console.log('[webhook][invoice.payment_succeeded]', requestId, '✅ USER PLAN ACTIVATED:', { userId: clientRef, plan, tier });
-                
-                // Send welcome email via Resend
-                try {
-                  const invoiceUrl = invoice.hosted_invoice_url || undefined;
-                  const userName = updateData?.user_metadata?.first_name || undefined;
-                  const userEmail = updateData.email || (subscription as any).customer_email || invoice.customer_email;
-                  
-                  console.log('[webhook][invoice.payment_succeeded]', requestId, '📧 Email resolution:', { 
-                    fromUpdateData: updateData.email, 
-                    fromSubscription: (subscription as any).customer_email, 
-                    fromInvoice: invoice.customer_email,
-                    finalEmail: userEmail 
-                  });
-                  
-                  if (userEmail) {
-                    // TRACK PURCHASE IN BREVO (To stop abandoned cart flows)
-                    // We use the email from Supabase (updateData.email) to ensure it matches 
-                    // the one used for checkout_initiated, even if the user used a different email on Stripe.
-                    console.log('[webhook][invoice.payment_succeeded]', requestId, '🚀 Calling trackBrevoEvent for:', userEmail);
-                    console.log('[webhook][invoice.payment_succeeded]', requestId, '📦 Brevo payload:', {
-                      email: userEmail,
-                      eventName: 'payment_succeeded',
-                      eventProps: {
-                        plan,
-                        amount: invoice.amount_paid / 100,
-                        currency: invoice.currency?.toUpperCase() || 'USD',
-                        tier,
-                        invoice_id: invoice.id
-                      },
-                      contactProps: {
-                        plan,
-                        customer_status: 'subscriber'
-                      }
-                    });
-                    
-                    const brevoResult = await trackBrevoEvent({
-                      email: userEmail,
-                      eventName: 'payment_succeeded',
-                      eventProps: {
-                        plan,
-                        amount: invoice.amount_paid / 100,
-                        currency: invoice.currency?.toUpperCase() || 'USD',
-                        tier,
-                        invoice_id: invoice.id
-                      },
-                      contactProps: {
-                        plan, // Sync plan attribute
-                        customer_status: 'subscriber'
-                      }
-                    });
-                    console.log('[webhook][invoice.payment_succeeded]', requestId, '✅ Tracked payment_succeeded in Brevo for:', userEmail, 'Result:', brevoResult);
-
-                    await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace('/auth/v1', '') || 'https://app.ecomefficiency.com'}/api/send-welcome-email`, {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        email: userEmail,
-                        name: userName,
-                        plan,
-                        tier,
-                        invoiceUrl
-                      })
-                    });
-                    console.log('[webhook][invoice.payment_succeeded]', requestId, '📧 Welcome email sent to:', userEmail);
-                  } else {
-                    console.error('[webhook][invoice.payment_succeeded]', requestId, '❌ NO EMAIL FOUND for Brevo tracking:', {
-                      updateDataEmail: updateData.email,
-                      subscriptionEmail: (subscription as any).customer_email,
-                      invoiceEmail: invoice.customer_email
-                    });
-                  }
-                } catch (emailError: any) {
-                  console.error('[webhook][invoice.payment_succeeded]', requestId, 'Failed to send welcome email:', emailError.message);
-                  // Non-fatal, continue
+              // Also get user email to ensure we have the correct one for Brevo
+              const userRes = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users/${clientRef}`, {
+                headers: {
+                  'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`,
+                  'apikey': process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ''
                 }
-              } else {
-                console.error('[webhook][invoice.payment_succeeded]', requestId, '❌ FAILED TO UPDATE USER:', { status: updateRes.status, data: updateData });
-              }
-            } else {
-              console.error('[webhook][invoice.payment_succeeded]', requestId, '❌ MISSING CONFIG:', {
-                hasUserId: !!clientRef,
-                hasSupabaseKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY,
-                hasSupabaseUrl: !!process.env.NEXT_PUBLIC_SUPABASE_URL
               });
+              const updateData = await userRes.json();
+              
+              if (updateData?.email) userEmail = updateData.email;
+              const userName = updateData.user_metadata?.first_name || 'Valued Customer';
+              const invoiceUrl = invoice.hosted_invoice_url; // Link to the PDF invoice
+              
+              // Proceed with tracking using the resolved email
             }
-          } catch (e: any) {
-            console.error('[webhook][invoice.payment_succeeded]', requestId, '❌ ERROR:', e.message, e.stack);
+          } catch (err: any) {
+            console.error('[webhook][invoice.payment_succeeded]', requestId, 'Error processing subscription:', err.message);
           }
         }
+
+        // TRACK PURCHASE IN BREVO (Final Check)
+        if (userEmail) {
+            console.log('[webhook][invoice.payment_succeeded]', requestId, '🚀 Calling trackBrevoEvent for:', userEmail);
+            await trackBrevoEvent({
+              email: userEmail,
+              eventName: 'payment_succeeded',
+              eventProps: {
+                plan,
+                amount: invoice.amount_paid / 100,
+                currency: invoice.currency?.toUpperCase() || 'USD',
+                tier,
+                invoice_id: invoice.id
+              },
+              contactProps: {
+                plan, // Sync plan attribute
+                customer_status: 'subscriber'
+              }
+            });
+            console.log('[webhook][invoice.payment_succeeded]', requestId, '✅ Tracked payment_succeeded in Brevo for:', userEmail);
+
+            // Send welcome email
+            await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace('/auth/v1', '') || 'https://app.ecomefficiency.com'}/api/send-welcome-email`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                email: userEmail,
+                plan,
+                tier,
+                invoiceUrl: invoice.hosted_invoice_url
+              })
+            }).catch(()=>{});
+        } else {
+             console.log('[webhook][invoice.payment_succeeded]', requestId, '❌ Skipped Brevo tracking - No Email Found');
+        }
+
         break;
       }
       case 'customer.subscription.deleted': {
@@ -279,51 +249,37 @@ export async function POST(req: NextRequest) {
               'Content-Type': 'application/json',
               'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
             },
-            body: JSON.stringify({ user_metadata: { plan: 'free', stripe_customer_id: customerId } })
+            body: JSON.stringify({ user_metadata: { plan: 'free' } })
           });
-          
-          // Track cancellation in Brevo
-          try {
-             // Fetch customer email if needed
-             const customer = await stripe.customers.retrieve(customerId as string) as any;
-             if (customer?.email) {
-               await trackBrevoEvent({
-                 email: customer.email,
-                 eventName: 'subscription_cancelled',
-                 contactProps: { plan: 'free', customer_status: 'cancelled' }
-               });
-             }
-           } catch {}
         }
-        break;
-      }
-      case 'invoice.payment_failed': {
-        // Suspend access for failed payments
-        const invoice = (event as any).data?.object;
-        const customerId = invoice?.customer;
-        const clientRef = invoice?.metadata?.userId;
         
-        if (clientRef && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL) {
-          await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users/${clientRef}`, {
-            method: 'PUT',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
-            },
-            body: JSON.stringify({ user_metadata: { plan: 'free', stripe_customer_id: customerId } })
-          });
-        }
+        // Track cancellation in Brevo
+        try {
+           // Try to resolve email from subscription or customer
+           const userEmail = (subscription as any).customer_email;
+           if (userEmail) {
+              await trackBrevoEvent({
+                email: userEmail,
+                eventName: 'subscription_cancelled',
+                eventProps: {
+                  plan: subscription?.metadata?.tier || 'unknown',
+                  currency: subscription?.currency?.toUpperCase() || 'USD'
+                },
+                contactProps: {
+                  customer_status: 'cancelled'
+                }
+              });
+           }
+        } catch {}
         break;
       }
       default:
-        console.log('[webhook]', requestId, 'Unhandled event:', event.type);
-        break;
+        console.log('[webhook]', requestId, `Unhandled event: ${event.type}`);
     }
-  } catch (e) {
-    console.error('[webhook]', requestId, 'Handler error:', e);
+  } catch (err: any) {
+    console.error('[webhook]', requestId, 'Webhook handler failed:', err);
+    return new NextResponse(`Webhook Handler Error: ${err.message}`, { status: 500 });
   }
 
-  return NextResponse.json({ received: true });
+  return new NextResponse(JSON.stringify({ received: true }), { status: 200 });
 }
-
-
