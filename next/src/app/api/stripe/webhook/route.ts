@@ -99,12 +99,20 @@ export async function POST(req: NextRequest) {
              }
 
              if (userEmail) {
+                // Ensure valid date or fallback to now
+                let endDateStr = new Date().toISOString();
+                try {
+                    if (subscription.current_period_end) {
+                        endDateStr = new Date(subscription.current_period_end * 1000).toISOString();
+                    }
+                } catch {}
+
                 await trackBrevoEvent({
                   email: userEmail,
                   eventName: 'subscription_cancel_initiated', // Nouvel event pour le churn immédiat
                   eventProps: {
                     plan: subscription?.metadata?.tier || 'unknown',
-                    end_date: new Date(subscription.current_period_end * 1000).toISOString()
+                    end_date: endDateStr
                   },
                   contactProps: {
                     customer_status: 'cancelling' // Statut "en cours d'annulation"
