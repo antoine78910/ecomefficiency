@@ -204,13 +204,42 @@ function InputWithHalo({ children }: { children: React.ReactNode }) {
   const mouseY = useMotionValue(0);
   const radius = useMotionValue(160);
   const [visible, setVisible] = React.useState(false);
-  const bg = useMotionTemplate`radial-gradient(${visible ? radius.get() + 'px' : '0px'} circle at ${mouseX}px ${mouseY}px, #7c30c7, transparent 75%)`;
+  const rectRef = React.useRef<DOMRect | null>(null);
+
+  // Use plain motion value references where possible to avoid unnecessary JS re-execution
+  const bg = useMotionTemplate`radial-gradient(${visible ? radius : '0'}px circle at ${mouseX}px ${mouseY}px, #7c30c7, transparent 75%)`;
+
   const onMove = (e: React.MouseEvent<HTMLDivElement>) => {
-    const rect = e.currentTarget.getBoundingClientRect();
-    mouseX.set(e.clientX - rect.left); mouseY.set(e.clientY - rect.top); radius.set(Math.max(rect.width, rect.height) * 0.45);
+    // Optimized: Use cached rect to avoid layout thrashing (reflow) on every mouse move
+    if (rectRef.current) {
+      const rect = rectRef.current;
+      mouseX.set(e.clientX - rect.left);
+      mouseY.set(e.clientY - rect.top);
+    }
   };
+
+  const onEnter = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    rectRef.current = rect;
+    // Calculate radius once on enter
+    radius.set(Math.max(rect.width, rect.height) * 0.45);
+    setVisible(true);
+  };
+
+  const onLeave = () => {
+    setVisible(false);
+    // We don't nullify rectRef immediately to allow fading out or last frame updates if needed, 
+    // but practically it's fine.
+  };
+
   return (
-    <motion.div style={{ background: bg }} onMouseMove={onMove} onMouseEnter={()=>setVisible(true)} onMouseLeave={()=>setVisible(false)} className='group/input rounded-lg p-[2px] transition duration-300'>
+    <motion.div 
+      style={{ background: bg }} 
+      onMouseMove={onMove} 
+      onMouseEnter={onEnter} 
+      onMouseLeave={onLeave} 
+      className='group/input rounded-lg p-[2px] transition duration-300'
+    >
       <div className='rounded-[inherit] bg-black'>{children}</div>
     </motion.div>
   );
