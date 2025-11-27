@@ -22,12 +22,47 @@ const App = () => {
     const just = url.searchParams.get('just') === '1'
     const hasHashTokens = /access_token=|refresh_token=/.test(hash)
 
-    // Helper pour vérifier si l'utilisateur est "nouveau" (créé il y a moins de 2 minutes)
+    // Helper pour vérifier si l'utilisateur est "nouveau" (créé il y a moins de 1 heure)
     const isUserNew = (user: any) => {
       if (!user?.created_at) return false;
       const created = new Date(user.created_at).getTime();
       const now = new Date().getTime();
       return (now - created) < 60 * 60 * 1000; // 1 heure
+    };
+
+    // Fonction centralisée pour tracker le Signup de manière unique
+    const trackUniqueSignup = (user: any) => {
+        if (!user?.email || !user?.id) return;
+        
+        // 1. Si l'utilisateur n'est pas "frais" (créé il y a > 1h), on ignore
+        if (!isUserNew(user)) return;
+
+        // 2. Si on a déjà tracké ce user ID sur ce navigateur, on ignore
+        const storageKey = `ee_signup_tracked_${user.id}`;
+        if (localStorage.getItem(storageKey)) return;
+
+        // 3. On marque comme tracké immédiatement
+        try { localStorage.setItem(storageKey, '1'); } catch {}
+
+        // 4. Tracking DataFast
+        try {
+            (window as any)?.datafast?.('sign_up', {
+                email: user.email,
+                user_id: user.id,
+                verified_at: new Date().toISOString()
+            });
+        } catch {}
+
+        // 5. Tracking Brevo
+        fetch('/api/brevo/track', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                email: user.email,
+                event: 'signup',
+                data: { source: 'website', status: 'pending_payment' }
+            })
+        }).catch(() => {});
     };
 
     // Fallback: if just=1 param present and user is already authenticated, mark complete_signup
@@ -48,61 +83,36 @@ const App = () => {
             try { await fetch('/api/auth/flag', { method: 'POST' }) } catch {}
 
             // Track DataFast sign_up goal after OAuth sign-up OR Email verification
-            // We track if 'just_signed_in' flag is present OR if the user is new (< 1 hour)
+            // We rely strictly on isUserNew() to avoid false positives from logins
             const justSignedIn = params.get('just_signed_in')
             try {
               const { data } = await mod.supabase.auth.getUser()
-              const isNew = data.user ? isUserNew(data.user) : false
               
-              if (justSignedIn === '1' || isNew) {
+              // AJOUT: Identifier l'utilisateur pour DataFast (toujours utile pour lier user_id)
+              if (data.user?.email) {
                 try {
-                  // AJOUT: Identifier l'utilisateur pour DataFast
-                  if (data.user?.email) {
-                    try {
-                      (window as any)?.datafast?.('identify', {
-                        email: data.user.email,
-                        user_id: data.user.id
-                      });
-                    } catch {}
-                  }
+                  (window as any)?.datafast?.('identify', {
+                    email: data.user.email,
+                    user_id: data.user.id
+                  });
+                } catch {}
+              }
 
-                  if (data.user?.email) {
-                    // console.log('[App] 📊 Tracking sign_up goal');
-                    const userEmail = data.user.email;
-                    const userId = data.user.id;
-                    
-                    // DataFast
-                    (window as any)?.datafast?.('sign_up', {
-                      email: userEmail,
-                      user_id: userId,
-                      provider: data.user.app_metadata?.provider || 'email',
-                      verified_at: new Date().toISOString()
-                    });
+              // Tracking Unique du Signup
+              if (data.user) {
+                  trackUniqueSignup(data.user);
+              }
 
-                    // Brevo Custom Event
-                    fetch('/api/brevo/track', {
-                      method: 'POST',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        email: userEmail,
-                        event: 'signup',
-                        data: { source: 'website', status: 'pending_payment' }
-                      })
-                    }).catch(() => {});
-
-                    // FirstPromoter referral (only once per browser)
-                    try {
-                      const sentKey = '__ee_fpr_referral_sent'
-                      const already = typeof window !== 'undefined' ? window.localStorage.getItem(sentKey) : '1'
-                      if (!already && (window as any)?.fpr) {
-                        (window as any).fpr('referral', { email: String(userEmail) })
-                        try { window.localStorage.setItem(sentKey, '1') } catch {}
-                      }
-                    } catch {}
-                  }
-                } catch (e) {
-                  // console.error('[App] Failed to track sign_up (non-fatal):', e);
-                }
+              // FirstPromoter referral (only once per browser)
+              if (data.user?.email) {
+                  try {
+                    const sentKey = '__ee_fpr_referral_sent'
+                    const already = typeof window !== 'undefined' ? window.localStorage.getItem(sentKey) : '1'
+                    if (!already && (window as any)?.fpr) {
+                      (window as any).fpr('referral', { email: String(data.user.email) })
+                      try { window.localStorage.setItem(sentKey, '1') } catch {}
+                    }
+                  } catch {}
               }
             } catch {}
 
@@ -136,6 +146,7 @@ const App = () => {
           // Track DataFast sign_up goal after email verification
           try {
             const { data } = await mod.supabase.auth.getUser()
+            
             // AJOUT: Identifier l'utilisateur pour DataFast
             if (data.user?.email) {
               try {
@@ -145,34 +156,19 @@ const App = () => {
                 });
               } catch {}
            }
-            if (data.user?.email && isUserNew(data.user)) {
-              // console.log('[App] 📊 Tracking sign_up goal after email verification');
-              const userEmail = data.user.email;
-              
-              // DataFast
-              (window as any)?.datafast?.('sign_up', {
-                email: userEmail,
-                user_id: data.user.id,
-                verified_at: new Date().toISOString()
-              });
-
-              // Brevo Custom Event
-              fetch('/api/brevo/track', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  email: userEmail,
-                  event: 'signup',
-                  data: { source: 'website', status: 'pending_payment' }
-                })
-              }).catch(() => {});
-
-              // FirstPromoter referral (only once per browser)
+           
+           // Tracking Unique du Signup
+           if (data.user) {
+                trackUniqueSignup(data.user);
+           }
+           
+           // FirstPromoter referral (only once per browser)
+            if (data.user?.email) {
               try {
                 const sentKey = '__ee_fpr_referral_sent'
                 const already = typeof window !== 'undefined' ? window.localStorage.getItem(sentKey) : '1'
                 if (!already && (window as any)?.fpr) {
-                  (window as any).fpr('referral', { email: String(userEmail) })
+                  (window as any).fpr('referral', { email: String(data.user.email) })
                   try { window.localStorage.setItem(sentKey, '1') } catch {}
                 }
               } catch {}
