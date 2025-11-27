@@ -82,6 +82,40 @@ export async function POST(req: NextRequest) {
       case 'customer.subscription.created':
       case 'customer.subscription.updated': {
         const subscription = (event as any).data?.object;
+        const previousAttributes = (event as any).data?.previous_attributes;
+        
+        // DÉTECTION : L'utilisateur vient de cliquer sur "Annuler" (cancel_at_period_end passe de false à true)
+        if (subscription.cancel_at_period_end && previousAttributes && 'cancel_at_period_end' in previousAttributes && previousAttributes.cancel_at_period_end === false) {
+           console.log('[webhook]', requestId, '📉 User scheduled cancellation (Churn Risk)');
+           
+           try {
+             // On récupère l'email via le customer car il n'est pas dans l'objet subscription
+             let userEmail = (subscription as any).email; // Parfois présent
+             if (!userEmail && subscription.customer) {
+                const customer = await stripe.customers.retrieve(subscription.customer as string);
+                if (!('deleted' in customer)) {
+                  userEmail = customer.email;
+                }
+             }
+
+             if (userEmail) {
+                await trackBrevoEvent({
+                  email: userEmail,
+                  eventName: 'subscription_cancel_initiated', // Nouvel event pour le churn immédiat
+                  eventProps: {
+                    plan: subscription?.metadata?.tier || 'unknown',
+                    end_date: new Date(subscription.current_period_end * 1000).toISOString()
+                  },
+                  contactProps: {
+                    customer_status: 'cancelling' // Statut "en cours d'annulation"
+                  }
+                });
+                console.log('[webhook]', requestId, '✅ Tracked subscription_cancel_initiated for:', userEmail);
+             }
+           } catch (e) {
+             console.error('[webhook] Failed to track cancel initiation:', e);
+           }
+        }
         // We mainly rely on checkout.session.completed or invoice.payment_succeeded
         // But we can sync status if needed
         break;
@@ -253,22 +287,36 @@ export async function POST(req: NextRequest) {
           });
         }
         
-        // Track cancellation in Brevo
+        // Track cancellation in Brevo (FIX: Récupération robuste de l'email)
         try {
-           // Try to resolve email from subscription or customer
-           const userEmail = (subscription as any).customer_email;
+           let userEmail = (subscription as any).email || (subscription as any).customer_email;
+           
+           // Si pas d'email direct, on va le chercher sur le customer
+           if (!userEmail && customerId) {
+             try {
+                const customer = await stripe.customers.retrieve(customerId);
+                if (!('deleted' in customer)) {
+                   userEmail = customer.email;
+                }
+             } catch {}
+           }
+
            if (userEmail) {
               await trackBrevoEvent({
                 email: userEmail,
-                eventName: 'subscription_cancelled',
+                eventName: 'subscription_cancelled', // Event final (perte d'accès)
                 eventProps: {
                   plan: subscription?.metadata?.tier || 'unknown',
                   currency: subscription?.currency?.toUpperCase() || 'USD'
                 },
                 contactProps: {
-                  customer_status: 'cancelled'
+                  customer_status: 'cancelled',
+                  plan: 'free' // On remet explicitement en free
                 }
               });
+              console.log('[webhook]', requestId, '✅ Tracked subscription_cancelled for:', userEmail);
+           } else {
+              console.log('[webhook]', requestId, '⚠️ Could not find email for cancelled subscription:', subscription.id);
            }
         } catch {}
         break;

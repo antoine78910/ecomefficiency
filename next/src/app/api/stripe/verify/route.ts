@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
+import { trackBrevoEvent } from "@/lib/brevo";
+import { supabaseAdmin } from "@/integrations/supabase/server";
 
 export async function POST(req: NextRequest) {
   try {
@@ -150,6 +152,79 @@ export async function POST(req: NextRequest) {
       finalPlan = 'starter';
     }
     
+    // ROBUSTNESS: Fallback tracking for payment_succeeded if webhook failed
+    // Only run this for recently created subscriptions (< 1 hour) to minimize performance impact
+    if (active && latest && (Date.now() / 1000 - latest.created < 3600)) {
+      try {
+        const userId = latest.metadata?.userId;
+        const subId = latest.id;
+        
+        if (userId && supabaseAdmin) {
+           // Check if we already tracked this subscription
+           const { data: user, error } = await supabaseAdmin.auth.admin.getUserById(userId);
+           
+           if (user && user.user) {
+             const meta = user.user.user_metadata || {};
+             const lastTracked = meta.payment_tracked_sub_id;
+             
+             // If not tracked yet for this specific subscription ID
+             if (lastTracked !== subId) {
+                console.log('[VERIFY] ⚠️ Detecting untracked payment (webhook missed?), initiating fallback tracking...', { userId, subId });
+                
+                // Fetch invoice for amount details
+                const invoiceId = typeof latest.latest_invoice === 'string' ? latest.latest_invoice : latest.latest_invoice?.id;
+                let amount = 0;
+                let currency = 'USD';
+                
+                if (invoiceId) {
+                  try {
+                    const inv = await stripe.invoices.retrieve(invoiceId);
+                    amount = inv.amount_paid / 100;
+                    currency = inv.currency?.toUpperCase() || 'USD';
+                  } catch {}
+                }
+
+                // Track in Brevo
+                if (user.user.email) {
+                    await trackBrevoEvent({
+                        email: user.user.email,
+                        eventName: 'payment_succeeded',
+                        eventProps: {
+                          plan: finalPlan,
+                          amount,
+                          currency,
+                          tier: finalPlan, // simplistic mapping
+                          invoice_id: invoiceId,
+                          source: 'verify_fallback'
+                        },
+                        contactProps: {
+                          plan: finalPlan,
+                          customer_status: 'subscriber'
+                        }
+                    });
+                    console.log('[VERIFY] ✅ Fallback tracking success for:', user.user.email);
+                }
+
+                // Update metadata so we don't track again
+                await supabaseAdmin.auth.admin.updateUserById(userId, {
+                  user_metadata: { 
+                    ...meta,
+                    payment_tracked_sub_id: subId,
+                    // Ensure plan is synced too
+                    plan: finalPlan,
+                    stripe_customer_id: customerId,
+                    tier: finalPlan
+                  }
+                });
+             }
+           }
+        }
+      } catch (err: any) {
+        console.error('[VERIFY] Fallback tracking error:', err.message);
+        // Don't fail the verification request
+      }
+    }
+
     const result = { ok: true, active, status, plan: finalPlan };
     console.log('[VERIFY] Subscription check:', { customerId, status, active, plan: finalPlan });
     return NextResponse.json(result);

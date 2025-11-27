@@ -1000,7 +1000,20 @@ function CredentialsPanel() {
                 <div className="md:col-span-2">
                   <div className="mt-2 text-sm text-gray-400 flex items-center gap-2">
                     <span>How to access the tools?</span>
-                    <button onClick={() => { try { (window as any).__eeOpenHowTo?.(); window.dispatchEvent(new CustomEvent('ee-open-howto')); document.dispatchEvent(new CustomEvent('ee-open-howto')); const el = document.getElementById('howto-modal-open') as HTMLButtonElement | null; el?.click(); } catch {} }} className="underline text-purple-300 hover:text-purple-200 cursor-pointer">Open the 3‑step demo</button>
+                    <button 
+                      onClick={() => { 
+                        try { 
+                          if (typeof (window as any).__eeOpenHowTo === 'function') {
+                            (window as any).__eeOpenHowTo();
+                          } else {
+                            window.dispatchEvent(new CustomEvent('ee-open-howto'));
+                          }
+                        } catch {} 
+                      }} 
+                      className="underline text-purple-300 hover:text-purple-200 cursor-pointer"
+                    >
+                      Open the 3‑step demo
+                    </button>
                   </div>
                 </div>
               </div>
@@ -1102,7 +1115,22 @@ function CredentialsPanel() {
             <div className="md:col-span-2">
               <div className="mt-2 text-sm text-gray-400 flex items-center gap-2">
                 <span>How to access the tools?</span>
-                <button onClick={() => { try { (window as any).__eeOpenHowTo?.(); window.dispatchEvent(new CustomEvent('ee-open-howto')); document.getElementById('howto-modal-open')?.dispatchEvent(new Event('click', { bubbles: true })); } catch {} }} className="underline text-purple-300 hover:text-purple-200 cursor-pointer">Open the 3‑step demo</button>
+                <button 
+                  onClick={() => { 
+                    try { 
+                      // Prefer direct function call to avoid event dispatching issues with workers
+                      if (typeof (window as any).__eeOpenHowTo === 'function') {
+                        (window as any).__eeOpenHowTo();
+                      } else {
+                        // Fallback only if function not found
+                        window.dispatchEvent(new CustomEvent('ee-open-howto'));
+                      }
+                    } catch {} 
+                  }} 
+                  className="underline text-purple-300 hover:text-purple-200 cursor-pointer"
+                >
+                  Open the 3‑step demo
+                </button>
               </div>
             </div>
           </div>
@@ -1113,7 +1141,7 @@ function CredentialsPanel() {
         })()}
       </CardContent>
     </Card>
-    <button id="howto-modal-open" onClick={() => { try { window.dispatchEvent(new CustomEvent('ee-open-howto')); } catch {} }} className="hidden" />
+    <button id="howto-modal-open" className="hidden" />
     {showBilling ? (
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-2" onClick={() => setShowBilling(false)}>
         <div className="bg-gray-900 border border-white/10 rounded-2xl p-4 w-full max-w-6xl max-h-[92vh] overflow-y-auto overflow-x-hidden" onClick={(e) => e.stopPropagation()}>

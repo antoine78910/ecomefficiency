@@ -156,10 +156,22 @@ export async function middleware(req: NextRequest) {
     return NextResponse.rewrite(r)
   }
 
+  // Handle /sign-in on main domain: do not rewrite to /app/sign-in or redirect if not on app subdomain
+  // This is a catch-all for the main domain to ensure it serves the marketing site's sign-in page correctly
+  if (pathname === '/sign-in' && !hostname.includes('app.')) {
+    return response;
+  }
+
   // app subdomain => serve dashboard content directly on root (no rewrite to /app), protect it
   if (hostname === 'app.localhost' || bareHostname.startsWith('app.')) {
     // IMPORTANT: Allow unauthenticated access to root '/' so Supabase auth hash can be processed client-side.
     // Otherwise we lose the #access_token fragment on redirect and the user can't be auto-logged in after email verification.
+    
+    // Explicitly handle /sign-in on app subdomain to prevent loop
+    if (pathname === '/sign-in') {
+      return response;
+    }
+
     if (!hasAuth && pathname !== '/' && pathname !== '' && pathname.startsWith('/app')) {
       const r = url.clone(); r.pathname = '/sign-in';
       r.searchParams.set('callback', pathname + (url.search ? url.search : ''))
