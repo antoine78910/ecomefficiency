@@ -20,6 +20,21 @@ export async function trackBrevoEvent({ email, eventName, eventProps, contactPro
   }
 
   try {
+    // Brevo Events API expects identifiers to use 'email' key, not 'email_id'
+    // Also ensure the contact exists first by using email as identifier
+    const payload: any = {
+      event_name: eventName,
+      identifiers: { email: email },
+    };
+    
+    if (eventProps && Object.keys(eventProps).length > 0) {
+      payload.event_properties = eventProps;
+    }
+    
+    if (contactProps && Object.keys(contactProps).length > 0) {
+      payload.contact_properties = contactProps;
+    }
+
     const res = await fetch('https://api.brevo.com/v3/events', {
       method: 'POST',
       headers: {
@@ -27,20 +42,21 @@ export async function trackBrevoEvent({ email, eventName, eventProps, contactPro
         'api-key': apiKey,
         'content-type': 'application/json',
       },
-      body: JSON.stringify({
-        event_name: eventName,
-        identifiers: { email_id: email },
-        event_properties: eventProps,
-        contact_properties: contactProps,
-      }),
+      body: JSON.stringify(payload),
     });
 
     if (!res.ok) {
       const err = await res.text();
       console.error(`[Brevo] Failed to track event '${eventName}' for ${email}:`, res.status, err);
+      // Log the payload for debugging
+      console.error(`[Brevo] Payload was:`, JSON.stringify(payload, null, 2));
     } else {
-      // Success (204 No Content)
-      console.log(`[Brevo] ✅ SUCCESS! Tracked event '${eventName}' for ${email}`);
+      // Success (204 No Content or 201 Created)
+      const responseText = await res.text().catch(() => '');
+      console.log(`[Brevo] ✅ SUCCESS! Tracked event '${eventName}' for ${email} (status: ${res.status})`);
+      if (responseText) {
+        console.log(`[Brevo] Response:`, responseText);
+      }
     }
   } catch (e: any) {
     console.error(`[Brevo] Error tracking event '${eventName}' for ${email}:`, e?.message || String(e));
