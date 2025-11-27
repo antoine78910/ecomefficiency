@@ -78,15 +78,8 @@ function CheckoutContent() {
       setAppliedPromo(validateData.coupon);
       setPromoError(null);
 
-      console.log('[CHECKOUT] Promo applied:', {
-        coupon: validateData.coupon,
-        percent_off: validateData.coupon?.percent_off,
-        amount_off: validateData.coupon?.amount_off,
-        basePrice,
-        currency
-      });
     } catch (e) {
-      console.error('[CHECKOUT] Failed to apply promo:', e);
+      // console.error('[CHECKOUT] Failed to apply promo:', e);
       setPromoError('Failed to validate promo code');
       setAppliedPromo(null);
     } finally {
@@ -180,25 +173,13 @@ function CheckoutContent() {
 
     if (appliedPromo.percent_off) {
       const discounted = basePrice * (1 - appliedPromo.percent_off / 100);
-      console.log('[CHECKOUT] Percent discount:', {
-        basePrice,
-        percent_off: appliedPromo.percent_off,
-        discounted
-      });
       return discounted;
     }
 
     if (appliedPromo.amount_off) {
       // amount_off is in cents, convert to currency
-      const discountAmount = appliedPromo.amount_off / 100;
+    const discountAmount = appliedPromo.amount_off / 100;
       const discounted = Math.max(0, basePrice - discountAmount);
-      console.log('[CHECKOUT] Amount discount:', {
-        basePrice,
-        amount_off: appliedPromo.amount_off,
-        discountAmount,
-        currency,
-        discounted
-      });
       return discounted;
     }
 
