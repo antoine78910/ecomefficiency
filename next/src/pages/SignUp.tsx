@@ -64,11 +64,13 @@ export default function SignUp() {
         }
       });
       if (error) {
-        const raw = String(error.message || '').toLowerCase();
+        // Safe error handling: only use primitive values to prevent DataCloneError
+        const errorMessage = error?.message ? String(error.message) : 'Unexpected error';
+        const raw = errorMessage.toLowerCase();
         const already = /already\s*(registered|exists)/i.test(raw) || /duplicate/i.test(raw);
         toast({
           title: already ? 'Account already exists' : 'Sign up error',
-          description: already ? 'This email is already registered. Please sign in instead.' : (error.message || 'Unexpected error'),
+          description: already ? 'This email is already registered. Please sign in instead.' : errorMessage,
           variant: 'destructive'
         });
         setPending(false);
@@ -87,8 +89,12 @@ export default function SignUp() {
         return;
       }
 
-      // Track referral with FirstPromoter (best effort)
-      try { (window as any).fpr && (window as any).fpr('referral', { email }); } catch {}
+      // Track referral with FirstPromoter (best effort, only primitives)
+      try { 
+        if ((window as any)?.fpr && email) {
+          (window as any).fpr('referral', { email: String(email) }); 
+        }
+      } catch {}
 
       // Safety: ensure we have a user (required for signup flow that sends verification)
       if (!data || !data.user) {
