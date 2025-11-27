@@ -7,9 +7,15 @@ export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
   const requestId = `wh_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
+  console.log('[webhook]', requestId, '🔔 Webhook endpoint called');
+  
   const sig = req.headers.get('stripe-signature');
   const secret = process.env.STRIPE_WEBHOOK_SECRET;
   if (!process.env.STRIPE_SECRET_KEY || !secret) {
+    console.error('[webhook]', requestId, '❌ Stripe not configured:', {
+      hasSecretKey: !!process.env.STRIPE_SECRET_KEY,
+      hasWebhookSecret: !!secret
+    });
     return NextResponse.json({ error: 'Stripe not configured' }, { status: 500 });
   }
 
@@ -188,7 +194,23 @@ export async function POST(req: NextRequest) {
                     // We use the email from Supabase (updateData.email) to ensure it matches 
                     // the one used for checkout_initiated, even if the user used a different email on Stripe.
                     console.log('[webhook][invoice.payment_succeeded]', requestId, '🚀 Calling trackBrevoEvent for:', userEmail);
-                    await trackBrevoEvent({
+                    console.log('[webhook][invoice.payment_succeeded]', requestId, '📦 Brevo payload:', {
+                      email: userEmail,
+                      eventName: 'payment_succeeded',
+                      eventProps: {
+                        plan,
+                        amount: invoice.amount_paid / 100,
+                        currency: invoice.currency?.toUpperCase() || 'USD',
+                        tier,
+                        invoice_id: invoice.id
+                      },
+                      contactProps: {
+                        plan,
+                        customer_status: 'subscriber'
+                      }
+                    });
+                    
+                    const brevoResult = await trackBrevoEvent({
                       email: userEmail,
                       eventName: 'payment_succeeded',
                       eventProps: {
@@ -203,7 +225,7 @@ export async function POST(req: NextRequest) {
                         customer_status: 'subscriber'
                       }
                     });
-                    console.log('[webhook][invoice.payment_succeeded]', requestId, '✅ Tracked payment_succeeded in Brevo for:', userEmail);
+                    console.log('[webhook][invoice.payment_succeeded]', requestId, '✅ Tracked payment_succeeded in Brevo for:', userEmail, 'Result:', brevoResult);
 
                     await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL?.replace('/auth/v1', '') || 'https://app.ecomefficiency.com'}/api/send-welcome-email`, {
                       method: 'POST',
