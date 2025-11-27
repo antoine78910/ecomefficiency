@@ -23,8 +23,9 @@ export function useActivityTracking({ sessionId, userId, enabled = true }: UseAc
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ session_id: sessionId, user_id: userId }),
         })
-      } catch (error) {
-        console.error('[Activity] Heartbeat error:', error)
+      } catch (error: any) {
+        // Safe logging to prevent DataCloneError in session replay tools
+        console.error('[Activity] Heartbeat error:', error?.message || String(error))
       }
     }
     
@@ -49,8 +50,9 @@ export function useActivityTracking({ sessionId, userId, enabled = true }: UseAc
             keepalive: true,
           })
         }
-      } catch (error) {
-        console.error('[Activity] End session error:', error)
+      } catch (error: any) {
+        // Safe logging to prevent DataCloneError
+        console.error('[Activity] End session error:', error?.message || String(error))
       }
     }
     

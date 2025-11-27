@@ -25,8 +25,8 @@ export default function AppSectionLayout({ children }: { children: React.ReactNo
             document.cookie = 'user_plan=; path=/; max-age=0'
           }
         }
-      } catch (error) {
-        console.error('Error setting Pro cookie:', error)
+      } catch (error: any) {
+        console.error('Error setting Pro cookie:', error?.message || String(error))
       }
     }
 
