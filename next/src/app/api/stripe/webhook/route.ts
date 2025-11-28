@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
                 // Try to get name from user metadata in Supabase
                 let userName = userEmail.split('@')[0];
                 try {
-                   if (process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL) {
+                   if (process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL && supabaseAdmin) {
                      const { data } = await supabaseAdmin.auth.admin.listUsers();
                      const user = data.users.find((u: any) => u.email === userEmail);
                      if (user && user.user_metadata) {
