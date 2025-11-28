@@ -53,7 +53,8 @@ export async function POST(req: NextRequest) {
                   amount: amountTotal / 100,
                   currency,
                   invoice_id: session?.invoice as string,
-                  session_id: session?.id
+                  session_id: session?.id,
+                  name: session?.customer_details?.name || userEmail.split('@')[0]
                 },
                 contactProps: {
                   customer_status: 'subscriber'
@@ -107,12 +108,22 @@ export async function POST(req: NextRequest) {
                     }
                 } catch {}
 
+                // Try to get name from customer if available
+                let userName = userEmail.split('@')[0];
+                try {
+                   if (subscription.customer) {
+                       // We don't have customer object fully expanded here usually, but if we fetched it earlier...
+                       // If not, fallback to email part
+                   }
+                } catch {}
+
                 await trackBrevoEvent({
                   email: userEmail,
                   eventName: 'subscription_cancel_initiated', // Nouvel event pour le churn immédiat
                   eventProps: {
                     plan: subscription?.metadata?.tier || 'unknown',
-                    end_date: endDateStr
+                    end_date: endDateStr,
+                    name: userName
                   },
                   contactProps: {
                     customer_status: 'cancelling' // Statut "en cours d'annulation"
@@ -252,7 +263,8 @@ export async function POST(req: NextRequest) {
                 amount: invoice.amount_paid / 100,
                 currency: invoice.currency?.toUpperCase() || 'USD',
                 tier,
-                invoice_id: invoice.id
+                invoice_id: invoice.id,
+                name: invoice.customer_name || userEmail.split('@')[0]
               },
               contactProps: {
                 plan, // Sync plan attribute
@@ -315,7 +327,8 @@ export async function POST(req: NextRequest) {
                 eventName: 'subscription_cancelled', // Event final (perte d'accès)
                 eventProps: {
                   plan: subscription?.metadata?.tier || 'unknown',
-                  currency: subscription?.currency?.toUpperCase() || 'USD'
+                  currency: subscription?.currency?.toUpperCase() || 'USD',
+                  name: userEmail.split('@')[0]
                 },
                 contactProps: {
                   customer_status: 'cancelled',

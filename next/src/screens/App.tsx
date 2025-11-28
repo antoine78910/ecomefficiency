@@ -60,7 +60,12 @@ const App = () => {
             body: JSON.stringify({
                 email: user.email,
                 event: 'signup',
-                data: { source: 'website', status: 'pending_payment' }
+                data: { 
+                  source: 'website', 
+                  status: 'pending_payment',
+                  // Fallback name if available in metadata, else part of email
+                  name: user.user_metadata?.full_name || user.user_metadata?.name || user.email.split('@')[0]
+                }
             })
         }).catch(() => {});
     };
@@ -1168,7 +1173,8 @@ function CredentialsPanel() {
                       plan: tier, 
                       billing,
                       amount: Number(amount.toFixed(2)), 
-                      currency: currency || 'USD'
+                      currency: currency || 'USD',
+                      name: email.split('@')[0] // Basic fallback name
                     }
                   })
                 }).catch(() => {});
