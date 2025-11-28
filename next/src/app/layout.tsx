@@ -89,6 +89,14 @@ var startOpts = {};
   r.getSessionToken=function(){};
 })("https://sonarly.dev/static/tracker.js?v=1763957587150",1,0,initOpts,startOpts);`}
         </Script>
+        {/* Microsoft Clarity */}
+        <Script id="clarity" strategy="afterInteractive">
+          {`(function(c,l,a,r,i,t,y){
+        c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+        t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+        y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+    })(window, document, "clarity", "script", "u2gln16w3i");`}
+        </Script>
       </head>
       <body className="min-h-screen bg-background text-foreground" suppressHydrationWarning>
         <noscript>
