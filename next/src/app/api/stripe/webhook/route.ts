@@ -108,12 +108,16 @@ export async function POST(req: NextRequest) {
                     }
                 } catch {}
 
-                // Try to get name from customer if available
+                // Try to get name from user metadata in Supabase
                 let userName = userEmail.split('@')[0];
                 try {
-                   if (subscription.customer) {
-                       // We don't have customer object fully expanded here usually, but if we fetched it earlier...
-                       // If not, fallback to email part
+                   if (process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL) {
+                     const { data } = await supabaseAdmin.auth.admin.listUsers();
+                     const user = data.users.find((u: any) => u.email === userEmail);
+                     if (user && user.user_metadata) {
+                        const metaName = user.user_metadata.name || user.user_metadata.full_name;
+                        if (metaName) userName = metaName;
+                     }
                    }
                 } catch {}
 
@@ -322,13 +326,25 @@ export async function POST(req: NextRequest) {
            }
 
            if (userEmail) {
+              let userName = userEmail.split('@')[0];
+              try {
+                  if (process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL) {
+                    const { data } = await supabaseAdmin.auth.admin.listUsers();
+                    const user = data.users.find((u: any) => u.email === userEmail);
+                    if (user && user.user_metadata) {
+                      const metaName = user.user_metadata.name || user.user_metadata.full_name;
+                      if (metaName) userName = metaName;
+                    }
+                  }
+              } catch {}
+
               await trackBrevoEvent({
                 email: userEmail,
                 eventName: 'subscription_cancelled', // Event final (perte d'accès)
                 eventProps: {
                   plan: subscription?.metadata?.tier || 'unknown',
                   currency: subscription?.currency?.toUpperCase() || 'USD',
-                  name: userEmail.split('@')[0]
+                  name: userName
                 },
                 contactProps: {
                   customer_status: 'cancelled',
