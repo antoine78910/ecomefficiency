@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { trackBrevoEvent } from "@/lib/brevo";
+import { supabaseAdmin } from "@/integrations/supabase/server";
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -115,7 +116,7 @@ export async function POST(req: NextRequest) {
                      const { data } = await supabaseAdmin.auth.admin.listUsers();
                      const user = data.users.find((u: any) => u.email === userEmail);
                      if (user && user.user_metadata) {
-                        const metaName = user.user_metadata.name || user.user_metadata.full_name;
+                        const metaName = user.user_metadata.display_name || user.user_metadata.full_name || user.user_metadata.name;
                         if (metaName) userName = metaName;
                      }
                    }
@@ -328,11 +329,11 @@ export async function POST(req: NextRequest) {
            if (userEmail) {
               let userName = userEmail.split('@')[0];
               try {
-                  if (process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL) {
+                  if (process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL && supabaseAdmin) {
                     const { data } = await supabaseAdmin.auth.admin.listUsers();
                     const user = data.users.find((u: any) => u.email === userEmail);
                     if (user && user.user_metadata) {
-                      const metaName = user.user_metadata.name || user.user_metadata.full_name;
+                      const metaName = user.user_metadata.display_name || user.user_metadata.full_name || user.user_metadata.name;
                       if (metaName) userName = metaName;
                     }
                   }
