@@ -156,6 +156,20 @@ export async function middleware(req: NextRequest) {
     return NextResponse.rewrite(r)
   }
 
+  // Handle /app route: always redirect to app (works on localhost and main domain)
+  if (pathname === '/app' || pathname === '/app/') {
+    // On localhost, rewrite to the app page
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      const r = url.clone();
+      r.pathname = '/app';
+      return NextResponse.rewrite(r, { request: { headers: req.headers } });
+    }
+    // On production, redirect to app subdomain
+    const cleanHost = hostname.replace(/^www\./, '');
+    const appUrl = `${url.protocol}//app.${cleanHost}${url.port ? ':' + url.port : ''}/`;
+    return NextResponse.redirect(appUrl);
+  }
+
   // Handle /sign-in and /sign-up on main domain: do not rewrite or redirect if not on app subdomain
   // This is a catch-all for the main domain to ensure it serves the marketing site's auth pages correctly
   if ((pathname === '/sign-in' || pathname === '/sign-up') && !hostname.includes('app.')) {
