@@ -18,12 +18,26 @@ const NewHeroSection = () => {
     if (!track || !wrapper) return;
 
     const build = () => {
-      const firstChild = track.children[0] as HTMLElement | undefined;
-      if (!firstChild) return;
+      try {
+        const firstChild = track.children[0] as HTMLElement | undefined;
+        if (!firstChild) return;
 
-      const itemHeight = firstChild.getBoundingClientRect().height || 0;
-      const children = Array.from(track.children) as HTMLElement[];
-      const widths = children.map((el) => el.offsetWidth || 0);
+        // Check if element is actually rendered and has dimensions
+        const rect = firstChild.getBoundingClientRect();
+        if (rect.height === 0 || rect.width === 0) {
+          // Element not yet rendered, retry later
+          return;
+        }
+
+        const itemHeight = rect.height || 0;
+        const children = Array.from(track.children) as HTMLElement[];
+        const widths = children.map((el) => {
+          try {
+            return el.offsetWidth || 0;
+          } catch {
+            return 0;
+          }
+        });
       const margins = [
         { ml: 0, mr: 0 },    // Ecom
         { ml: -12, mr: -12 },  // SPY tighter
@@ -40,43 +54,91 @@ const NewHeroSection = () => {
       wrapper.style.marginLeft = `${margins[0].ml}px`;
       wrapper.style.marginRight = `${margins[0].mr}px`;
 
-      gsap.set(track, { y: 0, willChange: 'transform' });
+        // Validate that we have valid dimensions before proceeding
+        if (itemHeight === 0 || widths.length === 0 || widths.every(w => w === 0)) {
+          return;
+        }
 
-      // Cleanup old timeline if exists
-      if (tlRef.current) {
-        tlRef.current.kill();
-        tlRef.current = null;
+        try {
+          gsap.set(track, { y: 0, willChange: 'transform' });
+
+          // Cleanup old timeline if exists
+          if (tlRef.current) {
+            tlRef.current.kill();
+            tlRef.current = null;
+          }
+
+          const tl = gsap.timeline({ repeat: -1 });
+          tl
+            // Ecom hold ~3s, then SPY/SEO/IA with ~0.5s display each
+            .to(track, { y: -itemHeight * 1, duration: 0.6, ease: 'power2.inOut', delay: 3 })
+            .to(wrapper, { width: (Math.ceil(widths[1]) + widthBuffer) || 0, marginLeft: `${margins[1].ml}px`, marginRight: `${margins[1].mr}px`, duration: 0.6, ease: 'power2.inOut' }, '<')
+            .to({}, { duration: 0.5 })
+            .to(track, { y: -itemHeight * 2, duration: 0.6, ease: 'power2.inOut' })
+            .to(wrapper, { width: (Math.ceil(widths[2]) + widthBuffer) || 0, marginLeft: `${margins[2].ml}px`, marginRight: `${margins[2].mr}px`, duration: 0.6, ease: 'power2.inOut' }, '<')
+            .to({}, { duration: 0.5 })
+            .to(track, { y: -itemHeight * 3, duration: 0.6, ease: 'power2.inOut' })
+            .to(wrapper, { width: (Math.ceil(widths[3]) + widthBuffer) || 0, marginLeft: `${margins[3].ml}px`, marginRight: `${margins[3].mr}px`, duration: 0.6, ease: 'power2.inOut' }, '<')
+            .to({}, { duration: 0.5 })
+            .to(track, { y: -itemHeight * 4, duration: 0.6, ease: 'power2.inOut' })
+            .to(wrapper, { width: (Math.ceil(widths[4]) + widthBuffer) || 0, marginLeft: `${margins[4].ml}px`, marginRight: `${margins[4].mr}px`, duration: 0.6, ease: 'power2.inOut' }, '<')
+            .set(track, { y: 0 })
+            .set(wrapper, { width: (Math.ceil(widths[0]) + widthBuffer) || 0, marginLeft: `${margins[0].ml}px`, marginRight: `${margins[0].mr}px` });
+
+          tlRef.current = tl;
+        } catch (gsapError) {
+          // Silently handle GSAP errors to prevent console errors
+          console.warn('[NewHeroSection] GSAP animation error:', gsapError);
+        }
+      } catch (error) {
+        // Silently handle any errors during build
+        console.warn('[NewHeroSection] Build error:', error);
       }
-
-      const tl = gsap.timeline({ repeat: -1 });
-      tl
-        // Ecom hold ~3s, then SPY/SEO/IA with ~0.5s display each
-        .to(track, { y: -itemHeight * 1, duration: 0.6, ease: 'power2.inOut', delay: 3 })
-        .to(wrapper, { width: (Math.ceil(widths[1]) + widthBuffer) || 0, marginLeft: `${margins[1].ml}px`, marginRight: `${margins[1].mr}px`, duration: 0.6, ease: 'power2.inOut' }, '<')
-        .to({}, { duration: 0.5 })
-        .to(track, { y: -itemHeight * 2, duration: 0.6, ease: 'power2.inOut' })
-        .to(wrapper, { width: (Math.ceil(widths[2]) + widthBuffer) || 0, marginLeft: `${margins[2].ml}px`, marginRight: `${margins[2].mr}px`, duration: 0.6, ease: 'power2.inOut' }, '<')
-        .to({}, { duration: 0.5 })
-        .to(track, { y: -itemHeight * 3, duration: 0.6, ease: 'power2.inOut' })
-        .to(wrapper, { width: (Math.ceil(widths[3]) + widthBuffer) || 0, marginLeft: `${margins[3].ml}px`, marginRight: `${margins[3].mr}px`, duration: 0.6, ease: 'power2.inOut' }, '<')
-        .to({}, { duration: 0.5 })
-        .to(track, { y: -itemHeight * 4, duration: 0.6, ease: 'power2.inOut' })
-        .to(wrapper, { width: (Math.ceil(widths[4]) + widthBuffer) || 0, marginLeft: `${margins[4].ml}px`, marginRight: `${margins[4].mr}px`, duration: 0.6, ease: 'power2.inOut' }, '<')
-        .set(track, { y: 0 })
-        .set(wrapper, { width: (Math.ceil(widths[0]) + widthBuffer) || 0, marginLeft: `${margins[0].ml}px`, marginRight: `${margins[0].mr}px` });
-
-      tlRef.current = tl;
     };
 
     // Measure after layout; doing two rAFs helps if fonts/layout shift on first frame
-    requestAnimationFrame(() => requestAnimationFrame(build));
+    let rafId1: number;
+    let rafId2: number;
+    
+    try {
+      rafId1 = requestAnimationFrame(() => {
+        try {
+          rafId2 = requestAnimationFrame(build);
+        } catch (error) {
+          console.warn('[NewHeroSection] RAF error:', error);
+        }
+      });
+    } catch (error) {
+      console.warn('[NewHeroSection] Initial RAF error:', error);
+    }
 
-    const onResize = () => build();
-    window.addEventListener('resize', onResize);
+    const onResize = () => {
+      try {
+        build();
+      } catch (error) {
+        console.warn('[NewHeroSection] Resize error:', error);
+      }
+    };
+    
+    try {
+      window.addEventListener('resize', onResize);
+    } catch (error) {
+      console.warn('[NewHeroSection] AddEventListener error:', error);
+    }
 
     return () => {
-      window.removeEventListener('resize', onResize);
-      if (tlRef.current) tlRef.current.kill();
+      try {
+        window.removeEventListener('resize', onResize);
+      } catch {}
+      try {
+        if (rafId1) cancelAnimationFrame(rafId1);
+      } catch {}
+      try {
+        if (rafId2) cancelAnimationFrame(rafId2);
+      } catch {}
+      try {
+        if (tlRef.current) tlRef.current.kill();
+      } catch {}
     };
   }, []);
 

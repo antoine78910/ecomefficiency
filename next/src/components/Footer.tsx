@@ -4,7 +4,18 @@ import { Button } from "@/components/ui/button";
 import Image from "next/image";
 
 const Footer = () => {
-  const isHomePage = typeof window !== 'undefined' && window.location.pathname === '/';
+  const [isHomePage, setIsHomePage] = React.useState(false);
+  
+  React.useEffect(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        setIsHomePage(window.location.pathname === '/');
+      }
+    } catch (error) {
+      // Silently handle errors
+      setIsHomePage(false);
+    }
+  }, []);
 
   return (
     <footer className="bg-black border-t border-white/10 py-8 md:py-12 pl-3 pr-4 md:px-6 lg:px-8">
