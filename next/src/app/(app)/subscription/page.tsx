@@ -7,6 +7,7 @@ export default function SubscriptionPage() {
   const [email, setEmail] = React.useState<string>('')
   const [customerId, setCustomerId] = React.useState<string>('')
   const [userId, setUserId] = React.useState<string>('')
+  const [error, setError] = React.useState<string | null>(null)
 
   const refreshIdentity = React.useCallback(async () => {
     const { data } = await supabase.auth.getUser()
@@ -57,6 +58,26 @@ export default function SubscriptionPage() {
   }, [])
 
   React.useEffect(() => {
+    // Check for error query parameter on client side
+    if (typeof window !== 'undefined') {
+      const urlParams = new URLSearchParams(window.location.search)
+      const errParam = urlParams.get('err')
+      if (errParam) {
+        const errorMessages: Record<string, string> = {
+          missing_customer: "No billing account found. Please subscribe first to manage your billing.",
+          stripe_not_configured: "Billing system is not configured. Please contact support.",
+          portal: "Unable to access billing portal. Please try again or contact support."
+        }
+        setError(errorMessages[errParam] || `An error occurred: ${errParam}`)
+        // Clear error from URL after displaying
+        const url = new URL(window.location.href)
+        url.searchParams.delete('err')
+        window.history.replaceState({}, '', url.toString())
+      }
+    }
+  }, [])
+
+  React.useEffect(() => {
     (async () => { await refreshIdentity(); })()
     const onVisible = () => { if (document.visibilityState === 'visible') { refreshIdentity(); } }
     try { document.addEventListener('visibilitychange', onVisible) } catch {}
@@ -101,12 +122,48 @@ export default function SubscriptionPage() {
       />
       <p className="text-sm text-gray-500 mt-3">If you upgraded just now, it may take a few seconds after payment for your account to reflect the new plan.</p>
 
+      {error && (
+        <div className="mt-4 p-4 rounded-md bg-red-900/20 border border-red-500/50 text-red-200">
+          <div className="flex items-start gap-2">
+            <svg className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.5L13.732 4c-.77-.833-1.964-.833-2.732 0L3.732 16.5c-.77.833.192 2.5 1.732 2.5z" />
+            </svg>
+            <div className="flex-1">
+              <p className="font-medium">{error}</p>
+              {error.includes("No billing account found") && (
+                <a 
+                  href="/pricing" 
+                  className="mt-2 inline-block text-sm text-red-300 hover:text-red-200 underline"
+                >
+                  Go to Pricing →
+                </a>
+              )}
+            </div>
+            <button
+              onClick={() => setError(null)}
+              className="text-red-400 hover:text-red-300 flex-shrink-0"
+              aria-label="Dismiss error"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="mt-6 flex flex-wrap items-center gap-3">
-        <form method="POST" action="/create-customer-portal-session">
-          <input type="hidden" name="customerId" value={customerId || ''} />
-          <input type="hidden" name="email" value={email || ''} />
-          <button type="submit" className="px-4 py-2 rounded-md border border-white/20 text-white hover:bg-white/10 cursor-pointer">Manage billing</button>
-        </form>
+        {customerId || plan !== 'free' ? (
+          <form method="POST" action="/create-customer-portal-session">
+            <input type="hidden" name="customerId" value={customerId || ''} />
+            <input type="hidden" name="email" value={email || ''} />
+            <button type="submit" className="px-4 py-2 rounded-md border border-white/20 text-white hover:bg-white/10 cursor-pointer">Manage billing</button>
+          </form>
+        ) : (
+          <div className="px-4 py-2 rounded-md border border-white/10 text-white/50 cursor-not-allowed" title="Subscribe first to manage billing">
+            Manage billing
+          </div>
+        )}
 
         {(plan === 'starter' || plan === 'free') && (
           <UpgradeButton email={email} customerId={customerId} plan={plan} />

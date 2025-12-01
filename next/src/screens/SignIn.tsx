@@ -173,42 +173,70 @@ const SignIn = () => {
         setIsSocialLoading(false);
         return;
       }
-      // Build redirect URL based on environment
+      
+      // Build redirect URL based on environment with proper validation
       const protocol = window.location.protocol;
       const hostname = window.location.hostname;
-      const port = window.location.port ? `:${window.location.port}` : '';
+      const port = window.location.port;
+      
+      // Only include port if it's not the default port for the protocol
+      const shouldIncludePort = port && 
+        !((protocol === 'https:' && port === '443') || 
+          (protocol === 'http:' && port === '80'));
+      
+      let redirectUrl: string;
+      try {
+        if (hostname.startsWith('app.')) {
+          // Already on app subdomain
+          redirectUrl = `${protocol}//${hostname}${shouldIncludePort ? `:${port}` : ''}/`;
+        } else if (hostname === 'localhost' || hostname === '127.0.0.1') {
+          // For localhost dev, redirect to localhost root (Google OAuth doesn't support app.localhost)
+          redirectUrl = `${protocol}//${hostname}${shouldIncludePort ? `:${port}` : ''}/`;
+        } else {
+          // For production, redirect to app subdomain
+          const cleanHost = hostname.replace(/^www\./, '');
+          redirectUrl = `${protocol}//app.${cleanHost}${shouldIncludePort ? `:${port}` : ''}/`;
+        }
+        
+        // Validate the URL before using it
+        const testUrl = new URL(redirectUrl);
+        if (!testUrl.hostname || !testUrl.protocol) {
+          throw new Error('Invalid redirect URL constructed');
+        }
+      } catch (urlError) {
+        // Fallback to current origin if URL construction fails
+        console.error('[SignIn] Failed to construct redirect URL:', urlError);
+        redirectUrl = `${window.location.origin}/`;
+      }
 
-      let redirectUrl;
-      if (hostname.startsWith('app.')) {
-        // Already on app subdomain
-        redirectUrl = `${protocol}//${hostname}${port}/`;
-      } else if (hostname === 'localhost' || hostname === '127.0.0.1') {
-        // For localhost dev, redirect to localhost root (Google OAuth doesn't support app.localhost)
-        redirectUrl = `${protocol}//${hostname}${port}/`;
-      } else {
-        // For production, redirect to app subdomain
-        const cleanHost = hostname.replace(/^www\./, '');
-        redirectUrl = `${protocol}//app.${cleanHost}${port}/`;
+      const redirectTo = `${redirectUrl}?just=1`;
+      
+      // Final validation of the complete redirect URL
+      try {
+        new URL(redirectTo);
+      } catch {
+        throw new Error('Invalid redirect URL. Please contact support.');
       }
 
       const { error } = await supabase.auth.signInWithOAuth({
         provider,
         options: {
-          redirectTo: `${redirectUrl}?just=1`
+          redirectTo
         }
       });
 
       if (error) {
         toast({
           title: "Sign in error",
-          description: error.message,
+          description: error.message || "Failed to initiate sign in. Please try again.",
           variant: "destructive",
         });
       }
-    } catch (error) {
+    } catch (error: any) {
+      console.error('[SignIn] OAuth error:', error);
       toast({
         title: "Error",
-        description: "An unexpected error occurred",
+        description: error?.message || "An unexpected error occurred. Please try again.",
         variant: "destructive",
       });
     } finally {

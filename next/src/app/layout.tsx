@@ -89,8 +89,8 @@ var startOpts = {};
   r.getSessionToken=function(){};
 })("https://sonarly.dev/static/tracker.js?v=1763957587150",1,0,initOpts,startOpts);`}
         </Script>
-        {/* Microsoft Clarity */}
-        <Script id="clarity" strategy="afterInteractive">
+        {/* Microsoft Clarity - Load early for better tracking */}
+        <Script id="clarity" strategy="beforeInteractive">
           {`(function(c,l,a,r,i,t,y){
         c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
         t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;

@@ -24,19 +24,33 @@ function CheckoutContent() {
   const [promoLoading, setPromoLoading] = useState(false);
   const [userEmail, setUserEmail] = useState<string | null>(null);
   const isInitializing = React.useRef(false);
+  const promoAbortController = React.useRef<AbortController | null>(null);
 
   const handleApplyPromo = async () => {
-    if (!promoCode.trim()) return;
+    if (!promoCode.trim() || promoLoading) return;
+    
+    // Cancel any existing promo request
+    if (promoAbortController.current) {
+      promoAbortController.current.abort();
+    }
     
     setPromoError(null);
     setPromoLoading(true);
+    
+    // Create new abort controller for this request
+    promoAbortController.current = new AbortController();
+    const signal = promoAbortController.current.signal;
+    
     try {
       // First validate the coupon
       const validateRes = await fetch('/api/stripe/validate-coupon', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ couponCode: promoCode.trim() })
+        body: JSON.stringify({ couponCode: promoCode.trim() }),
+        signal
       });
+      
+      if (signal.aborted) return;
       
       const validateData = await validateRes.json();
       
@@ -48,6 +62,9 @@ function CheckoutContent() {
       
       // Then recreate the subscription intent with coupon
       const { data } = await supabase.auth.getUser();
+      
+      if (signal.aborted) return;
+      
       const email = data.user?.email;
       const userId = data.user?.id;
       
@@ -64,8 +81,11 @@ function CheckoutContent() {
           currency, 
           customerId,
           couponCode: promoCode.trim()
-        })
+        }),
+        signal
       });
+
+      if (signal.aborted) return;
 
       const createData = await createRes.json();
       if (!createRes.ok || !createData.clientSecret) {
@@ -79,12 +99,16 @@ function CheckoutContent() {
       setAppliedPromo(validateData.coupon);
       setPromoError(null);
 
-    } catch (e) {
+    } catch (e: any) {
+      // Ignore abort errors (expected when component unmounts or new request starts)
+      if (e.name === 'AbortError') return;
+      
       // console.error('[CHECKOUT] Failed to apply promo:', e);
       setPromoError('Failed to validate promo code');
       setAppliedPromo(null);
     } finally {
       setPromoLoading(false);
+      promoAbortController.current = null;
     }
   };
 
@@ -109,13 +133,21 @@ function CheckoutContent() {
     }
     
     let cancelled = false;
+    let abortController: AbortController | null = null;
     isInitializing.current = true;
     sessionStorage.setItem(redirectKey, '1');
     
     (async () => {
       try {
+        // Check cancellation before async operations
+        if (cancelled) return;
+        
         // Get user info, then immediately create a Checkout Session and redirect
         const { data } = await supabase.auth.getUser();
+        
+        // Check cancellation after async operation
+        if (cancelled) return;
+        
         const email = data.user?.email;
         const userId = data.user?.id;
         const meta = (data.user?.user_metadata as any) || {};
@@ -125,16 +157,27 @@ function CheckoutContent() {
         if (!email && !userId) throw new Error('You must be signed in to checkout. Please sign in or create an account first.');
         if (existingCustomerId && !cancelled) setCustomerId(existingCustomerId);
 
+        // Check cancellation before fetch
+        if (cancelled) return;
+
         // Create a Stripe Checkout Session (server handles single transaction semantics)
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (email) headers['x-user-email'] = email;
         if (userId) headers['x-user-id'] = userId;
 
+        // Create AbortController for fetch to prevent memory leaks
+        abortController = new AbortController();
+        
         const res = await fetch('/api/stripe/checkout', {
           method: 'POST',
           headers,
-          body: JSON.stringify({ tier, billing, currency })
+          body: JSON.stringify({ tier, billing, currency }),
+          signal: abortController.signal
         });
+        
+        // Check cancellation after fetch
+        if (cancelled) return;
+        
         const json = await res.json();
         if (!res.ok || !json.url) {
           const errorMsg = json.message || json.error || 'Failed to start checkout';
@@ -148,16 +191,27 @@ function CheckoutContent() {
           return;
         }
       } catch (e: any) {
+        // Ignore abort errors (expected when component unmounts)
+        if (e.name === 'AbortError') return;
+        
         if (!cancelled) {
           setError(e.message || 'Failed to initialize checkout');
           sessionStorage.removeItem(redirectKey);
           isInitializing.current = false;
         }
+      } finally {
+        // Clean up abort controller
+        abortController = null;
       }
     })();
     
     return () => { 
       cancelled = true;
+      // Abort any in-flight fetch requests
+      if (abortController) {
+        abortController.abort();
+        abortController = null;
+      }
       // Don't reset isInitializing if redirect was successful (component will unmount anyway)
       if (sessionStorage.getItem(redirectKey) !== '2') {
         isInitializing.current = false;
@@ -165,6 +219,16 @@ function CheckoutContent() {
       }
     };
   }, [tier, billing, currency]);
+
+  // Cleanup promo abort controller on unmount
+  React.useEffect(() => {
+    return () => {
+      if (promoAbortController.current) {
+        promoAbortController.current.abort();
+        promoAbortController.current = null;
+      }
+    };
+  }, []);
 
   const startCheckout = async () => {
     try {

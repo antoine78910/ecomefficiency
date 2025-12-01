@@ -52,9 +52,13 @@ const SavingsComparisonSection = () => {
 
   React.useEffect(() => {
     (async () => {
-      const url = new URL(window.location.href);
-      const override = url.searchParams.get('currency');
-      if (override === 'EUR' || override === 'USD') { setCurrency(override as Currency); return }
+      try {
+        const url = new URL(window.location.href);
+        const override = url.searchParams.get('currency');
+        if (override === 'EUR' || override === 'USD') { setCurrency(override as Currency); return }
+      } catch (e) {
+        // Invalid URL, continue with default detection
+      }
       // Prefer browser IP first (works reliably with user proxies)
       try {
         const browser = await fetch('https://ipapi.co/json/', { cache: 'no-store' }).then(r=>r.json()).catch(()=>({} as any))

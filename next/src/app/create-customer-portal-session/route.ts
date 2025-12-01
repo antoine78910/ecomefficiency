@@ -19,10 +19,22 @@ export async function POST(req: NextRequest) {
     // Resolve customer by email if id missing
     if (!customerId && email) {
       try {
-        const search = await stripe.customers.search({ query: `email:'${email}'`, limit: 1 })
-        const found = (search.data || [])[0]
-        if (found) customerId = found.id
-      } catch {}
+        // Try search API first (more efficient)
+        try {
+          const search = await stripe.customers.search({ query: `email:'${email}'`, limit: 1 })
+          const found = (search.data || [])[0]
+          if (found) customerId = found.id
+        } catch (searchError) {
+          // Fallback to list API if search fails
+          console.warn('[create-customer-portal-session] Search failed, trying list:', searchError)
+          const list = await stripe.customers.list({ email: email, limit: 1 })
+          if (list.data.length > 0) {
+            customerId = list.data[0].id
+          }
+        }
+      } catch (listError) {
+        console.error('[create-customer-portal-session] Customer lookup failed:', listError)
+      }
     }
     if (!customerId) {
       return NextResponse.redirect(new URL('/subscription?err=missing_customer', req.url), { status: 303 })

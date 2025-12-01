@@ -98,12 +98,19 @@ const PricingSection = () => {
 
   React.useEffect(() => {
     (async () => {
-      const url = new URL(window.location.href);
-      const override = url.searchParams.get('currency');
-      if (override === 'EUR' || override === 'USD') {
-        setCurrency(override as Currency);
-        setIsReady(true);
-      } else {
+      try {
+        const url = new URL(window.location.href);
+        const override = url.searchParams.get('currency');
+        if (override === 'EUR' || override === 'USD') {
+          setCurrency(override as Currency);
+          setIsReady(true);
+          return;
+        }
+      } catch (e) {
+        // Invalid URL, continue with default detection
+      }
+      
+      try {
         try {
           const eurCC = new Set(['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE']);
           
