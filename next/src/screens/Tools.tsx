@@ -31,9 +31,25 @@ const Tools = () => {
 
   React.useEffect(() => {
     try {
-      const p = pathname || (typeof window !== 'undefined' ? window.location.pathname : '');
-      if (p.endsWith('/tools/seo')) setSeoOpen(true); else setSeoOpen(false);
-    } catch {}
+      let p: string = '';
+      if (pathname) {
+        p = pathname;
+      } else if (typeof window !== 'undefined') {
+        try {
+          p = window.location.pathname || '';
+        } catch {
+          p = '';
+        }
+      }
+      if (p && p.endsWith('/tools/seo')) {
+        setSeoOpen(true);
+      } else {
+        setSeoOpen(false);
+      }
+    } catch (error) {
+      // Silently handle errors
+      setSeoOpen(false);
+    }
   }, [pathname])
 
   // Build list with "+30 SEO Tools" tile replacing Ubersuggest/Semrush
@@ -185,7 +201,14 @@ const Tools = () => {
             {filteredTools.map((tool) => (
               <div key={tool.id}>
                 {tool.name === '+30 SEO Tools' ? (
-                  <div onClick={()=>{ try { router.push('/tools/seo'); } catch { setSeoOpen(true) } }}>
+                  <div onClick={()=>{ 
+                    try { 
+                      router.push('/tools/seo');
+                    } catch (error) { 
+                      console.warn('[Tools] Router push error:', error);
+                      setSeoOpen(true);
+                    }
+                  }}>
               <Card
                       className={`relative p-3 md:p-4 bg-gray-900 border border-white/10 hover:border-white/20 transition-all duration-300 hover:scale-105 group cursor-pointer rounded-2xl`}
                     >
@@ -260,7 +283,14 @@ const Tools = () => {
               <div className="bg-gray-900 border border-white/10 rounded-2xl p-5 w-full max-w-3xl max-h-[80vh] overflow-auto">
                 <div className="flex items-center justify-between mb-3">
                   <h3 className="text-white font-semibold">+30 SEO Tools</h3>
-                  <button onClick={()=>{ try { router.push('/tools'); } catch { setSeoOpen(false) } }} className="text-white/70 hover:text-white">✕</button>
+                  <button onClick={()=>{ 
+                    try { 
+                      router.push('/tools');
+                    } catch (error) {
+                      console.warn('[Tools] Router push error:', error);
+                      setSeoOpen(false);
+                    }
+                  }} className="text-white/70 hover:text-white">✕</button>
                 </div>
                 <p className="text-gray-400 text-sm mb-3">Included tools with short descriptions.</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
