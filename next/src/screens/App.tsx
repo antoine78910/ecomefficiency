@@ -918,18 +918,49 @@ function CredentialsPanel() {
     } catch {}
   }
 
-  const startCheckout = (tier: 'starter' | 'pro', billing: 'monthly' | 'yearly', currency?: 'EUR' | 'USD') => {
+  const startCheckout = async (tier: 'starter' | 'pro', billing: 'monthly' | 'yearly', currency?: 'EUR' | 'USD') => {
     // console.log('[App startCheckout] 📥 Received params:', { tier, billing, currency });
     
     // Use the currency detected by the pricing modal, fallback to USD if undefined
     const safeCurrency = currency || 'USD';
     // console.log('[App startCheckout] ✅ Safe currency:', safeCurrency);
     
-    const redirectUrl = `/checkout?tier=${tier}&billing=${billing}&currency=${safeCurrency}`;
-    // console.log('[App startCheckout] 🚀 Redirecting to:', redirectUrl);
-    
-    // Instant redirect - use currency from popup (with USD fallback)
-    window.location.href = redirectUrl;
+    try {
+      // Get user info for checkout
+      const mod = await import("@/integrations/supabase/client");
+      const { data } = await mod.supabase.auth.getUser();
+      const email = data.user?.email;
+      const userId = data.user?.id;
+      
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (email) headers['x-user-email'] = email;
+      if (userId) headers['x-user-id'] = userId;
+      
+      // Call Stripe checkout API directly
+      const res = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ tier, billing, currency: safeCurrency })
+      });
+      
+      const json = await res.json();
+      if (!res.ok || !json.url) {
+        const errorMsg = json.message || json.error || 'Failed to start checkout';
+        console.error('[App startCheckout] Error:', errorMsg);
+        // Fallback to old checkout page if API fails
+        window.location.href = `/checkout?tier=${tier}&billing=${billing}&currency=${safeCurrency}`;
+        return;
+      }
+      
+      // Redirect directly to Stripe Checkout
+      if (json.url) {
+        window.location.href = json.url;
+      }
+    } catch (error: any) {
+      console.error('[App startCheckout] Exception:', error);
+      // Fallback to old checkout page on error
+      window.location.href = `/checkout?tier=${tier}&billing=${billing}&currency=${safeCurrency}`;
+    }
   }
 
   if (plan === 'checking') {
