@@ -12,9 +12,45 @@ export default function AppPage() {
     (async () => {
       try {
         if (typeof window === 'undefined') { setReady(true); return; }
+        
+        // Check for OAuth errors first
+        let url: URL;
+        try {
+          url = new URL(window.location.href);
+        } catch (e) {
+          // Invalid URL, skip processing
+          setReady(true);
+          return;
+        }
+        
+        const oauthError = url.searchParams.get('error');
+        const oauthErrorDescription = url.searchParams.get('error_description');
+        
+        if (oauthError) {
+          // Handle OAuth errors (e.g., access_denied, user cancelled)
+          console.warn('[AppPage] OAuth error:', oauthError, oauthErrorDescription);
+          // Clean URL to remove error parameters
+          try {
+            const cleanUrl = new URL(window.location.href);
+            cleanUrl.searchParams.delete('error');
+            cleanUrl.searchParams.delete('error_description');
+            cleanUrl.hash = '';
+            history.replaceState(null, '', cleanUrl.toString());
+          } catch {}
+          // Redirect to sign-in page with error message
+          try {
+            const signInUrl = new URL('/sign-in', window.location.origin);
+            signInUrl.searchParams.set('error', 'oauth_cancelled');
+            window.location.href = signInUrl.toString();
+            return;
+          } catch {
+            window.location.href = '/sign-in';
+            return;
+          }
+        }
+        
         const hash = window.location.hash || '';
         const m = hash.match(/access_token=([^&]+).*refresh_token=([^&]+)/);
-        const url = new URL(window.location.href);
         const code = url.searchParams.get('code');
         const just = url.searchParams.get('just') === '1';
         if (m && m[1] && m[2]) {

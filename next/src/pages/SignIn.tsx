@@ -15,6 +15,28 @@ export default function SignIn() {
   const [pending, setPending] = React.useState(false);
   const { toast } = useToast();
 
+  // Check for OAuth error in URL
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return;
+    try {
+      const url = new URL(window.location.href);
+      const error = url.searchParams.get('error');
+      if (error === 'oauth_cancelled') {
+        toast({
+          title: "Sign in cancelled",
+          description: "You cancelled the sign in process. Please try again if you'd like to continue.",
+          variant: "destructive",
+        });
+        // Clean URL
+        try {
+          const cleanUrl = new URL(window.location.href);
+          cleanUrl.searchParams.delete('error');
+          history.replaceState(null, '', cleanUrl.toString());
+        } catch {}
+      }
+    } catch {}
+  }, [toast]);
+
   const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
   const canSubmit = isValidEmail(email) && password.trim().length >= 6 && !pending;
 
