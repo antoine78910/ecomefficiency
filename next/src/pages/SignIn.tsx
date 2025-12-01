@@ -22,13 +22,36 @@ export default function SignIn() {
     try {
       const protocol = window.location.protocol;
       const hostname = window.location.hostname;
-      const port = window.location.port ? `:${window.location.port}` : '';
+      const port = window.location.port;
+      
+      // Only include port if it's not the default port for the protocol
+      const shouldIncludePort = port && 
+        !((protocol === 'https:' && port === '443') || 
+          (protocol === 'http:' && port === '80'));
 
-      if (hostname.startsWith('app.')) return `${protocol}//${hostname}${port}/`;
+      if (hostname.startsWith('app.')) {
+        const url = `${protocol}//${hostname}${shouldIncludePort ? `:${port}` : ''}/`;
+        // Validate URL
+        try {
+          new URL(url);
+          return url;
+        } catch {
+          return '/';
+        }
+      }
       // Force the app service on :5000 when developing locally
-      if (hostname === 'localhost' || hostname === '127.0.0.1') return `http://app.localhost:5000/`;
+      if (hostname === 'localhost' || hostname === '127.0.0.1') {
+        return `http://app.localhost:5000/`;
+      }
       const cleanHost = hostname.replace(/^www\./, '');
-      return `${protocol}//app.${cleanHost}${port}/`;
+      const url = `${protocol}//app.${cleanHost}${shouldIncludePort ? `:${port}` : ''}/`;
+      // Validate URL
+      try {
+        new URL(url);
+        return url;
+      } catch {
+        return '/';
+      }
     } catch {
       return '/';
     }
@@ -37,8 +60,87 @@ export default function SignIn() {
   const oauth = async (provider: 'google'|'apple') => {
     try {
       setPending(true);
-      await supabase.auth.signInWithOAuth({ provider, options: { redirectTo: `${window.location.origin}/` } });
-    } catch { setPending(false); }
+      
+      if (!SUPABASE_CONFIG_OK) {
+        toast({ 
+          title: "Configuration required", 
+          description: "Set Supabase environment variables before continuing", 
+          variant: "destructive" 
+        });
+        setPending(false);
+        return;
+      }
+      
+      // Build redirect URL with proper validation
+      const protocol = window.location.protocol;
+      const hostname = window.location.hostname;
+      const port = window.location.port;
+      
+      // Only include port if it's not the default port for the protocol
+      const shouldIncludePort = port && 
+        !((protocol === 'https:' && port === '443') || 
+          (protocol === 'http:' && port === '80'));
+      
+      let redirectUrl: string;
+      try {
+        if (hostname.startsWith('app.')) {
+          // Already on app subdomain
+          redirectUrl = `${protocol}//${hostname}${shouldIncludePort ? `:${port}` : ''}/`;
+        } else if (hostname === 'localhost' || hostname === '127.0.0.1') {
+          // For localhost dev, redirect to localhost root (Google OAuth doesn't support app.localhost)
+          redirectUrl = `${protocol}//${hostname}${shouldIncludePort ? `:${port}` : ''}/`;
+        } else {
+          // For production, redirect to app subdomain
+          const cleanHost = hostname.replace(/^www\./, '');
+          redirectUrl = `${protocol}//app.${cleanHost}${shouldIncludePort ? `:${port}` : ''}/`;
+        }
+        
+        // Validate the URL before using it
+        const testUrl = new URL(redirectUrl);
+        if (!testUrl.hostname || !testUrl.protocol) {
+          throw new Error('Invalid redirect URL constructed');
+        }
+      } catch (urlError) {
+        // Fallback to current origin if URL construction fails
+        console.error('[SignIn] Failed to construct redirect URL:', urlError);
+        redirectUrl = `${window.location.origin}/`;
+      }
+
+      // Final validation of the complete redirect URL
+      try {
+        new URL(redirectUrl);
+      } catch {
+        toast({
+          title: "Error",
+          description: "Invalid redirect URL. Please contact support.",
+          variant: "destructive",
+        });
+        setPending(false);
+        return;
+      }
+
+      const { error } = await supabase.auth.signInWithOAuth({ 
+        provider, 
+        options: { redirectTo: redirectUrl } 
+      });
+
+      if (error) {
+        toast({
+          title: "Sign in error",
+          description: error.message || "Failed to initiate sign in. Please try again.",
+          variant: "destructive",
+        });
+        setPending(false);
+      }
+    } catch (error: any) {
+      console.error('[SignIn] OAuth error:', error);
+      toast({
+        title: "Error",
+        description: error?.message || "An unexpected error occurred. Please try again.",
+        variant: "destructive",
+      });
+      setPending(false);
+    }
   };
 
   const onSubmit = async (e: React.FormEvent) => {
