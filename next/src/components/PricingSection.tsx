@@ -98,16 +98,40 @@ const PricingSection = () => {
 
   React.useEffect(() => {
     (async () => {
+      // Helper function to handle checkout intent from URL
+      const handleCheckoutIntent = (url: URL | null) => {
+        if (!url) return;
+        try {
+          const intentTier = url.searchParams.get('checkout');
+          const returnBilling = url.searchParams.get('billing') as 'monthly'|'yearly'|null;
+          if (intentTier === 'starter' || intentTier === 'pro') {
+            if (returnBilling === 'monthly' || returnBilling === 'yearly') {
+              setBilling(returnBilling);
+            }
+            setTimeout(() => { handleCheckout(intentTier === 'starter' ? 'Starter' : 'Pro'); }, 50);
+          }
+        } catch {}
+      };
+
+      // Parse URL once at the start for use throughout
+      let url: URL | null = null;
       try {
-        const url = new URL(window.location.href);
+        url = new URL(window.location.href);
         const override = url.searchParams.get('currency');
         if (override === 'EUR' || override === 'USD') {
           setCurrency(override as Currency);
           setIsReady(true);
+          handleCheckoutIntent(url);
           return;
         }
       } catch (e) {
         // Invalid URL, continue with default detection
+        try {
+          url = new URL(window.location.href);
+        } catch {
+          // If URL parsing fails completely, skip intent handling
+          url = null;
+        }
       }
       
       try {
@@ -121,6 +145,7 @@ const PricingSection = () => {
             const detectedCurrency = eurCC.has(cc) ? 'EUR' : 'USD';
             setCurrency(detectedCurrency);
             setIsReady(true);
+            handleCheckoutIntent(url);
             return;
           }
           
@@ -129,6 +154,7 @@ const PricingSection = () => {
           if (server?.currency === 'EUR' || server?.currency === 'USD') {
             setCurrency(server.currency);
             setIsReady(true);
+            handleCheckoutIntent(url);
             return;
           }
           
@@ -146,33 +172,29 @@ const PricingSection = () => {
             if ((region && eurCC.has(region)) || isEuropeTimezone) {
               setCurrency('EUR');
               setIsReady(true);
+              handleCheckoutIntent(url);
               return;
             } else if (region) {
               setCurrency('USD');
               setIsReady(true);
+              handleCheckoutIntent(url);
               return;
             }
           } catch {}
           
           // 4) Default to USD (most users outside EU)
           setCurrency('USD');
+          setIsReady(true);
+          handleCheckoutIntent(url);
         } catch (e: any) {
           // Safe logging to prevent DataCloneError
           console.error('[Pricing] Currency detection error:', e?.message || String(e));
           setCurrency('USD'); // Default to USD on any error
-        } finally {
           setIsReady(true);
         }
-      }
-      
-      // After currency is set once, handle intent (no flicker)
-      const intentTier = url.searchParams.get('checkout');
-      const returnBilling = url.searchParams.get('billing') as 'monthly'|'yearly'|null;
-      if (intentTier === 'starter' || intentTier === 'pro') {
-        if (returnBilling === 'monthly' || returnBilling === 'yearly') {
-          setBilling(returnBilling);
-        }
-        setTimeout(() => { handleCheckout(intentTier === 'starter' ? 'Starter' : 'Pro'); }, 50);
+      } catch (e: any) {
+        setCurrency('USD');
+        setIsReady(true);
       }
     })();
   }, []);
