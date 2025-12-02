@@ -15,7 +15,11 @@ export async function postGoal(name: string, metadata?: Record<string, string>) 
     if (!enabled) return;
 
     // Call client queue if present (best effort)
-    try { (window as any)?.datafast?.(name, metadata || {}); } catch {}
+    // Only call DataFast on main domain to prevent 403 errors on subdomains
+    const isMainDomain = host === 'ecomefficiency.com' || host === 'www.ecomefficiency.com' || host === 'localhost' || host === '127.0.0.1';
+    if (isMainDomain) {
+      try { (window as any)?.datafast?.(name, metadata || {}); } catch {}
+    }
 
     // Validate name before sending
     if (!name || typeof name !== 'string') return;

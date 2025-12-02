@@ -12,6 +12,27 @@ const App = () => {
   // no docker launch on this page anymore
   const [canvaInvite, setCanvaInvite] = React.useState<string | null>(null)
   const [appPlan, setAppPlan] = React.useState<'free'|'starter'|'pro'>('free')
+  
+  // Suppress "Failed to fetch" console errors from network failures
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return
+    
+    const originalError = console.error
+    const errorHandler = (...args: any[]) => {
+      const message = String(args[0] || '')
+      // Suppress "Failed to fetch" errors as they're expected in some network conditions
+      if (message.includes('Failed to fetch') || message.includes('TypeError: Failed to fetch')) {
+        return // Suppress silently
+      }
+      originalError.apply(console, args)
+    }
+    console.error = errorHandler
+    
+    return () => {
+      console.error = originalError
+    }
+  }, [])
+  
   // Handle Supabase auth hash after email verification so the session is available immediately
   React.useEffect(() => {
     if (typeof window === 'undefined') return
@@ -212,11 +233,14 @@ const App = () => {
         const headers: Record<string, string> = {}
         if (email) headers['x-user-email'] = email
         if (customerId) headers['x-stripe-customer-id'] = customerId
-        const res = await fetch('/api/credentials', { headers, cache: 'no-store' })
+        const res = await fetch('/api/credentials', { headers, cache: 'no-store' }).catch(() => null)
+        if (!res) return
         const json = await res.json().catch(() => ({}))
         const link = json?.canva_invite_url ? String(json.canva_invite_url) : null
         if (!cancelled && link && link !== canvaInvite) setCanvaInvite(link)
-      } catch {}
+      } catch {
+        // Silently handle errors - network failures are expected
+      }
     }
     // kick and schedule
     run()
@@ -233,29 +257,37 @@ const App = () => {
         const headers: Record<string, string> = {}
         if (email) headers['x-user-email'] = email
         if (customerId) headers['x-stripe-customer-id'] = customerId
-        const res = await fetch('/api/credentials', { headers, cache: 'no-store' })
-        const json = await res.json().catch(() => ({}))
-        if (json?.canva_invite_url) setCanvaInvite(String(json.canva_invite_url))
+        const res = await fetch('/api/credentials', { headers, cache: 'no-store' }).catch(() => null)
+        if (res) {
+          const json = await res.json().catch(() => ({}))
+          if (json?.canva_invite_url) setCanvaInvite(String(json.canva_invite_url))
+        }
         // Determine user plan at app level - SECURITY: Only trust active subscriptions
         try {
           const verifyHeaders: Record<string, string> = { 'Content-Type': 'application/json' }
           if (email) verifyHeaders['x-user-email'] = email
           if (customerId) verifyHeaders['x-stripe-customer-id'] = customerId
-          const vr = await fetch('/api/stripe/verify', { method: 'POST', headers: verifyHeaders, body: JSON.stringify({ email }) })
-          const vj = await vr.json().catch(() => ({}))
-          const p = (vj?.plan as string)?.toLowerCase()
-          // SECURITY: Only allow access if subscription is both OK and ACTIVE
-          if (vj?.ok && vj?.active === true && (p === 'starter' || p === 'pro')) {
-            setAppPlan(p as any)
+          const vr = await fetch('/api/stripe/verify', { method: 'POST', headers: verifyHeaders, body: JSON.stringify({ email }) }).catch(() => null)
+          if (vr) {
+            const vj = await vr.json().catch(() => ({}))
+            const p = (vj?.plan as string)?.toLowerCase()
+            // SECURITY: Only allow access if subscription is both OK and ACTIVE
+            if (vj?.ok && vj?.active === true && (p === 'starter' || p === 'pro')) {
+              setAppPlan(p as any)
+            } else {
+              // SECURITY: Don't trust user_metadata alone, always default to free for inactive subscriptions
+              setAppPlan('free')
+            }
           } else {
-            // SECURITY: Don't trust user_metadata alone, always default to free for inactive subscriptions
             setAppPlan('free')
           }
         } catch {
           // SECURITY: On any error, default to free plan
           setAppPlan('free')
         }
-      } catch {}
+      } catch {
+        // Silently handle errors - network failures are expected
+      }
     })()
   }, [])
 

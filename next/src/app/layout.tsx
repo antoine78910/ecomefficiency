@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
 import Script from "next/script";
+import DataFastScript from "@/components/DataFastScript";
 // import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
@@ -59,14 +60,8 @@ export default function RootLayout({
         {/* FirstPromoter main tracking */}
         <Script src="/fprmain.js" strategy="afterInteractive" />
         <Script src="https://cdn.firstpromoter.com/fpr.js" strategy="afterInteractive" />
-        <Script
-          id="datafast"
-          defer
-          data-website-id="68b204c706eb977058661627"
-          data-domain="ecomefficiency.com"
-          src="https://datafa.st/js/script.js"
-          strategy="afterInteractive"
-        />
+        {/* DataFast - conditionally loaded only on main domain to prevent 403 errors on subdomains */}
+        <DataFastScript />
         <Script id="sonarly" strategy="beforeInteractive">
           {`var initOpts = {
   projectKey: "ZE1R9a3lE3RjdngiFmDF",
