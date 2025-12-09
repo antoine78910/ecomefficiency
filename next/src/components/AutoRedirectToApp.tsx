@@ -37,6 +37,7 @@ export default function AutoRedirectToApp() {
 
         // Heuristique cookie cross-domaine (déposé depuis app.*)
         const hasPlanCookie = typeof document !== 'undefined' && /(^|; )user_plan=/.test(document.cookie || '');
+        const hasLoginFlag = typeof document !== 'undefined' && /(^|; )ee_logged_in=1/.test(document.cookie || '');
 
         // Debug visibility (one-shot): log presence of cookie/session for troubleshooting
         try {
@@ -45,13 +46,14 @@ export default function AutoRedirectToApp() {
             console.debug('[AutoRedirectToApp] state', {
               host: window.location.hostname,
               hasPlanCookie,
+              hasLoginFlag,
               hasLocalSession,
             });
           }
         } catch {}
 
-        // Si cookie plan est présent, on peut rediriger même sans session locale
-        if (hasPlanCookie) {
+        // Si un cookie cross-domaine est présent, on peut rediriger sans session locale
+        if (hasPlanCookie || hasLoginFlag) {
           window.location.href = target;
           return;
         }
