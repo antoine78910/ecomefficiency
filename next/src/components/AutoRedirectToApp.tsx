@@ -28,6 +28,7 @@ function computeAppUrl() {
 export default function AutoRedirectToApp() {
   useEffect(() => {
     let cancelled = false;
+    let redirected = false;
     (async () => {
       try {
         const { data, error } = await supabase.auth.getUser();
@@ -38,23 +39,30 @@ export default function AutoRedirectToApp() {
         // Heuristique cookie cross-domaine (déposé depuis app.*)
         const hasPlanCookie = typeof document !== 'undefined' && /(^|; )user_plan=/.test(document.cookie || '');
         const hasLoginFlag = typeof document !== 'undefined' && /(^|; )ee_logged_in=1/.test(document.cookie || '');
+        const cookiesSnapshot = typeof document !== 'undefined' ? document.cookie : '';
+        let hasLocalSession = false;
+        try { hasLocalSession = !!localStorage.getItem('ecom-efficiency-auth'); } catch {}
 
         // Debug visibility (one-shot): log presence of cookie/session for troubleshooting
         try {
           if (typeof window !== 'undefined') {
-            const hasLocalSession = !!localStorage.getItem('ecom-efficiency-auth');
             console.debug('[AutoRedirectToApp] state', {
               host: window.location.hostname,
               hasPlanCookie,
               hasLoginFlag,
               hasLocalSession,
+              target,
+              cookies: cookiesSnapshot,
             });
           }
         } catch {}
 
         // Si un cookie cross-domaine est présent, on peut rediriger sans session locale
         if (hasPlanCookie || hasLoginFlag) {
-          window.location.href = target;
+          if (!redirected) {
+            redirected = true;
+            window.location.href = target;
+          }
           return;
         }
 
@@ -67,16 +75,24 @@ export default function AutoRedirectToApp() {
           }).catch(() => null);
           if (verifyRes && verifyRes.ok) {
             const data = await verifyRes.json().catch(() => ({}));
+            console.debug('[AutoRedirectToApp] verify', data);
             if (data?.active && data?.plan) {
               try {
                 const { hostname } = window.location;
                 const isProd = /\.ecomefficiency\.com$/i.test(hostname) || hostname === 'ecomefficiency.com' || hostname === 'www.ecomefficiency.com';
                 const domainAttr = isProd ? '; Domain=.ecomefficiency.com' : '';
                 document.cookie = `user_plan=${encodeURIComponent(data.plan)}; path=/; max-age=${24 * 60 * 60}; SameSite=Lax${domainAttr}`;
-                window.location.href = target;
+                if (!redirected) {
+                  redirected = true;
+                  window.location.href = target;
+                }
                 return;
-              } catch {}
+              } catch (e) {
+                console.debug('[AutoRedirectToApp] set cookie error', e);
+              }
             }
+          } else {
+            console.debug('[AutoRedirectToApp] verify failed', verifyRes?.status);
           }
         } catch {}
 
@@ -84,8 +100,12 @@ export default function AutoRedirectToApp() {
         if (error || !user) return;
 
         // Rediriger seulement si on n'est pas déjà sur app.*
-        window.location.href = target;
-      } catch {
+        if (!redirected) {
+          redirected = true;
+          window.location.href = target;
+        }
+      } catch (e) {
+        console.debug('[AutoRedirectToApp] error', e);
         // en cas d'erreur, ne rien faire (pas de boucle)
       }
     })();
