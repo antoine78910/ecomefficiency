@@ -44,6 +44,28 @@ export default function AutoRedirectToApp() {
           return;
         }
 
+        // Fallback : vérifier côté backend Stripe + poser le cookie cross-domain si actif
+        try {
+          const verifyRes = await fetch('/api/stripe/verify', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+          }).catch(() => null);
+          if (verifyRes && verifyRes.ok) {
+            const data = await verifyRes.json().catch(() => ({}));
+            if (data?.active && data?.plan) {
+              try {
+                const { hostname } = window.location;
+                const isProd = /\.ecomefficiency\.com$/i.test(hostname) || hostname === 'ecomefficiency.com' || hostname === 'www.ecomefficiency.com';
+                const domainAttr = isProd ? '; Domain=.ecomefficiency.com' : '';
+                document.cookie = `user_plan=${encodeURIComponent(data.plan)}; path=/; max-age=${24 * 60 * 60}; SameSite=Lax${domainAttr}`;
+                window.location.href = target;
+                return;
+              } catch {}
+            }
+          }
+        } catch {}
+
         const user = data?.user;
         if (error || !user) return;
 
