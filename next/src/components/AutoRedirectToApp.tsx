@@ -38,6 +38,18 @@ export default function AutoRedirectToApp() {
         // Heuristique cookie cross-domaine (déposé depuis app.*)
         const hasPlanCookie = typeof document !== 'undefined' && /(^|; )user_plan=/.test(document.cookie || '');
 
+        // Debug visibility (one-shot): log presence of cookie/session for troubleshooting
+        try {
+          if (typeof window !== 'undefined') {
+            const hasLocalSession = !!localStorage.getItem('ecom-efficiency-auth');
+            console.debug('[AutoRedirectToApp] state', {
+              host: window.location.hostname,
+              hasPlanCookie,
+              hasLocalSession,
+            });
+          }
+        } catch {}
+
         // Si cookie plan est présent, on peut rediriger même sans session locale
         if (hasPlanCookie) {
           window.location.href = target;
