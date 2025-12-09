@@ -4,6 +4,7 @@ import { Providers } from "./providers";
 import Script from "next/script";
 import DataFastScript from "@/components/DataFastScript";
 import SupabaseSessionGuard from "@/components/SupabaseSessionGuard";
+import CrossDomainLoginFlag from "@/components/CrossDomainLoginFlag";
 // import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
@@ -294,6 +295,7 @@ var startOpts = {};
           src="https://client.crisp.chat/l.js"
         />
         <Providers>
+          <CrossDomainLoginFlag />
           <SupabaseSessionGuard />
           {children}
         </Providers>
