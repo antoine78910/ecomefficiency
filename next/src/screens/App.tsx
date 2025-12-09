@@ -72,6 +72,8 @@ const App = () => {
                 user_id: user.id,
                 verified_at: new Date().toISOString()
             });
+            // Fallback via postGoal to ensure DataFast goal triggers alongside Brevo
+            try { postGoal('sign_up', { email: user.email }); } catch {}
         } catch {}
 
         // 5. Tracking Brevo

@@ -11,6 +11,7 @@ import Footer from "@/components/Footer";
 import AuthHashRedirector from "@/components/AuthHashRedirector";
 import VideoSection from "@/components/VideoSection";
 import { headers } from "next/headers";
+import AutoRedirectToApp from "@/components/AutoRedirectToApp";
 
 export default async function Home() {
   const h = await headers();
@@ -30,10 +31,9 @@ export default async function Home() {
     );
   }
 
-  // Do not auto-redirect signed-in users to app.*; keep users on the landing page unless they navigate
-
   return (
     <div className="min-h-screen bg-black">
+      <AutoRedirectToApp />
       <AuthHashRedirector />
       <NewNavbar />
       <NewHeroSection />

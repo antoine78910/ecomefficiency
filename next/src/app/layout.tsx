@@ -3,6 +3,7 @@ import "./globals.css";
 import { Providers } from "./providers";
 import Script from "next/script";
 import DataFastScript from "@/components/DataFastScript";
+import SupabaseSessionGuard from "@/components/SupabaseSessionGuard";
 // import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
@@ -99,11 +100,201 @@ var startOpts = {};
             <img src="https://mc.yandex.ru/watch/105104061" style={{position: 'absolute', left: '-9999px'}} alt="" />
           </div>
         </noscript>
-        <Script id="crisp-config" strategy="afterInteractive">
+        <Script id="global-error-handler" strategy="beforeInteractive">
+          {`(function() {
+            // Global error handler to suppress common third-party script errors
+            var originalConsoleError = console.error;
+            var originalConsoleWarn = console.warn;
+            
+            // Enhanced console.error interceptor
+            console.error = function() {
+              var args = Array.prototype.slice.call(arguments);
+              var message = args.join(' ');
+              
+              // Suppress generic "Script error." from cross-origin scripts (CORS-blocked errors)
+              if (message && typeof message === 'string') {
+                // Suppress "Script error." - generic browser error from cross-origin scripts
+                if (message.trim() === 'Script error.' || 
+                    message.includes('Script error.') && !message.includes('at ')) {
+                  return; // Silently ignore generic script errors
+                }
+                
+                // Suppress Crisp CSS-related errors (multiple formats)
+                if (message.includes('crisp.chat') && 
+                    (message.includes('CSS') || 
+                     message.includes('stylesheet') || 
+                     message.includes('NetworkError') || 
+                     message.includes('Failed to fetch') ||
+                     message.includes('Failed to fetch or process CSS') ||
+                     (message.includes('TypeError') && message.includes('Failed to fetch')))) {
+                  return;
+                }
+                
+                // Also catch standalone "Failed to fetch" errors that might be from Crisp
+                // when the error message doesn't explicitly mention crisp.chat
+                if ((message.includes('Failed to fetch or process CSS') || 
+                     (message.includes('TypeError') && message.includes('Failed to fetch'))) &&
+                    (message.includes('client_default') || message.includes('stylesheets'))) {
+                  return;
+                }
+                
+                // Suppress DataFast HTTP 0 errors (network failures)
+                if (message.includes('DataFast') && 
+                    (message.includes('HTTP 0') || 
+                     message.includes('Failed to track pageview') ||
+                     message.includes('Failed to track custom'))) {
+                  return;
+                }
+              }
+              
+              // Call original console.error for other errors
+              originalConsoleError.apply(console, args);
+            };
+            
+            // Enhanced console.warn interceptor for DataFast warnings
+            console.warn = function() {
+              var args = Array.prototype.slice.call(arguments);
+              var message = args.join(' ');
+              
+              // Suppress DataFast warnings about HTTP 0
+              if (message && typeof message === 'string' && 
+                  message.includes('DataFast') && message.includes('HTTP 0')) {
+                return;
+              }
+              
+              // Call original console.warn for other warnings
+              originalConsoleWarn.apply(console, args);
+            };
+
+            // Suppress DataFast noisy logs (HTTP 0) even if logged as info/log
+            var originalConsoleLog = console.log;
+            var originalConsoleInfo = console.info;
+            console.log = function() {
+              var args = Array.prototype.slice.call(arguments);
+              var message = args.join(' ');
+              if (message && typeof message === 'string' &&
+                  message.includes('DataFast') && message.includes('HTTP 0')) {
+                return;
+              }
+              originalConsoleLog.apply(console, args);
+            };
+            console.info = function() {
+              var args = Array.prototype.slice.call(arguments);
+              var message = args.join(' ');
+              if (message && typeof message === 'string' &&
+                  message.includes('DataFast') && message.includes('HTTP 0')) {
+                return;
+              }
+              originalConsoleInfo.apply(console, args);
+            };
+            
+            // Global error event handler for unhandled errors
+            window.addEventListener('error', function(e) {
+              // Suppress generic "Script error." from cross-origin scripts
+              if (e.message === 'Script error.' || 
+                  (e.message && e.message.trim() === 'Script error.' && !e.filename)) {
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
+                return false;
+              }
+              
+              // Handle LINK element errors (CSS loading)
+              if (e.target) {
+                var target = e.target;
+                if (target.tagName === 'LINK' && target.href) {
+                  // Suppress Crisp CSS loading errors
+                  if (target.href.includes('crisp.chat') || 
+                      target.href.includes('client_default') ||
+                      (target.href.includes('stylesheets') && target.href.includes('crisp'))) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    return false;
+                  }
+                }
+              }
+              
+              // Also check error message for Crisp CSS errors even if target is not available
+              if (e.message && typeof e.message === 'string') {
+                var errorMsg = e.message.toLowerCase();
+                if ((errorMsg.includes('failed to fetch or process css') ||
+                     (errorMsg.includes('typeerror') && errorMsg.includes('failed to fetch'))) &&
+                    (errorMsg.includes('crisp') || errorMsg.includes('client_default') || errorMsg.includes('stylesheets'))) {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  e.stopImmediatePropagation();
+                  return false;
+                }
+              }
+                
+                // Suppress script loading errors from third-party domains
+                if (target.tagName === 'SCRIPT' && target.src) {
+                  var src = target.src;
+                  // Suppress errors from known third-party tracking scripts
+                  if (src.includes('yandex.ru') || 
+                      src.includes('firstpromoter.com') || 
+                      src.includes('datafa.st') || 
+                      src.includes('sonarly.dev') || 
+                      src.includes('clarity.ms') || 
+                      src.includes('crisp.chat')) {
+                    // Only suppress if it's a generic script error
+                    if (!e.message || e.message === 'Script error.' || e.message.trim() === 'Script error.') {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      e.stopImmediatePropagation();
+                      return false;
+                    }
+                  }
+                }
+              }
+            }, true);
+            
+            // Catch unhandled promise rejections
+            window.addEventListener('unhandledrejection', function(e) {
+              var reason = e.reason;
+              if (reason) {
+                var reasonStr = typeof reason === 'string' ? reason : 
+                               (reason.message || reason.toString() || '');
+                
+                // Suppress Crisp-related promise rejections
+                var reasonLower = reasonStr.toLowerCase();
+                if ((reasonStr.includes('crisp.chat') || reasonLower.includes('crisp')) && 
+                    (reasonStr.includes('CSS') || reasonStr.includes('stylesheet') || 
+                     reasonStr.includes('NetworkError') || reasonStr.includes('Failed to fetch') ||
+                     reasonStr.includes('Failed to fetch or process CSS') ||
+                     (reasonStr.includes('TypeError') && reasonStr.includes('Failed to fetch')))) {
+                  e.preventDefault();
+                  return false;
+                }
+                
+                // Also catch standalone CSS fetch errors that might be from Crisp
+                if ((reasonStr.includes('Failed to fetch or process CSS') ||
+                     (reasonStr.includes('TypeError') && reasonStr.includes('Failed to fetch'))) &&
+                    (reasonLower.includes('client_default') || reasonLower.includes('stylesheets'))) {
+                  e.preventDefault();
+                  return false;
+                }
+                
+                // Suppress DataFast promise rejections
+                if (reasonStr.includes('DataFast') && reasonStr.includes('HTTP 0')) {
+                  e.preventDefault();
+                  return false;
+                }
+              }
+            });
+          })();`}
+        </Script>
+        <Script id="crisp-config" strategy="beforeInteractive">
           {`window.$crisp=[];window.CRISP_WEBSITE_ID="69577169-0422-43d4-a553-a7d4776fde6f";`}
         </Script>
-        <Script id="crisp-loader" strategy="afterInteractive" src="https://client.crisp.chat/l.js" />
+        <Script 
+          id="crisp-loader" 
+          strategy="afterInteractive" 
+          src="https://client.crisp.chat/l.js"
+        />
         <Providers>
+          <SupabaseSessionGuard />
           {children}
         </Providers>
         {/* <Analytics /> */}

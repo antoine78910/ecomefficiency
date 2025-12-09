@@ -63,9 +63,19 @@ const ParticleBackground = () => {
     }
     init();
 
-    // Animation loop
+    // Animation loop with cleanup tracking
+    let animationFrameId: number | null = null;
+    let isMounted = true;
+    
     function animate() {
-      if (!canvas || !ctx) return;
+      if (!canvas || !ctx || !isMounted) {
+        if (animationFrameId !== null) {
+          cancelAnimationFrame(animationFrameId);
+          animationFrameId = null;
+        }
+        return;
+      }
+      
       ctx.clearRect(0, 0, canvas.width, canvas.height);
       
       for (const particle of particlesArray) {
@@ -73,12 +83,13 @@ const ParticleBackground = () => {
         particle.draw();
       }
       
-      requestAnimationFrame(animate);
+      animationFrameId = requestAnimationFrame(animate);
     }
     animate();
 
     // Handle resize
     const handleResize = () => {
+      if (!canvas || !isMounted) return;
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
     };
@@ -86,7 +97,15 @@ const ParticleBackground = () => {
     window.addEventListener('resize', handleResize);
 
     return () => {
+      isMounted = false;
       window.removeEventListener('resize', handleResize);
+      // Cancel animation frame to prevent memory leak
+      if (animationFrameId !== null) {
+        cancelAnimationFrame(animationFrameId);
+        animationFrameId = null;
+      }
+      // Clear particles array to free memory
+      particlesArray.length = 0;
     };
   }, []);
 

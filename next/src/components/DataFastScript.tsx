@@ -22,28 +22,45 @@ export default function DataFastScript() {
         hostname === "127.0.0.1";
       setShouldLoad(isMainDomain);
 
-      // Suppress DataFast console errors on subdomains
-      // This handles cases where the script might have been cached or loaded previously
-      if (!isMainDomain) {
+      // Suppress DataFast console errors
+      // Always suppress HTTP 0 errors (network failures) on all domains
+      // On subdomains, also suppress 403 errors
         const originalConsoleError = console.error;
+      const originalConsoleWarn = console.warn;
+      
         const errorInterceptor = (...args: any[]) => {
           const message = String(args[0] || '');
-          // Suppress DataFast 403/pageview errors on subdomains
-          if (message.includes('DataFast') && 
-              (message.includes('403') || 
+        if (message.includes('DataFast')) {
+          // Always suppress HTTP 0 errors (network failures)
+          if (message.includes('HTTP 0') || 
                message.includes('Failed to track pageview') ||
-               message.includes('HTTP 403'))) {
-            return; // Suppress the error silently
+              message.includes('Failed to track custom')) {
+            return; // Suppress network failure errors silently
+          }
+          // On subdomains, also suppress 403 errors
+          if (!isMainDomain && (message.includes('403') || message.includes('HTTP 403'))) {
+            return; // Suppress 403 errors on subdomains
+          }
           }
           originalConsoleError.apply(console, args);
         };
+      
+      const warnInterceptor = (...args: any[]) => {
+        const message = String(args[0] || '');
+        // Suppress DataFast warnings about HTTP 0
+        if (message.includes('DataFast') && message.includes('HTTP 0')) {
+          return; // Suppress the warning silently
+        }
+        originalConsoleWarn.apply(console, args);
+      };
 
         console.error = errorInterceptor;
+      console.warn = warnInterceptor;
 
         return () => {
           console.error = originalConsoleError;
+        console.warn = originalConsoleWarn;
         };
-      }
     }
   }, []);
 
