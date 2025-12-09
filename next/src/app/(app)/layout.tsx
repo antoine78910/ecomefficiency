@@ -17,12 +17,16 @@ export default function AppSectionLayout({ children }: { children: React.ReactNo
 
         if (response.ok) {
           const data = await response.json()
-          if (data.active && data.plan === 'pro') {
-            // Set cookie for 24 hours
-            document.cookie = `user_plan=pro; path=/; max-age=${24 * 60 * 60}; SameSite=Lax`
+          const host = typeof window !== 'undefined' ? window.location.hostname : ''
+          const isProd = /\.ecomefficiency\.com$/i.test(host) || host === 'ecomefficiency.com' || host === 'www.ecomefficiency.com'
+          const domainAttr = isProd ? '; Domain=.ecomefficiency.com' : ''
+
+          if (data.active && data.plan) {
+            // Set cookie for 24 hours with cross-subdomain scope
+            document.cookie = `user_plan=${encodeURIComponent(data.plan)}; path=/; max-age=${24 * 60 * 60}; SameSite=Lax${domainAttr}`
           } else {
-            // Remove cookie if not Pro
-            document.cookie = 'user_plan=; path=/; max-age=0'
+            // Remove cookie if not active
+            document.cookie = `user_plan=; path=/; max-age=0; SameSite=Lax${domainAttr}`
           }
         }
       } catch (error: any) {

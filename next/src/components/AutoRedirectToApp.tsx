@@ -32,11 +32,20 @@ export default function AutoRedirectToApp() {
       try {
         const { data, error } = await supabase.auth.getUser();
         if (cancelled) return;
-        const user = data?.user;
-        if (error || !user) return;
-
         const target = computeAppUrl();
         if (!target) return;
+
+        // Heuristique cookie cross-domaine (déposé depuis app.*)
+        const hasPlanCookie = typeof document !== 'undefined' && /(^|; )user_plan=/.test(document.cookie || '');
+
+        // Si cookie plan est présent, on peut rediriger même sans session locale
+        if (hasPlanCookie) {
+          window.location.href = target;
+          return;
+        }
+
+        const user = data?.user;
+        if (error || !user) return;
 
         // Rediriger seulement si on n'est pas déjà sur app.*
         window.location.href = target;
