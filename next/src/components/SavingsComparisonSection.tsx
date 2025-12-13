@@ -101,7 +101,7 @@ const SavingsComparisonSection = () => {
   }, []);
 
   return (
-    <section className="relative bg-black py-20">
+    <section className="relative bg-black py-20 overflow-hidden">
       {/* Bottom gradient to blend into Pricing section */}
       <div className="pointer-events-none absolute -bottom-16 left-1/2 -translate-x-1/2 h-80 w-[60rem] bg-gradient-to-t from-purple-600/20 to-transparent blur-3xl" aria-hidden />
       <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8">

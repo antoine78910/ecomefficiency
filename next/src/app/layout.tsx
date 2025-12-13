@@ -95,7 +95,7 @@ var startOpts = {};
     })(window, document, "clarity", "script", "u2gln16w3i");`}
         </Script>
       </head>
-      <body className="min-h-screen bg-background text-foreground" suppressHydrationWarning>
+      <body className="min-h-screen bg-background text-foreground overflow-x-hidden" suppressHydrationWarning>
         <noscript>
           <div>
             <img src="https://mc.yandex.ru/watch/105104061" style={{position: 'absolute', left: '-9999px'}} alt="" />
