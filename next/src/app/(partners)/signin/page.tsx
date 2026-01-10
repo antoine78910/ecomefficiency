@@ -6,6 +6,7 @@ import Link from "next/link";
 import { supabase, SUPABASE_CONFIG_OK } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff } from "lucide-react";
+import { motion, useMotionTemplate, useMotionValue } from "framer-motion";
 
 function useAuthCallbackRedirect(targetPath: string) {
   const [ready, setReady] = React.useState(false);
@@ -98,6 +99,14 @@ export default function PartnersSignInPage() {
   const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
   const canSubmit = isValidEmail(email) && password.trim().length >= 6 && !pending;
 
+  // Bottom gradient component for Google button (same as legacy /sign-in)
+  const BottomGradient = () => (
+    <>
+      <span className="group-hover/btn:opacity-100 block transition duration-500 opacity-0 absolute h-px w-full -bottom-px inset-x-0 bg-gradient-to-r from-transparent via-[#7c30c7] to-transparent" />
+      <span className="group-hover/btn:opacity-100 blur-sm block transition duration-500 opacity-0 absolute h-px w-1/2 mx-auto -bottom-px inset-x-10 bg-gradient-to-r from-transparent via-[#7c30c7] to-transparent" />
+    </>
+  );
+
   const oauth = async () => {
     try {
       setPending(true);
@@ -188,6 +197,7 @@ export default function PartnersSignInPage() {
                   />
                   Continue with Google
                 </span>
+                <BottomGradient />
               </button>
             </div>
 
@@ -196,28 +206,36 @@ export default function PartnersSignInPage() {
               <span className="absolute bg-black px-3 text-xs text-gray-400">or sign in with email</span>
             </div>
 
-            <form onSubmit={onSubmit} className="space-y-4">
-              <input
-                type="email"
-                placeholder="Email Address"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg border border-white/15 bg-white/5 placeholder:text-gray-500 text-white px-3 py-2 focus:outline-none focus:border-white/20 transition-colors text-sm"
-              />
-              <div className="relative">
+            <form onSubmit={onSubmit} className="space-y-5">
+              <InputWithHalo>
                 <input
-                  type={show ? "text" : "password"}
-                  placeholder="Password"
-                  autoComplete="current-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-lg border border-white/15 bg-white/5 placeholder:text-gray-500 text-white px-3 py-2 pr-10 focus:outline-none focus:border-white/20 transition-colors text-sm"
+                  type="email"
+                  placeholder="Email Address"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full rounded-lg border border-white/15 bg-white/5 placeholder:text-gray-500 text-white px-3 py-2 focus:outline-none focus:border-white/20 transition-colors text-sm"
                 />
-                <button type="button" onClick={() => setShow((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white cursor-pointer">
-                  {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
+              </InputWithHalo>
+              <InputWithHalo>
+                <div className="relative">
+                  <input
+                    type={show ? "text" : "password"}
+                    placeholder="Password"
+                    autoComplete="current-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full rounded-lg border border-white/15 bg-white/5 placeholder:text-gray-500 text-white px-3 py-2 pr-10 focus:outline-none focus:border-white/20 transition-colors text-sm"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShow((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white cursor-pointer"
+                  >
+                    {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </InputWithHalo>
 
               <button
                 type="submit"
@@ -242,6 +260,34 @@ export default function PartnersSignInPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function InputWithHalo({ children }: { children: React.ReactNode }) {
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+  const radius = useMotionValue(160);
+  const [visible, setVisible] = React.useState(false);
+
+  const bg = useMotionTemplate`radial-gradient(${visible ? radius.get() + "px" : "0px"} circle at ${mouseX}px ${mouseY}px, #7c30c7, transparent 75%)`;
+
+  const onMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    mouseX.set(e.clientX - rect.left);
+    mouseY.set(e.clientY - rect.top);
+    radius.set(Math.max(rect.width, rect.height) * 0.45);
+  };
+
+  return (
+    <motion.div
+      style={{ background: bg }}
+      onMouseMove={onMove}
+      onMouseEnter={() => setVisible(true)}
+      onMouseLeave={() => setVisible(false)}
+      className="group/input rounded-lg p-[2px] transition duration-300"
+    >
+      <div className="rounded-[inherit] bg-black">{children}</div>
+    </motion.div>
   );
 }
 

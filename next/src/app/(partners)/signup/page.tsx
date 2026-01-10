@@ -6,6 +6,7 @@ import Link from "next/link";
 import { supabase, SUPABASE_CONFIG_OK } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff } from "lucide-react";
+import { motion, useMotionTemplate, useMotionValue } from "framer-motion";
 
 export default function PartnersSignUpPage() {
   const { toast } = useToast();
@@ -16,6 +17,11 @@ export default function PartnersSignUpPage() {
   const [pending, setPending] = React.useState(false);
 
   const canSubmit = name.trim().length > 1 && email.trim().length > 3 && password.length >= 6 && !pending;
+
+  // Static narrower bottom halo (no mouse tracking) - same as legacy /sign-up
+  const NarrowGradient = () => (
+    <span className="group-hover/btn:opacity-100 block transition duration-300 opacity-0 absolute h-[3px] w-full -bottom-px inset-x-0 bg-gradient-to-r from-transparent via-[#7c30c7] to-transparent" />
+  );
 
   const oauth = async () => {
     try {
@@ -135,6 +141,7 @@ export default function PartnersSignUpPage() {
                   />
                   Continue with Google
                 </span>
+                <NarrowGradient />
               </button>
             </div>
 
@@ -143,36 +150,49 @@ export default function PartnersSignUpPage() {
               <span className="absolute bg-black px-3 text-xs text-gray-400">or sign up with email</span>
             </div>
 
-            <form onSubmit={onSubmit} className="space-y-4">
-              <input
-                type="text"
-                placeholder="Full name"
-                autoComplete="name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="w-full rounded-lg border border-white/15 bg-white/5 placeholder:text-gray-500 text-white px-3 py-2 focus:outline-none focus:border-white/20 transition-colors text-sm"
-              />
-              <input
-                type="email"
-                placeholder="Email Address"
-                autoComplete="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg border border-white/15 bg-white/5 placeholder:text-gray-500 text-white px-3 py-2 focus:outline-none focus:border-white/20 transition-colors text-sm"
-              />
-              <div className="relative">
+            <form onSubmit={onSubmit} className="space-y-5" suppressHydrationWarning>
+              <InputWithHalo>
                 <input
-                  type={show ? "text" : "password"}
-                  placeholder="Password"
-                  autoComplete="new-password"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  className="w-full rounded-lg border border-white/15 bg-white/5 placeholder:text-gray-500 text-white px-3 py-2 pr-10 focus:outline-none focus:border-white/20 transition-colors text-sm"
+                  type="text"
+                  placeholder="Full name"
+                  autoComplete="name"
+                  value={name}
+                  onChange={(e) => setName(e.target.value)}
+                  className="w-full rounded-lg border border-white/15 bg-white/5 placeholder:text-gray-500 text-white px-3 py-2 focus:outline-none focus:border-white/20 transition-colors text-sm"
+                  suppressHydrationWarning
                 />
-                <button type="button" onClick={() => setShow((v) => !v)} className="absolute right-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white cursor-pointer">
-                  {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-              </div>
+              </InputWithHalo>
+              <InputWithHalo>
+                <input
+                  type="email"
+                  placeholder="Email Address"
+                  autoComplete="email"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="w-full rounded-lg border border-white/15 bg-white/5 placeholder:text-gray-500 text-white px-3 py-2 focus:outline-none focus:border-white/20 transition-colors text-sm"
+                  suppressHydrationWarning
+                />
+              </InputWithHalo>
+              <InputWithHalo>
+                <div className="relative">
+                  <input
+                    type={show ? "text" : "password"}
+                    placeholder="Password"
+                    autoComplete="new-password"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    className="w-full rounded-lg border border-white/15 bg-white/5 placeholder:text-gray-500 text-white px-3 py-2 pr-10 focus:outline-none focus:border-white/20 transition-colors text-sm"
+                    suppressHydrationWarning
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShow((v) => !v)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-white/70 hover:text-white cursor-pointer"
+                  >
+                    {show ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+              </InputWithHalo>
               <button
                 type="submit"
                 disabled={!canSubmit}
@@ -196,6 +216,48 @@ export default function PartnersSignUpPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+function InputWithHalo({ children }: { children: React.ReactNode }) {
+  const mouseX = useMotionValue(0);
+  const mouseY = useMotionValue(0);
+  const radius = useMotionValue(160);
+  const [visible, setVisible] = React.useState(false);
+  const rectRef = React.useRef<DOMRect | null>(null);
+
+  // Use plain motion value references where possible to avoid unnecessary JS re-execution
+  const bg = useMotionTemplate`radial-gradient(${visible ? radius : "0"}px circle at ${mouseX}px ${mouseY}px, #7c30c7, transparent 75%)`;
+
+  const onMove = (e: React.MouseEvent<HTMLDivElement>) => {
+    if (rectRef.current) {
+      const rect = rectRef.current;
+      mouseX.set(e.clientX - rect.left);
+      mouseY.set(e.clientY - rect.top);
+    }
+  };
+
+  const onEnter = (e: React.MouseEvent<HTMLDivElement>) => {
+    const rect = e.currentTarget.getBoundingClientRect();
+    rectRef.current = rect;
+    radius.set(Math.max(rect.width, rect.height) * 0.45);
+    setVisible(true);
+  };
+
+  const onLeave = () => {
+    setVisible(false);
+  };
+
+  return (
+    <motion.div
+      style={{ background: bg }}
+      onMouseMove={onMove}
+      onMouseEnter={onEnter}
+      onMouseLeave={onLeave}
+      className="group/input rounded-lg p-[2px] transition duration-300"
+    >
+      <div className="rounded-[inherit] bg-black">{children}</div>
+    </motion.div>
   );
 }
 
