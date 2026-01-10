@@ -11,8 +11,16 @@ export async function POST(req: NextRequest) {
   console.log('[webhook]', requestId, '🔔 Webhook endpoint called');
   
   const sig = req.headers.get('stripe-signature');
-  const secret = process.env.STRIPE_WEBHOOK_SECRET;
-  if (!process.env.STRIPE_SECRET_KEY || !secret) {
+  const secretPrimary = process.env.STRIPE_WEBHOOK_SECRET;
+  const secretConnect = process.env.STRIPE_WEBHOOK_SECRET_CONNECT;
+  const secretListEnv = process.env.STRIPE_WEBHOOK_SECRETS; // optional CSV
+  const secrets = [
+    ...(secretPrimary ? [secretPrimary] : []),
+    ...(secretConnect ? [secretConnect] : []),
+    ...(secretListEnv ? secretListEnv.split(',').map(s => s.trim()).filter(Boolean) : []),
+  ];
+
+  if (!process.env.STRIPE_SECRET_KEY || secrets.length === 0) {
     console.error('[webhook]', requestId, '❌ Stripe not configured');
     return NextResponse.json({ error: 'Stripe not configured' }, { status: 500 });
   }
@@ -23,7 +31,17 @@ export async function POST(req: NextRequest) {
   let event: Stripe.Event;
   try {
     if (!sig) throw new Error('missing_signature');
-    event = stripe.webhooks.constructEvent(rawBody, sig, secret);
+    let lastErr: any = null;
+    for (const s of secrets) {
+      try {
+        event = stripe.webhooks.constructEvent(rawBody, sig, s);
+        lastErr = null;
+        break;
+      } catch (e: any) {
+        lastErr = e;
+      }
+    }
+    if (!event) throw lastErr || new Error('signature_verification_failed');
   } catch (err: any) {
     return new NextResponse(`Webhook Error: ${err.message}`, { status: 400 });
   }
