@@ -24,6 +24,7 @@ type FormState = {
   customDomain: string;
   domainProvider: DomainProvider;
   adminEmail: string;
+  whatsappNumber: string;
   signupMode: SignupMode;
   stripeAccountEmail: string;
   currency: Currency;
@@ -117,6 +118,7 @@ export default function PartnersConfigurationPage() {
     customDomain: "",
     domainProvider: "",
     adminEmail: "",
+    whatsappNumber: "",
     signupMode: "public",
     stripeAccountEmail: "",
     currency: "USD",
@@ -182,6 +184,7 @@ export default function PartnersConfigurationPage() {
       { key: "customDomain", title: "Custom domain (optional)", help: "Example: ecomwolf.com", required: false },
       { key: "domainProvider", title: "Domain provider", help: "Namecheap / GoDaddy / Cloudflare / Other", required: true },
       { key: "adminEmail", title: "Admin email", help: "Full access to the SaaS", required: true },
+      { key: "whatsapp", title: "WhatsApp number (optional)", help: "WhatsApp number to stay in contact and keep you updated on your SaaS progress", required: false },
       { key: "signupMode", title: "User signup mode", help: "Choose how end-users can join", required: true },
       { key: "stripeAccountEmail", title: "Stripe account email", help: "Used to connect your Stripe (Stripe Connect)", required: true },
       { key: "currency", title: "Currency", help: "$ / € / Other", required: true },
@@ -229,6 +232,8 @@ export default function PartnersConfigurationPage() {
         return Boolean(form.domainProvider);
       case "adminEmail":
         return isEmail(form.adminEmail);
+      case "whatsapp":
+        return true;
       case "signupMode":
         return form.signupMode === "public" || form.signupMode === "invite_only";
       case "stripeAccountEmail":
@@ -298,6 +303,7 @@ export default function PartnersConfigurationPage() {
         customDomain: form.customDomain.trim(),
         domainProvider: form.domainProvider,
         adminEmail: form.adminEmail.trim(),
+        whatsappNumber: form.whatsappNumber.trim(),
         signupMode: form.signupMode,
         stripeAccountEmail: form.stripeAccountEmail.trim(),
         currency: form.currency,
@@ -574,6 +580,16 @@ export default function PartnersConfigurationPage() {
               />
             )}
 
+            {current.key === "whatsapp" && (
+              <input
+                autoFocus
+                value={form.whatsappNumber}
+                onChange={(e) => setForm((s) => ({ ...s, whatsappNumber: e.target.value }))}
+                placeholder="Example: +33 6 12 34 56 78"
+                className="w-full text-lg md:text-xl rounded-xl border border-white/15 bg-white/5 px-4 py-3 focus:outline-none focus:border-white/25"
+              />
+            )}
+
             {current.key === "signupMode" && (
               <div className="space-y-3">
                 {([
@@ -705,6 +721,7 @@ export default function PartnersConfigurationPage() {
                     <div><span className="text-gray-400">Slug:</span> <span className="text-gray-200">{cleanSlug(form.slug) || "—"}</span></div>
                     <div className="md:col-span-2"><span className="text-gray-400">Default URL:</span> <span className="text-gray-200">{baseUrlPreview || "—"}</span></div>
                     <div><span className="text-gray-400">Admin email:</span> <span className="text-gray-200">{form.adminEmail || "—"}</span></div>
+                    <div><span className="text-gray-400">WhatsApp:</span> <span className="text-gray-200">{form.whatsappNumber || "—"}</span></div>
                     <div><span className="text-gray-400">Signup mode:</span> <span className="text-gray-200">{form.signupMode === "invite_only" ? "Admin invite only" : "Public signup"}</span></div>
                     <div><span className="text-gray-400">Stripe email:</span> <span className="text-gray-200">{form.stripeAccountEmail || "—"}</span></div>
                     <div><span className="text-gray-400">Price:</span> <span className="text-gray-200">{form.monthlyPrice ? `${form.monthlyPrice}/mo` : "—"}</span></div>
