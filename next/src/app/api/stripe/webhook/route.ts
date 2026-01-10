@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
   const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-07-30.basil' });
   const rawBody = await req.text();
 
-  let event: Stripe.Event;
+  let event: Stripe.Event | null = null;
   try {
     if (!sig) throw new Error('missing_signature');
     let lastErr: any = null;
