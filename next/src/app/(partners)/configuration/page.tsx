@@ -179,7 +179,7 @@ export default function PartnersConfigurationPage() {
       { key: "logo", title: "Logo upload", help: "PNG or SVG. Transparent background recommended. 10 MB max.", required: true },
       { key: "favicon", title: "Favicon upload", help: "10 MB max.", required: true },
       { key: "colors", title: "Brand colors (HEX)", help: "Main / Secondary / Accent (+ optional background)", required: true },
-      { key: "customDomain", title: "Custom domain (optional)", help: "Example: app.ecomwolf.com", required: false },
+      { key: "customDomain", title: "Custom domain (optional)", help: "Example: ecomwolf.com", required: false },
       { key: "domainProvider", title: "Domain provider", help: "Namecheap / GoDaddy / Cloudflare / Other", required: true },
       { key: "adminEmail", title: "Admin email", help: "Full access to the SaaS", required: true },
       { key: "signupMode", title: "User signup mode", help: "Choose how end-users can join", required: true },
@@ -542,7 +542,7 @@ export default function PartnersConfigurationPage() {
                 autoFocus
                 value={form.customDomain}
                 onChange={(e) => setForm((s) => ({ ...s, customDomain: e.target.value }))}
-                placeholder="Example: app.ecomwolf.com"
+                placeholder="Example: ecomwolf.com"
                 className="w-full text-lg md:text-xl rounded-xl border border-white/15 bg-white/5 px-4 py-3 focus:outline-none focus:border-white/25"
               />
             )}
