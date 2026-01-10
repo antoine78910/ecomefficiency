@@ -333,8 +333,10 @@ export default function PartnersConfigurationPage() {
       toast({ title: "Submitted!", description: "Your onboarding has been received. We'll contact you shortly." });
       try {
         localStorage.removeItem("partners_onboarding_draft_v1");
+        if (payload.slug) localStorage.setItem("partners_current_slug", payload.slug);
       } catch {}
-      window.location.href = `/signin?submitted=1`;
+      const qs = `?slug=${encodeURIComponent(payload.slug)}&submitted=1`;
+      window.location.href = `/dashboard${qs}`;
     } catch (e: any) {
       toast({ title: "Error", description: e?.message || "Could not submit onboarding.", variant: "destructive" });
       setSubmitting(false);
