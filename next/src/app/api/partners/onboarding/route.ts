@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/integrations/supabase/server";
 import { Resend } from "resend";
 
+export const runtime = "nodejs";
+
 type Currency = "USD" | "EUR" | "OTHER";
 type SignupMode = "public" | "invite_only";
 
@@ -81,11 +83,15 @@ export async function POST(req: NextRequest) {
 
     // Persist (tolerant to schema differences like missing updated_at)
     const tryUpsert = async (withUpdatedAt: boolean) => {
-      const row: any = withUpdatedAt
-        ? { key, value: payload, updated_at: new Date().toISOString() }
-        : { key, value: payload };
-      const { error } = await supabaseAdmin.from("app_state").upsert(row, { onConflict: "key" as any });
-      return error;
+      try {
+        const row: any = withUpdatedAt
+          ? { key, value: payload, updated_at: new Date().toISOString() }
+          : { key, value: payload };
+        const { error } = await supabaseAdmin.from("app_state").upsert(row, { onConflict: "key" as any });
+        return error;
+      } catch (e: any) {
+        return { message: e?.message || String(e) };
+      }
     };
 
     let upsertError: any = await tryUpsert(true);
@@ -99,21 +105,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    if (upsertError) {
-      return NextResponse.json(
-        {
-          ok: false,
-          error: "db_error",
-          detail: upsertError?.message || "Unknown database error",
-          code: upsertError?.code || null,
-          hint: upsertError?.hint || null,
-          details: upsertError?.details || null,
-        },
-        { status: 500 }
-      );
-    }
-
     // Best effort: notify internal email about new onboarding (do not block success)
+    let emailSent = false;
     try {
       const resendKey = process.env.RESEND_API_KEY;
       if (resendKey) {
@@ -146,12 +139,38 @@ export async function POST(req: NextRequest) {
           html,
           replyTo: payload.adminEmail || undefined,
         });
+        emailSent = true;
       }
     } catch (e: any) {
       console.error("[partners/onboarding] Failed to send internal email:", e?.message || String(e));
     }
 
-    return NextResponse.json({ ok: true, slug }, { status: 200 });
+    // If DB failed, still return success (email is the fallback so we don't block onboarding)
+    if (upsertError) {
+      const detail =
+        upsertError?.message ||
+        (typeof upsertError === "string" ? upsertError : "") ||
+        (() => {
+          try { return JSON.stringify(upsertError); } catch { return ""; }
+        })() ||
+        "Unknown database error";
+
+      console.error("[partners/onboarding] DB write failed:", detail);
+
+      return NextResponse.json(
+        {
+          ok: true,
+          slug,
+          persisted: false,
+          emailSent,
+          warning: "db_write_failed",
+          dbErrorDetail: detail,
+        },
+        { status: 200 }
+      );
+    }
+
+    return NextResponse.json({ ok: true, slug, persisted: true, emailSent }, { status: 200 });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: "invalid_json", detail: e?.message || String(e) }, { status: 400 });
   }
