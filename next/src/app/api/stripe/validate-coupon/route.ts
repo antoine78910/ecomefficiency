@@ -1,9 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY || '', {
-  apiVersion: '2025-07-30.basil' as any
-});
+function getStripe() {
+  const key = process.env.STRIPE_SECRET_KEY;
+  if (!key) {
+    throw new Error("Missing STRIPE_SECRET_KEY");
+  }
+  return new Stripe(key, { apiVersion: "2025-07-30.basil" as any });
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -15,6 +19,14 @@ export async function POST(req: NextRequest) {
 
     const code = couponCode.trim();
     console.log('[validate-coupon] Validating code:', code);
+
+    let stripe: Stripe;
+    try {
+      stripe = getStripe();
+    } catch (e: any) {
+      console.error('[validate-coupon] Missing Stripe configuration:', e?.message || String(e));
+      return NextResponse.json({ error: 'Stripe is not configured' }, { status: 500 });
+    }
 
     // Try promotion code first (newer Stripe API) - case sensitive
     try {
