@@ -174,7 +174,7 @@ export default function PartnersConfigurationPage() {
   const steps = React.useMemo(
     () => [
       { key: "saasName", title: "SaaS name", help: "Public name of your software", required: true },
-      { key: "slug", title: "URL slug", help: "Used for the default URL (e.g. ecomwolf → ecomefficiency.com/ecomwolf)", required: true },
+      { key: "slug", title: "URL slug", help: "Used for the default URL (e.g. ecomwolf → partners.ecomefficiency.com/ecomwolf)", required: true },
       { key: "tagline", title: "Short tagline (optional)", help: "One short sentence under the logo", required: false },
       { key: "logo", title: "Logo upload", help: "PNG or SVG. Transparent background recommended. 10 MB max.", required: true },
       { key: "favicon", title: "Favicon upload", help: "10 MB max.", required: true },
@@ -200,13 +200,14 @@ export default function PartnersConfigurationPage() {
 
   const baseUrlPreview = React.useMemo(() => {
     try {
-      const host = window.location.hostname.replace(/^partners\./, "").replace(/^www\./, "");
+      const hostname = window.location.hostname.replace(/^www\./, "");
+      const host = hostname.startsWith("partners.") ? hostname : `partners.${hostname}`;
       const slug = cleanSlug(form.slug);
       if (!slug) return "";
       return `https://${host}/${slug}`;
     } catch {
       const slug = cleanSlug(form.slug);
-      return slug ? `https://ecomefficiency.com/${slug}` : "";
+      return slug ? `https://partners.ecomefficiency.com/${slug}` : "";
     }
   }, [form.slug]);
 
