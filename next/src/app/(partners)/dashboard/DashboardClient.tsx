@@ -16,7 +16,7 @@ type PartnerConfig = {
   domainProvider?: string;
   stripeAccountEmail?: string;
   connectedAccountId?: string;
-  feeModel?: "fixed_20" | "percent_50" | "";
+  feeModel?: "percent_50" | "";
   notes?: string;
 };
 
@@ -210,7 +210,7 @@ export default function DashboardClient() {
             <div className="text-sm text-gray-300">
               Connect your Stripe so your SaaS can receive payments.
               <div className="mt-2 text-xs text-gray-500">
-                Fees: we can take either <b>$20 per payment</b> (recommended) or <b>50%</b> — this typically requires Stripe Connect (application fees).
+                Fees: we take <b>50%</b> on each payment — this typically requires Stripe Connect (application fees).
               </div>
             </div>
             <div className="mt-4 flex flex-col gap-3">
@@ -221,12 +221,11 @@ export default function DashboardClient() {
                   className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
                 >
                   <option value="">Select fee model…</option>
-                  <option value="fixed_20">$20 per payment</option>
                   <option value="percent_50">50% per payment</option>
                 </select>
                 <button
                   type="button"
-                  onClick={() => saveConfig({ feeModel: config.feeModel || "" })}
+                  onClick={() => saveConfig({ feeModel: config.feeModel || "percent_50" })}
                   disabled={saving}
                   className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm"
                 >
