@@ -21,7 +21,7 @@ const STARTER_TOOL_NAMES = [
 ];
 const PRO_ONLY_TOOL_NAMES = [
   'Flair.ai', 'Gemini', 'Exploding Topics', 'Pipiads', 'Kalodata',
-  'Atria', 'Heygen', 'Fotor', 'ForePlay', 'ElevenLabs', 'Runway', 'Trendtrack', 'Higgsfield'
+  'Atria', 'Heygen', 'Fotor', 'ForePlay', 'ElevenLabs', 'Runway', 'Trendtrack', 'Higgsfield', 'Vmake'
 ];
 
 export default function StarterToolsPage() {
@@ -54,6 +54,7 @@ export default function StarterToolsPage() {
     'ElevenLabs': 'https://elevenlabs.io/app/sign-in',
     'Runway': 'https://noxtools.com/secure/page/Runwayml',
     'Trendtrack': 'https://app.trendtrack.io/en/login',
+    'Vmake': 'https://vmake.ai/',
   };
   return (
     <div className="min-h-screen bg-black">

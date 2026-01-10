@@ -20,7 +20,9 @@ function formatPrice(amount: number, currency: Currency) {
   return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
 }
 
-const tools = [
+type SavingsTool = { name: string; price?: number };
+
+const tools: SavingsTool[] = [
   { name: 'Pipiads', price: 99 },
   { name: 'Atria', price: 159 },
   { name: 'Runway', price: 95 },
@@ -44,6 +46,7 @@ const tools = [
   { name: 'Semrush', price: 399 },
   { name: 'Similarweb', price: 199 },
   { name: 'Higgsfield', price: 250 },
+  { name: 'Vmake' }, // price not shown to avoid guessing
   { name: '+30 other SEO tools', price: 1000 },
 ];
 
@@ -83,7 +86,7 @@ const SavingsComparisonSection = () => {
     })()
   }, []);
 
-  const retail = tools.reduce((sum, t) => sum + t.price, 0);
+  const retail = tools.reduce((sum, t) => sum + (typeof t.price === 'number' ? t.price : 0), 0);
   const ecomMonthly = 29.99; // baseline offer to communicate savings
   const savings = retail - ecomMonthly;
   const [dateStr, setDateStr] = React.useState<string>("");
@@ -128,7 +131,11 @@ const SavingsComparisonSection = () => {
               {tools.map((t) => (
                 <li key={t.name} className="flex items-center justify-between text-gray-300">
                   <span className="flex items-center">{t.name}</span>
-                  <span className="text-gray-400">{(t.name.toLowerCase().includes('seo tools') ? '+' : '') + formatPrice(t.price, currency)}</span>
+                  <span className="text-gray-400">
+                    {typeof t.price === 'number'
+                      ? ((t.name.toLowerCase().includes('seo tools') ? '+' : '') + formatPrice(t.price, currency))
+                      : 'Included'}
+                  </span>
                 </li>
               ))}
             </ul>
@@ -168,7 +175,11 @@ const SavingsComparisonSection = () => {
                   <span className="flex items-center gap-2 text-gray-200">
                     <Check className="w-4 h-4 text-green-400" /> {t.name}
                   </span>
-                  <span className="text-gray-500 line-through">{(t.name.toLowerCase().includes('seo tools') ? '+' : '') + formatPrice(t.price, currency)}</span>
+                  <span className="text-gray-500 line-through">
+                    {typeof t.price === 'number'
+                      ? ((t.name.toLowerCase().includes('seo tools') ? '+' : '') + formatPrice(t.price, currency))
+                      : 'Included'}
+                  </span>
                 </li>
               ))}
             </ul>

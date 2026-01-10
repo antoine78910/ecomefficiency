@@ -24,6 +24,7 @@ const logos: Array<{ src: string; alt: string }> = [
   { src: "/tools-logos/kalodata.png", alt: "Kalodata" },
   { src: "/tools-logos/runway.png", alt: "Runway" },
   { src: "/tools-logos/higgsfield.png", alt: "Higgsfield" },
+  { src: "/tools-logos/vmake.png", alt: "Vmake" },
   { src: "/tools-logos/shophunter.png", alt: "Shophunter" },
   { src: "/tools-logos/veo3.png", alt: "Veo3" },
   { src: "/tools-logos/winninghunter.png", alt: "Winninghunter" },

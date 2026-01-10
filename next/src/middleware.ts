@@ -150,6 +150,33 @@ export async function middleware(req: NextRequest) {
     }
   }
 
+  // partners subdomain routes (white-label onboarding portal)
+  // Note: we intentionally keep paths clean (/signup, /signin, /configuration) on partners.*
+  if (hostname === 'partners.localhost' || bareHostname.startsWith('partners.')) {
+    // Default entry point
+    if (pathname === '/' || pathname === '') {
+      const r = url.clone(); r.pathname = '/signin';
+      return NextResponse.redirect(r)
+    }
+    // Allow everything else to resolve normally (App Router routes handle auth/onboarding)
+    return response
+  }
+
+  // Non-partners domains: provide compatibility redirects for new short auth routes
+  if (pathname === '/signin' || pathname === '/signin/') {
+    const r = url.clone(); r.pathname = '/sign-in';
+    return NextResponse.redirect(r)
+  }
+  if (pathname === '/signup' || pathname === '/signup/') {
+    const r = url.clone(); r.pathname = '/sign-up';
+    return NextResponse.redirect(r)
+  }
+  // Configuration is partners-only
+  if (pathname === '/configuration' || pathname.startsWith('/configuration/')) {
+    const r = url.clone(); r.pathname = '/';
+    return NextResponse.redirect(r)
+  }
+
   // Route /tools/seo to /tools but keep intent (will open modal in Tools page)
   if (pathname === '/tools/seo') {
     const r = url.clone(); r.pathname = '/tools';

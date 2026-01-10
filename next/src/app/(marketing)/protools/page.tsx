@@ -31,6 +31,7 @@ export default function ProToolsPage() {
     'ElevenLabs': 'https://elevenlabs.io/app/sign-in',
     'Runway': 'https://noxtools.com/secure/page/Runwayml',
     'Trendtrack': 'https://app.trendtrack.io/en/login',
+    'Vmake': 'https://vmake.ai/',
   };
   return (
     <div className="min-h-screen bg-black">
@@ -42,7 +43,7 @@ export default function ProToolsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {[seoTile, ...carouselTools
               .filter(t => [
-                'Flair.ai','ChatGPT','Gemini','Midjourney','Exploding Topics','Pipiads','Kalodata','WinningHunter','Capcut','SendShort','Helium10','Dropship.io','ShopHunter','Atria','Heygen','Fotor','ForePlay','ElevenLabs','Runway','Trendtrack','Higgsfield'
+                'Flair.ai','ChatGPT','Gemini','Midjourney','Exploding Topics','Pipiads','Kalodata','WinningHunter','Capcut','SendShort','Helium10','Dropship.io','ShopHunter','Atria','Heygen','Fotor','ForePlay','ElevenLabs','Runway','Trendtrack','Higgsfield','Vmake'
               ].includes(t.name))
               .filter(t => t.name !== 'Canva' && t.name !== 'Brain.fm')
             ].map((tool) => (

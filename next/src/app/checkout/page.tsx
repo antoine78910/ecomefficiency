@@ -272,6 +272,34 @@ function CheckoutContent() {
 
   const basePrice = prices[tier][billing];
   
+  const starterToolHighlights = [
+    'GPT',
+    'Midjourney',
+    'SendShort',
+    'Capcut',
+    'Helium 10',
+    'Dropship.io',
+    'Winning Hunter',
+    'ShopHunter',
+    '+30 SEO tools',
+  ];
+  const proToolHighlights = [
+    'Pipiads',
+    'ElevenLabs',
+    'Higgsfield',
+    'Vmake',
+    'Atria',
+    'Runway',
+    'Heygen',
+    'Flair.ai',
+    'Kalodata',
+    'Fotor',
+    'ForePlay',
+    'Exploding Topics',
+    'Veo 3',
+    'Gemini',
+  ];
+
   // Calculate discounted price if promo is applied
   const getDiscountedPrice = () => {
     if (!appliedPromo) return basePrice;
@@ -478,7 +506,15 @@ function CheckoutContent() {
               </div>
               <div className="flex items-start gap-2 text-xs text-gray-300">
                 <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
-                <span>Access 50+ premium tools (AI, Spy, SEO & more)</span>
+                <span>Access {tier === 'pro' ? '50+' : '40+'} premium tools (AI, Spy, SEO & more)</span>
+              </div>
+              <div className="flex items-start gap-2 text-xs text-gray-300">
+                <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />
+                <span>
+                  {tier === 'pro'
+                    ? `Pro extras: ${proToolHighlights.slice(0, 7).join(', ')}…`
+                    : `Starter tools: ${starterToolHighlights.slice(0, 7).join(', ')}…`}
+                </span>
               </div>
               <div className="flex items-start gap-2 text-xs text-gray-300">
                 <Check className="w-4 h-4 text-purple-400 mt-0.5 shrink-0" />

@@ -21,6 +21,7 @@ export const logoDomainMap: Record<string, string> = {
   'midjourney': 'midjourney.com',
   'runway': 'runwayml.com',
   'higgsfield': 'higgsfield.ai',
+  'vmake': 'vmake.ai',
 };
 
 export const carouselTools: CarouselTool[] = [
@@ -42,6 +43,7 @@ export const carouselTools: CarouselTool[] = [
   { name: 'Fotor', description: 'AI photo editor', icon: '/tools-logos/fotor.png' },
   { name: 'ForePlay', description: 'Save ads, build briefs', icon: '/tools-logos/foreplay.png' },
   { name: 'Higgsfield', description: 'AI video generation', icon: '/tools-logos/higgsfield.png' },
+  { name: 'Vmake', description: 'AI video editor', icon: '/tools-logos/vmake.png' },
   { name: 'Dropship.io', description: 'Shopify product tracker', icon: '/tools-logos/dropship.png' },
   { name: 'Heygen', description: 'AI avatar videos', icon: '/tools-logos/heygen.png' },
   { name: 'Veo 3', description: 'AI video by Google.', icon: '/tools-logos/veo3.png' },

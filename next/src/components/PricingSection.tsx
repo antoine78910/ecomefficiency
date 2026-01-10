@@ -46,6 +46,7 @@ const proExtras = [
   "Pipiads",
   "ElevenLabs",
   "Higgsfield",
+  "Vmake",
   "Atria",
   "Runway",
   "Heygen",

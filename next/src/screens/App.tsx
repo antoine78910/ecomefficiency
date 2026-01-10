@@ -514,7 +514,7 @@ function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'sta
   const isYearly = billing === 'yearly'
   const proExtras = [
     'Pipiads', 'Atria', 'Runway', 'Heygen', 'Veo3/Gemini', 'Flair AI',
-    'Exploding topics', 'Eleven labs', 'Higgsfield',
+    'Exploding topics', 'Eleven labs', 'Higgsfield', 'Vmake',
     'Fotor', 'Foreplay', 'Kalodata'
   ]
 
