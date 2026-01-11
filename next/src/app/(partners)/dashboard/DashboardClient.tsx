@@ -122,6 +122,16 @@ export default function DashboardClient() {
     } catch {}
   };
 
+  const toColorInputValue = (value: string) => {
+    const v = String(value || "").trim();
+    if (/^#[0-9a-f]{6}$/i.test(v)) return v;
+    if (/^#[0-9a-f]{3}$/i.test(v)) {
+      const r = v[1], g = v[2], b = v[3];
+      return `#${r}${r}${g}${g}${b}${b}`;
+    }
+    return "#000000";
+  };
+
   React.useEffect(() => {
     return () => {
       if (copiedTimer.current) window.clearTimeout(copiedTimer.current);
@@ -819,7 +829,14 @@ export default function DashboardClient() {
                               ["Background", "background"],
                             ] as const).map(([label, key]) => (
                               <div key={key} className="flex items-center gap-2">
-                                <div className="w-4 h-4 rounded border border-white/10" style={{ background: (pageDraft as any)[key] || "transparent" }} />
+                                <input
+                                  type="color"
+                                  value={toColorInputValue((pageDraft as any)[key])}
+                                  onChange={(e) => setPageDraft((s) => ({ ...s, [key]: e.target.value } as any))}
+                                  className="w-8 h-8 p-0 rounded border border-white/10 bg-transparent overflow-hidden"
+                                  aria-label={`${label} color picker`}
+                                  title={`${label} color picker`}
+                                />
                                 <div className="w-20 text-xs text-gray-400">{label}</div>
                                 <input
                                   value={(pageDraft as any)[key]}
