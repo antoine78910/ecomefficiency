@@ -49,6 +49,7 @@ export default function DashboardClient() {
   const [stats, setStats] = React.useState<PartnerStats | null>(null);
   const [error, setError] = React.useState<string | null>(null);
   const [connectLoading, setConnectLoading] = React.useState(false);
+  const didAutoSetFee = React.useRef(false);
 
   React.useEffect(() => {
     if (slug) return;
@@ -98,6 +99,22 @@ export default function DashboardClient() {
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
+
+  // Force fee model to 50% (no other options)
+  React.useEffect(() => {
+    if (!slug) return;
+    if (didAutoSetFee.current) return;
+    // Only auto-set if config has been loaded at least once
+    // (we treat presence of any key as "loaded", or connectedAccountId, etc.)
+    const loaded = Object.keys(config || {}).length > 0;
+    if (!loaded) return;
+    if (config.feeModel === "percent_50") { didAutoSetFee.current = true; return; }
+    didAutoSetFee.current = true;
+    setConfig((s) => ({ ...s, feeModel: "percent_50" }));
+    // Best-effort persist (ignore errors, don't block UI)
+    saveConfig({ feeModel: "percent_50" }).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug, config]);
 
   const saveConfig = async (patch: Partial<PartnerConfig>) => {
     if (!slug) return;
@@ -214,24 +231,11 @@ export default function DashboardClient() {
               </div>
             </div>
             <div className="mt-4 flex flex-col gap-3">
-              <div className="flex items-center gap-2">
-                <select
-                  value={config.feeModel || ""}
-                  onChange={(e) => setConfig((s) => ({ ...s, feeModel: e.target.value as any }))}
-                  className="rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
-                >
-                  <option value="">Select fee model…</option>
-                  <option value="percent_50">50% per payment</option>
-                </select>
-                <button
-                  type="button"
-                  onClick={() => saveConfig({ feeModel: config.feeModel || "percent_50" })}
-                  disabled={saving}
-                  className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm"
-                >
-                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                  Save
-                </button>
+              <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-white/5 px-4 py-3">
+                <div className="text-sm text-gray-200">
+                  Fee model: <span className="font-semibold text-purple-200">50% per payment</span>
+                </div>
+                <div className="text-xs text-gray-500">{saving ? "Saving…" : "Fixed"}</div>
               </div>
               <button
                 type="button"
