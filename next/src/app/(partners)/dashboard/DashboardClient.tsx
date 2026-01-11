@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { Check, Copy, ExternalLink, Loader2, RefreshCcw, Save, Palette, LayoutTemplate } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 
 type PartnerConfig = {
   saasName?: string;
@@ -57,6 +58,7 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 }
 
 export default function DashboardClient() {
+  const { toast } = useToast();
   const searchParams = useSearchParams();
   const qsSlug = searchParams?.get("slug") || "";
   const initialTab = (searchParams?.get("tab") || "settings") as "data" | "settings" | "page";
@@ -85,8 +87,9 @@ export default function DashboardClient() {
     try {
       if (!text) return;
       await navigator.clipboard.writeText(text);
+      toast({ title: "Copied", description: text });
     } catch {
-      // ignore (some browsers block clipboard without user gesture)
+      toast({ title: "Copy failed", description: "Your browser blocked clipboard access.", variant: "destructive" });
     }
   };
 
@@ -564,7 +567,7 @@ export default function DashboardClient() {
                 <Card title="Custom domain">
                   <div className="text-sm text-gray-300">Connect your own domain for your SaaS website.</div>
                   <div className="mt-4 space-y-3">
-                    <div className="text-xs text-gray-400">Custom domain</div>
+                    <div className="text-xs text-gray-400">Domain to connect</div>
                     <input
                       value={config.customDomain || ""}
                       onChange={(e) => {
@@ -574,15 +577,6 @@ export default function DashboardClient() {
                       placeholder="ecomwolf.com"
                       className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
                     />
-                    <button
-                      type="button"
-                      onClick={() => saveConfig({ customDomain: config.customDomain || "" })}
-                      disabled={saving}
-                      className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm"
-                    >
-                      {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                      Save
-                    </button>
                     <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-gray-300">
                       <div className="text-gray-400 mb-3">DNS records (copy/paste)</div>
                       <div className="space-y-2">
@@ -646,12 +640,18 @@ export default function DashboardClient() {
                       onClick={async () => {
                         try {
                           const d = String(config.customDomain || "").trim();
-                          if (!d) return;
+                          if (!d) {
+                            toast({ title: "Missing domain", description: "Please enter a domain first.", variant: "destructive" });
+                            return;
+                          }
                           setDomainVerify({ status: "checking" });
                           const res = await fetch(`/api/partners/domain/verify?domain=${encodeURIComponent(d)}`, { cache: "no-store" });
                           const json = await res.json().catch(() => ({}));
                           if (res.ok && json?.ok && json?.verified) {
                             setDomainVerify({ status: "ok", message: "Verified ✅" });
+                            // Auto-save mapping (no separate Save button)
+                            await saveConfig({ customDomain: d });
+                            toast({ title: "Domain verified", description: "Saved successfully." });
                             return;
                           }
                           const expected = Array.isArray(json?.expected) ? json.expected : [];
@@ -659,12 +659,15 @@ export default function DashboardClient() {
                             .map((r: any) => `${r.type} ${r.name} ${r.value}`)
                             .slice(0, 3)
                             .join(" • ");
-                          setDomainVerify({ status: "fail", message: hint ? `Not verified yet. Expected: ${hint}` : "Not verified yet." });
+                          const msg = hint ? `Not verified yet. Expected: ${hint}` : "Not verified yet.";
+                          setDomainVerify({ status: "fail", message: msg });
+                          toast({ title: "Not verified yet", description: msg, variant: "destructive" });
                         } catch (e: any) {
                           setDomainVerify({ status: "fail", message: e?.message || "Verify failed" });
+                          toast({ title: "Verify failed", description: e?.message || "Verify failed", variant: "destructive" });
                         }
                       }}
-                      disabled={saving}
+                      disabled={saving || domainVerify.status === "checking"}
                       className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm"
                     >
                       {domainVerify.status === "checking" ? (
