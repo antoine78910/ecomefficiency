@@ -100,6 +100,7 @@ function useSupabaseAuthCallback() {
 export default function PartnersConfigurationPage() {
   const { toast } = useToast();
   const ready = useSupabaseAuthCallback();
+  const [accountEmail, setAccountEmail] = React.useState<string>("");
 
   const [submitting, setSubmitting] = React.useState(false);
   const [uploading, setUploading] = React.useState<{ logo?: boolean; favicon?: boolean }>({});
@@ -147,12 +148,23 @@ export default function PartnersConfigurationPage() {
       try {
         const { data } = await supabase.auth.getUser();
         const email = data.user?.email || "";
+        setAccountEmail(email || "");
         if (email && isEmail(email)) {
           setForm((s) => ({ ...s, adminEmail: s.adminEmail || email }));
         }
       } catch {}
     })();
   }, [ready]);
+
+  // Keep account badge updated (signin/out)
+  React.useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
+      setAccountEmail(session?.user?.email || "");
+    });
+    return () => {
+      data.subscription.unsubscribe();
+    };
+  }, []);
 
   // Load draft
   React.useEffect(() => {
@@ -373,10 +385,18 @@ export default function PartnersConfigurationPage() {
               <div className="text-xs text-gray-400">Configuration wizard</div>
             </div>
           </div>
-          <Link href="/signin" className="text-sm text-gray-400 hover:text-white inline-flex items-center gap-2">
-            <ArrowLeft className="w-4 h-4" />
-            Back to sign in
-          </Link>
+          <div className="flex items-center gap-3">
+            {accountEmail ? (
+              <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 rounded-full border border-white/10 bg-white/5 text-xs text-gray-200">
+                <span className="inline-block w-2 h-2 rounded-full bg-green-400/80" />
+                <span className="truncate max-w-[220px]">{accountEmail}</span>
+              </div>
+            ) : null}
+            <Link href="/signin" className="text-sm text-gray-400 hover:text-white inline-flex items-center gap-2">
+              <ArrowLeft className="w-4 h-4" />
+              Back to sign in
+            </Link>
+          </div>
         </div>
 
         {/* Progress */}
