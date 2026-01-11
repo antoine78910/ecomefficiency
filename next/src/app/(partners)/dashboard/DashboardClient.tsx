@@ -30,6 +30,15 @@ type PartnerStats = {
   recentPayments?: Array<{ email?: string; amount?: number; currency?: string; createdAt?: string }>;
 };
 
+type StripeStatus = {
+  connected: boolean;
+  connectedAccountId?: string;
+  chargesEnabled?: boolean;
+  payoutsEnabled?: boolean;
+  detailsSubmitted?: boolean;
+  bankLast4?: string | null;
+};
+
 function Card({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-black/60 shadow-[0_20px_80px_rgba(149,65,224,0.10)] p-5">
@@ -54,6 +63,7 @@ export default function DashboardClient() {
   const didAutoSetFee = React.useRef(false);
   const [accountEmail, setAccountEmail] = React.useState<string>("");
   const [tab, setTab] = React.useState<"data" | "settings">(initialTab);
+  const [stripeStatus, setStripeStatus] = React.useState<StripeStatus>({ connected: false });
 
   React.useEffect(() => {
     try {
@@ -93,6 +103,22 @@ export default function DashboardClient() {
     return `https://${partnersHost}/${slug}`;
   }, [slug]);
 
+  const fetchStripeStatus = React.useCallback(async (s: string) => {
+    try {
+      const res = await fetch(`/api/partners/stripe/status?slug=${encodeURIComponent(s)}`, { cache: "no-store" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) return;
+      setStripeStatus({
+        connected: Boolean(json.connected),
+        connectedAccountId: json.connectedAccountId,
+        chargesEnabled: json.chargesEnabled,
+        payoutsEnabled: json.payoutsEnabled,
+        detailsSubmitted: json.detailsSubmitted,
+        bankLast4: typeof json.bankLast4 === "string" ? json.bankLast4 : null,
+      });
+    } catch {}
+  }, []);
+
   const customers = React.useMemo(() => {
     const signups = stats?.recentSignups || [];
     const paid = new Set(
@@ -122,6 +148,8 @@ export default function DashboardClient() {
 
       if (cfgRes.ok && cfgJson?.ok) setConfig(cfgJson.config || {});
       if (statsRes.ok && statsJson?.ok) setStats(statsJson.stats || null);
+      // Refresh Stripe status (best-effort)
+      fetchStripeStatus(s);
 
       if ((!cfgRes.ok || !cfgJson?.ok) && (!statsRes.ok || !statsJson?.ok)) {
         setError(cfgJson?.error || statsJson?.error || "Failed to load dashboard data.");
@@ -141,6 +169,20 @@ export default function DashboardClient() {
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug]);
+
+  // On return from Stripe onboarding, refresh a couple times to catch eventual consistency
+  React.useEffect(() => {
+    if (!slug) return;
+    const stripeFlag = searchParams?.get("stripe") || "";
+    if (stripeFlag !== "return") return;
+    const t1 = setTimeout(() => loadAll(slug), 800);
+    const t2 = setTimeout(() => loadAll(slug), 2400);
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug, searchParams]);
 
   // Force fee model to 50% (no other options)
   React.useEffect(() => {
@@ -190,7 +232,12 @@ export default function DashboardClient() {
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json?.ok || !json?.url) throw new Error(json?.detail || json?.error || "Stripe connect failed");
-      if (json.connectedAccountId) setConfig((s) => ({ ...s, connectedAccountId: json.connectedAccountId }));
+      if (json.connectedAccountId) {
+        setConfig((s) => ({ ...s, connectedAccountId: json.connectedAccountId }));
+        try {
+          localStorage.setItem(`partners_connected_account_id:${slug}`, String(json.connectedAccountId));
+        } catch {}
+      }
       window.location.href = String(json.url);
     } catch (e: any) {
       setError(e?.message || "Stripe connect failed");
@@ -392,7 +439,21 @@ export default function DashboardClient() {
                       {connectLoading ? "Redirecting to Stripe…" : "Connect Stripe"}
                     </button>
                     <div className="text-xs text-gray-500">
-                      Connected account: <span className="text-gray-300">{config.connectedAccountId || "not connected"}</span>
+                      {stripeStatus.connected ? (
+                        <span className="text-green-300">
+                          Stripe connected
+                          {stripeStatus.bankLast4 ? (
+                            <>
+                              {" "}
+                              • <span className="text-gray-200">IBAN •••• {stripeStatus.bankLast4}</span>
+                            </>
+                          ) : null}
+                        </span>
+                      ) : (
+                        <>
+                          Connected account: <span className="text-gray-300">{config.connectedAccountId || "not connected"}</span>
+                        </>
+                      )}
                     </div>
                   </div>
                 </Card>

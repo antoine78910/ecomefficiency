@@ -28,13 +28,26 @@ export async function POST(req: NextRequest) {
 
     const stripe = getStripe();
 
-    // Create (or reuse) a connected account
-    const connected = await stripe.accounts.create({
-      type: "express",
-      capabilities: { card_payments: { requested: true }, transfers: { requested: true } },
-      business_type: "individual",
-      metadata: { partner_slug: slug },
-    });
+    // Reuse existing connected account if already created for this slug
+    let existingAccountId = "";
+    try {
+      if (supabaseAdmin) {
+        const key = `partner_config:${slug}`;
+        const { data } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
+        const current = (data as any)?.value;
+        existingAccountId = String(current?.connectedAccountId || "");
+      }
+    } catch {}
+
+    const connected =
+      existingAccountId
+        ? { id: existingAccountId }
+        : await stripe.accounts.create({
+            type: "express",
+            capabilities: { card_payments: { requested: true }, transfers: { requested: true } },
+            business_type: "individual",
+            metadata: { partner_slug: slug },
+          });
 
     const origin = req.headers.get("origin") || "https://partners.ecomefficiency.com";
     const refresh_url = `${origin}/dashboard?slug=${encodeURIComponent(slug)}&stripe=refresh`;
@@ -48,17 +61,31 @@ export async function POST(req: NextRequest) {
     });
 
     // Best effort: persist connected account id into partner config
-    try {
-      if (supabaseAdmin) {
+    let persisted = false;
+    let persistError: string | undefined = undefined;
+    if (!supabaseAdmin) {
+      persistError = "supabase_admin_missing";
+    } else {
+      try {
         const key = `partner_config:${slug}`;
         const { data } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
         const current = (data as any)?.value;
         const merged = { ...(current || {}), slug, connectedAccountId: connected.id };
-        await supabaseAdmin.from("app_state").upsert({ key, value: merged }, { onConflict: "key" as any });
+        const { error } = await supabaseAdmin.from("app_state").upsert({ key, value: merged }, { onConflict: "key" as any });
+        if (error) {
+          persistError = error.message || "db_error";
+        } else {
+          persisted = true;
+        }
+      } catch (e: any) {
+        persistError = e?.message || String(e);
       }
-    } catch {}
+    }
 
-    return NextResponse.json({ ok: true, url: link.url, connectedAccountId: connected.id }, { status: 200 });
+    return NextResponse.json(
+      { ok: true, url: link.url, connectedAccountId: connected.id, persisted, warning: persisted ? undefined : "persist_failed", persistError },
+      { status: 200 }
+    );
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: "stripe_connect_failed", detail: e?.message || String(e) }, { status: 500 });
   }
