@@ -14,7 +14,6 @@ type PartnerConfig = {
   supportEmail?: string;
   whatsappNumber?: string;
   customDomain?: string;
-  domainProvider?: string;
   stripeAccountEmail?: string;
   connectedAccountId?: string;
   feeModel?: "percent_50" | "";
@@ -65,6 +64,9 @@ export default function DashboardClient() {
   const [accountEmail, setAccountEmail] = React.useState<string>("");
   const [tab, setTab] = React.useState<"data" | "settings">(initialTab);
   const [stripeStatus, setStripeStatus] = React.useState<StripeStatus>({ connected: false });
+  const [domainVerify, setDomainVerify] = React.useState<{ status: "idle" | "checking" | "ok" | "fail"; message?: string }>({
+    status: "idle",
+  });
 
   React.useEffect(() => {
     try {
@@ -492,20 +494,16 @@ export default function DashboardClient() {
                     <div className="text-xs text-gray-400">Custom domain</div>
                     <input
                       value={config.customDomain || ""}
-                      onChange={(e) => setConfig((s) => ({ ...s, customDomain: e.target.value }))}
+                      onChange={(e) => {
+                        setConfig((s) => ({ ...s, customDomain: e.target.value }));
+                        setDomainVerify({ status: "idle" });
+                      }}
                       placeholder="ecomwolf.com"
-                      className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
-                    />
-                    <div className="text-xs text-gray-400">Domain provider</div>
-                    <input
-                      value={config.domainProvider || ""}
-                      onChange={(e) => setConfig((s) => ({ ...s, domainProvider: e.target.value }))}
-                      placeholder="Namecheap"
                       className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
                     />
                     <button
                       type="button"
-                      onClick={() => saveConfig({ customDomain: config.customDomain || "", domainProvider: config.domainProvider || "" })}
+                      onClick={() => saveConfig({ customDomain: config.customDomain || "" })}
                       disabled={saving}
                       className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm"
                     >
@@ -516,13 +514,13 @@ export default function DashboardClient() {
                       After saving, point your domain to Vercel, then your root domain will show the SaaS template (same as <span className="text-gray-300">/{slug}</span>).
                     </div>
                     <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-gray-300">
-                      <div className="text-gray-400 mb-2">DNS (Vercel) example</div>
+                      <div className="text-gray-400 mb-2">DNS records (copy/paste) — works with any provider</div>
                       <div className="space-y-1 font-mono">
-                        <div>A @ 76.76.21.21 (apex/root)</div>
+                        <div>A @ 76.76.21.21</div>
                         <div>CNAME www cname.vercel-dns.com</div>
                       </div>
                       <div className="mt-2 text-gray-400">
-                        Then click “Verify DNS” below.
+                        If you use a subdomain (ex: <span className="text-gray-300">app</span>), set <span className="text-gray-300">CNAME app</span> to <span className="text-gray-300">cname.vercel-dns.com</span>.
                       </div>
                     </div>
                     <button
@@ -531,22 +529,39 @@ export default function DashboardClient() {
                         try {
                           const d = String(config.customDomain || "").trim();
                           if (!d) return;
+                          setDomainVerify({ status: "checking" });
                           const res = await fetch(`/api/partners/domain/verify?domain=${encodeURIComponent(d)}`, { cache: "no-store" });
                           const json = await res.json().catch(() => ({}));
                           if (res.ok && json?.ok && json?.verified) {
-                            setError(null);
-                          } else {
-                            setError(`Domain not verified yet. Expected: ${json?.expected?.type || ""} ${json?.expected?.name || ""} ${json?.expected?.value || ""}`.trim());
+                            setDomainVerify({ status: "ok", message: "Verified ✅" });
+                            return;
                           }
+                          const expected = Array.isArray(json?.expected) ? json.expected : [];
+                          const hint = expected
+                            .map((r: any) => `${r.type} ${r.name} ${r.value}`)
+                            .slice(0, 3)
+                            .join(" • ");
+                          setDomainVerify({ status: "fail", message: hint ? `Not verified yet. Expected: ${hint}` : "Not verified yet." });
                         } catch (e: any) {
-                          setError(e?.message || "Verify failed");
+                          setDomainVerify({ status: "fail", message: e?.message || "Verify failed" });
                         }
                       }}
                       disabled={saving}
                       className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm"
                     >
-                      Verify DNS
+                      {domainVerify.status === "checking" ? (
+                        <>
+                          <Loader2 className="w-4 h-4 animate-spin" /> Verifying…
+                        </>
+                      ) : (
+                        "Verify DNS"
+                      )}
                     </button>
+                    {domainVerify.status !== "idle" ? (
+                      <div className={`text-xs ${domainVerify.status === "ok" ? "text-green-300" : domainVerify.status === "checking" ? "text-gray-400" : "text-red-300"}`}>
+                        {domainVerify.message || (domainVerify.status === "checking" ? "Checking…" : "")}
+                      </div>
+                    ) : null}
                   </div>
                 </Card>
               </div>
