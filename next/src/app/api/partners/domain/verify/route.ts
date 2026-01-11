@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { resolve4, resolveCname } from "node:dns/promises";
+import { resolve4, resolveCname, resolveTxt } from "node:dns/promises";
 
 export const runtime = "nodejs";
 
@@ -22,7 +22,8 @@ export async function GET(req: NextRequest) {
 
     // Vercel standard targets
     const vercelApexIp = "76.76.21.21";
-    const vercelCname = "cname.vercel-dns.com";
+    // Vercel may suggest either `cname.vercel-dns.com` or a project-specific `*.vercel-dns-XXX.com` target.
+    const vercelCnameHint = "vercel-dns";
 
     const wwwDomain = `www.${domain}`;
     const result: any = { ok: true, domain, wwwDomain, checks: {} };
@@ -31,7 +32,7 @@ export async function GET(req: NextRequest) {
     try {
       const cnames = await resolveCname(domain);
       result.checks.cname = cnames;
-      result.checks.cname_ok = cnames.some((c) => c.toLowerCase().includes(vercelCname));
+      result.checks.cname_ok = cnames.some((c) => c.toLowerCase().includes(vercelCnameHint));
     } catch {
       result.checks.cname = [];
       result.checks.cname_ok = false;
@@ -48,7 +49,7 @@ export async function GET(req: NextRequest) {
     try {
       const wwwCnames = await resolveCname(wwwDomain);
       result.checks.www_cname = wwwCnames;
-      result.checks.www_cname_ok = wwwCnames.some((c) => c.toLowerCase().includes(vercelCname));
+      result.checks.www_cname_ok = wwwCnames.some((c) => c.toLowerCase().includes(vercelCnameHint));
     } catch {
       result.checks.www_cname = [];
       result.checks.www_cname_ok = false;
@@ -62,11 +63,29 @@ export async function GET(req: NextRequest) {
       result.checks.www_a_ok = false;
     }
 
+    // Optional: Vercel ownership TXT record when the domain is already attached to another Vercel account/project.
+    // This record is managed in Vercel UI and looks like:
+    // TXT  _vercel  vc-domain-verify=<domain>,<token>
+    try {
+      const txtHost = `_vercel.${domain}`;
+      const txt = await resolveTxt(txtHost);
+      // resolveTxt returns string[][]
+      const flat = txt.flat().map((s) => String(s));
+      result.checks.vercel_txt_host = txtHost;
+      result.checks.vercel_txt = flat;
+      result.checks.vercel_txt_ok = flat.some((t) => t.toLowerCase().startsWith("vc-domain-verify="));
+    } catch {
+      result.checks.vercel_txt_host = `_vercel.${domain}`;
+      result.checks.vercel_txt = [];
+      result.checks.vercel_txt_ok = false;
+    }
+
     // Provide generic copy/paste records (works with any registrar)
     result.expected = [
       { type: "A", name: "@", value: vercelApexIp, when: "If you're using the root domain (apex)" },
-      { type: "CNAME", name: "www", value: vercelCname, when: "If you want www.yourdomain.com" },
-      { type: "CNAME", name: "subdomain", value: vercelCname, when: "If you're using a subdomain like app.yourdomain.com" },
+      { type: "CNAME", name: "www", value: "cname.vercel-dns.com (or the vercel-dns-* target shown in Vercel)", when: "If you want www.yourdomain.com" },
+      { type: "CNAME", name: "subdomain", value: "cname.vercel-dns.com (or the vercel-dns-* target shown in Vercel)", when: "If you're using a subdomain like app.yourdomain.com" },
+      { type: "TXT", name: "_vercel", value: "vc-domain-verify=<domain>,<token>", when: "Only if Vercel says the domain is linked to another Vercel account/project" },
     ];
 
     result.verified = Boolean(

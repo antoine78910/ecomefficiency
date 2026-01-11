@@ -15,6 +15,20 @@ import AutoRedirectToApp from "@/components/AutoRedirectToApp";
 import PartnerSlugClient from "@/app/(partners)/[slug]/PartnerSlugClient";
 import { supabaseAdmin } from "@/integrations/supabase/server";
 
+function parseMaybeJson<T = any>(value: any): T | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "string") {
+    const s = value.trim();
+    if (!s) return null;
+    try {
+      return JSON.parse(s) as T;
+    } catch {
+      return value as any as T;
+    }
+  }
+  return value as T;
+}
+
 export default async function Home() {
   const h = await headers();
   const host = (h.get('x-forwarded-host') || h.get('host') || '').toLowerCase();
@@ -45,12 +59,13 @@ export default async function Home() {
     try {
       const key = `partner_domain:${bareHost}`;
       const { data } = await supabaseAdmin.from('app_state').select('value').eq('key', key).maybeSingle();
-      const slug = (data as any)?.value?.slug as string | undefined;
+      const mapping = parseMaybeJson((data as any)?.value) as any;
+      const slug = mapping?.slug as string | undefined;
       if (slug) {
         // Read partner config to hydrate the template (same shape used by /[slug] page)
         const cfgKey = `partner_config:${slug}`;
         const { data: cfgRow } = await supabaseAdmin.from('app_state').select('value').eq('key', cfgKey).maybeSingle();
-        const cfg = (cfgRow as any)?.value || {};
+        const cfg = parseMaybeJson((cfgRow as any)?.value) || {};
         const title = String(cfg?.saasName || slug);
         const tagline = String(cfg?.tagline || 'A modern SaaS built for your audience.');
 
