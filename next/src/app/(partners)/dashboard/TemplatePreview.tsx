@@ -1,0 +1,119 @@
+"use client";
+
+import React from "react";
+import Image from "next/image";
+import PartnerSlugClient from "@/app/(partners)/[slug]/PartnerSlugClient";
+
+type PreviewConfig = {
+  slug: string;
+  saasName?: string;
+  tagline?: string;
+  logoUrl?: string;
+  colors?: { main?: string; secondary?: string; accent?: string; background?: string };
+  currency?: string;
+  monthlyPrice?: string;
+  yearlyPrice?: string;
+  annualDiscountPercent?: number;
+  allowPromotionCodes?: boolean;
+  defaultDiscountId?: string;
+};
+
+function safeColor(hex: string | undefined, fallback: string) {
+  const v = String(hex || "").trim();
+  if (!v) return fallback;
+  // accept #rgb/#rrggbb only
+  if (/^#[0-9a-f]{3}([0-9a-f]{3})?$/i.test(v)) return v;
+  return fallback;
+}
+
+export default function TemplatePreview({ config }: { config: PreviewConfig }) {
+  const title = config.saasName || "Your SaaS";
+  const tagline = config.tagline || "A modern SaaS built for your audience.";
+
+  const main = safeColor(config.colors?.main, "#9541e0");
+  const secondary = safeColor(config.colors?.secondary, "#7c30c7");
+
+  return (
+    <div className="rounded-2xl border border-white/10 bg-black/60 shadow-[0_20px_80px_rgba(149,65,224,0.10)] overflow-hidden">
+      <div className="px-4 py-3 border-b border-white/10 bg-white/5 flex items-center justify-between">
+        <div className="text-xs text-gray-300">
+          <span className="font-semibold text-white">Live preview</span> • updates instantly
+        </div>
+        <div className="text-xs text-gray-500 truncate max-w-[55%]">
+          {config.slug ? `partners.ecomefficiency.com/${config.slug}` : "partners.ecomefficiency.com"}
+        </div>
+      </div>
+
+      <div
+        className="relative p-6"
+        style={{
+          background:
+            `radial-gradient(circle at 30% 10%, ${main}2e, transparent 50%),` +
+            `radial-gradient(circle at 80% 40%, ${secondary}24, transparent 55%),` +
+            "linear-gradient(to bottom, rgba(0,0,0,0.35), rgba(0,0,0,0.35))",
+        }}
+      >
+        <div className="flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            {config.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={String(config.logoUrl)} alt={`${title} logo`} className="h-9 w-auto object-contain" />
+            ) : (
+              <Image
+                src="/ecomefficiency.png"
+                alt="Ecom Efficiency"
+                width={160}
+                height={52}
+                priority
+                className="h-9 w-auto object-contain opacity-90"
+              />
+            )}
+            <div className="min-w-0">
+              <div className="text-sm font-semibold truncate">{title}</div>
+              <div className="text-xs text-gray-400 truncate">
+                {config.slug ? `partners.ecomefficiency.com/${config.slug}` : "partners.ecomefficiency.com"}
+              </div>
+            </div>
+          </div>
+
+          <div className="text-xs text-gray-400 border border-white/10 bg-white/5 rounded-xl px-3 py-2">
+            Preview mode
+          </div>
+        </div>
+
+        <div className="mt-10">
+          <div className="text-3xl md:text-4xl font-semibold leading-tight">{title}</div>
+          <div className="mt-3 text-base text-gray-300 max-w-2xl">{tagline}</div>
+        </div>
+
+        <div className="mt-10">
+          <div className="text-xl font-semibold">Checkout</div>
+          <div className="mt-2 text-sm text-gray-400">
+            Subscribe in a few clicks. Payments are handled securely by Stripe.
+          </div>
+
+          <PartnerSlugClient
+            config={{
+              slug: config.slug,
+              saasName: config.saasName,
+              tagline: config.tagline,
+              logoUrl: config.logoUrl,
+              colors: config.colors,
+              currency: config.currency,
+              monthlyPrice: config.monthlyPrice,
+              yearlyPrice: config.yearlyPrice,
+              annualDiscountPercent: config.annualDiscountPercent,
+              allowPromotionCodes: config.allowPromotionCodes,
+              defaultDiscountId: config.defaultDiscountId,
+            } as any}
+          />
+        </div>
+
+        <div className="mt-10 text-xs text-gray-600">
+          Powered by <span className="text-gray-400">Ecom Efficiency Partners</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+

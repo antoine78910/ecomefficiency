@@ -24,17 +24,32 @@ async function readPublicConfig(slug: string) {
   try {
     const key = `partner_config:${safeSlug}`;
     const { data } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
-    const cfg = (data as any)?.value || {};
+    const raw = (data as any)?.value;
+    const cfg = (() => {
+      if (!raw) return {};
+      if (typeof raw === "string") {
+        try { return JSON.parse(raw); } catch { return {}; }
+      }
+      return raw;
+    })();
+    const colors = (cfg as any)?.colors || {};
     return {
       slug: safeSlug,
       saasName: cfg?.saasName ? String(cfg.saasName) : undefined,
       tagline: cfg?.tagline ? String(cfg.tagline) : undefined,
       logoUrl: cfg?.logoUrl ? String(cfg.logoUrl) : undefined,
-      mainColor: cfg?.mainColor ? String(cfg.mainColor) : undefined,
-      secondaryColor: cfg?.secondaryColor ? String(cfg.secondaryColor) : undefined,
-      accentColor: cfg?.accentColor ? String(cfg.accentColor) : undefined,
+      colors: {
+        main: colors?.main ? String(colors.main) : undefined,
+        secondary: colors?.secondary ? String(colors.secondary) : undefined,
+        accent: colors?.accent ? String(colors.accent) : undefined,
+        background: colors?.background ? String(colors.background) : undefined,
+      },
       monthlyPrice: cfg?.monthlyPrice ? String(cfg.monthlyPrice) : undefined,
+      yearlyPrice: cfg?.yearlyPrice ? String(cfg.yearlyPrice) : undefined,
+      annualDiscountPercent: cfg?.annualDiscountPercent !== undefined && cfg?.annualDiscountPercent !== null ? Number(cfg.annualDiscountPercent) : undefined,
       currency: cfg?.currency ? String(cfg.currency) : undefined,
+      allowPromotionCodes: typeof cfg?.allowPromotionCodes === "boolean" ? cfg.allowPromotionCodes : undefined,
+      defaultDiscountId: cfg?.defaultDiscountId ? String(cfg.defaultDiscountId) : undefined,
     };
   } catch {
     return { slug: safeSlug };

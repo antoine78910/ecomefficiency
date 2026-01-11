@@ -6,6 +6,7 @@ import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { Check, Copy, ExternalLink, Loader2, RefreshCcw, Save, Palette, LayoutTemplate } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import TemplatePreview from "./TemplatePreview";
 
 type PartnerConfig = {
   saasName?: string;
@@ -23,6 +24,10 @@ type PartnerConfig = {
   colors?: { main?: string; secondary?: string; accent?: string; background?: string };
   currency?: string;
   monthlyPrice?: string | number;
+  yearlyPrice?: string | number;
+  annualDiscountPercent?: number;
+  allowPromotionCodes?: boolean;
+  defaultDiscountId?: string;
   signupMode?: string;
 };
 
@@ -83,12 +88,29 @@ export default function DashboardClient() {
     saasName: string;
     tagline: string;
     monthlyPrice: string;
+    yearlyPrice: string;
+    annualDiscountPercent: string;
+    allowPromotionCodes: boolean;
+    defaultDiscountId: string;
     currency: string;
     main: string;
     secondary: string;
     accent: string;
     background: string;
-  }>({ saasName: "", tagline: "", monthlyPrice: "", currency: "EUR", main: "", secondary: "", accent: "", background: "" });
+  }>({
+    saasName: "",
+    tagline: "",
+    monthlyPrice: "",
+    yearlyPrice: "",
+    annualDiscountPercent: "",
+    allowPromotionCodes: true,
+    defaultDiscountId: "",
+    currency: "EUR",
+    main: "",
+    secondary: "",
+    accent: "",
+    background: "",
+  });
 
   const copyText = async (text: string) => {
     try {
@@ -254,6 +276,11 @@ export default function DashboardClient() {
       saasName: String(c.saasName || d.saasName || ""),
       tagline: String(c.tagline || d.tagline || ""),
       monthlyPrice: c.monthlyPrice !== undefined && c.monthlyPrice !== null ? String(c.monthlyPrice) : d.monthlyPrice,
+      yearlyPrice: c.yearlyPrice !== undefined && c.yearlyPrice !== null ? String(c.yearlyPrice) : d.yearlyPrice,
+      annualDiscountPercent:
+        c.annualDiscountPercent !== undefined && c.annualDiscountPercent !== null ? String(c.annualDiscountPercent) : d.annualDiscountPercent,
+      allowPromotionCodes: typeof c.allowPromotionCodes === "boolean" ? c.allowPromotionCodes : d.allowPromotionCodes,
+      defaultDiscountId: String((c as any).defaultDiscountId || d.defaultDiscountId || ""),
       currency: String(c.currency || d.currency || "EUR"),
       main: String(colors.main || d.main || ""),
       secondary: String(colors.secondary || d.secondary || ""),
@@ -261,7 +288,17 @@ export default function DashboardClient() {
       background: String(colors.background || d.background || ""),
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [config?.saasName, (config as any)?.tagline, (config as any)?.monthlyPrice, (config as any)?.currency, (config as any)?.colors]);
+  }, [
+    config?.saasName,
+    (config as any)?.tagline,
+    (config as any)?.monthlyPrice,
+    (config as any)?.yearlyPrice,
+    (config as any)?.annualDiscountPercent,
+    (config as any)?.allowPromotionCodes,
+    (config as any)?.defaultDiscountId,
+    (config as any)?.currency,
+    (config as any)?.colors,
+  ]);
 
   // ... rest of file ...
 
@@ -823,6 +860,13 @@ export default function DashboardClient() {
                                 inputMode="decimal"
                                 className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
                               />
+                              <input
+                                value={pageDraft.yearlyPrice}
+                                onChange={(e) => setPageDraft((s) => ({ ...s, yearlyPrice: e.target.value }))}
+                                placeholder="Yearly (optional)"
+                                inputMode="decimal"
+                                className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
+                              />
                               <select
                                 value={pageDraft.currency}
                                 onChange={(e) => setPageDraft((s) => ({ ...s, currency: e.target.value }))}
@@ -831,10 +875,55 @@ export default function DashboardClient() {
                                 <option value="EUR">EUR</option>
                                 <option value="USD">USD</option>
                               </select>
+                              <input
+                                value={pageDraft.annualDiscountPercent}
+                                onChange={(e) => setPageDraft((s) => ({ ...s, annualDiscountPercent: e.target.value }))}
+                                placeholder="Annual discount % (optional)"
+                                inputMode="numeric"
+                                className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
+                              />
                             </div>
+
+                            <div className="rounded-xl border border-white/10 bg-black/30 p-3">
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="min-w-0">
+                                  <div className="text-xs text-gray-300 font-medium">Allow promo codes at checkout</div>
+                                  <div className="text-[11px] text-gray-500 truncate">Customers can enter a Stripe promotion code.</div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setPageDraft((s) => ({ ...s, allowPromotionCodes: !s.allowPromotionCodes }))}
+                                  className={`h-7 w-12 rounded-full border transition ${
+                                    pageDraft.allowPromotionCodes ? "bg-green-500/20 border-green-400/40" : "bg-white/5 border-white/10"
+                                  }`}
+                                >
+                                  <span
+                                    className={`block h-5 w-5 rounded-full bg-white/80 translate-y-[1px] transition ${
+                                      pageDraft.allowPromotionCodes ? "translate-x-[22px]" : "translate-x-[2px]"
+                                    }`}
+                                  />
+                                </button>
+                              </div>
+                            </div>
+
+                            <input
+                              value={pageDraft.defaultDiscountId}
+                              onChange={(e) => setPageDraft((s) => ({ ...s, defaultDiscountId: e.target.value }))}
+                              placeholder="Default discount ID (optional): coupon_... or promo_..."
+                              className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
+                            />
                             <button
                               type="button"
-                              onClick={() => saveConfig({ monthlyPrice: pageDraft.monthlyPrice.trim(), currency: pageDraft.currency })}
+                              onClick={() =>
+                                saveConfig({
+                                  monthlyPrice: pageDraft.monthlyPrice.trim(),
+                                  yearlyPrice: pageDraft.yearlyPrice.trim(),
+                                  annualDiscountPercent: pageDraft.annualDiscountPercent ? Number(pageDraft.annualDiscountPercent) : undefined,
+                                  currency: pageDraft.currency,
+                                  allowPromotionCodes: Boolean(pageDraft.allowPromotionCodes),
+                                  defaultDiscountId: pageDraft.defaultDiscountId.trim(),
+                                })
+                              }
                               disabled={saving}
                               className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm"
                             >
@@ -855,6 +944,29 @@ export default function DashboardClient() {
                       <img src={String(config.logoUrl)} alt="Logo" className="w-24 h-24 rounded-xl border border-white/10 object-contain bg-black/30" />
                     ) : null}
                   </div>
+                </Card>
+
+                <Card title="Live preview">
+                  <TemplatePreview
+                    config={{
+                      slug,
+                      saasName: pageDraft.saasName,
+                      tagline: pageDraft.tagline,
+                      logoUrl: config.logoUrl ? String(config.logoUrl) : undefined,
+                      colors: {
+                        main: pageDraft.main,
+                        secondary: pageDraft.secondary,
+                        accent: pageDraft.accent,
+                        background: pageDraft.background,
+                      },
+                      currency: pageDraft.currency,
+                      monthlyPrice: pageDraft.monthlyPrice,
+                      yearlyPrice: pageDraft.yearlyPrice,
+                      annualDiscountPercent: pageDraft.annualDiscountPercent ? Number(pageDraft.annualDiscountPercent) : undefined,
+                      allowPromotionCodes: pageDraft.allowPromotionCodes,
+                      defaultDiscountId: pageDraft.defaultDiscountId,
+                    }}
+                  />
                 </Card>
 
                 <Card title="Page requests">

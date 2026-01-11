@@ -66,6 +66,7 @@ export default async function Home() {
         const cfgKey = `partner_config:${slug}`;
         const { data: cfgRow } = await supabaseAdmin.from('app_state').select('value').eq('key', cfgKey).maybeSingle();
         const cfg = parseMaybeJson((cfgRow as any)?.value) || {};
+        const colors = (cfg as any)?.colors || {};
         const title = String(cfg?.saasName || slug);
         const tagline = String(cfg?.tagline || 'A modern SaaS built for your audience.');
 
@@ -102,11 +103,18 @@ export default async function Home() {
                     saasName: cfg?.saasName,
                     tagline: cfg?.tagline,
                     logoUrl: cfg?.logoUrl,
-                    mainColor: cfg?.mainColor,
-                    secondaryColor: cfg?.secondaryColor,
-                    accentColor: cfg?.accentColor,
+                    colors: {
+                      main: colors?.main,
+                      secondary: colors?.secondary,
+                      accent: colors?.accent,
+                      background: colors?.background,
+                    },
                     monthlyPrice: cfg?.monthlyPrice,
+                    yearlyPrice: cfg?.yearlyPrice,
+                    annualDiscountPercent: cfg?.annualDiscountPercent,
                     currency: cfg?.currency,
+                    allowPromotionCodes: cfg?.allowPromotionCodes,
+                    defaultDiscountId: cfg?.defaultDiscountId,
                   }}
                 />
               </div>
