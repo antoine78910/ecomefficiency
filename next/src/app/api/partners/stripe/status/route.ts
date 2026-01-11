@@ -33,12 +33,15 @@ export async function GET(req: NextRequest) {
       try {
         let startingAfter: string | undefined = undefined;
         for (let i = 0; i < 5; i++) {
-          const page = await stripe.accounts.list({ limit: 100, ...(startingAfter ? { starting_after: startingAfter } : {}) } as any);
-          for (const a of page.data || []) {
+          const listResp: Stripe.ApiList<Stripe.Account> = await stripe.accounts.list({
+            limit: 100,
+            ...(startingAfter ? { starting_after: startingAfter } : {}),
+          });
+          for (const a of listResp.data || []) {
             if ((a as any)?.metadata?.partner_slug === s) return a.id;
           }
-          if (!page.has_more) break;
-          startingAfter = page.data?.[page.data.length - 1]?.id;
+          if (!listResp.has_more) break;
+          startingAfter = listResp.data?.[listResp.data.length - 1]?.id;
         }
       } catch {}
       return "";
