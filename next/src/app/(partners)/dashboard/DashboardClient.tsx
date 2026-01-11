@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
-import { Check, Copy, ExternalLink, Loader2, RefreshCcw, Save } from "lucide-react";
+import { Check, Copy, ExternalLink, Loader2, RefreshCcw, Save, Palette, LayoutTemplate } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 type PartnerConfig = {
@@ -18,6 +18,15 @@ type PartnerConfig = {
   connectedAccountId?: string;
   feeModel?: "percent_50" | "";
   notes?: string;
+  tagline?: string;
+  logoUrl?: string;
+  mainColor?: string;
+  secondaryColor?: string;
+  accentColor?: string;
+  backgroundColor?: string;
+  currency?: string;
+  monthlyPrice?: string;
+  signupMode?: string;
 };
 
 type PartnerStats = {
@@ -50,7 +59,7 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 export default function DashboardClient() {
   const searchParams = useSearchParams();
   const qsSlug = searchParams?.get("slug") || "";
-  const initialTab = (searchParams?.get("tab") || "settings") as "data" | "settings";
+  const initialTab = (searchParams?.get("tab") || "settings") as "data" | "settings" | "page";
   const qsAcct = searchParams?.get("acct") || "";
 
   const [slug, setSlug] = React.useState<string>(qsSlug);
@@ -62,11 +71,15 @@ export default function DashboardClient() {
   const [connectLoading, setConnectLoading] = React.useState(false);
   const didAutoSetFee = React.useRef(false);
   const [accountEmail, setAccountEmail] = React.useState<string>("");
-  const [tab, setTab] = React.useState<"data" | "settings">(initialTab);
+  const [tab, setTab] = React.useState<"data" | "settings" | "page">(initialTab);
   const [stripeStatus, setStripeStatus] = React.useState<StripeStatus>({ connected: false });
   const [domainVerify, setDomainVerify] = React.useState<{ status: "idle" | "checking" | "ok" | "fail"; message?: string }>({
     status: "idle",
   });
+  const [requests, setRequests] = React.useState<Array<{ id: string; createdAt: string; email?: string; message: string }>>([]);
+  const [requestDraft, setRequestDraft] = React.useState("");
+  const [requestLoading, setRequestLoading] = React.useState(false);
+  const [requestError, setRequestError] = React.useState<string | null>(null);
 
   const copyText = async (text: string) => {
     try {
@@ -80,7 +93,7 @@ export default function DashboardClient() {
   React.useEffect(() => {
     try {
       const t = (searchParams?.get("tab") || "") as any;
-      if (t === "data" || t === "settings") setTab(t);
+      if (t === "data" || t === "settings" || t === "page") setTab(t);
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
@@ -114,6 +127,22 @@ export default function DashboardClient() {
     const partnersHost = host.startsWith("partners.") ? host : `partners.${host}`;
     return `https://${partnersHost}/${slug}`;
   }, [slug]);
+
+  const publicPageUrl = React.useMemo(() => {
+    if (!slug) return "";
+    const host = typeof window !== "undefined" ? window.location.hostname.replace(/^www\./, "") : "partners.ecomefficiency.com";
+    const partnersHost = host.startsWith("partners.") ? host : `partners.${host}`;
+    return `https://${partnersHost}/${slug}`;
+  }, [slug]);
+
+  const loadRequests = React.useCallback(async (s: string) => {
+    try {
+      const res = await fetch(`/api/partners/requests?slug=${encodeURIComponent(s)}`, { cache: "no-store" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) return;
+      setRequests(Array.isArray(json.requests) ? json.requests : []);
+    } catch {}
+  }, []);
 
   const fetchStripeStatus = React.useCallback(async (s: string) => {
     try {
@@ -187,6 +216,8 @@ export default function DashboardClient() {
       if (statsRes.ok && statsJson?.ok) setStats(statsJson.stats || null);
       // Refresh Stripe status (best-effort)
       fetchStripeStatus(s);
+      // Best-effort load requests (for Page tab)
+      loadRequests(s);
 
       if ((!cfgRes.ok || !cfgJson?.ok) && (!statsRes.ok || !statsJson?.ok)) {
         setError(cfgJson?.error || statsJson?.error || "Failed to load dashboard data.");
@@ -222,6 +253,29 @@ export default function DashboardClient() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, searchParams]);
+
+  const submitRequest = async () => {
+    if (!slug) return;
+    const message = requestDraft.trim();
+    if (!message) return;
+    setRequestLoading(true);
+    setRequestError(null);
+    try {
+      const res = await fetch("/api/partners/requests", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ slug, email: accountEmail || config.adminEmail || "", message }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) throw new Error(json?.detail || json?.error || "Failed to submit request");
+      setRequests(Array.isArray(json.requests) ? json.requests : requests);
+      setRequestDraft("");
+    } catch (e: any) {
+      setRequestError(e?.message || "Failed to submit request");
+    } finally {
+      setRequestLoading(false);
+    }
+  };
 
   // Force fee model to 50% (no other options)
   React.useEffect(() => {
@@ -338,6 +392,16 @@ export default function DashboardClient() {
                   <div className="text-sm font-medium">Settings</div>
                   <div className="text-xs text-gray-500">Stripe & domain</div>
                 </button>
+                <button
+                  type="button"
+                  onClick={() => setTab("page")}
+                  className={`w-full text-left px-3 py-2 rounded-xl border transition ${
+                    tab === "page" ? "border-purple-400/40 bg-purple-500/15 text-white" : "border-transparent hover:border-white/10 hover:bg-white/5 text-gray-300"
+                  }`}
+                >
+                  <div className="text-sm font-medium">Page</div>
+                  <div className="text-xs text-gray-500">Branding & requests</div>
+                </button>
               </nav>
               <div className="mt-4 border-t border-white/10 pt-3 px-2">
                 <div className="text-xs text-gray-500">Default URL</div>
@@ -453,7 +517,7 @@ export default function DashboardClient() {
                   </div>
                 </Card>
               </div>
-            ) : (
+            ) : tab === "settings" ? (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <Card title="Stripe payments (Connect)">
                   <div className="text-sm text-gray-300">
@@ -616,6 +680,106 @@ export default function DashboardClient() {
                         {domainVerify.message || (domainVerify.status === "checking" ? "Checking…" : "")}
                       </div>
                     ) : null}
+                  </div>
+                </Card>
+              </div>
+            ) : (
+              <div className="space-y-4">
+                <Card title="Page & branding">
+                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="text-sm text-gray-300">
+                        Public page:{" "}
+                        {publicPageUrl ? (
+                          <a href={publicPageUrl} target="_blank" rel="noreferrer" className="text-purple-300 hover:text-purple-200 break-all">
+                            {publicPageUrl}
+                          </a>
+                        ) : (
+                          <span className="text-gray-500">—</span>
+                        )}
+                      </div>
+                      <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
+                        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                          <div className="text-xs text-gray-400 mb-1 inline-flex items-center gap-2"><LayoutTemplate className="w-4 h-4" /> SaaS</div>
+                          <div className="text-gray-200 font-medium">{config.saasName || "—"}</div>
+                          <div className="text-xs text-gray-500 mt-1">{config.tagline || "—"}</div>
+                        </div>
+                        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                          <div className="text-xs text-gray-400 mb-1 inline-flex items-center gap-2"><Palette className="w-4 h-4" /> Colors</div>
+                          <div className="grid grid-cols-2 gap-2 text-xs">
+                            {([
+                              ["Main", config.mainColor],
+                              ["Secondary", config.secondaryColor],
+                              ["Accent", config.accentColor],
+                              ["Background", config.backgroundColor],
+                            ] as const).map(([label, value]) => (
+                              <div key={label} className="flex items-center gap-2">
+                                <div className="w-4 h-4 rounded border border-white/10" style={{ background: value || "transparent" }} />
+                                <div className="text-gray-300">{label}:</div>
+                                <div className="font-mono text-gray-200">{value || "—"}</div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                          <div className="text-xs text-gray-400 mb-1">Pricing</div>
+                          <div className="text-gray-200 font-medium">
+                            {config.monthlyPrice ? `${config.monthlyPrice}/mo` : "—"} {config.currency ? `(${String(config.currency).toUpperCase()})` : ""}
+                          </div>
+                          <div className="text-xs text-gray-500 mt-1">Signup mode: {config.signupMode || "—"}</div>
+                        </div>
+                        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                          <div className="text-xs text-gray-400 mb-1">Custom domain</div>
+                          <div className="text-gray-200 font-medium break-all">{config.customDomain || "—"}</div>
+                          <div className="text-xs text-gray-500 mt-1">Stripe: {stripeStatus.connected ? "connected" : "not connected"}</div>
+                        </div>
+                      </div>
+                    </div>
+                    {config.logoUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={String(config.logoUrl)} alt="Logo" className="w-24 h-24 rounded-xl border border-white/10 object-contain bg-black/30" />
+                    ) : null}
+                  </div>
+                </Card>
+
+                <Card title="Page requests">
+                  <div className="text-xs text-gray-500 mb-3">Ask us to edit your page/template. We’ll see it in your workspace.</div>
+                  <textarea
+                    value={requestDraft}
+                    onChange={(e) => setRequestDraft(e.target.value)}
+                    placeholder="Example: Change hero copy, add 3 testimonials, update CTA color…"
+                    className="w-full min-h-[110px] rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
+                  />
+                  <div className="mt-3 flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={submitRequest}
+                      disabled={requestLoading || !requestDraft.trim()}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {requestLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                      Submit request
+                    </button>
+                    {requestError ? <div className="text-xs text-red-300">{requestError}</div> : null}
+                  </div>
+
+                  <div className="mt-5">
+                    <div className="text-xs text-gray-400 mb-2">Latest requests</div>
+                    <div className="space-y-2">
+                      {requests.length ? (
+                        requests.slice(0, 8).map((r) => (
+                          <div key={r.id} className="rounded-xl border border-white/10 bg-white/5 p-3">
+                            <div className="flex items-center justify-between gap-3 text-xs text-gray-400">
+                              <div className="truncate">{r.email || "—"}</div>
+                              <div className="shrink-0">{r.createdAt ? new Date(r.createdAt).toLocaleString() : ""}</div>
+                            </div>
+                            <div className="mt-2 text-sm text-gray-200 whitespace-pre-wrap">{r.message}</div>
+                          </div>
+                        ))
+                      ) : (
+                        <div className="text-xs text-gray-500">No requests yet.</div>
+                      )}
+                    </div>
                   </div>
                 </Card>
               </div>
