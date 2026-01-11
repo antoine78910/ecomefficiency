@@ -62,8 +62,23 @@ export async function POST(req: NextRequest) {
 
     const next = [item, ...current].slice(0, 200);
 
-    const { error } = await supabaseAdmin.from("app_state").upsert({ key, value: next }, { onConflict: "key" as any });
-    if (error) return NextResponse.json({ ok: false, error: "db_error", detail: error.message }, { status: 500 });
+    const tryUpsert = async (withUpdatedAt: boolean) => {
+      const row: any = withUpdatedAt
+        ? { key, value: next, updated_at: new Date().toISOString() }
+        : { key, value: next };
+      const { error } = await supabaseAdmin.from("app_state").upsert(row, { onConflict: "key" as any });
+      return error;
+    };
+
+    let err: any = await tryUpsert(true);
+    if (err) {
+      const msg = String(err?.message || "");
+      const missingUpdatedAt =
+        /updated_at/i.test(msg) &&
+        /(does not exist|unknown column|column)/i.test(msg);
+      if (missingUpdatedAt) err = await tryUpsert(false);
+    }
+    if (err) return NextResponse.json({ ok: false, error: "db_error", detail: err?.message || "db error" }, { status: 500 });
 
     return NextResponse.json({ ok: true, item, requests: next.slice(0, 100) }, { status: 200 });
   } catch (e: any) {

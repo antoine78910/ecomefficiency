@@ -21,12 +21,9 @@ type PartnerConfig = {
   notes?: string;
   tagline?: string;
   logoUrl?: string;
-  mainColor?: string;
-  secondaryColor?: string;
-  accentColor?: string;
-  backgroundColor?: string;
+  colors?: { main?: string; secondary?: string; accent?: string; background?: string };
   currency?: string;
-  monthlyPrice?: string;
+  monthlyPrice?: string | number;
   signupMode?: string;
 };
 
@@ -82,6 +79,16 @@ export default function DashboardClient() {
   const [requestDraft, setRequestDraft] = React.useState("");
   const [requestLoading, setRequestLoading] = React.useState(false);
   const [requestError, setRequestError] = React.useState<string | null>(null);
+  const [pageDraft, setPageDraft] = React.useState<{
+    saasName: string;
+    tagline: string;
+    monthlyPrice: string;
+    currency: string;
+    main: string;
+    secondary: string;
+    accent: string;
+    background: string;
+  }>({ saasName: "", tagline: "", monthlyPrice: "", currency: "EUR", main: "", secondary: "", accent: "", background: "" });
 
   const copyText = async (text: string) => {
     try {
@@ -231,6 +238,24 @@ export default function DashboardClient() {
       setLoading(false);
     }
   };
+
+  // Keep page editor draft in sync with loaded config
+  React.useEffect(() => {
+    const c = config || {};
+    const colors = (c as any).colors || {};
+    setPageDraft((d) => ({
+      ...d,
+      saasName: String(c.saasName || d.saasName || ""),
+      tagline: String(c.tagline || d.tagline || ""),
+      monthlyPrice: c.monthlyPrice !== undefined && c.monthlyPrice !== null ? String(c.monthlyPrice) : d.monthlyPrice,
+      currency: String(c.currency || d.currency || "EUR"),
+      main: String(colors.main || d.main || ""),
+      secondary: String(colors.secondary || d.secondary || ""),
+      accent: String(colors.accent || d.accent || ""),
+      background: String(colors.background || d.background || ""),
+    }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [config?.saasName, (config as any)?.tagline, (config as any)?.monthlyPrice, (config as any)?.currency, (config as any)?.colors]);
 
   React.useEffect(() => {
     if (!slug) return;
@@ -704,32 +729,100 @@ export default function DashboardClient() {
                       <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                         <div className="rounded-xl border border-white/10 bg-white/5 p-3">
                           <div className="text-xs text-gray-400 mb-1 inline-flex items-center gap-2"><LayoutTemplate className="w-4 h-4" /> SaaS</div>
-                          <div className="text-gray-200 font-medium">{config.saasName || "—"}</div>
-                          <div className="text-xs text-gray-500 mt-1">{config.tagline || "—"}</div>
+                          <div className="space-y-2">
+                            <input
+                              value={pageDraft.saasName}
+                              onChange={(e) => setPageDraft((s) => ({ ...s, saasName: e.target.value }))}
+                              placeholder="SaaS name"
+                              className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
+                            />
+                            <input
+                              value={pageDraft.tagline}
+                              onChange={(e) => setPageDraft((s) => ({ ...s, tagline: e.target.value }))}
+                              placeholder="Tagline"
+                              className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => saveConfig({ saasName: pageDraft.saasName.trim(), tagline: pageDraft.tagline.trim() })}
+                              disabled={saving}
+                              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm"
+                            >
+                              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                              Save
+                            </button>
+                          </div>
                         </div>
                         <div className="rounded-xl border border-white/10 bg-white/5 p-3">
                           <div className="text-xs text-gray-400 mb-1 inline-flex items-center gap-2"><Palette className="w-4 h-4" /> Colors</div>
-                          <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="space-y-2">
                             {([
-                              ["Main", config.mainColor],
-                              ["Secondary", config.secondaryColor],
-                              ["Accent", config.accentColor],
-                              ["Background", config.backgroundColor],
-                            ] as const).map(([label, value]) => (
-                              <div key={label} className="flex items-center gap-2">
-                                <div className="w-4 h-4 rounded border border-white/10" style={{ background: value || "transparent" }} />
-                                <div className="text-gray-300">{label}:</div>
-                                <div className="font-mono text-gray-200">{value || "—"}</div>
+                              ["Main", "main"],
+                              ["Secondary", "secondary"],
+                              ["Accent", "accent"],
+                              ["Background", "background"],
+                            ] as const).map(([label, key]) => (
+                              <div key={key} className="flex items-center gap-2">
+                                <div className="w-4 h-4 rounded border border-white/10" style={{ background: (pageDraft as any)[key] || "transparent" }} />
+                                <div className="w-20 text-xs text-gray-400">{label}</div>
+                                <input
+                                  value={(pageDraft as any)[key]}
+                                  onChange={(e) => setPageDraft((s) => ({ ...s, [key]: e.target.value } as any))}
+                                  placeholder="#111111"
+                                  className="flex-1 rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25 font-mono"
+                                />
                               </div>
                             ))}
+                            <button
+                              type="button"
+                              onClick={() =>
+                                saveConfig({
+                                  colors: {
+                                    main: pageDraft.main.trim(),
+                                    secondary: pageDraft.secondary.trim(),
+                                    accent: pageDraft.accent.trim(),
+                                    background: pageDraft.background.trim(),
+                                  },
+                                })
+                              }
+                              disabled={saving}
+                              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm"
+                            >
+                              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                              Save
+                            </button>
                           </div>
                         </div>
                         <div className="rounded-xl border border-white/10 bg-white/5 p-3">
                           <div className="text-xs text-gray-400 mb-1">Pricing</div>
-                          <div className="text-gray-200 font-medium">
-                            {config.monthlyPrice ? `${config.monthlyPrice}/mo` : "—"} {config.currency ? `(${String(config.currency).toUpperCase()})` : ""}
+                          <div className="space-y-2">
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              <input
+                                value={pageDraft.monthlyPrice}
+                                onChange={(e) => setPageDraft((s) => ({ ...s, monthlyPrice: e.target.value }))}
+                                placeholder="29.99"
+                                inputMode="decimal"
+                                className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
+                              />
+                              <select
+                                value={pageDraft.currency}
+                                onChange={(e) => setPageDraft((s) => ({ ...s, currency: e.target.value }))}
+                                className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
+                              >
+                                <option value="EUR">EUR</option>
+                                <option value="USD">USD</option>
+                              </select>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => saveConfig({ monthlyPrice: pageDraft.monthlyPrice.trim(), currency: pageDraft.currency })}
+                              disabled={saving}
+                              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm"
+                            >
+                              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                              Save
+                            </button>
                           </div>
-                          <div className="text-xs text-gray-500 mt-1">Signup mode: {config.signupMode || "—"}</div>
                         </div>
                         <div className="rounded-xl border border-white/10 bg-white/5 p-3">
                           <div className="text-xs text-gray-400 mb-1">Custom domain</div>

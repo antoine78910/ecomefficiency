@@ -81,8 +81,22 @@ export async function PUT(req: NextRequest) {
       const nextDomain = cleanDomain((merged as any)?.customDomain || "");
       if (nextDomain) {
         const domainKey = `partner_domain:${nextDomain}`;
-        // Best-effort upsert (no updated_at dependency)
-        await supabaseAdmin.from("app_state").upsert({ key: domainKey, value: { slug } }, { onConflict: "key" as any });
+        // Best-effort upsert (tolerant to presence/absence of updated_at)
+        const tryUpsertDomain = async (withUpdatedAt: boolean) => {
+          const row: any = withUpdatedAt
+            ? { key: domainKey, value: { slug }, updated_at: new Date().toISOString() }
+            : { key: domainKey, value: { slug } };
+          const { error } = await supabaseAdmin.from("app_state").upsert(row, { onConflict: "key" as any });
+          return error;
+        };
+        let derr: any = await tryUpsertDomain(true);
+        if (derr) {
+          const msg = String(derr?.message || "");
+          const missingUpdatedAt =
+            /updated_at/i.test(msg) &&
+            /(does not exist|unknown column|column)/i.test(msg);
+          if (missingUpdatedAt) derr = await tryUpsertDomain(false);
+        }
       }
     } catch {}
 
