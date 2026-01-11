@@ -6,7 +6,6 @@ import Image from "next/image";
 import { useSearchParams } from "next/navigation";
 import { Check, Copy, ExternalLink, Loader2, RefreshCcw, Save, Palette, LayoutTemplate } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { useToast } from "@/hooks/use-toast";
 
 type PartnerConfig = {
   saasName?: string;
@@ -55,7 +54,6 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 }
 
 export default function DashboardClient() {
-  const { toast } = useToast();
   const searchParams = useSearchParams();
   const qsSlug = searchParams?.get("slug") || "";
   const initialTab = (searchParams?.get("tab") || "settings") as "data" | "settings" | "page";
@@ -79,6 +77,8 @@ export default function DashboardClient() {
   const [requestDraft, setRequestDraft] = React.useState("");
   const [requestLoading, setRequestLoading] = React.useState(false);
   const [requestError, setRequestError] = React.useState<string | null>(null);
+  const [copiedPulse, setCopiedPulse] = React.useState(false);
+  const copiedTimer = React.useRef<number | null>(null);
   const [pageDraft, setPageDraft] = React.useState<{
     saasName: string;
     tagline: string;
@@ -94,9 +94,15 @@ export default function DashboardClient() {
     try {
       if (!text) return;
       await navigator.clipboard.writeText(text);
-      toast({ title: "Copied", description: text });
-    } catch {
-      toast({ title: "Copy failed", description: "Your browser blocked clipboard access.", variant: "destructive" });
+      if (copiedTimer.current) window.clearTimeout(copiedTimer.current);
+      setCopiedPulse(true);
+      copiedTimer.current = window.setTimeout(() => setCopiedPulse(false), 900);
+    } catch {}
+  };
+
+  React.useEffect(() => {
+    return () => {
+      if (copiedTimer.current) window.clearTimeout(copiedTimer.current);
     }
   };
 
@@ -257,6 +263,8 @@ export default function DashboardClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [config?.saasName, (config as any)?.tagline, (config as any)?.monthlyPrice, (config as any)?.currency, (config as any)?.colors]);
 
+  // ... rest of file ...
+
   React.useEffect(() => {
     if (!slug) return;
     loadAll(slug);
@@ -369,6 +377,11 @@ export default function DashboardClient() {
 
   return (
     <div className="min-h-screen bg-black text-white">
+      {copiedPulse ? (
+        <div className="fixed top-4 right-4 z-50 rounded-full border border-white/10 bg-white/10 px-2 py-2 shadow-[0_10px_40px_rgba(0,0,0,0.35)] backdrop-blur">
+          <Check className="h-4 w-4 text-green-300" />
+        </div>
+      ) : null}
       <div className="max-w-6xl mx-auto px-6 py-8">
         <div className="flex items-start justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
