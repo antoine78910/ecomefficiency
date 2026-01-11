@@ -666,7 +666,7 @@ export default function DashboardClient() {
                         try {
                           const d = String(config.customDomain || "").trim();
                           if (!d) {
-                            toast({ title: "Missing domain", description: "Please enter a domain first.", variant: "destructive" });
+                            setDomainVerify({ status: "fail", message: "Please enter a domain first." });
                             return;
                           }
                           setDomainVerify({ status: "checking" });
@@ -676,7 +676,6 @@ export default function DashboardClient() {
                             setDomainVerify({ status: "ok", message: "Verified ✅" });
                             // Auto-save mapping (no separate Save button)
                             await saveConfig({ customDomain: d });
-                            toast({ title: "Domain verified", description: "Saved successfully." });
                             return;
                           }
                           const expected = Array.isArray(json?.expected) ? json.expected : [];
@@ -684,12 +683,19 @@ export default function DashboardClient() {
                             .map((r: any) => `${r.type} ${r.name} ${r.value}`)
                             .slice(0, 3)
                             .join(" • ");
-                          const msg = hint ? `Not verified yet. Expected: ${hint}` : "Not verified yet.";
+                          const a = Array.isArray(json?.checks?.a) ? json.checks.a.join(", ") : "";
+                          const cname = Array.isArray(json?.checks?.cname) ? json.checks.cname.join(", ") : "";
+                          const wwwCname = Array.isArray(json?.checks?.www_cname) ? json.checks.www_cname.join(", ") : "";
+                          const seenParts = [
+                            a ? `A=${a}` : "",
+                            cname ? `CNAME(root)=${cname}` : "",
+                            wwwCname ? `CNAME(www)=${wwwCname}` : "",
+                          ].filter(Boolean);
+                          const seen = seenParts.length ? ` Seen: ${seenParts.join(" • ")}` : "";
+                          const msg = hint ? `Not verified yet. Expected: ${hint}.${seen}` : `Not verified yet.${seen}`;
                           setDomainVerify({ status: "fail", message: msg });
-                          toast({ title: "Not verified yet", description: msg, variant: "destructive" });
                         } catch (e: any) {
                           setDomainVerify({ status: "fail", message: e?.message || "Verify failed" });
-                          toast({ title: "Verify failed", description: e?.message || "Verify failed", variant: "destructive" });
                         }
                       }}
                       disabled={saving || domainVerify.status === "checking"}
