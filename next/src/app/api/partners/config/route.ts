@@ -13,6 +13,16 @@ function cleanSlug(input: string) {
     .replace(/^-|-$/g, "");
 }
 
+function cleanDomain(input: string) {
+  return String(input || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/\/.*$/, "")
+    .replace(/:\d+$/, "")
+    .replace(/^www\./, "");
+}
+
 async function readConfig(slug: string) {
   const key = `partner_config:${slug}`;
   const { data, error } = await supabaseAdmin.from("app_state").select("key,value").eq("key", key).maybeSingle();
@@ -65,6 +75,16 @@ export async function PUT(req: NextRequest) {
       if (/updated_at/i.test(msg)) err = await tryUpsert(false);
     }
     if (err) return NextResponse.json({ ok: false, error: "db_error", detail: err?.message || "db error" }, { status: 500 });
+
+    // Optional: create a domain->slug mapping for serving the partner template on the custom domain root.
+    try {
+      const nextDomain = cleanDomain((merged as any)?.customDomain || "");
+      if (nextDomain) {
+        const domainKey = `partner_domain:${nextDomain}`;
+        // Best-effort upsert (no updated_at dependency)
+        await supabaseAdmin.from("app_state").upsert({ key: domainKey, value: { slug } }, { onConflict: "key" as any });
+      }
+    } catch {}
 
     return NextResponse.json({ ok: true, config: merged }, { status: 200 });
   } catch (e: any) {

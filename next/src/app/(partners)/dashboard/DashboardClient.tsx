@@ -512,7 +512,41 @@ export default function DashboardClient() {
                       {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                       Save
                     </button>
-                    <div className="text-xs text-gray-500">DNS will be provided after Stripe is connected and your workspace is provisioned.</div>
+                    <div className="text-xs text-gray-500">
+                      After saving, point your domain to Vercel, then your root domain will show the SaaS template (same as <span className="text-gray-300">/{slug}</span>).
+                    </div>
+                    <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-gray-300">
+                      <div className="text-gray-400 mb-2">DNS (Vercel) example</div>
+                      <div className="space-y-1 font-mono">
+                        <div>A @ 76.76.21.21 (apex/root)</div>
+                        <div>CNAME www cname.vercel-dns.com</div>
+                      </div>
+                      <div className="mt-2 text-gray-400">
+                        Then click “Verify DNS” below.
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        try {
+                          const d = String(config.customDomain || "").trim();
+                          if (!d) return;
+                          const res = await fetch(`/api/partners/domain/verify?domain=${encodeURIComponent(d)}`, { cache: "no-store" });
+                          const json = await res.json().catch(() => ({}));
+                          if (res.ok && json?.ok && json?.verified) {
+                            setError(null);
+                          } else {
+                            setError(`Domain not verified yet. Expected: ${json?.expected?.type || ""} ${json?.expected?.name || ""} ${json?.expected?.value || ""}`.trim());
+                          }
+                        } catch (e: any) {
+                          setError(e?.message || "Verify failed");
+                        }
+                      }}
+                      disabled={saving}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm"
+                    >
+                      Verify DNS
+                    </button>
                   </div>
                 </Card>
               </div>
