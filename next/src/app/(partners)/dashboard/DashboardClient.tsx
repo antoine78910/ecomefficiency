@@ -103,8 +103,8 @@ export default function DashboardClient() {
   React.useEffect(() => {
     return () => {
       if (copiedTimer.current) window.clearTimeout(copiedTimer.current);
-    }
-  };
+    };
+  }, []);
 
   React.useEffect(() => {
     try {
