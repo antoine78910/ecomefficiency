@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
-import { Check, ExternalLink, Loader2, RefreshCcw, Save } from "lucide-react";
+import { Check, Copy, ExternalLink, Loader2, RefreshCcw, Save } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 type PartnerConfig = {
@@ -67,6 +67,15 @@ export default function DashboardClient() {
   const [domainVerify, setDomainVerify] = React.useState<{ status: "idle" | "checking" | "ok" | "fail"; message?: string }>({
     status: "idle",
   });
+
+  const copyText = async (text: string) => {
+    try {
+      if (!text) return;
+      await navigator.clipboard.writeText(text);
+    } catch {
+      // ignore (some browsers block clipboard without user gesture)
+    }
+  };
 
   React.useEffect(() => {
     try {
@@ -510,17 +519,62 @@ export default function DashboardClient() {
                       {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                       Save
                     </button>
-                    <div className="text-xs text-gray-500">
-                      After saving, point your domain to Vercel, then your root domain will show the SaaS template (same as <span className="text-gray-300">/{slug}</span>).
-                    </div>
                     <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-gray-300">
-                      <div className="text-gray-400 mb-2">DNS records (copy/paste) — works with any provider</div>
-                      <div className="space-y-1 font-mono">
-                        <div>A @ 76.76.21.21</div>
-                        <div>CNAME www cname.vercel-dns.com</div>
-                      </div>
-                      <div className="mt-2 text-gray-400">
-                        If you use a subdomain (ex: <span className="text-gray-300">app</span>), set <span className="text-gray-300">CNAME app</span> to <span className="text-gray-300">cname.vercel-dns.com</span>.
+                      <div className="text-gray-400 mb-3">DNS records (copy/paste)</div>
+                      <div className="space-y-2">
+                        <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="text-xs text-gray-400">A record</div>
+                            <div className="text-[11px] text-gray-500">Type: A</div>
+                          </div>
+                          <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div className="rounded-md border border-white/10 bg-white/5 px-2 py-1.5 flex items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <div className="text-[11px] text-gray-400">Host</div>
+                                <div className="font-mono text-sm text-gray-200 truncate">@</div>
+                              </div>
+                              <button type="button" onClick={() => copyText("@")} className="shrink-0 p-1 rounded hover:bg-white/10" aria-label="Copy host">
+                                <Copy className="w-4 h-4 text-gray-300" />
+                              </button>
+                            </div>
+                            <div className="rounded-md border border-white/10 bg-white/5 px-2 py-1.5 flex items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <div className="text-[11px] text-gray-400">Target</div>
+                                <div className="font-mono text-sm text-gray-200 truncate">76.76.21.21</div>
+                              </div>
+                              <button type="button" onClick={() => copyText("76.76.21.21")} className="shrink-0 p-1 rounded hover:bg-white/10" aria-label="Copy target">
+                                <Copy className="w-4 h-4 text-gray-300" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="rounded-lg border border-white/10 bg-black/20 p-3">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="text-xs text-gray-400">CNAME record</div>
+                            <div className="text-[11px] text-gray-500">Type: CNAME</div>
+                          </div>
+                          <div className="mt-2 grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <div className="rounded-md border border-white/10 bg-white/5 px-2 py-1.5 flex items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <div className="text-[11px] text-gray-400">Host</div>
+                                <div className="font-mono text-sm text-gray-200 truncate">www</div>
+                              </div>
+                              <button type="button" onClick={() => copyText("www")} className="shrink-0 p-1 rounded hover:bg-white/10" aria-label="Copy host">
+                                <Copy className="w-4 h-4 text-gray-300" />
+                              </button>
+                            </div>
+                            <div className="rounded-md border border-white/10 bg-white/5 px-2 py-1.5 flex items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <div className="text-[11px] text-gray-400">Target</div>
+                                <div className="font-mono text-sm text-gray-200 truncate">cname.vercel-dns.com</div>
+                              </div>
+                              <button type="button" onClick={() => copyText("cname.vercel-dns.com")} className="shrink-0 p-1 rounded hover:bg-white/10" aria-label="Copy target">
+                                <Copy className="w-4 h-4 text-gray-300" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
                     <button
