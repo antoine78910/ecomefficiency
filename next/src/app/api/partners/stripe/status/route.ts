@@ -22,25 +22,43 @@ function getStripe() {
 
 export async function GET(req: NextRequest) {
   try {
-    if (!supabaseAdmin) {
-      return NextResponse.json({ ok: false, error: "supabase_admin_missing" }, { status: 500 });
-    }
-
     const url = new URL(req.url);
     const slug = cleanSlug(url.searchParams.get("slug") || "");
-    if (!slug) return NextResponse.json({ ok: false, error: "missing_slug" }, { status: 400 });
-
-    const key = `partner_config:${slug}`;
-    const { data, error } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
-    if (error) return NextResponse.json({ ok: false, error: "db_error", detail: error.message }, { status: 500 });
-
-    const cfg = (data as any)?.value || {};
-    const connectedAccountId = String(cfg?.connectedAccountId || "");
-    if (!connectedAccountId) {
-      return NextResponse.json({ ok: true, connected: false }, { status: 200 });
-    }
+    const accountParam = String(url.searchParams.get("account") || "").trim();
 
     const stripe = getStripe();
+
+    const findAccountIdBySlug = async (s: string): Promise<string> => {
+      // small-scale fallback: scan accounts list and match metadata.partner_slug
+      try {
+        let startingAfter: string | undefined = undefined;
+        for (let i = 0; i < 5; i++) {
+          const page = await stripe.accounts.list({ limit: 100, ...(startingAfter ? { starting_after: startingAfter } : {}) } as any);
+          for (const a of page.data || []) {
+            if ((a as any)?.metadata?.partner_slug === s) return a.id;
+          }
+          if (!page.has_more) break;
+          startingAfter = page.data?.[page.data.length - 1]?.id;
+        }
+      } catch {}
+      return "";
+    };
+
+    let connectedAccountId = accountParam;
+    if (!connectedAccountId && slug && supabaseAdmin) {
+      const key = `partner_config:${slug}`;
+      const { data, error } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
+      if (error) return NextResponse.json({ ok: false, error: "db_error", detail: error.message }, { status: 500 });
+      const cfg = (data as any)?.value || {};
+      connectedAccountId = String(cfg?.connectedAccountId || "");
+    }
+    if (!connectedAccountId && slug) {
+      connectedAccountId = await findAccountIdBySlug(slug);
+    }
+    if (!connectedAccountId) {
+      return NextResponse.json({ ok: true, connected: false, warning: "no_connected_account" }, { status: 200 });
+    }
+
     const acct = await stripe.accounts.retrieve(connectedAccountId);
 
     let bankLast4: string | null = null;

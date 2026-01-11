@@ -50,8 +50,8 @@ export async function POST(req: NextRequest) {
           });
 
     const origin = req.headers.get("origin") || "https://partners.ecomefficiency.com";
-    const refresh_url = `${origin}/dashboard?slug=${encodeURIComponent(slug)}&stripe=refresh`;
-    const return_url = `${origin}/dashboard?slug=${encodeURIComponent(slug)}&stripe=return`;
+    const refresh_url = `${origin}/dashboard?slug=${encodeURIComponent(slug)}&stripe=refresh&acct=${encodeURIComponent(connected.id)}`;
+    const return_url = `${origin}/dashboard?slug=${encodeURIComponent(slug)}&stripe=return&acct=${encodeURIComponent(connected.id)}`;
 
     const link = await stripe.accountLinks.create({
       account: connected.id,

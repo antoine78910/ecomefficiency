@@ -52,6 +52,7 @@ export default function DashboardClient() {
   const searchParams = useSearchParams();
   const qsSlug = searchParams?.get("slug") || "";
   const initialTab = (searchParams?.get("tab") || "settings") as "data" | "settings";
+  const qsAcct = searchParams?.get("acct") || "";
 
   const [slug, setSlug] = React.useState<string>(qsSlug);
   const [loading, setLoading] = React.useState(false);
@@ -105,7 +106,20 @@ export default function DashboardClient() {
 
   const fetchStripeStatus = React.useCallback(async (s: string) => {
     try {
-      const res = await fetch(`/api/partners/stripe/status?slug=${encodeURIComponent(s)}`, { cache: "no-store" });
+      let account = "";
+      try {
+        account =
+          (searchParams?.get("acct") || "") ||
+          (config.connectedAccountId || "") ||
+          localStorage.getItem(`partners_connected_account_id:${s}`) ||
+          "";
+      } catch {}
+
+      const qs = account
+        ? `account=${encodeURIComponent(account)}`
+        : `slug=${encodeURIComponent(s)}`;
+
+      const res = await fetch(`/api/partners/stripe/status?${qs}`, { cache: "no-store" });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json?.ok) return;
       setStripeStatus({
@@ -117,7 +131,19 @@ export default function DashboardClient() {
         bankLast4: typeof json.bankLast4 === "string" ? json.bankLast4 : null,
       });
     } catch {}
-  }, []);
+  }, [config.connectedAccountId, searchParams]);
+
+  // If Stripe redirected back with acct=..., store it locally and reflect in UI even if DB persistence failed
+  React.useEffect(() => {
+    if (!slug) return;
+    const acct = String(qsAcct || "").trim();
+    if (!acct) return;
+    try {
+      localStorage.setItem(`partners_connected_account_id:${slug}`, acct);
+    } catch {}
+    setConfig((s) => ({ ...s, connectedAccountId: s.connectedAccountId || acct }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [slug, qsAcct]);
 
   const customers = React.useMemo(() => {
     const signups = stats?.recentSignups || [];
@@ -177,9 +203,11 @@ export default function DashboardClient() {
     if (stripeFlag !== "return") return;
     const t1 = setTimeout(() => loadAll(slug), 800);
     const t2 = setTimeout(() => loadAll(slug), 2400);
+    const t3 = setTimeout(() => fetchStripeStatus(slug), 3600);
     return () => {
       clearTimeout(t1);
       clearTimeout(t2);
+      clearTimeout(t3);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, searchParams]);
