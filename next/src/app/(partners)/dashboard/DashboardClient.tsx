@@ -464,7 +464,7 @@ export default function DashboardClient() {
                       disabled={!slug || connectLoading}
                       className="w-full h-11 rounded-xl text-sm font-semibold bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] border border-[#9541e0] shadow-[0_8px_40px_rgba(149,65,224,0.35)] hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed"
                     >
-                      {connectLoading ? "Redirecting to Stripe…" : "Connect Stripe"}
+                      {connectLoading ? "Redirecting to Stripe…" : stripeStatus.connected ? "Edit" : "Connect Stripe"}
                     </button>
                     <div className="text-xs text-gray-500">
                       {stripeStatus.connected ? (
