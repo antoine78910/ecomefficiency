@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
-import { Check, Copy, ExternalLink, Loader2, RefreshCcw, Save, Palette, LayoutTemplate, Trash2 } from "lucide-react";
+import { Check, Copy, ExternalLink, Loader2, RefreshCcw, Save, Palette, LayoutTemplate, Trash2, Link2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import TemplatePreview from "./TemplatePreview";
 
@@ -62,7 +62,7 @@ function Card({ title, children }: { title: string; children: React.ReactNode })
 export default function DashboardClient() {
   const searchParams = useSearchParams();
   const qsSlug = searchParams?.get("slug") || "";
-  const initialTab = (searchParams?.get("tab") || "settings") as "data" | "settings" | "page";
+  const initialTab = (searchParams?.get("tab") || "settings") as "data" | "settings" | "page" | "promos";
   const qsAcct = searchParams?.get("acct") || "";
 
   const [slug, setSlug] = React.useState<string>(qsSlug);
@@ -74,7 +74,7 @@ export default function DashboardClient() {
   const [connectLoading, setConnectLoading] = React.useState(false);
   const didAutoSetFee = React.useRef(false);
   const [accountEmail, setAccountEmail] = React.useState<string>("");
-  const [tab, setTab] = React.useState<"data" | "settings" | "page">(initialTab);
+  const [tab, setTab] = React.useState<"data" | "settings" | "page" | "promos">(initialTab);
   const [stripeStatus, setStripeStatus] = React.useState<StripeStatus>({ connected: false });
   const [domainVerify, setDomainVerify] = React.useState<{ status: "idle" | "checking" | "ok" | "fail"; message?: string }>({
     status: "idle",
@@ -93,8 +93,6 @@ export default function DashboardClient() {
     monthlyPrice: string;
     yearlyPrice: string;
     annualDiscountPercent: string;
-    allowPromotionCodes: boolean;
-    defaultDiscountId: string;
     currency: string;
     main: string;
     secondary: string;
@@ -108,13 +106,33 @@ export default function DashboardClient() {
     monthlyPrice: "",
     yearlyPrice: "",
     annualDiscountPercent: "",
-    allowPromotionCodes: true,
-    defaultDiscountId: "",
     currency: "EUR",
     main: "",
     secondary: "",
     accent: "",
     background: "",
+  });
+
+  const [promos, setPromos] = React.useState<
+    Array<{
+      id: string;
+      createdAt: string;
+      code: string;
+      type: "percent_once" | "percent_forever";
+      percentOff: number;
+      maxUses?: number;
+      active: boolean;
+      couponId: string;
+      promotionCodeId: string;
+    }>
+  >([]);
+  const [promosLoading, setPromosLoading] = React.useState(false);
+  const [promosError, setPromosError] = React.useState<string | null>(null);
+  const [promoDraft, setPromoDraft] = React.useState<{ code: string; type: "percent_once" | "percent_forever"; percentOff: string; maxUses: string }>({
+    code: "",
+    type: "percent_once",
+    percentOff: "50",
+    maxUses: "100",
   });
 
   const copyText = async (text: string) => {
@@ -158,7 +176,7 @@ export default function DashboardClient() {
   React.useEffect(() => {
     try {
       const t = (searchParams?.get("tab") || "") as any;
-      if (t === "data" || t === "settings" || t === "page") setTab(t);
+      if (t === "data" || t === "settings" || t === "page" || t === "promos") setTab(t);
     } catch {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [searchParams]);
@@ -228,8 +246,6 @@ export default function DashboardClient() {
       yearlyPrice: pageDraft.yearlyPrice.trim(),
       annualDiscountPercent: pageDraft.annualDiscountPercent ? Number(pageDraft.annualDiscountPercent) : undefined,
       currency: pageDraft.currency,
-      allowPromotionCodes: Boolean(pageDraft.allowPromotionCodes),
-      defaultDiscountId: pageDraft.defaultDiscountId.trim(),
     } as Partial<PartnerConfig>;
   }, [
     pageDraft.saasName,
@@ -244,8 +260,6 @@ export default function DashboardClient() {
     pageDraft.yearlyPrice,
     pageDraft.annualDiscountPercent,
     pageDraft.currency,
-    pageDraft.allowPromotionCodes,
-    pageDraft.defaultDiscountId,
   ]);
 
   const pageNeedsPublish = React.useMemo(() => {
@@ -263,8 +277,6 @@ export default function DashboardClient() {
       String(c?.monthlyPrice ?? "").trim() === String(publishPatch.monthlyPrice || "").trim() &&
       String(c?.yearlyPrice ?? "").trim() === String(publishPatch.yearlyPrice || "").trim() &&
       String(c?.currency || "").trim() === String(publishPatch.currency || "").trim() &&
-      Boolean(c?.allowPromotionCodes) === Boolean(publishPatch.allowPromotionCodes) &&
-      String((c as any)?.defaultDiscountId || "").trim() === String((publishPatch as any)?.defaultDiscountId || "").trim() &&
       (c?.annualDiscountPercent === undefined || c?.annualDiscountPercent === null
         ? (publishPatch as any)?.annualDiscountPercent === undefined
         : Number(c.annualDiscountPercent) === Number((publishPatch as any)?.annualDiscountPercent));
@@ -357,6 +369,8 @@ export default function DashboardClient() {
       fetchStripeStatus(s);
       // Best-effort load requests (for Page tab)
       loadRequests(s);
+      // Best-effort load promos (for Promo codes tab)
+      loadPromos(s);
 
       if ((!cfgRes.ok || !cfgJson?.ok) && (!statsRes.ok || !statsJson?.ok)) {
         setError(cfgJson?.error || statsJson?.error || "Failed to load dashboard data.");
@@ -365,6 +379,70 @@ export default function DashboardClient() {
       setError(e?.message || "Failed to load dashboard data.");
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadPromos = async (s: string) => {
+    if (!s) return;
+    setPromosLoading(true);
+    setPromosError(null);
+    try {
+      const res = await fetch(`/api/partners/promo-codes?slug=${encodeURIComponent(s)}`, { cache: "no-store" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) throw new Error(json?.detail || json?.error || "Failed to load promo codes");
+      setPromos(Array.isArray(json.promos) ? json.promos : []);
+    } catch (e: any) {
+      setPromosError(e?.message || "Failed to load promo codes");
+    } finally {
+      setPromosLoading(false);
+    }
+  };
+
+  const createPromo = async () => {
+    if (!slug) return;
+    setPromosLoading(true);
+    setPromosError(null);
+    try {
+      const body = {
+        slug,
+        code: promoDraft.code.trim(),
+        type: promoDraft.type,
+        percentOff: promoDraft.percentOff ? Number(promoDraft.percentOff) : 0,
+        maxUses: promoDraft.maxUses ? Number(promoDraft.maxUses) : undefined,
+      };
+      const res = await fetch("/api/partners/promo-codes", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(accountEmail ? { "x-user-email": accountEmail } : {}) },
+        body: JSON.stringify(body),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) throw new Error(json?.detail || json?.error || "Create failed");
+      setPromos(Array.isArray(json.promos) ? json.promos : promos);
+      setPromoDraft((d) => ({ ...d, code: "" }));
+    } catch (e: any) {
+      setPromosError(e?.message || "Create failed");
+    } finally {
+      setPromosLoading(false);
+    }
+  };
+
+  const setPromoActive = async (promotionCodeId: string, active: boolean) => {
+    if (!slug) return;
+    setPromosLoading(true);
+    setPromosError(null);
+    try {
+      const res = await fetch("/api/partners/promo-codes", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", ...(accountEmail ? { "x-user-email": accountEmail } : {}) },
+        body: JSON.stringify({ slug, promotionCodeId, active }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) throw new Error(json?.detail || json?.error || "Update failed");
+      setPromos(Array.isArray(json.promos) ? json.promos : promos);
+    } catch (e: any) {
+      setPromosError(e?.message || "Update failed");
+    } finally {
+      setPromosLoading(false);
     }
   };
 
@@ -382,8 +460,6 @@ export default function DashboardClient() {
       yearlyPrice: c.yearlyPrice !== undefined && c.yearlyPrice !== null ? String(c.yearlyPrice) : d.yearlyPrice,
       annualDiscountPercent:
         c.annualDiscountPercent !== undefined && c.annualDiscountPercent !== null ? String(c.annualDiscountPercent) : d.annualDiscountPercent,
-      allowPromotionCodes: typeof c.allowPromotionCodes === "boolean" ? c.allowPromotionCodes : d.allowPromotionCodes,
-      defaultDiscountId: String((c as any).defaultDiscountId || d.defaultDiscountId || ""),
       currency: String(c.currency || d.currency || "EUR"),
       main: String(colors.main || d.main || ""),
       secondary: String(colors.secondary || d.secondary || ""),
@@ -399,8 +475,6 @@ export default function DashboardClient() {
     (config as any)?.monthlyPrice,
     (config as any)?.yearlyPrice,
     (config as any)?.annualDiscountPercent,
-    (config as any)?.allowPromotionCodes,
-    (config as any)?.defaultDiscountId,
     (config as any)?.currency,
     (config as any)?.colors,
   ]);
@@ -608,6 +682,16 @@ export default function DashboardClient() {
                 >
                   <div className="text-sm font-medium">Page</div>
                   <div className="text-xs text-gray-500">Branding & requests</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTab("promos")}
+                  className={`w-full text-left px-3 py-2 rounded-xl border transition ${
+                    tab === "promos" ? "border-purple-400/40 bg-purple-500/15 text-white" : "border-transparent hover:border-white/10 hover:bg-white/5 text-gray-300"
+                  }`}
+                >
+                  <div className="text-sm font-medium">Promo codes</div>
+                  <div className="text-xs text-gray-500">Discounts & share links</div>
                 </button>
               </nav>
               <div className="mt-4 border-t border-white/10 pt-3 px-2">
@@ -924,6 +1008,177 @@ export default function DashboardClient() {
                   </div>
                 </Card>
               </div>
+            ) : tab === "promos" ? (
+              <div className="space-y-4">
+                <Card title="Promo codes">
+                  <div className="text-sm text-gray-300">
+                    Create Stripe promo codes for your customers. You can share the code or a link that auto-applies it.
+                  </div>
+                  {!stripeStatus.connected ? (
+                    <div className="mt-3 text-xs text-red-300">
+                      Connect Stripe first to create promo codes.
+                    </div>
+                  ) : null}
+
+                  <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                    <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                      <div className="text-xs text-gray-400 mb-2">Process</div>
+                      <div className="grid grid-cols-1 gap-2">
+                        <div>
+                          <div className="text-xs text-gray-400">Code</div>
+                          <input
+                            value={promoDraft.code}
+                            onChange={(e) => setPromoDraft((s) => ({ ...s, code: e.target.value.toUpperCase() }))}
+                            placeholder="CODE_18"
+                            className="mt-1 w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25 font-mono"
+                          />
+                          <div className="mt-1 text-[11px] text-gray-500">You can share the code or the link.</div>
+                        </div>
+
+                        <div>
+                          <div className="text-xs text-gray-400">Type</div>
+                          <select
+                            value={promoDraft.type}
+                            onChange={(e) => setPromoDraft((s) => ({ ...s, type: e.target.value as any }))}
+                            className="mt-1 w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
+                          >
+                            <option value="percent_once">Percentage off (one payment)</option>
+                            <option value="percent_forever">Percentage off (forever)</option>
+                          </select>
+                          <div className="mt-1 text-[11px] text-gray-500">
+                            Percentage discounts for one payment are not compatible with lifetime split payments.
+                          </div>
+                        </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                          <div>
+                            <div className="text-xs text-gray-400">Percentage off</div>
+                            <input
+                              value={promoDraft.percentOff}
+                              onChange={(e) => setPromoDraft((s) => ({ ...s, percentOff: e.target.value }))}
+                              placeholder="50"
+                              inputMode="numeric"
+                              className="mt-1 w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
+                            />
+                          </div>
+                          <div>
+                            <div className="text-xs text-gray-400">Max uses</div>
+                            <input
+                              value={promoDraft.maxUses}
+                              onChange={(e) => setPromoDraft((s) => ({ ...s, maxUses: e.target.value }))}
+                              placeholder="100"
+                              inputMode="numeric"
+                              className="mt-1 w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
+                            />
+                          </div>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={createPromo}
+                          disabled={!slug || promosLoading || !stripeStatus.connected}
+                          className="mt-1 inline-flex items-center justify-center gap-2 h-10 rounded-xl text-sm font-semibold bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] border border-[#9541e0] hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                          {promosLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                          Create
+                        </button>
+                        {promosError ? <div className="text-xs text-red-300 break-words">{promosError}</div> : null}
+                      </div>
+                    </div>
+
+                    <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+                      <div className="flex items-center justify-between gap-3">
+                        <div className="text-xs text-gray-400">Status</div>
+                        <button
+                          type="button"
+                          onClick={() => slug && loadPromos(slug)}
+                          disabled={!slug || promosLoading}
+                          className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                        >
+                          {promosLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
+                          Refresh
+                        </button>
+                      </div>
+
+                      <div className="mt-3 rounded-xl border border-white/10 overflow-hidden">
+                        <div className="grid grid-cols-12 gap-0 bg-white/5 text-[11px] text-gray-400 px-3 py-2">
+                          <div className="col-span-4">Code</div>
+                          <div className="col-span-2">Type</div>
+                          <div className="col-span-2">Percent</div>
+                          <div className="col-span-2">Max uses</div>
+                          <div className="col-span-2 text-right">Status</div>
+                        </div>
+                        <div className="divide-y divide-white/10">
+                          {promos.length ? (
+                            promos.map((p) => {
+                              const origin =
+                                typeof window !== "undefined"
+                                  ? `${window.location.protocol}//${window.location.hostname}`
+                                  : "https://partners.ecomefficiency.com";
+                              const link = `${origin}/api/partners/stripe/checkout?slug=${encodeURIComponent(slug)}&interval=month&code=${encodeURIComponent(
+                                p.code
+                              )}`;
+                              return (
+                                <div key={p.id} className="grid grid-cols-12 gap-0 px-3 py-3 text-sm items-center">
+                                  <div className="col-span-4 min-w-0">
+                                    <div className="font-mono text-gray-200 truncate">{p.code}</div>
+                                    <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-gray-500">
+                                      <button type="button" onClick={() => copyText(p.code)} className="inline-flex items-center gap-1 hover:text-gray-300">
+                                        <Copy className="w-3.5 h-3.5" /> Copy code
+                                      </button>
+                                      <button type="button" onClick={() => copyText(link)} className="inline-flex items-center gap-1 hover:text-gray-300">
+                                        <Link2 className="w-3.5 h-3.5" /> Copy link
+                                      </button>
+                                    </div>
+                                  </div>
+                                  <div className="col-span-2 text-gray-300 text-xs">{p.type === "percent_forever" ? "Forever" : "One payment"}</div>
+                                  <div className="col-span-2 text-gray-300 text-xs">{p.percentOff}%</div>
+                                  <div className="col-span-2 text-gray-300 text-xs">{p.maxUses || "—"}</div>
+                                  <div className="col-span-2 text-right">
+                                    <div className={`text-xs ${p.active ? "text-green-300" : "text-gray-500"}`}>{p.active ? "active" : "disabled"}</div>
+                                    <button
+                                      type="button"
+                                      onClick={() => setPromoActive(p.promotionCodeId, !p.active)}
+                                      disabled={promosLoading}
+                                      className="mt-1 inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-gray-200 disabled:opacity-60"
+                                    >
+                                      {p.active ? "Disable" : "Enable"}
+                                    </button>
+                                  </div>
+                                </div>
+                              );
+                            })
+                          ) : (
+                            <div className="px-3 py-6 text-center text-xs text-gray-500">No promo codes yet.</div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 rounded-xl border border-white/10 bg-black/30 p-3">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="text-xs text-gray-300 font-medium">Allow promo codes at checkout</div>
+                        <div className="text-[11px] text-gray-500 truncate">Customers can enter a Stripe promotion code.</div>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => saveConfig({ allowPromotionCodes: !config.allowPromotionCodes })}
+                        className={`h-7 w-12 rounded-full border transition ${
+                          config.allowPromotionCodes ? "bg-green-500/20 border-green-400/40" : "bg-white/5 border-white/10"
+                        }`}
+                      >
+                        <span
+                          className={`block h-5 w-5 rounded-full bg-white/80 translate-y-[1px] transition ${
+                            config.allowPromotionCodes ? "translate-x-[22px]" : "translate-x-[2px]"
+                          }`}
+                        />
+                      </button>
+                    </div>
+                  </div>
+                </Card>
+              </div>
             ) : (
               <div className="space-y-4">
                 <Card title="Page & branding">
@@ -1169,34 +1424,6 @@ export default function DashboardClient() {
                               />
                             </div>
 
-                            <div className="rounded-xl border border-white/10 bg-black/30 p-3">
-                              <div className="flex items-center justify-between gap-3">
-                                <div className="min-w-0">
-                                  <div className="text-xs text-gray-300 font-medium">Allow promo codes at checkout</div>
-                                  <div className="text-[11px] text-gray-500 truncate">Customers can enter a Stripe promotion code.</div>
-                                </div>
-                                <button
-                                  type="button"
-                                  onClick={() => setPageDraft((s) => ({ ...s, allowPromotionCodes: !s.allowPromotionCodes }))}
-                                  className={`h-7 w-12 rounded-full border transition ${
-                                    pageDraft.allowPromotionCodes ? "bg-green-500/20 border-green-400/40" : "bg-white/5 border-white/10"
-                                  }`}
-                                >
-                                  <span
-                                    className={`block h-5 w-5 rounded-full bg-white/80 translate-y-[1px] transition ${
-                                      pageDraft.allowPromotionCodes ? "translate-x-[22px]" : "translate-x-[2px]"
-                                    }`}
-                                  />
-                                </button>
-                              </div>
-                            </div>
-
-                            <input
-                              value={pageDraft.defaultDiscountId}
-                              onChange={(e) => setPageDraft((s) => ({ ...s, defaultDiscountId: e.target.value }))}
-                              placeholder="Default discount ID (optional): coupon_... or promo_..."
-                              className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
-                            />
                             <button
                               type="button"
                               onClick={() =>
@@ -1205,8 +1432,6 @@ export default function DashboardClient() {
                                   yearlyPrice: pageDraft.yearlyPrice.trim(),
                                   annualDiscountPercent: pageDraft.annualDiscountPercent ? Number(pageDraft.annualDiscountPercent) : undefined,
                                   currency: pageDraft.currency,
-                                  allowPromotionCodes: Boolean(pageDraft.allowPromotionCodes),
-                                  defaultDiscountId: pageDraft.defaultDiscountId.trim(),
                                 })
                               }
                               disabled={saving}
@@ -1248,8 +1473,8 @@ export default function DashboardClient() {
                       monthlyPrice: pageDraft.monthlyPrice,
                       yearlyPrice: pageDraft.yearlyPrice,
                       annualDiscountPercent: pageDraft.annualDiscountPercent ? Number(pageDraft.annualDiscountPercent) : undefined,
-                      allowPromotionCodes: pageDraft.allowPromotionCodes,
-                      defaultDiscountId: pageDraft.defaultDiscountId,
+                      allowPromotionCodes: Boolean(config.allowPromotionCodes),
+                      defaultDiscountId: String((config as any).defaultDiscountId || ""),
                     }}
                   />
                 </Card>
