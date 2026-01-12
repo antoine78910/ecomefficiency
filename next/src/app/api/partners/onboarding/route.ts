@@ -21,17 +21,17 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
 
-    const saasName = String(body?.saasName || "").trim();
     const slugRaw = String(body?.slug || "");
     const slug = cleanSlug(slugRaw);
     const adminEmail = String(body?.adminEmail || "").trim();
 
-    if (!saasName) return NextResponse.json({ ok: false, error: "missing_saas_name" }, { status: 400 });
     if (!slug) return NextResponse.json({ ok: false, error: "missing_slug" }, { status: 400 });
     if (!/^[a-z0-9-]{2,40}$/.test(slug)) return NextResponse.json({ ok: false, error: "invalid_slug" }, { status: 400 });
     if (!adminEmail || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(adminEmail)) {
       return NextResponse.json({ ok: false, error: "invalid_admin_email" }, { status: 400 });
     }
+
+    const saasName = String(body?.saasName || slug).trim();
 
     const payload = {
       saasName,
@@ -57,6 +57,7 @@ export async function POST(req: NextRequest) {
       supportEmail: body?.supportEmail ? String(body.supportEmail).trim() : "",
       desiredLaunch: body?.desiredLaunch ? String(body.desiredLaunch).trim() : "",
       notes: body?.notes ? String(body.notes).trim() : "",
+      onboarding: body?.onboarding && typeof body.onboarding === "object" ? body.onboarding : undefined,
       meta: {
         createdAt: new Date().toISOString(),
         userAgent: req.headers.get("user-agent") || "",
@@ -112,6 +113,21 @@ export async function POST(req: NextRequest) {
       if (resendKey) {
         const resend = new Resend(resendKey);
         const subject = `New Partners Onboarding: ${payload.saasName} (${payload.slug})`;
+
+        const onboarding = (payload as any).onboarding || {};
+        const onboardingHtml =
+          onboarding && Object.keys(onboarding).length
+            ? `
+            <hr style="border: none; border-top: 1px solid #ddd; margin: 14px 0;" />
+            <h3 style="margin: 0 0 8px;">Onboarding answers</h3>
+            <p style="margin: 0 0 8px;"><strong>Type:</strong> ${escapeHtml(String(onboarding.creatorTypeLabel || onboarding.creatorType || ""))}</p>
+            <p style="margin: 0 0 8px;"><strong>Audience level:</strong> ${escapeHtml(String(onboarding.audienceLevel || ""))}</p>
+            <p style="margin: 0 0 8px;"><strong>Main channel:</strong> ${escapeHtml(String(onboarding.audienceMainChannelLabel || onboarding.audienceMainChannel || ""))}</p>
+            <p style="margin: 0 0 8px;"><strong>Launch onboard:</strong> ${escapeHtml(String(onboarding.launchOnboardCount ?? ""))}</p>
+            <p style="margin: 0 0 8px;"><strong>Offer type:</strong> ${escapeHtml(String(onboarding.offerType || ""))}</p>
+          `
+            : "";
+
         const html = `
           <div style="font-family: Arial, sans-serif; line-height: 1.45; color: #111;">
             <h2 style="margin: 0 0 12px;">New partners onboarding submitted</h2>
@@ -120,16 +136,7 @@ export async function POST(req: NextRequest) {
             <p style="margin: 0 0 10px;"><strong>Default URL:</strong> https://partners.ecomefficiency.com/${escapeHtml(payload.slug)}</p>
             <hr style="border: none; border-top: 1px solid #ddd; margin: 14px 0;" />
             <p style="margin: 0 0 8px;"><strong>Admin email:</strong> ${escapeHtml(payload.adminEmail)}</p>
-            <p style="margin: 0 0 8px;"><strong>Support email:</strong> ${escapeHtml(payload.supportEmail || "")}</p>
-            <p style="margin: 0 0 8px;"><strong>WhatsApp:</strong> ${escapeHtml(payload.whatsappNumber || "")}</p>
-            <p style="margin: 0 0 8px;"><strong>Domain provider:</strong> ${escapeHtml(payload.domainProvider || "")}</p>
-            <p style="margin: 0 0 8px;"><strong>Custom domain:</strong> ${escapeHtml(payload.customDomain || "")}</p>
-            <p style="margin: 0 0 8px;"><strong>Signup mode:</strong> ${escapeHtml(payload.signupMode || "")}</p>
-            <p style="margin: 0 0 8px;"><strong>Stripe email:</strong> ${escapeHtml(payload.stripeAccountEmail || "")}</p>
-            <p style="margin: 0 0 8px;"><strong>Currency:</strong> ${escapeHtml(payload.currency === "OTHER" ? payload.currencyOther : payload.currency)}</p>
-            <p style="margin: 0 0 8px;"><strong>Monthly price:</strong> ${payload.monthlyPrice ?? ""}</p>
-            <p style="margin: 0 0 8px;"><strong>Desired launch:</strong> ${escapeHtml(payload.desiredLaunch || "")}</p>
-            <p style="margin: 0 0 8px;"><strong>Notes:</strong><br/>${escapeHtml(payload.notes || "").replace(/\\n/g, "<br/>")}</p>
+            ${onboardingHtml}
           </div>
         `;
         await resend.emails.send({

@@ -5,35 +5,22 @@ import Image from "next/image";
 import Link from "next/link";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { ArrowLeft, ArrowRight, Check, Upload, X } from "lucide-react";
+import { ArrowLeft, ArrowRight, Check } from "lucide-react";
 
-type SignupMode = "public" | "invite_only";
-type Currency = "USD" | "EUR" | "OTHER";
-type DomainProvider = "Namecheap" | "GoDaddy" | "Cloudflare" | "Other" | "";
+type CreatorType = "trainer_coach" | "agency" | "ecom_owner" | "community" | "other" | "";
+type AudienceLevel = "beginners" | "intermediate" | "advanced" | "";
+type AudienceMainChannel = "discord" | "formation" | "newsletter" | "social" | "existing_clients" | "";
+type OfferType = "included" | "upsell" | "separate_subscription" | "";
 
 type FormState = {
-  saasName: string;
   slug: string;
-  tagline: string;
-  logoUrl: string;
-  faviconUrl: string;
-  mainColor: string;
-  secondaryColor: string;
-  accentColor: string;
-  backgroundColor: string;
-  customDomain: string;
-  domainProvider: DomainProvider;
   adminEmail: string;
-  whatsappNumber: string;
-  signupMode: SignupMode;
-  stripeAccountEmail: string;
-  currency: Currency;
-  currencyOther: string;
-  monthlyPrice: string;
-  supportEmail: string;
-  desiredLaunch: "ASAP" | "DATE";
-  desiredLaunchDate: string;
-  notes: string;
+  creatorType: CreatorType;
+  creatorTypeOther: string;
+  audienceLevel: AudienceLevel;
+  audienceMainChannel: AudienceMainChannel;
+  launchOnboardCount: string;
+  offerType: OfferType;
 };
 
 function cleanSlug(input: string) {
@@ -103,32 +90,17 @@ export default function PartnersConfigurationPage() {
   const [accountEmail, setAccountEmail] = React.useState<string>("");
 
   const [submitting, setSubmitting] = React.useState(false);
-  const [uploading, setUploading] = React.useState<{ logo?: boolean; favicon?: boolean }>({});
   const [step, setStep] = React.useState(0);
 
   const [form, setForm] = React.useState<FormState>(() => ({
-    saasName: "",
     slug: "",
-    tagline: "",
-    logoUrl: "",
-    faviconUrl: "",
-    mainColor: "#111111",
-    secondaryColor: "#7c30c7",
-    accentColor: "#ab63ff",
-    backgroundColor: "",
-    customDomain: "",
-    domainProvider: "",
     adminEmail: "",
-    whatsappNumber: "",
-    signupMode: "public",
-    stripeAccountEmail: "",
-    currency: "USD",
-    currencyOther: "",
-    monthlyPrice: "",
-    supportEmail: "",
-    desiredLaunch: "ASAP",
-    desiredLaunchDate: "",
-    notes: "",
+    creatorType: "",
+    creatorTypeOther: "",
+    audienceLevel: "",
+    audienceMainChannel: "",
+    launchOnboardCount: "",
+    offerType: "",
   }));
 
   // Prefill from URL (signup flow can pass email)
@@ -137,7 +109,7 @@ export default function PartnersConfigurationPage() {
       const url = new URL(window.location.href);
       const email = url.searchParams.get("email");
       if (email && isEmail(email)) {
-        setForm((s) => ({ ...s, adminEmail: s.adminEmail || email, supportEmail: s.supportEmail || email }));
+        setForm((s) => ({ ...s, adminEmail: s.adminEmail || email }));
       }
     } catch {}
   }, []);
@@ -187,23 +159,13 @@ export default function PartnersConfigurationPage() {
 
   const steps = React.useMemo(
     () => [
-      { key: "saasName", title: "SaaS name", help: "Public name of your software", required: true },
-      { key: "slug", title: "URL slug", help: "Used for the default URL (e.g. ecomwolf → partners.ecomefficiency.com/ecomwolf)", required: true },
-      { key: "tagline", title: "Short tagline (optional)", help: "One short sentence under the logo", required: false },
-      { key: "logo", title: "Logo upload", help: "PNG or SVG. Transparent background recommended. 10 MB max.", required: true },
-      { key: "favicon", title: "Favicon upload", help: "10 MB max.", required: true },
-      { key: "colors", title: "Brand colors (HEX)", help: "Main / Secondary / Accent (+ optional background)", required: true },
-      { key: "customDomain", title: "Custom domain (optional)", help: "Example: ecomwolf.com", required: false },
-      { key: "domainProvider", title: "Domain provider", help: "Namecheap / GoDaddy / Cloudflare / Other", required: true },
-      { key: "adminEmail", title: "Admin email", help: "Full access to the SaaS", required: true },
-      { key: "whatsapp", title: "WhatsApp number (optional)", help: "WhatsApp number to stay in contact and keep you updated on your SaaS progress", required: false },
-      { key: "signupMode", title: "User signup mode", help: "Choose how end-users can join", required: true },
-      { key: "stripeAccountEmail", title: "Stripe account email", help: "Used to connect your Stripe (Stripe Connect)", required: true },
-      { key: "currency", title: "Currency", help: "$ / € / Other", required: true },
-      { key: "monthlyPrice", title: "Monthly price you will charge users", help: "Example: 29.99 / 39.99", required: true },
-      { key: "supportEmail", title: "Support email", help: "Example: support@yourdomain.com", required: true },
-      { key: "desiredLaunch", title: "Desired launch date", help: "ASAP or pick a date", required: true },
-      { key: "notes", title: "Anything important we should know? (optional)", help: "Optional notes", required: false },
+      { key: "creatorType", title: "What best describes you?", help: "We use this to tailor the template & onboarding.", required: true },
+      { key: "audienceLevel", title: "Your audience is mainly:", help: "Choose one.", required: true },
+      { key: "audienceMainChannel", title: "Where is your audience mainly?", help: "Choose one.", required: true },
+      { key: "launchOnboardCount", title: "How many people can you onboard at launch?", help: "Rough estimate.", required: true },
+      { key: "offerType", title: "Do you want it to be:", help: "Choose one.", required: true },
+      { key: "slug", title: "URL slug", help: "Used for your default URL (e.g. ecomwolf → partners.ecomefficiency.com/ecomwolf)", required: true },
+      { key: "adminEmail", title: "Admin email", help: "We’ll use it to contact you + give admin access.", required: true },
       { key: "review", title: "Review & submit", help: "Confirm your info", required: true },
     ],
     []
@@ -228,36 +190,23 @@ export default function PartnersConfigurationPage() {
 
   const canGoNext = React.useMemo(() => {
     const slug = cleanSlug(form.slug);
-    const price = Number(form.monthlyPrice);
     switch (current.key) {
-      case "saasName":
-        return form.saasName.trim().length > 1;
+      case "creatorType":
+        return Boolean(form.creatorType) && (form.creatorType !== "other" || form.creatorTypeOther.trim().length > 1);
+      case "audienceLevel":
+        return form.audienceLevel === "beginners" || form.audienceLevel === "intermediate" || form.audienceLevel === "advanced";
+      case "audienceMainChannel":
+        return Boolean(form.audienceMainChannel);
+      case "launchOnboardCount": {
+        const n = Number(String(form.launchOnboardCount || "").replace(",", "."));
+        return Number.isFinite(n) && n > 0;
+      }
+      case "offerType":
+        return form.offerType === "included" || form.offerType === "upsell" || form.offerType === "separate_subscription";
       case "slug":
         return /^[a-z0-9-]{2,40}$/.test(slug);
-      case "logo":
-        return Boolean(form.logoUrl);
-      case "favicon":
-        return Boolean(form.faviconUrl);
-      case "colors":
-        return isHex(form.mainColor) && isHex(form.secondaryColor) && isHex(form.accentColor) && (!form.backgroundColor || isHex(form.backgroundColor));
-      case "domainProvider":
-        return Boolean(form.domainProvider);
       case "adminEmail":
         return isEmail(form.adminEmail);
-      case "whatsapp":
-        return true;
-      case "signupMode":
-        return form.signupMode === "public" || form.signupMode === "invite_only";
-      case "stripeAccountEmail":
-        return isEmail(form.stripeAccountEmail);
-      case "currency":
-        return form.currency === "USD" || form.currency === "EUR" || (form.currency === "OTHER" && form.currencyOther.trim().length > 0);
-      case "monthlyPrice":
-        return Number.isFinite(price) && price > 0;
-      case "supportEmail":
-        return isEmail(form.supportEmail);
-      case "desiredLaunch":
-        return form.desiredLaunch === "ASAP" || (form.desiredLaunch === "DATE" && Boolean(form.desiredLaunchDate));
       case "review":
         return true;
       default:
@@ -268,62 +217,47 @@ export default function PartnersConfigurationPage() {
   const next = () => setStep((s) => Math.min(total - 1, s + 1));
   const back = () => setStep((s) => Math.max(0, s - 1));
 
-  const uploadFile = async (kind: "logo" | "favicon", file: File) => {
-    const slug = cleanSlug(form.slug);
-    if (!slug) {
-      toast({ title: "Slug required first", description: "Please set your URL slug before uploading files.", variant: "destructive" });
-      return;
-    }
-    setUploading((u) => ({ ...u, [kind]: true }));
-    try {
-      const fd = new FormData();
-      fd.append("file", file);
-      fd.append("kind", kind);
-      fd.append("slug", slug);
-      const res = await fetch("/api/partners/upload", { method: "POST", body: fd });
-      const json = await res.json().catch(() => ({}));
-      if (!res.ok || !json?.ok || !json?.publicUrl) {
-        throw new Error(json?.detail || json?.error || "Upload failed");
-      }
-      if (kind === "logo") setForm((s) => ({ ...s, logoUrl: String(json.publicUrl) }));
-      if (kind === "favicon") setForm((s) => ({ ...s, faviconUrl: String(json.publicUrl) }));
-      toast({ title: "Uploaded", description: `${kind} uploaded successfully.` });
-    } catch (e: any) {
-      toast({
-        title: "Upload failed",
-        description: e?.message || "Could not upload. Ensure Supabase Storage bucket 'partners-assets' exists.",
-        variant: "destructive",
-      });
-    } finally {
-      setUploading((u) => ({ ...u, [kind]: false }));
-    }
-  };
-
   const submit = async () => {
     setSubmitting(true);
     try {
+      const creatorLabel =
+        form.creatorType === "trainer_coach"
+          ? "trainer/coach"
+          : form.creatorType === "agency"
+          ? "agency (e-commerce, ads, SEO, etc.)"
+          : form.creatorType === "ecom_owner"
+          ? "dropshipper/e-commerce owner"
+          : form.creatorType === "community"
+          ? "media/community/Discord"
+          : form.creatorType === "other"
+          ? `Other: ${form.creatorTypeOther.trim()}`
+          : "";
+
+      const channelLabel =
+        form.audienceMainChannel === "discord"
+          ? "Discord"
+          : form.audienceMainChannel === "formation"
+          ? "formation"
+          : form.audienceMainChannel === "newsletter"
+          ? "newsletter"
+          : form.audienceMainChannel === "social"
+          ? "Instagram / TikTok / YouTube"
+          : form.audienceMainChannel === "existing_clients"
+          ? "clients existants"
+          : "";
+
       const payload = {
-        saasName: form.saasName.trim(),
         slug: cleanSlug(form.slug),
-        tagline: form.tagline.trim(),
-        logoUrl: form.logoUrl,
-        faviconUrl: form.faviconUrl,
-        mainColor: form.mainColor.trim(),
-        secondaryColor: form.secondaryColor.trim(),
-        accentColor: form.accentColor.trim(),
-        backgroundColor: form.backgroundColor.trim(),
-        customDomain: form.customDomain.trim(),
-        domainProvider: form.domainProvider,
         adminEmail: form.adminEmail.trim(),
-        whatsappNumber: form.whatsappNumber.trim(),
-        signupMode: form.signupMode,
-        stripeAccountEmail: form.stripeAccountEmail.trim(),
-        currency: form.currency,
-        currencyOther: form.currencyOther.trim(),
-        monthlyPrice: form.monthlyPrice,
-        supportEmail: form.supportEmail.trim(),
-        desiredLaunch: form.desiredLaunch === "DATE" ? form.desiredLaunchDate : "ASAP",
-        notes: form.notes.trim(),
+        onboarding: {
+          creatorType: form.creatorType,
+          creatorTypeLabel: creatorLabel,
+          audienceLevel: form.audienceLevel,
+          audienceMainChannel: form.audienceMainChannel,
+          audienceMainChannelLabel: channelLabel,
+          launchOnboardCount: Number(String(form.launchOnboardCount || "").replace(",", ".")),
+          offerType: form.offerType,
+        },
       };
       const res = await fetch("/api/partners/onboarding", {
         method: "POST",
@@ -418,14 +352,112 @@ export default function PartnersConfigurationPage() {
             <div className="text-sm text-gray-400 mb-8">{current.help}</div>
 
             {/* Step content */}
-            {current.key === "saasName" && (
+            {current.key === "creatorType" && (
+              <div className="space-y-3">
+                {[
+                  ["trainer_coach", "🎓 trainer/coach"],
+                  ["agency", "🧑‍💼 agency (e-commerce, ads, SEO, etc.)"],
+                  ["ecom_owner", "🛒 dropshipper/e-commerce owner"],
+                  ["community", "🌐 media/community/Discord"],
+                  ["other", "Other"],
+                ].map(([v, label]) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setForm((s) => ({ ...s, creatorType: v as CreatorType }))}
+                    className={`w-full text-left px-4 py-3 rounded-xl border transition ${
+                      form.creatorType === v ? "border-purple-400/60 bg-purple-500/15" : "border-white/10 bg-white/5 hover:bg-white/10"
+                    }`}
+                  >
+                    <div className="text-sm font-medium">{label}</div>
+                  </button>
+                ))}
+                {form.creatorType === "other" ? (
+                  <input
+                    autoFocus
+                    value={form.creatorTypeOther}
+                    onChange={(e) => setForm((s) => ({ ...s, creatorTypeOther: e.target.value }))}
+                    placeholder="Tell us what you do…"
+                    className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 focus:outline-none focus:border-white/25"
+                  />
+                ) : null}
+              </div>
+            )}
+
+            {current.key === "audienceLevel" && (
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {([
+                  ["beginners", "beginners"],
+                  ["intermediate", "intermediate learners"],
+                  ["advanced", "advanced learners"],
+                ] as const).map(([v, label]) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setForm((s) => ({ ...s, audienceLevel: v }))}
+                    className={`px-4 py-3 rounded-xl border transition ${
+                      form.audienceLevel === v ? "border-purple-400/60 bg-purple-500/15" : "border-white/10 bg-white/5 hover:bg-white/10"
+                    }`}
+                  >
+                    <div className="text-sm font-medium">{label}</div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {current.key === "audienceMainChannel" && (
+              <div className="space-y-3">
+                {([
+                  ["discord", "Discord"],
+                  ["formation", "formation"],
+                  ["newsletter", "newsletter"],
+                  ["social", "Instagram / TikTok / YouTube"],
+                  ["existing_clients", "clients existants"],
+                ] as const).map(([v, label]) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setForm((s) => ({ ...s, audienceMainChannel: v }))}
+                    className={`w-full text-left px-4 py-3 rounded-xl border transition ${
+                      form.audienceMainChannel === v ? "border-purple-400/60 bg-purple-500/15" : "border-white/10 bg-white/5 hover:bg-white/10"
+                    }`}
+                  >
+                    <div className="text-sm font-medium">{label}</div>
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {current.key === "launchOnboardCount" && (
               <input
                 autoFocus
-                value={form.saasName}
-                onChange={(e) => setForm((s) => ({ ...s, saasName: e.target.value }))}
-                placeholder="Example: EcomWolf Software"
+                value={form.launchOnboardCount}
+                onChange={(e) => setForm((s) => ({ ...s, launchOnboardCount: e.target.value }))}
+                placeholder="Example: 100"
+                inputMode="numeric"
                 className="w-full text-lg md:text-xl rounded-xl border border-white/15 bg-white/5 px-4 py-3 focus:outline-none focus:border-white/25"
               />
+            )}
+
+            {current.key === "offerType" && (
+              <div className="space-y-3">
+                {([
+                  ["included", "included in an existing offer"],
+                  ["upsell", "sold as an upsell"],
+                  ["separate_subscription", "sold as a separate subscription"],
+                ] as const).map(([v, label]) => (
+                  <button
+                    key={v}
+                    type="button"
+                    onClick={() => setForm((s) => ({ ...s, offerType: v }))}
+                    className={`w-full text-left px-4 py-3 rounded-xl border transition ${
+                      form.offerType === v ? "border-purple-400/60 bg-purple-500/15" : "border-white/10 bg-white/5 hover:bg-white/10"
+                    }`}
+                  >
+                    <div className="text-sm font-medium">{label}</div>
+                  </button>
+                ))}
+              </div>
             )}
 
             {current.key === "slug" && (
@@ -444,154 +476,6 @@ export default function PartnersConfigurationPage() {
               </div>
             )}
 
-            {current.key === "tagline" && (
-              <input
-                autoFocus
-                value={form.tagline}
-                onChange={(e) => setForm((s) => ({ ...s, tagline: e.target.value }))}
-                placeholder="Example: All-in-one tools for dropshippers"
-                className="w-full text-lg md:text-xl rounded-xl border border-white/15 bg-white/5 px-4 py-3 focus:outline-none focus:border-white/25"
-              />
-            )}
-
-            {current.key === "logo" && (
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <label className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 cursor-pointer">
-                    <Upload className="w-4 h-4" />
-                    <span className="text-sm font-medium">Upload logo</span>
-                    <input
-                      type="file"
-                      accept="image/png,image/svg+xml"
-                      className="hidden"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) uploadFile("logo", f);
-                      }}
-                    />
-                  </label>
-                  {uploading.logo ? <span className="text-xs text-gray-400">Uploading…</span> : null}
-                </div>
-                {form.logoUrl ? (
-                  <div className="flex items-center gap-4 p-4 rounded-xl border border-white/10 bg-black/30">
-                    <div className="w-24 h-14 rounded-lg bg-black overflow-hidden grid place-items-center border border-white/10">
-                      <img src={form.logoUrl} alt="Logo preview" className="max-w-full max-h-full object-contain" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm text-gray-200 truncate">{form.logoUrl}</div>
-                      <button
-                        type="button"
-                        onClick={() => setForm((s) => ({ ...s, logoUrl: "" }))}
-                        className="mt-1 text-xs text-red-300 hover:text-red-200 inline-flex items-center gap-1"
-                      >
-                        <X className="w-3 h-3" /> Remove
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-xs text-gray-500">No logo uploaded yet.</div>
-                )}
-              </div>
-            )}
-
-            {current.key === "favicon" && (
-              <div className="space-y-4">
-                <div className="flex items-center gap-3">
-                  <label className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-white/15 bg-white/5 hover:bg-white/10 cursor-pointer">
-                    <Upload className="w-4 h-4" />
-                    <span className="text-sm font-medium">Upload favicon</span>
-                    <input
-                      type="file"
-                      accept="image/png,image/svg+xml,image/x-icon"
-                      className="hidden"
-                      onChange={(e) => {
-                        const f = e.target.files?.[0];
-                        if (f) uploadFile("favicon", f);
-                      }}
-                    />
-                  </label>
-                  {uploading.favicon ? <span className="text-xs text-gray-400">Uploading…</span> : null}
-                </div>
-                {form.faviconUrl ? (
-                  <div className="flex items-center gap-4 p-4 rounded-xl border border-white/10 bg-black/30">
-                    <div className="w-10 h-10 rounded-lg bg-black overflow-hidden grid place-items-center border border-white/10">
-                      <img src={form.faviconUrl} alt="Favicon preview" className="max-w-full max-h-full object-contain" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm text-gray-200 truncate">{form.faviconUrl}</div>
-                      <button
-                        type="button"
-                        onClick={() => setForm((s) => ({ ...s, faviconUrl: "" }))}
-                        className="mt-1 text-xs text-red-300 hover:text-red-200 inline-flex items-center gap-1"
-                      >
-                        <X className="w-3 h-3" /> Remove
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  <div className="text-xs text-gray-500">No favicon uploaded yet.</div>
-                )}
-              </div>
-            )}
-
-            {current.key === "colors" && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                {([
-                  ["mainColor", "Main color (HEX)", "#111111"],
-                  ["secondaryColor", "Secondary color (HEX)", "#7c30c7"],
-                  ["accentColor", "Accent / highlight (HEX)", "#ab63ff"],
-                  ["backgroundColor", "Background color (optional)", "#000000"],
-                ] as const).map(([k, label, placeholder]) => (
-                  <div key={k} className="space-y-2">
-                    <div className="text-xs text-gray-400">{label}</div>
-                    <div className="flex items-center gap-3">
-                      <input
-                        value={(form as any)[k]}
-                        onChange={(e) => setForm((s) => ({ ...s, [k]: e.target.value } as any))}
-                        placeholder={placeholder}
-                        className="flex-1 rounded-xl border border-white/15 bg-white/5 px-4 py-3 focus:outline-none focus:border-white/25"
-                      />
-                      <div
-                        className="w-10 h-10 rounded-xl border border-white/15"
-                        style={{ background: (form as any)[k] || "transparent" }}
-                        title={(form as any)[k] || ""}
-                      />
-                    </div>
-                    {(form as any)[k] && k !== "backgroundColor" && !isHex((form as any)[k]) ? (
-                      <div className="text-xs text-red-300">Must be a valid HEX like #111111</div>
-                    ) : null}
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {current.key === "customDomain" && (
-              <input
-                autoFocus
-                value={form.customDomain}
-                onChange={(e) => setForm((s) => ({ ...s, customDomain: e.target.value }))}
-                placeholder="Example: ecomwolf.com"
-                className="w-full text-lg md:text-xl rounded-xl border border-white/15 bg-white/5 px-4 py-3 focus:outline-none focus:border-white/25"
-              />
-            )}
-
-            {current.key === "domainProvider" && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {(["Namecheap", "GoDaddy", "Cloudflare", "Other"] as const).map((p) => (
-                  <button
-                    key={p}
-                    type="button"
-                    onClick={() => setForm((s) => ({ ...s, domainProvider: p }))}
-                    className={`text-left px-4 py-3 rounded-xl border transition ${
-                      form.domainProvider === p ? "border-purple-400/60 bg-purple-500/15" : "border-white/10 bg-white/5 hover:bg-white/10"
-                    }`}
-                  >
-                    <div className="text-sm font-medium">{p}</div>
-                  </button>
-                ))}
-              </div>
-            )}
-
             {current.key === "adminEmail" && (
               <input
                 autoFocus
@@ -602,154 +486,19 @@ export default function PartnersConfigurationPage() {
               />
             )}
 
-            {current.key === "whatsapp" && (
-              <input
-                autoFocus
-                value={form.whatsappNumber}
-                onChange={(e) => setForm((s) => ({ ...s, whatsappNumber: e.target.value }))}
-                placeholder="Example: +33 6 12 34 56 78"
-                className="w-full text-lg md:text-xl rounded-xl border border-white/15 bg-white/5 px-4 py-3 focus:outline-none focus:border-white/25"
-              />
-            )}
-
-            {current.key === "signupMode" && (
-              <div className="space-y-3">
-                {([
-                  ["public", "Public Signup", "Anyone can sign up"],
-                  ["invite_only", "Admin invite only", "Only invited users can join"],
-                ] as const).map(([v, title, desc]) => (
-                  <button
-                    key={v}
-                    type="button"
-                    onClick={() => setForm((s) => ({ ...s, signupMode: v }))}
-                    className={`w-full text-left px-4 py-3 rounded-xl border transition ${
-                      form.signupMode === v ? "border-purple-400/60 bg-purple-500/15" : "border-white/10 bg-white/5 hover:bg-white/10"
-                    }`}
-                  >
-                    <div className="text-sm font-medium">{title}</div>
-                    <div className="text-xs text-gray-400 mt-1">{desc}</div>
-                  </button>
-                ))}
-              </div>
-            )}
-
-            {current.key === "stripeAccountEmail" && (
-              <input
-                autoFocus
-                value={form.stripeAccountEmail}
-                onChange={(e) => setForm((s) => ({ ...s, stripeAccountEmail: e.target.value }))}
-                placeholder="Example: billing@yourdomain.com"
-                className="w-full text-lg md:text-xl rounded-xl border border-white/15 bg-white/5 px-4 py-3 focus:outline-none focus:border-white/25"
-              />
-            )}
-
-            {current.key === "currency" && (
-              <div className="space-y-3">
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                  {([
-                    ["USD", "$"],
-                    ["EUR", "€"],
-                    ["OTHER", "Autre"],
-                  ] as const).map(([v, label]) => (
-                    <button
-                      key={v}
-                      type="button"
-                      onClick={() => setForm((s) => ({ ...s, currency: v }))}
-                      className={`px-4 py-3 rounded-xl border transition ${
-                        form.currency === v ? "border-purple-400/60 bg-purple-500/15" : "border-white/10 bg-white/5 hover:bg-white/10"
-                      }`}
-                    >
-                      <div className="text-sm font-medium">{label}</div>
-                    </button>
-                  ))}
-                </div>
-                {form.currency === "OTHER" ? (
-                  <input
-                    autoFocus
-                    value={form.currencyOther}
-                    onChange={(e) => setForm((s) => ({ ...s, currencyOther: e.target.value }))}
-                    placeholder="Which currency?"
-                    className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 focus:outline-none focus:border-white/25"
-                  />
-                ) : null}
-              </div>
-            )}
-
-            {current.key === "monthlyPrice" && (
-              <input
-                autoFocus
-                value={form.monthlyPrice}
-                onChange={(e) => setForm((s) => ({ ...s, monthlyPrice: e.target.value }))}
-                placeholder="Example: 29.99"
-                inputMode="decimal"
-                className="w-full text-lg md:text-xl rounded-xl border border-white/15 bg-white/5 px-4 py-3 focus:outline-none focus:border-white/25"
-              />
-            )}
-
-            {current.key === "supportEmail" && (
-              <input
-                autoFocus
-                value={form.supportEmail}
-                onChange={(e) => setForm((s) => ({ ...s, supportEmail: e.target.value }))}
-                placeholder="Example: support@yourdomain.com"
-                className="w-full text-lg md:text-xl rounded-xl border border-white/15 bg-white/5 px-4 py-3 focus:outline-none focus:border-white/25"
-              />
-            )}
-
-            {current.key === "desiredLaunch" && (
-              <div className="space-y-3">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                  {(["ASAP", "DATE"] as const).map((v) => (
-                    <button
-                      key={v}
-                      type="button"
-                      onClick={() => setForm((s) => ({ ...s, desiredLaunch: v }))}
-                      className={`px-4 py-3 rounded-xl border transition text-left ${
-                        form.desiredLaunch === v ? "border-purple-400/60 bg-purple-500/15" : "border-white/10 bg-white/5 hover:bg-white/10"
-                      }`}
-                    >
-                      <div className="text-sm font-medium">{v === "ASAP" ? "ASAP" : "Pick a date"}</div>
-                      <div className="text-xs text-gray-400 mt-1">{v === "ASAP" ? "We start right away" : "Choose your target launch date"}</div>
-                    </button>
-                  ))}
-                </div>
-                {form.desiredLaunch === "DATE" ? (
-                  <input
-                    type="date"
-                    value={form.desiredLaunchDate}
-                    onChange={(e) => setForm((s) => ({ ...s, desiredLaunchDate: e.target.value }))}
-                    className="w-full rounded-xl border border-white/15 bg-white/5 px-4 py-3 focus:outline-none focus:border-white/25"
-                  />
-                ) : null}
-              </div>
-            )}
-
-            {current.key === "notes" && (
-              <textarea
-                autoFocus
-                value={form.notes}
-                onChange={(e) => setForm((s) => ({ ...s, notes: e.target.value }))}
-                placeholder="Optional notes…"
-                className="w-full min-h-[160px] rounded-xl border border-white/15 bg-white/5 px-4 py-3 focus:outline-none focus:border-white/25"
-              />
-            )}
-
             {current.key === "review" && (
               <div className="space-y-4">
                 <div className="rounded-xl border border-white/10 bg-black/30 p-4">
                   <div className="text-sm font-semibold mb-3">Summary</div>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                    <div><span className="text-gray-400">SaaS name:</span> <span className="text-gray-200">{form.saasName || "—"}</span></div>
+                    <div><span className="text-gray-400">You are:</span> <span className="text-gray-200">{form.creatorType === "other" ? (form.creatorTypeOther || "Other") : form.creatorType || "—"}</span></div>
+                    <div><span className="text-gray-400">Audience level:</span> <span className="text-gray-200">{form.audienceLevel || "—"}</span></div>
+                    <div><span className="text-gray-400">Main channel:</span> <span className="text-gray-200">{form.audienceMainChannel || "—"}</span></div>
+                    <div><span className="text-gray-400">Launch onboard:</span> <span className="text-gray-200">{form.launchOnboardCount || "—"}</span></div>
+                    <div><span className="text-gray-400">Offer type:</span> <span className="text-gray-200">{form.offerType || "—"}</span></div>
                     <div><span className="text-gray-400">Slug:</span> <span className="text-gray-200">{cleanSlug(form.slug) || "—"}</span></div>
                     <div className="md:col-span-2"><span className="text-gray-400">Default URL:</span> <span className="text-gray-200">{baseUrlPreview || "—"}</span></div>
-                    <div><span className="text-gray-400">Admin email:</span> <span className="text-gray-200">{form.adminEmail || "—"}</span></div>
-                    <div><span className="text-gray-400">WhatsApp:</span> <span className="text-gray-200">{form.whatsappNumber || "—"}</span></div>
-                    <div><span className="text-gray-400">Signup mode:</span> <span className="text-gray-200">{form.signupMode === "invite_only" ? "Admin invite only" : "Public signup"}</span></div>
-                    <div><span className="text-gray-400">Stripe email:</span> <span className="text-gray-200">{form.stripeAccountEmail || "—"}</span></div>
-                    <div><span className="text-gray-400">Price:</span> <span className="text-gray-200">{form.monthlyPrice ? `${form.monthlyPrice}/mo` : "—"}</span></div>
-                    <div><span className="text-gray-400">Currency:</span> <span className="text-gray-200">{form.currency === "OTHER" ? form.currencyOther : form.currency}</span></div>
-                    <div><span className="text-gray-400">Support email:</span> <span className="text-gray-200">{form.supportEmail || "—"}</span></div>
-                    <div><span className="text-gray-400">Launch:</span> <span className="text-gray-200">{form.desiredLaunch === "DATE" ? (form.desiredLaunchDate || "—") : "ASAP"}</span></div>
+                    <div className="md:col-span-2"><span className="text-gray-400">Admin email:</span> <span className="text-gray-200">{form.adminEmail || "—"}</span></div>
                   </div>
                 </div>
 

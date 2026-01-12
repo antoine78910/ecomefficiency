@@ -32,6 +32,8 @@ export default function TemplatePreview({ config }: { config: PreviewConfig }) {
 
   const main = safeColor(config.colors?.main, "#9541e0");
   const secondary = safeColor(config.colors?.secondary, "#7c30c7");
+  const accent = safeColor(config.colors?.accent, "#ab63ff");
+  const background = safeColor(config.colors?.background, "#000000");
 
   return (
     <div className="rounded-2xl border border-white/10 bg-black/60 shadow-[0_20px_80px_rgba(149,65,224,0.10)] overflow-hidden">
@@ -50,7 +52,8 @@ export default function TemplatePreview({ config }: { config: PreviewConfig }) {
           background:
             `radial-gradient(circle at 30% 10%, ${main}2e, transparent 50%),` +
             `radial-gradient(circle at 80% 40%, ${secondary}24, transparent 55%),` +
-            "linear-gradient(to bottom, rgba(0,0,0,0.35), rgba(0,0,0,0.35))",
+            `radial-gradient(circle at 55% 85%, ${accent}1f, transparent 60%),` +
+            `linear-gradient(to bottom, ${background}cc, ${background}cc)`,
         }}
       >
         <div className="flex items-center justify-between gap-4">
