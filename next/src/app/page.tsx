@@ -15,6 +15,7 @@ import type { Metadata } from "next";
 import AutoRedirectToApp from "@/components/AutoRedirectToApp";
 import PartnerSlugClient from "@/app/(partners)/[slug]/PartnerSlugClient";
 import { supabaseAdmin } from "@/integrations/supabase/server";
+import PartnerSimpleLanding from "@/components/PartnerSimpleLanding";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -111,58 +112,30 @@ export default async function Home() {
         const cfg = parseMaybeJson((cfgRow as any)?.value) || {};
         const colors = (cfg as any)?.colors || {};
         const title = String(cfg?.saasName || slug);
-        const tagline = String(cfg?.tagline || 'A modern SaaS built for your audience.');
+        const subtitle = String(cfg?.tagline || 'A modern SaaS built for your audience.');
+        const faq = Array.isArray((cfg as any)?.faq) ? ((cfg as any).faq as any[]) : [];
 
         return (
-          <div className="min-h-screen bg-black text-white">
-            <div className="relative max-w-5xl mx-auto px-6 py-10">
-              <div className="flex items-center justify-between gap-4">
-                <div className="flex items-center gap-3 min-w-0">
-                  {cfg?.logoUrl ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img src={String(cfg.logoUrl)} alt={`${title} logo`} className="h-10 w-auto object-contain" />
-                  ) : (
-                    <span className="text-sm font-semibold">{title}</span>
-                  )}
-                  <div className="min-w-0">
-                    <div className="text-sm font-semibold truncate">{title}</div>
-                    <div className="text-xs text-gray-400 truncate">{tagline}</div>
-                  </div>
-                </div>
-                <a href={`https://partners.ecomefficiency.com/dashboard?slug=${encodeURIComponent(slug)}`} className="text-sm text-gray-300 hover:text-white border border-white/10 bg-white/5 hover:bg-white/10 rounded-xl px-4 py-2">
-                  Admin
-                </a>
-              </div>
-
-              <div className="mt-12">
-                <div className="text-4xl md:text-5xl font-semibold leading-tight">{title}</div>
-                <div className="mt-4 text-lg text-gray-300 max-w-2xl">{tagline}</div>
-              </div>
-
-              <div className="mt-10">
-                <PartnerSlugClient
-                  config={{
-                    slug,
-                    saasName: cfg?.saasName,
-                    tagline: cfg?.tagline,
-                    logoUrl: cfg?.logoUrl,
-                    colors: {
-                      main: colors?.main,
-                      secondary: colors?.secondary,
-                      accent: colors?.accent,
-                      background: colors?.background,
-                    },
-                    monthlyPrice: cfg?.monthlyPrice,
-                    yearlyPrice: cfg?.yearlyPrice,
-                    annualDiscountPercent: cfg?.annualDiscountPercent,
-                    currency: cfg?.currency,
-                    allowPromotionCodes: cfg?.allowPromotionCodes,
-                    defaultDiscountId: cfg?.defaultDiscountId,
-                  }}
-                />
-              </div>
-            </div>
-          </div>
+          <PartnerSimpleLanding
+            slug={slug}
+            title={title}
+            subtitle={subtitle}
+            logoUrl={cfg?.logoUrl ? String(cfg.logoUrl) : undefined}
+            colors={{
+              main: colors?.main,
+              secondary: colors?.secondary,
+              accent: colors?.accent,
+              background: colors?.background,
+            }}
+            pricing={{
+              monthlyPrice: cfg?.monthlyPrice,
+              yearlyPrice: cfg?.yearlyPrice,
+              annualDiscountPercent: cfg?.annualDiscountPercent,
+              currency: cfg?.currency,
+              allowPromotionCodes: cfg?.allowPromotionCodes,
+            }}
+            faq={faq as any}
+          />
         );
       }
     } catch {

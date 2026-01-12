@@ -5,6 +5,7 @@ import Script from "next/script";
 import DataFastScript from "@/components/DataFastScript";
 import SupabaseSessionGuard from "@/components/SupabaseSessionGuard";
 import CrossDomainLoginFlag from "@/components/CrossDomainLoginFlag";
+import CrispScript from "@/components/CrispScript";
 // import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
@@ -286,14 +287,7 @@ var startOpts = {};
             });
           })();`}
         </Script>
-        <Script id="crisp-config" strategy="beforeInteractive">
-          {`window.$crisp=[];window.CRISP_WEBSITE_ID="69577169-0422-43d4-a553-a7d4776fde6f";`}
-        </Script>
-        <Script 
-          id="crisp-loader" 
-          strategy="afterInteractive" 
-          src="https://client.crisp.chat/l.js"
-        />
+        <CrispScript />
         <Providers>
           <CrossDomainLoginFlag />
           <SupabaseSessionGuard />

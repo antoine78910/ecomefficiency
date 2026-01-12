@@ -30,6 +30,7 @@ type PartnerConfig = {
   allowPromotionCodes?: boolean;
   defaultDiscountId?: string;
   signupMode?: string;
+  faq?: { q: string; a: string }[];
 };
 
 type PartnerStats = {
@@ -99,6 +100,7 @@ export default function DashboardClient() {
     secondary: string;
     accent: string;
     background: string;
+    faq: { q: string; a: string }[];
   }>({
     saasName: "",
     tagline: "",
@@ -112,6 +114,7 @@ export default function DashboardClient() {
     secondary: "",
     accent: "",
     background: "",
+    faq: [],
   });
 
   const [promos, setPromos] = React.useState<
@@ -251,6 +254,11 @@ export default function DashboardClient() {
       yearlyPrice: pageDraft.yearlyPrice.trim(),
       annualDiscountPercent: pageDraft.annualDiscountPercent ? Number(pageDraft.annualDiscountPercent) : undefined,
       currency: pageDraft.currency,
+      faq: Array.isArray(pageDraft.faq)
+        ? pageDraft.faq
+            .map((x) => ({ q: String(x?.q || "").trim(), a: String(x?.a || "").trim() }))
+            .filter((x) => x.q || x.a)
+        : [],
     } as Partial<PartnerConfig>;
   }, [
     pageDraft.saasName,
@@ -265,11 +273,15 @@ export default function DashboardClient() {
     pageDraft.yearlyPrice,
     pageDraft.annualDiscountPercent,
     pageDraft.currency,
+    pageDraft.faq,
   ]);
 
   const pageNeedsPublish = React.useMemo(() => {
     const c: any = config || {};
     const colors = (c as any)?.colors || {};
+    const normFaq = (arr: any) =>
+      (Array.isArray(arr) ? arr : []).map((x: any) => ({ q: String(x?.q || "").trim(), a: String(x?.a || "").trim() })).filter((x: any) => x.q || x.a);
+    const faqSame = JSON.stringify(normFaq(c?.faq)) === JSON.stringify(normFaq((publishPatch as any)?.faq));
     const same =
       String(c?.saasName || "").trim() === publishPatch.saasName &&
       String(c?.tagline || "").trim() === publishPatch.tagline &&
@@ -284,7 +296,8 @@ export default function DashboardClient() {
       String(c?.currency || "").trim() === String(publishPatch.currency || "").trim() &&
       (c?.annualDiscountPercent === undefined || c?.annualDiscountPercent === null
         ? (publishPatch as any)?.annualDiscountPercent === undefined
-        : Number(c.annualDiscountPercent) === Number((publishPatch as any)?.annualDiscountPercent));
+        : Number(c.annualDiscountPercent) === Number((publishPatch as any)?.annualDiscountPercent)) &&
+      faqSame;
     return !same;
   }, [config, publishPatch]);
 
@@ -501,6 +514,7 @@ export default function DashboardClient() {
       secondary: String(colors.secondary || d.secondary || ""),
       accent: String(colors.accent || d.accent || ""),
       background: String(colors.background || d.background || ""),
+      faq: Array.isArray((c as any)?.faq) ? ((c as any).faq as any[]).map((x) => ({ q: String(x?.q || ""), a: String(x?.a || "") })) : d.faq,
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
@@ -513,6 +527,7 @@ export default function DashboardClient() {
     (config as any)?.annualDiscountPercent,
     (config as any)?.currency,
     (config as any)?.colors,
+    (config as any)?.faq,
   ]);
 
   // ... rest of file ...
@@ -1536,6 +1551,74 @@ export default function DashboardClient() {
                             </button>
                           </div>
                         </div>
+
+                        <div className="rounded-xl border border-white/10 bg-white/5 p-3 md:col-span-2">
+                          <div className="text-xs text-gray-400 mb-1">FAQ</div>
+                          <div className="text-[11px] text-gray-500 mb-3">Shown at the bottom of the public page (custom domain + slug).</div>
+                          <div className="space-y-2">
+                            {(pageDraft.faq || []).map((it, idx) => (
+                              <div key={idx} className="rounded-xl border border-white/10 bg-black/30 p-3">
+                                <div className="flex items-center justify-between gap-2 mb-2">
+                                  <div className="text-xs text-gray-400">Item #{idx + 1}</div>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setPageDraft((s) => ({
+                                        ...s,
+                                        faq: (s.faq || []).filter((_, i) => i !== idx),
+                                      }))
+                                    }
+                                    className="inline-flex items-center gap-2 text-xs text-gray-400 hover:text-gray-200"
+                                    title="Remove"
+                                  >
+                                    <Trash2 className="w-4 h-4" /> Remove
+                                  </button>
+                                </div>
+                                <input
+                                  value={String(it?.q || "")}
+                                  onChange={(e) =>
+                                    setPageDraft((s) => ({
+                                      ...s,
+                                      faq: (s.faq || []).map((x, i) => (i === idx ? { ...(x || { q: "", a: "" }), q: e.target.value } : x)),
+                                    }))
+                                  }
+                                  placeholder="Question"
+                                  className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
+                                />
+                                <textarea
+                                  value={String(it?.a || "")}
+                                  onChange={(e) =>
+                                    setPageDraft((s) => ({
+                                      ...s,
+                                      faq: (s.faq || []).map((x, i) => (i === idx ? { ...(x || { q: "", a: "" }), a: e.target.value } : x)),
+                                    }))
+                                  }
+                                  placeholder="Answer"
+                                  className="mt-2 w-full min-h-[80px] rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
+                                />
+                              </div>
+                            ))}
+
+                            <div className="flex flex-wrap items-center gap-2">
+                              <button
+                                type="button"
+                                onClick={() => setPageDraft((s) => ({ ...s, faq: [...(s.faq || []), { q: "", a: "" }] }))}
+                                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm"
+                              >
+                                + Add FAQ
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => saveConfig({ faq: (publishPatch as any).faq || [] })}
+                                disabled={saving}
+                                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm"
+                              >
+                                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                                Save FAQ
+                              </button>
+                            </div>
+                          </div>
+                        </div>
                         <div className="rounded-xl border border-white/10 bg-white/5 p-3">
                           <div className="text-xs text-gray-400 mb-1">Custom domain</div>
                           <div className="text-gray-200 font-medium break-all">{config.customDomain || "—"}</div>
@@ -1569,6 +1652,7 @@ export default function DashboardClient() {
                       annualDiscountPercent: pageDraft.annualDiscountPercent ? Number(pageDraft.annualDiscountPercent) : undefined,
                       allowPromotionCodes: Boolean(config.allowPromotionCodes),
                       defaultDiscountId: String((config as any).defaultDiscountId || ""),
+                      faq: pageDraft.faq,
                     }}
                   />
                 </Card>

@@ -47,6 +47,7 @@ export async function POST(req: NextRequest) {
     const customerEmail = body?.email ? String(body.email).trim() : "";
     const intervalRaw = String(body?.interval || "month").toLowerCase();
     const interval: "month" | "year" = intervalRaw === "year" ? "year" : "month";
+    const promoCode = body?.code ? String(body.code).trim().toUpperCase() : "";
     if (!slug) return NextResponse.json({ ok: false, error: "missing_slug" }, { status: 400 });
 
     const stripe = getStripe();
@@ -122,6 +123,15 @@ export async function POST(req: NextRequest) {
 
     const productName = saasName ? `${saasName} Subscription` : `${slug} Subscription`;
 
+    let promoDiscount: any = null;
+    if (promoCode) {
+      try {
+        const list = await stripe.promotionCodes.list({ code: promoCode, active: true, limit: 1 } as any, { stripeAccount: connectedAccountId });
+        const pc = list.data?.[0];
+        if (pc?.id) promoDiscount = { promotion_code: pc.id } as any;
+      } catch {}
+    }
+
     const session = await stripe.checkout.sessions.create(
       {
         mode: "subscription",
@@ -140,12 +150,13 @@ export async function POST(req: NextRequest) {
         ],
         customer_email: customerEmail || undefined,
         allow_promotion_codes: Boolean(allowPromotionCodes),
-        ...(defaultDiscountId
+        ...((promoDiscount || defaultDiscountId)
           ? {
               discounts: [
-                defaultDiscountId.startsWith("promo_")
-                  ? ({ promotion_code: defaultDiscountId } as any)
-                  : ({ coupon: defaultDiscountId } as any),
+                promoDiscount ||
+                  (defaultDiscountId.startsWith("promo_")
+                    ? ({ promotion_code: defaultDiscountId } as any)
+                    : ({ coupon: defaultDiscountId } as any)),
               ],
             }
           : {}),
@@ -164,3 +175,115 @@ export async function POST(req: NextRequest) {
   }
 }
 
+// Shareable link: GET /api/partners/stripe/checkout?slug=...&interval=month|year&code=CODE_18
+export async function GET(req: NextRequest) {
+  try {
+    const url = new URL(req.url);
+    const slug = cleanSlug(url.searchParams.get("slug") || "");
+    const intervalRaw = String(url.searchParams.get("interval") || "month").toLowerCase();
+    const interval: "month" | "year" = intervalRaw === "year" ? "year" : "month";
+    const promoCode = String(url.searchParams.get("code") || "").trim().toUpperCase();
+    if (!slug) return NextResponse.json({ ok: false, error: "missing_slug" }, { status: 400 });
+
+    // Reuse POST logic via internal request shape (without customer email)
+    const stripe = getStripe();
+    const origin = req.headers.get("origin") || "https://partners.ecomefficiency.com";
+
+    let connectedAccountId = "";
+    let saasName = "";
+    let currency = "EUR";
+    let monthlyPrice = "29.99";
+    let yearlyPrice = "";
+    let annualDiscountPercent = 0;
+    let allowPromotionCodes = true;
+    let defaultDiscountId = "";
+    try {
+      if (supabaseAdmin) {
+        const key = `partner_config:${slug}`;
+        const { data } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
+        const cfg = parseMaybeJson((data as any)?.value) || {};
+        connectedAccountId = String(cfg?.connectedAccountId || "");
+        saasName = String(cfg?.saasName || "");
+        const c = String(cfg?.currency || "EUR").toUpperCase();
+        currency = c === "USD" || c === "EUR" ? c : "EUR";
+        monthlyPrice = String(cfg?.monthlyPrice || monthlyPrice);
+        yearlyPrice = String(cfg?.yearlyPrice || "");
+        annualDiscountPercent = Number(cfg?.annualDiscountPercent || 0) || 0;
+        allowPromotionCodes = typeof cfg?.allowPromotionCodes === "boolean" ? cfg.allowPromotionCodes : true;
+        defaultDiscountId = String(cfg?.defaultDiscountId || "");
+      }
+    } catch {}
+
+    if (!connectedAccountId) {
+      return NextResponse.json({ ok: false, error: "not_connected", detail: "No connected Stripe account for this slug yet." }, { status: 400 });
+    }
+
+    const unitAmount = parseAmountToCents(monthlyPrice);
+    if (!unitAmount) return NextResponse.json({ ok: false, error: "invalid_price" }, { status: 400 });
+
+    let intervalUnitAmount = unitAmount;
+    if (interval === "year") {
+      const yearly = yearlyPrice ? parseAmountToCents(yearlyPrice) : 0;
+      if (yearly > 0) intervalUnitAmount = yearly;
+      else {
+        const m = Number(String(monthlyPrice || "").replace(",", "."));
+        const pct = Math.min(Math.max(annualDiscountPercent, 0), 90) / 100;
+        const computed = Number.isFinite(m) && m > 0 ? m * 12 * (1 - pct) : 0;
+        intervalUnitAmount = parseAmountToCents(computed);
+      }
+      if (!intervalUnitAmount) return NextResponse.json({ ok: false, error: "invalid_yearly_price" }, { status: 400 });
+    }
+
+    let promoDiscount: any = null;
+    if (promoCode) {
+      try {
+        const list = await stripe.promotionCodes.list({ code: promoCode, active: true, limit: 1 } as any, { stripeAccount: connectedAccountId });
+        const pc = list.data?.[0];
+        if (pc?.id) promoDiscount = { promotion_code: pc.id } as any;
+      } catch {}
+    }
+
+    const productName = saasName ? `${saasName} Subscription` : `${slug} Subscription`;
+
+    const session = await stripe.checkout.sessions.create(
+      {
+        mode: "subscription",
+        success_url: `${origin}/${encodeURIComponent(slug)}?checkout=success`,
+        cancel_url: `${origin}/${encodeURIComponent(slug)}?checkout=cancel`,
+        line_items: [
+          {
+            price_data: {
+              currency: currency.toLowerCase(),
+              unit_amount: intervalUnitAmount,
+              recurring: { interval },
+              product_data: { name: productName },
+            },
+            quantity: 1,
+          },
+        ],
+        allow_promotion_codes: Boolean(allowPromotionCodes),
+        ...((promoDiscount || defaultDiscountId)
+          ? {
+              discounts: [
+                promoDiscount ||
+                  (defaultDiscountId.startsWith("promo_")
+                    ? ({ promotion_code: defaultDiscountId } as any)
+                    : ({ coupon: defaultDiscountId } as any)),
+              ],
+            }
+          : {}),
+        subscription_data: {
+          application_fee_percent: 50,
+          metadata: { partner_slug: slug },
+        } as any,
+        metadata: { partner_slug: slug },
+      } as any,
+      { stripeAccount: connectedAccountId }
+    );
+
+    if (session?.url) return NextResponse.redirect(session.url, { status: 302 });
+    return NextResponse.json({ ok: false, error: "no_url" }, { status: 500 });
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: "checkout_failed", detail: e?.message || String(e) }, { status: 500 });
+  }
+}
