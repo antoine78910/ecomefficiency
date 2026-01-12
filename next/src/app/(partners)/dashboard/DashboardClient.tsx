@@ -200,6 +200,18 @@ export default function DashboardClient() {
     return `https://${partnersHost}/${slug}`;
   }, [slug]);
 
+  const customDomainUrl = React.useMemo(() => {
+    const d = String((config as any)?.customDomain || "")
+      .trim()
+      .replace(/^https?:\/\//, "")
+      .replace(/\/.*$/, "")
+      .replace(/:\d+$/, "")
+      .replace(/\.$/, "")
+      .replace(/^www\./, "");
+    if (!d) return "";
+    return `https://${d}`;
+  }, [(config as any)?.customDomain]);
+
   const loadRequests = React.useCallback(async (s: string) => {
     try {
       const res = await fetch(`/api/partners/requests?slug=${encodeURIComponent(s)}`, {
@@ -710,6 +722,14 @@ export default function DashboardClient() {
                       placeholder="ecomwolf.com"
                       className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
                     />
+                    {customDomainUrl ? (
+                      <div className="text-xs text-gray-500">
+                        Once verified, your template is served automatically on{" "}
+                        <a href={customDomainUrl} target="_blank" rel="noreferrer" className="text-purple-300 hover:text-purple-200 break-all">
+                          {customDomainUrl}
+                        </a>
+                      </div>
+                    ) : null}
                     <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-gray-300">
                       <div className="text-gray-400 mb-3">DNS records (copy/paste)</div>
                       <div className="space-y-2">
@@ -781,7 +801,7 @@ export default function DashboardClient() {
                           const res = await fetch(`/api/partners/domain/verify?domain=${encodeURIComponent(d)}`, { cache: "no-store" });
                           const json = await res.json().catch(() => ({}));
                           if (res.ok && json?.ok && json?.verified) {
-                            setDomainVerify({ status: "ok", message: "Verified ✅" });
+                            setDomainVerify({ status: "ok", message: `Verified ✅${customDomainUrl ? ` Live: ${customDomainUrl}` : ""}` });
                             // Auto-save mapping (no separate Save button)
                             await saveConfig({ customDomain: d });
                             return;
@@ -823,6 +843,16 @@ export default function DashboardClient() {
                         "Verify DNS"
                       )}
                     </button>
+                    {domainVerify.status === "ok" && customDomainUrl ? (
+                      <a
+                        href={customDomainUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm"
+                      >
+                        <ExternalLink className="w-4 h-4" /> Open domain
+                      </a>
+                    ) : null}
                     {domainVerify.status !== "idle" ? (
                       <div className={`text-xs ${domainVerify.status === "ok" ? "text-green-300" : domainVerify.status === "checking" ? "text-gray-400" : "text-red-300"}`}>
                         {domainVerify.message || (domainVerify.status === "checking" ? "Checking…" : "")}
@@ -846,6 +876,14 @@ export default function DashboardClient() {
                           <span className="text-gray-500">—</span>
                         )}
                       </div>
+                      {customDomainUrl ? (
+                        <div className="mt-1 text-sm text-gray-300">
+                          Custom domain:{" "}
+                          <a href={customDomainUrl} target="_blank" rel="noreferrer" className="text-purple-300 hover:text-purple-200 break-all">
+                            {customDomainUrl}
+                          </a>
+                        </div>
+                      ) : null}
                       <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                         <div className="rounded-xl border border-white/10 bg-white/5 p-3">
                           <div className="text-xs text-gray-400 mb-1 inline-flex items-center gap-2"><LayoutTemplate className="w-4 h-4" /> SaaS</div>
