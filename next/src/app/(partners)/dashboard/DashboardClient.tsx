@@ -212,6 +212,65 @@ export default function DashboardClient() {
     return `https://${d}`;
   }, [(config as any)?.customDomain]);
 
+  const publishPatch = React.useMemo(() => {
+    return {
+      saasName: pageDraft.saasName.trim(),
+      tagline: pageDraft.tagline.trim(),
+      logoUrl: pageDraft.logoUrl.trim(),
+      faviconUrl: pageDraft.faviconUrl.trim(),
+      colors: {
+        main: pageDraft.main.trim(),
+        secondary: pageDraft.secondary.trim(),
+        accent: pageDraft.accent.trim(),
+        background: pageDraft.background.trim(),
+      },
+      monthlyPrice: pageDraft.monthlyPrice.trim(),
+      yearlyPrice: pageDraft.yearlyPrice.trim(),
+      annualDiscountPercent: pageDraft.annualDiscountPercent ? Number(pageDraft.annualDiscountPercent) : undefined,
+      currency: pageDraft.currency,
+      allowPromotionCodes: Boolean(pageDraft.allowPromotionCodes),
+      defaultDiscountId: pageDraft.defaultDiscountId.trim(),
+    } as Partial<PartnerConfig>;
+  }, [
+    pageDraft.saasName,
+    pageDraft.tagline,
+    pageDraft.logoUrl,
+    pageDraft.faviconUrl,
+    pageDraft.main,
+    pageDraft.secondary,
+    pageDraft.accent,
+    pageDraft.background,
+    pageDraft.monthlyPrice,
+    pageDraft.yearlyPrice,
+    pageDraft.annualDiscountPercent,
+    pageDraft.currency,
+    pageDraft.allowPromotionCodes,
+    pageDraft.defaultDiscountId,
+  ]);
+
+  const pageNeedsPublish = React.useMemo(() => {
+    const c: any = config || {};
+    const colors = (c as any)?.colors || {};
+    const same =
+      String(c?.saasName || "").trim() === publishPatch.saasName &&
+      String(c?.tagline || "").trim() === publishPatch.tagline &&
+      String(c?.logoUrl || "").trim() === publishPatch.logoUrl &&
+      String((c as any)?.faviconUrl || "").trim() === publishPatch.faviconUrl &&
+      String(colors?.main || "").trim() === (publishPatch as any)?.colors?.main &&
+      String(colors?.secondary || "").trim() === (publishPatch as any)?.colors?.secondary &&
+      String(colors?.accent || "").trim() === (publishPatch as any)?.colors?.accent &&
+      String(colors?.background || "").trim() === (publishPatch as any)?.colors?.background &&
+      String(c?.monthlyPrice ?? "").trim() === String(publishPatch.monthlyPrice || "").trim() &&
+      String(c?.yearlyPrice ?? "").trim() === String(publishPatch.yearlyPrice || "").trim() &&
+      String(c?.currency || "").trim() === String(publishPatch.currency || "").trim() &&
+      Boolean(c?.allowPromotionCodes) === Boolean(publishPatch.allowPromotionCodes) &&
+      String((c as any)?.defaultDiscountId || "").trim() === String((publishPatch as any)?.defaultDiscountId || "").trim() &&
+      (c?.annualDiscountPercent === undefined || c?.annualDiscountPercent === null
+        ? (publishPatch as any)?.annualDiscountPercent === undefined
+        : Number(c.annualDiscountPercent) === Number((publishPatch as any)?.annualDiscountPercent));
+    return !same;
+  }, [config, publishPatch]);
+
   const loadRequests = React.useCallback(async (s: string) => {
     try {
       const res = await fetch(`/api/partners/requests?slug=${encodeURIComponent(s)}`, {
@@ -730,6 +789,10 @@ export default function DashboardClient() {
                         </a>
                       </div>
                     ) : null}
+                    <div className="text-[11px] text-gray-500">
+                      Important: DNS can be “Verified” but the domain can still show another site if it’s attached to another Vercel project (domain ownership).
+                      If `saave.io` still shows the old website, remove the domain from the other project and add it to this project in Vercel (it may ask for a TXT `_vercel` token).
+                    </div>
                     <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-gray-300">
                       <div className="text-gray-400 mb-3">DNS records (copy/paste)</div>
                       <div className="space-y-2">
@@ -884,6 +947,23 @@ export default function DashboardClient() {
                           </a>
                         </div>
                       ) : null}
+                      {pageNeedsPublish ? (
+                        <div className="mt-3 flex items-center gap-2">
+                          <button
+                            type="button"
+                            onClick={() => saveConfig(publishPatch)}
+                            disabled={saving}
+                            className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-purple-400/30 bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] hover:brightness-110 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                            title="Publish your draft to the live site (slug + custom domain)"
+                          >
+                            {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                            Publish changes
+                          </button>
+                          <div className="text-xs text-gray-500">Applies instantly to {customDomainUrl ? "custom domain + " : ""}public page.</div>
+                        </div>
+                      ) : (
+                        <div className="mt-3 text-xs text-gray-500">All changes are published.</div>
+                      )}
                       <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                         <div className="rounded-xl border border-white/10 bg-white/5 p-3">
                           <div className="text-xs text-gray-400 mb-1 inline-flex items-center gap-2"><LayoutTemplate className="w-4 h-4" /> SaaS</div>

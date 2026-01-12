@@ -62,7 +62,9 @@ export default function PartnerSlugClient({ config }: { config: PartnerPublicCon
     }
   };
 
-  const symbol = (config.currency || "EUR").toUpperCase() === "USD" ? "$" : "€";
+  const currency = String(config.currency || "EUR").toUpperCase();
+  const isUsd = currency === "USD";
+  const symbol = isUsd ? "$" : "€";
   const monthly = Number(String(config.monthlyPrice || "29.99").replace(",", ".")) || 29.99;
   const explicitYearly = config.yearlyPrice ? Number(String(config.yearlyPrice).replace(",", ".")) : 0;
   const annualDiscount = typeof config.annualDiscountPercent === "number" ? config.annualDiscountPercent : 0;
@@ -71,6 +73,12 @@ export default function PartnerSlugClient({ config }: { config: PartnerPublicCon
   const hasYearly = Number.isFinite(computedYearly) && computedYearly > 0;
   const display = billing === "year" && hasYearly ? computedYearly : monthly;
   const per = billing === "year" && hasYearly ? "/year" : "/month";
+
+  const formatMoney = (amount: number) => {
+    const v = Number.isFinite(amount) ? amount : 0;
+    const s = v.toFixed(2);
+    return isUsd ? `${symbol}${s}` : `${s}${symbol}`;
+  };
 
   const main = String(config.colors?.main || "#9541e0");
   const secondary = String(config.colors?.secondary || "#7c30c7");
@@ -141,15 +149,14 @@ export default function PartnerSlugClient({ config }: { config: PartnerPublicCon
 
           {hasYearly ? (
             <div className="text-xs text-gray-400">
-              Yearly: <span className="text-gray-200 font-medium">{symbol}{computedYearly.toFixed(2)}</span>
+              Yearly: <span className="text-gray-200 font-medium">{formatMoney(computedYearly)}</span>
               {annualDiscount > 0 && !explicitYearly ? <span className="text-green-300"> • {annualDiscount}% off</span> : null}
             </div>
           ) : null}
         </div>
 
         <div className="text-3xl font-semibold text-white">
-          {symbol}
-          {display.toFixed(2)}
+          {formatMoney(display)}
           <span className="text-base text-gray-400 font-normal">{per}</span>
         </div>
         <div className="mt-2 text-sm text-gray-400">Full access to the platform.</div>
