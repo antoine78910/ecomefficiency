@@ -58,8 +58,9 @@ async function readPublicConfig(slug: string) {
   }
 }
 
-export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
-  const cfg = await readPublicConfig(params.slug);
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const cfg = await readPublicConfig(slug);
   const title = cfg.saasName || "Your SaaS";
   const description = cfg.tagline || "A modern SaaS built for your audience.";
   const icon = (cfg as any)?.faviconUrl ? String((cfg as any).faviconUrl) : undefined;
