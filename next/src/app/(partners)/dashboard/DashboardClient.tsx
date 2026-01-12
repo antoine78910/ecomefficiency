@@ -21,6 +21,7 @@ type PartnerConfig = {
   notes?: string;
   tagline?: string;
   logoUrl?: string;
+  faviconUrl?: string;
   colors?: { main?: string; secondary?: string; accent?: string; background?: string };
   currency?: string;
   monthlyPrice?: string | number;
@@ -87,6 +88,8 @@ export default function DashboardClient() {
   const [pageDraft, setPageDraft] = React.useState<{
     saasName: string;
     tagline: string;
+    logoUrl: string;
+    faviconUrl: string;
     monthlyPrice: string;
     yearlyPrice: string;
     annualDiscountPercent: string;
@@ -100,6 +103,8 @@ export default function DashboardClient() {
   }>({
     saasName: "",
     tagline: "",
+    logoUrl: "",
+    faviconUrl: "",
     monthlyPrice: "",
     yearlyPrice: "",
     annualDiscountPercent: "",
@@ -130,6 +135,18 @@ export default function DashboardClient() {
       return `#${r}${r}${g}${g}${b}${b}`;
     }
     return "#000000";
+  };
+
+  const uploadAsset = async (kind: "logo" | "favicon", file: File) => {
+    if (!slug) throw new Error("missing_slug");
+    const form = new FormData();
+    form.set("file", file);
+    form.set("kind", kind);
+    form.set("slug", slug);
+    const res = await fetch("/api/partners/upload", { method: "POST", body: form });
+    const json = await res.json().catch(() => ({}));
+    if (!res.ok || !json?.ok) throw new Error(json?.detail || json?.error || "upload_failed");
+    return String(json.publicUrl || "");
   };
 
   React.useEffect(() => {
@@ -285,6 +302,8 @@ export default function DashboardClient() {
       ...d,
       saasName: String(c.saasName || d.saasName || ""),
       tagline: String(c.tagline || d.tagline || ""),
+      logoUrl: String((c as any).logoUrl || d.logoUrl || ""),
+      faviconUrl: String((c as any).faviconUrl || d.faviconUrl || ""),
       monthlyPrice: c.monthlyPrice !== undefined && c.monthlyPrice !== null ? String(c.monthlyPrice) : d.monthlyPrice,
       yearlyPrice: c.yearlyPrice !== undefined && c.yearlyPrice !== null ? String(c.yearlyPrice) : d.yearlyPrice,
       annualDiscountPercent:
@@ -301,6 +320,8 @@ export default function DashboardClient() {
   }, [
     config?.saasName,
     (config as any)?.tagline,
+    (config as any)?.logoUrl,
+    (config as any)?.faviconUrl,
     (config as any)?.monthlyPrice,
     (config as any)?.yearlyPrice,
     (config as any)?.annualDiscountPercent,
@@ -820,6 +841,102 @@ export default function DashboardClient() {
                           </div>
                         </div>
                         <div className="rounded-xl border border-white/10 bg-white/5 p-3">
+                          <div className="text-xs text-gray-400 mb-1">Logo & favicon</div>
+                          <div className="space-y-3">
+                            <div className="flex items-center gap-3">
+                              {pageDraft.logoUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={pageDraft.logoUrl} alt="Logo" className="w-12 h-12 rounded-xl border border-white/10 object-contain bg-black/30" />
+                              ) : (
+                                <div className="w-12 h-12 rounded-xl border border-white/10 bg-black/20" />
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <div className="text-[11px] text-gray-500 mb-1">Logo URL</div>
+                                <input
+                                  value={pageDraft.logoUrl}
+                                  onChange={(e) => setPageDraft((s) => ({ ...s, logoUrl: e.target.value }))}
+                                  placeholder="https://..."
+                                  className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
+                                />
+                              </div>
+                              <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm cursor-pointer">
+                                Upload
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  className="hidden"
+                                  onChange={async (e) => {
+                                    const f = e.target.files?.[0];
+                                    if (!f) return;
+                                    try {
+                                      setSaving(true);
+                                      const url = await uploadAsset("logo", f);
+                                      setPageDraft((s) => ({ ...s, logoUrl: url }));
+                                      await saveConfig({ logoUrl: url });
+                                    } catch (err: any) {
+                                      setError(err?.message || "Upload failed");
+                                    } finally {
+                                      setSaving(false);
+                                      e.currentTarget.value = "";
+                                    }
+                                  }}
+                                />
+                              </label>
+                            </div>
+
+                            <div className="flex items-center gap-3">
+                              {pageDraft.faviconUrl ? (
+                                // eslint-disable-next-line @next/next/no-img-element
+                                <img src={pageDraft.faviconUrl} alt="Favicon" className="w-8 h-8 rounded-lg border border-white/10 object-contain bg-black/30" />
+                              ) : (
+                                <div className="w-8 h-8 rounded-lg border border-white/10 bg-black/20" />
+                              )}
+                              <div className="flex-1 min-w-0">
+                                <div className="text-[11px] text-gray-500 mb-1">Favicon URL</div>
+                                <input
+                                  value={pageDraft.faviconUrl}
+                                  onChange={(e) => setPageDraft((s) => ({ ...s, faviconUrl: e.target.value }))}
+                                  placeholder="https://... (png/svg/ico)"
+                                  className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
+                                />
+                              </div>
+                              <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm cursor-pointer">
+                                Upload
+                                <input
+                                  type="file"
+                                  accept="image/png,image/svg+xml,image/x-icon,.ico"
+                                  className="hidden"
+                                  onChange={async (e) => {
+                                    const f = e.target.files?.[0];
+                                    if (!f) return;
+                                    try {
+                                      setSaving(true);
+                                      const url = await uploadAsset("favicon", f);
+                                      setPageDraft((s) => ({ ...s, faviconUrl: url }));
+                                      await saveConfig({ faviconUrl: url });
+                                    } catch (err: any) {
+                                      setError(err?.message || "Upload failed");
+                                    } finally {
+                                      setSaving(false);
+                                      e.currentTarget.value = "";
+                                    }
+                                  }}
+                                />
+                              </label>
+                            </div>
+
+                            <button
+                              type="button"
+                              onClick={() => saveConfig({ logoUrl: pageDraft.logoUrl.trim(), faviconUrl: pageDraft.faviconUrl.trim() })}
+                              disabled={saving}
+                              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm"
+                            >
+                              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                              Save
+                            </button>
+                          </div>
+                        </div>
+                        <div className="rounded-xl border border-white/10 bg-white/5 p-3">
                           <div className="text-xs text-gray-400 mb-1 inline-flex items-center gap-2"><Palette className="w-4 h-4" /> Colors</div>
                           <div className="space-y-2">
                             {([
@@ -969,7 +1086,7 @@ export default function DashboardClient() {
                       slug,
                       saasName: pageDraft.saasName,
                       tagline: pageDraft.tagline,
-                      logoUrl: config.logoUrl ? String(config.logoUrl) : undefined,
+                      logoUrl: pageDraft.logoUrl ? String(pageDraft.logoUrl) : undefined,
                       colors: {
                         main: pageDraft.main,
                         secondary: pageDraft.secondary,

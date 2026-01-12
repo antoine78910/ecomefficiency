@@ -1,6 +1,7 @@
 import React from "react";
 import Image from "next/image";
 import Link from "next/link";
+import type { Metadata } from "next";
 import { supabaseAdmin } from "@/integrations/supabase/server";
 import PartnerSlugClient from "./PartnerSlugClient";
 
@@ -38,6 +39,7 @@ async function readPublicConfig(slug: string) {
       saasName: cfg?.saasName ? String(cfg.saasName) : undefined,
       tagline: cfg?.tagline ? String(cfg.tagline) : undefined,
       logoUrl: cfg?.logoUrl ? String(cfg.logoUrl) : undefined,
+      faviconUrl: (cfg as any)?.faviconUrl ? String((cfg as any).faviconUrl) : undefined,
       colors: {
         main: colors?.main ? String(colors.main) : undefined,
         secondary: colors?.secondary ? String(colors.secondary) : undefined,
@@ -54,6 +56,18 @@ async function readPublicConfig(slug: string) {
   } catch {
     return { slug: safeSlug };
   }
+}
+
+export async function generateMetadata({ params }: { params: { slug: string } }): Promise<Metadata> {
+  const cfg = await readPublicConfig(params.slug);
+  const title = cfg.saasName || "Your SaaS";
+  const description = cfg.tagline || "A modern SaaS built for your audience.";
+  const icon = (cfg as any)?.faviconUrl ? String((cfg as any).faviconUrl) : undefined;
+  return {
+    title,
+    description,
+    icons: icon ? { icon } : undefined,
+  };
 }
 
 export default async function PartnerSlugPage({ params }: { params: Promise<{ slug: string }> }) {

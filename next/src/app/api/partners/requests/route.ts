@@ -1,7 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/integrations/supabase/server";
+import { Resend } from "resend";
 
 export const runtime = "nodejs";
+
+const NOTIFY_EMAIL = "anto.delbos@gmail.com";
 
 function parseMaybeJson<T = any>(value: any): T | null {
   if (value === null || value === undefined) return null;
@@ -33,6 +36,53 @@ type StoredRequest = {
   email?: string;
   message: string;
 };
+
+async function trySendNotificationEmail(payload: { slug: string; item: StoredRequest }) {
+  try {
+    if (!process.env.RESEND_API_KEY) return { ok: false as const, error: "resend_not_configured" };
+    const resend = new Resend(process.env.RESEND_API_KEY);
+
+    const subject = `[Partners] New page request (${payload.slug})`;
+    const dashboardUrl = `https://partners.ecomefficiency.com/dashboard?slug=${encodeURIComponent(payload.slug)}&tab=page`;
+    const fromEmail = payload.item.email || "unknown";
+
+    const html = `
+      <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; line-height: 1.5;">
+        <h2 style="margin:0 0 12px;">New partner request</h2>
+        <p style="margin:0 0 8px;"><strong>Slug:</strong> ${payload.slug}</p>
+        <p style="margin:0 0 8px;"><strong>From:</strong> ${fromEmail}</p>
+        <p style="margin:0 0 8px;"><strong>Created:</strong> ${payload.item.createdAt}</p>
+        <p style="margin:16px 0 8px;"><strong>Message:</strong></p>
+        <pre style="white-space:pre-wrap; background:#f6f6f6; padding:12px; border-radius:8px; border:1px solid #eee; font-size:13px;">${String(payload.item.message || "")}</pre>
+        <p style="margin:16px 0 0;"><a href="${dashboardUrl}">Open in dashboard</a></p>
+      </div>
+    `;
+
+    const text = `New partner request
+
+Slug: ${payload.slug}
+From: ${fromEmail}
+Created: ${payload.item.createdAt}
+
+Message:
+${payload.item.message}
+
+Dashboard: ${dashboardUrl}
+`;
+
+    const result = await resend.emails.send({
+      from: "Ecom Efficiency <onboarding@ecomefficiency.com>",
+      to: NOTIFY_EMAIL,
+      subject,
+      html,
+      text,
+    });
+
+    return { ok: true as const, emailId: result.data?.id };
+  } catch (e: any) {
+    return { ok: false as const, error: e?.message || "send_failed" };
+  }
+}
 
 export async function GET(req: NextRequest) {
   try {
@@ -106,7 +156,15 @@ export async function POST(req: NextRequest) {
     }
     if (err) return NextResponse.json({ ok: false, error: "db_error", detail: err?.message || "db error" }, { status: 500 });
 
-    return NextResponse.json({ ok: true, item, requests: next.slice(0, 100) }, { status: 200 });
+    const emailRes = await trySendNotificationEmail({ slug, item });
+    if (!emailRes.ok) {
+      console.log("[partners][requests] email notify skipped/failed:", emailRes.error);
+    }
+
+    return NextResponse.json(
+      { ok: true, item, requests: next.slice(0, 100), emailSent: emailRes.ok ? true : false },
+      { status: 200 }
+    );
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: "unknown_error", detail: e?.message || String(e) }, { status: 500 });
   }

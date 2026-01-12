@@ -11,6 +11,7 @@ import Footer from "@/components/Footer";
 import AuthHashRedirector from "@/components/AuthHashRedirector";
 import VideoSection from "@/components/VideoSection";
 import { headers } from "next/headers";
+import type { Metadata } from "next";
 import AutoRedirectToApp from "@/components/AutoRedirectToApp";
 import PartnerSlugClient from "@/app/(partners)/[slug]/PartnerSlugClient";
 import { supabaseAdmin } from "@/integrations/supabase/server";
@@ -27,6 +28,45 @@ function parseMaybeJson<T = any>(value: any): T | null {
     }
   }
   return value as T;
+}
+
+export async function generateMetadata(): Promise<Metadata> {
+  try {
+    const h = await headers();
+    const host = (h.get("x-forwarded-host") || h.get("host") || "").toLowerCase();
+    const isApp = host.includes("app.localhost") || (host.startsWith("app.") && !host.includes("localhost"));
+    const bareHost = host.split(":")[0].replace(/^www\./, "");
+
+    if (isApp) return {};
+
+    const isKnown =
+      bareHost === "ecomefficiency.com" ||
+      bareHost.endsWith(".ecomefficiency.com") ||
+      bareHost.endsWith("localhost");
+
+    if (isKnown || !supabaseAdmin) return {};
+
+    const key = `partner_domain:${bareHost}`;
+    const { data } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
+    const mapping = parseMaybeJson((data as any)?.value) as any;
+    const slug = mapping?.slug as string | undefined;
+    if (!slug) return {};
+
+    const cfgKey = `partner_config:${slug}`;
+    const { data: cfgRow } = await supabaseAdmin.from("app_state").select("value").eq("key", cfgKey).maybeSingle();
+    const cfg = parseMaybeJson((cfgRow as any)?.value) || {};
+    const title = String((cfg as any)?.saasName || slug);
+    const description = String((cfg as any)?.tagline || "A modern SaaS built for your audience.");
+    const icon = (cfg as any)?.faviconUrl ? String((cfg as any).faviconUrl) : undefined;
+
+    return {
+      title,
+      description,
+      icons: icon ? { icon } : undefined,
+    };
+  } catch {
+    return {};
+  }
 }
 
 export default async function Home() {
