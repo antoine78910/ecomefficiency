@@ -658,7 +658,7 @@ export default function DashboardClient() {
           <Check className="h-4 w-4 text-green-300" />
         </div>
       ) : null}
-      <div className="max-w-6xl mx-auto px-6 py-8">
+      <div className="w-full px-4 md:px-6 lg:px-8 2xl:px-10 py-8">
         <div className="flex items-start justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
             <Image src="/ecomefficiency.png" alt="Ecom Efficiency" width={160} height={52} priority className="h-10 w-auto object-contain" />
@@ -680,9 +680,9 @@ export default function DashboardClient() {
           </div>
         </div>
 
-        <div className="flex gap-5">
+        <div className="flex gap-6">
           {/* Sidebar */}
-          <aside className="hidden md:block w-56 shrink-0">
+          <aside className="hidden md:block w-64 shrink-0">
             <div className="rounded-2xl border border-white/10 bg-black/60 shadow-[0_20px_80px_rgba(149,65,224,0.10)] p-3 sticky top-6">
               <div className="px-2 pt-2 pb-3">
                 <div className="text-xs text-gray-400">Workspace</div>
@@ -1046,7 +1046,7 @@ export default function DashboardClient() {
                     </div>
                   ) : null}
 
-                  <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-4">
+                  <div className="mt-4 grid grid-cols-1 xl:grid-cols-[420px_1fr] gap-4 items-start">
                     <div className="rounded-xl border border-white/10 bg-white/5 p-4">
                       <div className="text-xs text-gray-400 mb-2">Process</div>
                       <div className="grid grid-cols-1 gap-2">
