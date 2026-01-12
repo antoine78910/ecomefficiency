@@ -2,9 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Shield, Users, Activity, BarChart3 } from 'lucide-react'
+import { Shield, Users, Activity, BarChart3, LayoutTemplate } from 'lucide-react'
 
 const adminRoutes = [
+  {
+    href: '/admin/partners',
+    label: 'Partners',
+    icon: LayoutTemplate,
+    description: 'White-label partners (stats + onboarding + requests)'
+  },
   {
     href: '/admin/sessions',
     label: 'Sessions',

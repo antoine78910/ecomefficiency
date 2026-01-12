@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
-import { Check, Copy, ExternalLink, Loader2, RefreshCcw, Save, Palette, LayoutTemplate } from "lucide-react";
+import { Check, Copy, ExternalLink, Loader2, RefreshCcw, Save, Palette, LayoutTemplate, Trash2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import TemplatePreview from "./TemplatePreview";
 
@@ -202,12 +202,15 @@ export default function DashboardClient() {
 
   const loadRequests = React.useCallback(async (s: string) => {
     try {
-      const res = await fetch(`/api/partners/requests?slug=${encodeURIComponent(s)}`, { cache: "no-store" });
+      const res = await fetch(`/api/partners/requests?slug=${encodeURIComponent(s)}`, {
+        cache: "no-store",
+        headers: accountEmail ? { "x-user-email": accountEmail } : undefined,
+      });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json?.ok) return;
       setRequests(Array.isArray(json.requests) ? json.requests : []);
     } catch {}
-  }, []);
+  }, [accountEmail]);
 
   const fetchStripeStatus = React.useCallback(async (s: string) => {
     try {
@@ -367,7 +370,7 @@ export default function DashboardClient() {
     try {
       const res = await fetch("/api/partners/requests", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", ...(accountEmail ? { "x-user-email": accountEmail } : {}) },
         body: JSON.stringify({ slug, email: accountEmail || config.adminEmail || "", message }),
       });
       const json = await res.json().catch(() => ({}));
@@ -376,6 +379,30 @@ export default function DashboardClient() {
       setRequestDraft("");
     } catch (e: any) {
       setRequestError(e?.message || "Failed to submit request");
+    } finally {
+      setRequestLoading(false);
+    }
+  };
+
+  const deleteRequest = async (id: string) => {
+    if (!slug || !id) return;
+    if (typeof window !== "undefined") {
+      const ok = window.confirm("Delete this request?");
+      if (!ok) return;
+    }
+    setRequestLoading(true);
+    setRequestError(null);
+    try {
+      const res = await fetch("/api/partners/requests", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json", ...(accountEmail ? { "x-user-email": accountEmail } : {}) },
+        body: JSON.stringify({ slug, id }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) throw new Error(json?.detail || json?.error || "Failed to delete request");
+      setRequests(Array.isArray(json.requests) ? json.requests : requests.filter((r) => r.id !== id));
+    } catch (e: any) {
+      setRequestError(e?.message || "Failed to delete request");
     } finally {
       setRequestLoading(false);
     }
@@ -1138,7 +1165,19 @@ export default function DashboardClient() {
                           <div key={r.id} className="rounded-xl border border-white/10 bg-white/5 p-3">
                             <div className="flex items-center justify-between gap-3 text-xs text-gray-400">
                               <div className="truncate">{r.email || "—"}</div>
-                              <div className="shrink-0">{r.createdAt ? new Date(r.createdAt).toLocaleString() : ""}</div>
+                              <div className="flex items-center gap-2 shrink-0">
+                                <div className="shrink-0">{r.createdAt ? new Date(r.createdAt).toLocaleString() : ""}</div>
+                                <button
+                                  type="button"
+                                  onClick={() => deleteRequest(r.id)}
+                                  disabled={requestLoading}
+                                  className="inline-flex items-center justify-center w-8 h-8 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 text-gray-300 hover:text-white disabled:opacity-50"
+                                  title="Delete request"
+                                  aria-label="Delete request"
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </button>
+                              </div>
                             </div>
                             <div className="mt-2 text-sm text-gray-200 whitespace-pre-wrap">{r.message}</div>
                           </div>

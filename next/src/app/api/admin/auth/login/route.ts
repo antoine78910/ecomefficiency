@@ -3,16 +3,25 @@ import { cookies } from 'next/headers'
 
 export async function POST(request: Request) {
   try {
-    const { password } = await request.json()
+    const { email, password } = await request.json()
     
     // Le mot de passe à définir dans .env: ADMIN_PASSWORD
     const correctPassword = process.env.ADMIN_PASSWORD || ''
+    const allowedEmail = (process.env.ADMIN_EMAIL || 'anto.delbos@gmail.com').toLowerCase().trim()
     
     if (!correctPassword) {
       return NextResponse.json({ 
         success: false, 
         message: 'Admin password not configured' 
       }, { status: 500 })
+    }
+
+    const normalizedEmail = String(email || '').toLowerCase().trim()
+    if (!normalizedEmail || normalizedEmail !== allowedEmail) {
+      return NextResponse.json({
+        success: false,
+        message: 'Invalid admin email'
+      }, { status: 401 })
     }
     
     if (password !== correctPassword) {

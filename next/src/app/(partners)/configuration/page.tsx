@@ -18,7 +18,7 @@ type FormState = {
   creatorType: CreatorType;
   creatorTypeOther: string;
   audienceLevel: AudienceLevel;
-  audienceMainChannel: AudienceMainChannel;
+  audienceMainChannels: AudienceMainChannel[];
   launchOnboardCount: string;
   offerType: OfferType;
 };
@@ -98,7 +98,7 @@ export default function PartnersConfigurationPage() {
     creatorType: "",
     creatorTypeOther: "",
     audienceLevel: "",
-    audienceMainChannel: "",
+    audienceMainChannels: [],
     launchOnboardCount: "",
     offerType: "",
   }));
@@ -196,7 +196,7 @@ export default function PartnersConfigurationPage() {
       case "audienceLevel":
         return form.audienceLevel === "beginners" || form.audienceLevel === "intermediate" || form.audienceLevel === "advanced";
       case "audienceMainChannel":
-        return Boolean(form.audienceMainChannel);
+        return Array.isArray(form.audienceMainChannels) && form.audienceMainChannels.length > 0;
       case "launchOnboardCount": {
         const n = Number(String(form.launchOnboardCount || "").replace(",", "."));
         return Number.isFinite(n) && n > 0;
@@ -233,18 +233,19 @@ export default function PartnersConfigurationPage() {
           ? `Other: ${form.creatorTypeOther.trim()}`
           : "";
 
-      const channelLabel =
-        form.audienceMainChannel === "discord"
+      const channelLabel = (c: AudienceMainChannel) =>
+        c === "discord"
           ? "Discord"
-          : form.audienceMainChannel === "formation"
+          : c === "formation"
           ? "formation"
-          : form.audienceMainChannel === "newsletter"
+          : c === "newsletter"
           ? "newsletter"
-          : form.audienceMainChannel === "social"
+          : c === "social"
           ? "Instagram / TikTok / YouTube"
-          : form.audienceMainChannel === "existing_clients"
+          : c === "existing_clients"
           ? "clients existants"
           : "";
+      const channelLabels = (form.audienceMainChannels || []).map(channelLabel).filter(Boolean);
 
       const payload = {
         slug: cleanSlug(form.slug),
@@ -253,8 +254,8 @@ export default function PartnersConfigurationPage() {
           creatorType: form.creatorType,
           creatorTypeLabel: creatorLabel,
           audienceLevel: form.audienceLevel,
-          audienceMainChannel: form.audienceMainChannel,
-          audienceMainChannelLabel: channelLabel,
+          audienceMainChannels: form.audienceMainChannels,
+          audienceMainChannelLabels: channelLabels,
           launchOnboardCount: Number(String(form.launchOnboardCount || "").replace(",", ".")),
           offerType: form.offerType,
         },
@@ -417,14 +418,23 @@ export default function PartnersConfigurationPage() {
                   <button
                     key={v}
                     type="button"
-                    onClick={() => setForm((s) => ({ ...s, audienceMainChannel: v }))}
+                    onClick={() =>
+                      setForm((s) => {
+                        const prev = Array.isArray(s.audienceMainChannels) ? s.audienceMainChannels : [];
+                        const next = prev.includes(v as any) ? prev.filter((x) => x !== (v as any)) : [...prev, v as any];
+                        return { ...s, audienceMainChannels: next };
+                      })
+                    }
                     className={`w-full text-left px-4 py-3 rounded-xl border transition ${
-                      form.audienceMainChannel === v ? "border-purple-400/60 bg-purple-500/15" : "border-white/10 bg-white/5 hover:bg-white/10"
+                      form.audienceMainChannels.includes(v as any)
+                        ? "border-purple-400/60 bg-purple-500/15"
+                        : "border-white/10 bg-white/5 hover:bg-white/10"
                     }`}
                   >
                     <div className="text-sm font-medium">{label}</div>
                   </button>
                 ))}
+                <div className="text-xs text-gray-500">Tu peux en sélectionner plusieurs.</div>
               </div>
             )}
 
@@ -493,7 +503,7 @@ export default function PartnersConfigurationPage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
                     <div><span className="text-gray-400">You are:</span> <span className="text-gray-200">{form.creatorType === "other" ? (form.creatorTypeOther || "Other") : form.creatorType || "—"}</span></div>
                     <div><span className="text-gray-400">Audience level:</span> <span className="text-gray-200">{form.audienceLevel || "—"}</span></div>
-                    <div><span className="text-gray-400">Main channel:</span> <span className="text-gray-200">{form.audienceMainChannel || "—"}</span></div>
+                    <div><span className="text-gray-400">Main channels:</span> <span className="text-gray-200">{(form.audienceMainChannels || []).join(", ") || "—"}</span></div>
                     <div><span className="text-gray-400">Launch onboard:</span> <span className="text-gray-200">{form.launchOnboardCount || "—"}</span></div>
                     <div><span className="text-gray-400">Offer type:</span> <span className="text-gray-200">{form.offerType || "—"}</span></div>
                     <div><span className="text-gray-400">Slug:</span> <span className="text-gray-200">{cleanSlug(form.slug) || "—"}</span></div>

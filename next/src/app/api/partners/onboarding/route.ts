@@ -122,7 +122,7 @@ export async function POST(req: NextRequest) {
             <h3 style="margin: 0 0 8px;">Onboarding answers</h3>
             <p style="margin: 0 0 8px;"><strong>Type:</strong> ${escapeHtml(String(onboarding.creatorTypeLabel || onboarding.creatorType || ""))}</p>
             <p style="margin: 0 0 8px;"><strong>Audience level:</strong> ${escapeHtml(String(onboarding.audienceLevel || ""))}</p>
-            <p style="margin: 0 0 8px;"><strong>Main channel:</strong> ${escapeHtml(String(onboarding.audienceMainChannelLabel || onboarding.audienceMainChannel || ""))}</p>
+            <p style="margin: 0 0 8px;"><strong>Main channels:</strong> ${escapeHtml(String((onboarding.audienceMainChannelLabels || onboarding.audienceMainChannels || onboarding.audienceMainChannelLabel || onboarding.audienceMainChannel || []) as any))}</p>
             <p style="margin: 0 0 8px;"><strong>Launch onboard:</strong> ${escapeHtml(String(onboarding.launchOnboardCount ?? ""))}</p>
             <p style="margin: 0 0 8px;"><strong>Offer type:</strong> ${escapeHtml(String(onboarding.offerType || ""))}</p>
           `
