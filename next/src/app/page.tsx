@@ -16,6 +16,9 @@ import AutoRedirectToApp from "@/components/AutoRedirectToApp";
 import PartnerSlugClient from "@/app/(partners)/[slug]/PartnerSlugClient";
 import { supabaseAdmin } from "@/integrations/supabase/server";
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 function parseMaybeJson<T = any>(value: any): T | null {
   if (value === null || value === undefined) return null;
   if (typeof value === "string") {
@@ -165,6 +168,44 @@ export default async function Home() {
     } catch {
       // fall through to main marketing site
     }
+
+    // If the request is for a custom domain but we don't have a mapping yet,
+    // show a helpful setup page (avoid "blank page" confusion).
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center px-6 py-16">
+        <div className="max-w-xl w-full rounded-2xl border border-white/10 bg-black/60 shadow-[0_20px_80px_rgba(149,65,224,0.10)] p-6">
+          <div className="text-lg font-semibold">Domain not connected yet</div>
+          <div className="mt-2 text-sm text-gray-300">
+            We received a request for <span className="font-mono text-gray-100">{bareHost || "unknown-host"}</span>, but it’s not mapped to any partner slug.
+          </div>
+          <div className="mt-4 text-sm text-gray-400 space-y-2">
+            <div>
+              - **In your Partners dashboard**: set this domain in “Custom domain”, click “Verify DNS”, and make sure it shows <span className="text-gray-200">Verified ✅</span>.
+            </div>
+            <div>
+              - **In Vercel**: the domain must be added to this project (domain ownership). If the domain is attached to another project, it will not serve this template.
+            </div>
+          </div>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <a
+              href="https://partners.ecomefficiency.com/dashboard"
+              className="inline-flex items-center justify-center h-11 px-5 rounded-xl text-sm font-semibold bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] border border-[#9541e0] hover:brightness-110"
+            >
+              Open Partners dashboard
+            </a>
+            <a
+              href={`https://partners.ecomefficiency.com/dashboard?tab=settings`}
+              className="inline-flex items-center justify-center h-11 px-5 rounded-xl text-sm font-medium border border-white/10 bg-white/5 hover:bg-white/10 text-gray-200"
+            >
+              Domain setup
+            </a>
+          </div>
+          <div className="mt-5 text-[11px] text-gray-500">
+            If you still see an empty page, open DevTools Console and share any errors — it usually means the domain isn’t pointing to this deployment or a runtime error is blocking rendering.
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
