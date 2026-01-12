@@ -42,6 +42,7 @@ type StoredPromo = {
   type: "percent_once" | "percent_forever";
   percentOff: number;
   maxUses?: number;
+  timesRedeemed?: number;
   active: boolean;
   couponId: string;
   promotionCodeId: string;
@@ -104,6 +105,36 @@ export async function GET(req: NextRequest) {
     if (!slug) return NextResponse.json({ ok: false, error: "missing_slug" }, { status: 400 });
     if (!supabaseAdmin) return NextResponse.json({ ok: false, error: "supabase_admin_missing" }, { status: 500 });
     const list = await readList(slug);
+
+    // Best-effort refresh from Stripe (usage + active + max_redemptions)
+    try {
+      const connectedAccountId = await loadConnectedAccountId(slug);
+      if (connectedAccountId && list.length) {
+        const stripe = getStripe();
+        const refreshed: StoredPromo[] = [];
+        for (const p of list.slice(0, 80)) {
+          try {
+            const pc = await stripe.promotionCodes.retrieve(p.promotionCodeId, {} as any, { stripeAccount: connectedAccountId });
+            const max = (pc as any)?.max_redemptions;
+            const times = (pc as any)?.times_redeemed;
+            refreshed.push({
+              ...p,
+              active: typeof (pc as any)?.active === "boolean" ? Boolean((pc as any).active) : p.active,
+              maxUses: Number.isFinite(Number(max)) && Number(max) > 0 ? Number(max) : p.maxUses,
+              timesRedeemed: Number.isFinite(Number(times)) && Number(times) >= 0 ? Number(times) : p.timesRedeemed,
+            });
+          } catch {
+            refreshed.push(p);
+          }
+        }
+        // Preserve any extra items beyond 80 without refresh
+        if (list.length > 80) refreshed.push(...list.slice(80));
+        // Best-effort persist refreshed values
+        writeList(slug, refreshed).catch(() => {});
+        return NextResponse.json({ ok: true, promos: refreshed }, { status: 200 });
+      }
+    } catch {}
+
     return NextResponse.json({ ok: true, promos: list }, { status: 200 });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: "unknown_error", detail: e?.message || String(e) }, { status: 500 });
@@ -189,6 +220,8 @@ export async function PUT(req: NextRequest) {
     const slug = cleanSlug(body?.slug || "");
     const promotionCodeId = String(body?.promotionCodeId || "").trim();
     const active = Boolean(body?.active);
+    const maxUsesRaw = body?.maxUses === "" || body?.maxUses === null || body?.maxUses === undefined ? undefined : Number(body.maxUses);
+    const maxUses = Number.isFinite(maxUsesRaw as any) && (maxUsesRaw as number) > 0 ? Math.floor(maxUsesRaw as number) : undefined;
     if (!slug) return NextResponse.json({ ok: false, error: "missing_slug" }, { status: 400 });
     if (!promotionCodeId) return NextResponse.json({ ok: false, error: "missing_promotion_code_id" }, { status: 400 });
 
@@ -196,14 +229,20 @@ export async function PUT(req: NextRequest) {
     if (!connectedAccountId) return NextResponse.json({ ok: false, error: "not_connected" }, { status: 400 });
 
     const stripe = getStripe();
-    await stripe.promotionCodes.update(
-      promotionCodeId,
-      { active } as any,
-      { stripeAccount: connectedAccountId }
-    );
+    const updatePayload: any = { active };
+    if (maxUses) updatePayload.max_redemptions = maxUses;
+    await stripe.promotionCodes.update(promotionCodeId, updatePayload, { stripeAccount: connectedAccountId });
 
     const current = await readList(slug);
-    const next = current.map((p) => (p.promotionCodeId === promotionCodeId ? { ...p, active } : p));
+    const next = current.map((p) =>
+      p.promotionCodeId === promotionCodeId
+        ? {
+            ...p,
+            active,
+            ...(maxUses ? { maxUses } : {}),
+          }
+        : p
+    );
     const w = await writeList(slug, next);
     if (!w.ok) return NextResponse.json(w, { status: 500 });
 

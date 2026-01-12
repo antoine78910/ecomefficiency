@@ -121,6 +121,7 @@ export default function DashboardClient() {
       type: "percent_once" | "percent_forever";
       percentOff: number;
       maxUses?: number;
+      timesRedeemed?: number;
       active: boolean;
       couponId: string;
       promotionCodeId: string;
@@ -134,6 +135,9 @@ export default function DashboardClient() {
     percentOff: "50",
     maxUses: "100",
   });
+
+  const [editPromoId, setEditPromoId] = React.useState<string | null>(null);
+  const [editMaxUses, setEditMaxUses] = React.useState<string>("");
 
   const copyText = async (text: string) => {
     try {
@@ -426,7 +430,7 @@ export default function DashboardClient() {
     }
   };
 
-  const setPromoActive = async (promotionCodeId: string, active: boolean) => {
+  const setPromoActive = async (promotionCodeId: string, active: boolean, maxUses?: number) => {
     if (!slug) return;
     setPromosLoading(true);
     setPromosError(null);
@@ -434,7 +438,7 @@ export default function DashboardClient() {
       const res = await fetch("/api/partners/promo-codes", {
         method: "PUT",
         headers: { "Content-Type": "application/json", ...(accountEmail ? { "x-user-email": accountEmail } : {}) },
-        body: JSON.stringify({ slug, promotionCodeId, active }),
+        body: JSON.stringify({ slug, promotionCodeId, active, ...(maxUses ? { maxUses } : {}) }),
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json?.ok) throw new Error(json?.detail || json?.error || "Update failed");
@@ -626,10 +630,12 @@ export default function DashboardClient() {
         <div className="flex items-start justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
             <Image src="/ecomefficiency.png" alt="Ecom Efficiency" width={160} height={52} priority className="h-10 w-auto object-contain" />
-            <div>
-              <div className="text-sm font-semibold">Partners Dashboard</div>
-              <div className="text-xs text-gray-400">Manage your white-label setup</div>
-            </div>
+            {tab === "page" ? (
+              <div>
+                <div className="text-sm font-semibold">Page</div>
+                <div className="text-xs text-gray-400">Branding & requests</div>
+              </div>
+            ) : null}
           </div>
           <div className="flex items-center gap-3">
             {accountEmail ? (
@@ -1040,7 +1046,7 @@ export default function DashboardClient() {
                           <select
                             value={promoDraft.type}
                             onChange={(e) => setPromoDraft((s) => ({ ...s, type: e.target.value as any }))}
-                            className="mt-1 w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
+                            className="mt-1 w-full rounded-xl border border-white/15 bg-black/60 text-white px-3 py-2 text-sm focus:outline-none focus:border-white/25"
                           >
                             <option value="percent_once">Percentage off (one payment)</option>
                             <option value="percent_forever">Percentage off (forever)</option>
@@ -1118,6 +1124,9 @@ export default function DashboardClient() {
                               const link = `${origin}/api/partners/stripe/checkout?slug=${encodeURIComponent(slug)}&interval=month&code=${encodeURIComponent(
                                 p.code
                               )}`;
+                              const times = Number.isFinite(Number((p as any).timesRedeemed)) ? Number((p as any).timesRedeemed) : 0;
+                              const max = Number.isFinite(Number(p.maxUses)) && Number(p.maxUses) > 0 ? Number(p.maxUses) : 0;
+                              const pct = max > 0 ? Math.min(100, Math.round((times / max) * 100)) : 0;
                               return (
                                 <div key={p.id} className="grid grid-cols-12 gap-0 px-3 py-3 text-sm items-center">
                                   <div className="col-span-4 min-w-0">
@@ -1133,9 +1142,74 @@ export default function DashboardClient() {
                                   </div>
                                   <div className="col-span-2 text-gray-300 text-xs">{p.type === "percent_forever" ? "Forever" : "One payment"}</div>
                                   <div className="col-span-2 text-gray-300 text-xs">{p.percentOff}%</div>
-                                  <div className="col-span-2 text-gray-300 text-xs">{p.maxUses || "—"}</div>
+                                  <div className="col-span-2 text-gray-300 text-xs">
+                                    {editPromoId === p.promotionCodeId ? (
+                                      <div className="flex items-center gap-2">
+                                        <input
+                                          value={editMaxUses}
+                                          onChange={(e) => setEditMaxUses(e.target.value)}
+                                          inputMode="numeric"
+                                          className="w-20 rounded-lg border border-white/15 bg-black/60 text-white px-2 py-1 text-xs focus:outline-none focus:border-white/25"
+                                        />
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            const n = Number(editMaxUses);
+                                            if (!Number.isFinite(n) || n <= 0) return;
+                                            setPromoActive(p.promotionCodeId, p.active, Math.floor(n));
+                                            setEditPromoId(null);
+                                          }}
+                                          className="text-[11px] text-purple-300 hover:text-purple-200"
+                                          disabled={promosLoading}
+                                        >
+                                          Save
+                                        </button>
+                                        <button
+                                          type="button"
+                                          onClick={() => setEditPromoId(null)}
+                                          className="text-[11px] text-gray-400 hover:text-gray-200"
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <button
+                                        type="button"
+                                        className="text-gray-200 hover:text-white underline decoration-white/10 hover:decoration-white/20"
+                                        onClick={() => {
+                                          setEditPromoId(p.promotionCodeId);
+                                          setEditMaxUses(String(p.maxUses || ""));
+                                        }}
+                                        title="Click to edit max uses"
+                                      >
+                                        {p.maxUses || "—"}
+                                      </button>
+                                    )}
+                                  </div>
                                   <div className="col-span-2 text-right">
-                                    <div className={`text-xs ${p.active ? "text-green-300" : "text-gray-500"}`}>{p.active ? "active" : "disabled"}</div>
+                                    <div className="flex flex-col items-end gap-1">
+                                      <div className={`text-xs ${p.active ? "text-green-300" : "text-gray-500"}`}>{p.active ? "active" : "disabled"}</div>
+                                      {max > 0 ? (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            setEditPromoId(p.promotionCodeId);
+                                            setEditMaxUses(String(p.maxUses || ""));
+                                          }}
+                                          className="text-[11px] text-gray-400 hover:text-gray-200"
+                                          title="Edit max uses"
+                                        >
+                                          Usage: {times}/{max} ({pct}%)
+                                        </button>
+                                      ) : (
+                                        <div className="text-[11px] text-gray-500">Usage: {times}</div>
+                                      )}
+                                      {max > 0 ? (
+                                        <div className="w-24 h-1.5 rounded-full border border-white/10 bg-white/5 overflow-hidden">
+                                          <div className="h-full" style={{ width: `${pct}%`, background: p.active ? "#34d399" : "#6b7280" }} />
+                                        </div>
+                                      ) : null}
+                                    </div>
                                     <button
                                       type="button"
                                       onClick={() => setPromoActive(p.promotionCodeId, !p.active)}
@@ -1410,7 +1484,7 @@ export default function DashboardClient() {
                               <select
                                 value={pageDraft.currency}
                                 onChange={(e) => setPageDraft((s) => ({ ...s, currency: e.target.value }))}
-                                className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
+                                className="w-full rounded-xl border border-white/15 bg-black/60 text-white px-3 py-2 text-sm focus:outline-none focus:border-white/25"
                               >
                                 <option value="EUR">EUR</option>
                                 <option value="USD">USD</option>
