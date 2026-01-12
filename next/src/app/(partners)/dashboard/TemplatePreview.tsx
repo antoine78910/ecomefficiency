@@ -33,6 +33,9 @@ export default function TemplatePreview({ config }: { config: PreviewConfig }) {
   const [mode, setMode] = React.useState<"landing" | "signin" | "signup" | "app">("landing");
   const title = config.saasName || "Your SaaS";
   const tagline = config.tagline || "A modern SaaS built for your audience.";
+  const currency = String(config.currency || "EUR").toUpperCase();
+  const isUsd = currency === "USD";
+  const symbol = isUsd ? "$" : "€";
 
   const main = safeColor(config.colors?.main, "#9541e0");
   const secondary = safeColor(config.colors?.secondary, "#7c30c7");
@@ -139,8 +142,17 @@ export default function TemplatePreview({ config }: { config: PreviewConfig }) {
             <div className="mt-6 rounded-2xl border border-white/10 bg-black/60 p-6">
               <div className="text-sm font-semibold text-white">Pricing</div>
               <div className="mt-2 text-3xl font-semibold text-white">
-                {(config.monthlyPrice || "29.99").toString()}
-                <span className="text-base text-gray-400 font-normal">€</span>
+                {isUsd ? (
+                  <>
+                    {symbol}
+                    {(config.monthlyPrice || "29.99").toString()}
+                  </>
+                ) : (
+                  <>
+                    {(config.monthlyPrice || "29.99").toString()}
+                    {symbol}
+                  </>
+                )}
                 <span className="text-base text-gray-400 font-normal">/month</span>
               </div>
               <div className="mt-2 text-sm text-gray-400">Preview only (checkout disabled).</div>
