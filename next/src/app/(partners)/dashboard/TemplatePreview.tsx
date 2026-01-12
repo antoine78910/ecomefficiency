@@ -19,6 +19,10 @@ type PreviewConfig = {
   allowPromotionCodes?: boolean;
   defaultDiscountId?: string;
   faq?: { q: string; a: string }[];
+  titleHighlight?: string;
+  titleHighlightColor?: "accent" | "main" | "secondary";
+  subtitleHighlight?: string;
+  subtitleHighlightColor?: "accent" | "main" | "secondary";
 };
 
 function safeColor(hex: string | undefined, fallback: string) {

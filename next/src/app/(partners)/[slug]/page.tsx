@@ -41,6 +41,10 @@ async function readPublicConfig(slug: string) {
       tagline: cfg?.tagline ? String(cfg.tagline) : undefined,
       logoUrl: cfg?.logoUrl ? String(cfg.logoUrl) : undefined,
       faviconUrl: (cfg as any)?.faviconUrl ? String((cfg as any).faviconUrl) : undefined,
+      titleHighlight: (cfg as any)?.titleHighlight ? String((cfg as any).titleHighlight) : "",
+      titleHighlightColor: (cfg as any)?.titleHighlightColor ? String((cfg as any).titleHighlightColor) : "accent",
+      subtitleHighlight: (cfg as any)?.subtitleHighlight ? String((cfg as any).subtitleHighlight) : "",
+      subtitleHighlightColor: (cfg as any)?.subtitleHighlightColor ? String((cfg as any).subtitleHighlightColor) : "accent",
       colors: {
         main: colors?.main ? String(colors.main) : undefined,
         secondary: colors?.secondary ? String(colors.secondary) : undefined,
@@ -95,6 +99,10 @@ export default async function PartnerSlugPage({ params }: { params: Promise<{ sl
         allowPromotionCodes: (cfg as any).allowPromotionCodes,
       }}
       faq={(cfg as any).faq as any}
+      titleHighlight={(cfg as any).titleHighlight as any}
+      titleHighlightColor={(cfg as any).titleHighlightColor as any}
+      subtitleHighlight={(cfg as any).subtitleHighlight as any}
+      subtitleHighlightColor={(cfg as any).subtitleHighlightColor as any}
     />
   );
 }

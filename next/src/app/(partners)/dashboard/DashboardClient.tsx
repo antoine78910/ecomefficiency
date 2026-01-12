@@ -31,6 +31,10 @@ type PartnerConfig = {
   defaultDiscountId?: string;
   signupMode?: string;
   faq?: { q: string; a: string }[];
+  titleHighlight?: string;
+  titleHighlightColor?: "accent" | "main" | "secondary";
+  subtitleHighlight?: string;
+  subtitleHighlightColor?: "accent" | "main" | "secondary";
 };
 
 type PartnerStats = {
@@ -101,6 +105,10 @@ export default function DashboardClient() {
     accent: string;
     background: string;
     faq: { q: string; a: string }[];
+    titleHighlight: string;
+    titleHighlightColor: "accent" | "main" | "secondary";
+    subtitleHighlight: string;
+    subtitleHighlightColor: "accent" | "main" | "secondary";
   }>({
     saasName: "",
     tagline: "",
@@ -115,6 +123,10 @@ export default function DashboardClient() {
     accent: "",
     background: "",
     faq: [],
+    titleHighlight: "",
+    titleHighlightColor: "accent",
+    subtitleHighlight: "",
+    subtitleHighlightColor: "accent",
   });
 
   const [promos, setPromos] = React.useState<
@@ -244,6 +256,10 @@ export default function DashboardClient() {
       tagline: pageDraft.tagline.trim(),
       logoUrl: pageDraft.logoUrl.trim(),
       faviconUrl: pageDraft.faviconUrl.trim(),
+      titleHighlight: pageDraft.titleHighlight.trim(),
+      titleHighlightColor: pageDraft.titleHighlightColor,
+      subtitleHighlight: pageDraft.subtitleHighlight.trim(),
+      subtitleHighlightColor: pageDraft.subtitleHighlightColor,
       colors: {
         main: pageDraft.main.trim(),
         secondary: pageDraft.secondary.trim(),
@@ -265,6 +281,10 @@ export default function DashboardClient() {
     pageDraft.tagline,
     pageDraft.logoUrl,
     pageDraft.faviconUrl,
+    pageDraft.titleHighlight,
+    pageDraft.titleHighlightColor,
+    pageDraft.subtitleHighlight,
+    pageDraft.subtitleHighlightColor,
     pageDraft.main,
     pageDraft.secondary,
     pageDraft.accent,
@@ -505,6 +525,10 @@ export default function DashboardClient() {
       tagline: String(c.tagline || d.tagline || ""),
       logoUrl: String((c as any).logoUrl || d.logoUrl || ""),
       faviconUrl: String((c as any).faviconUrl || d.faviconUrl || ""),
+      titleHighlight: String((c as any).titleHighlight || d.titleHighlight || ""),
+      titleHighlightColor: (((c as any).titleHighlightColor as any) || d.titleHighlightColor || "accent") as any,
+      subtitleHighlight: String((c as any).subtitleHighlight || d.subtitleHighlight || ""),
+      subtitleHighlightColor: (((c as any).subtitleHighlightColor as any) || d.subtitleHighlightColor || "accent") as any,
       monthlyPrice: c.monthlyPrice !== undefined && c.monthlyPrice !== null ? String(c.monthlyPrice) : d.monthlyPrice,
       yearlyPrice: c.yearlyPrice !== undefined && c.yearlyPrice !== null ? String(c.yearlyPrice) : d.yearlyPrice,
       annualDiscountPercent:
@@ -1344,9 +1368,50 @@ export default function DashboardClient() {
                               placeholder="Tagline"
                               className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
                             />
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <input
+                              value={pageDraft.titleHighlight}
+                              onChange={(e) => setPageDraft((s) => ({ ...s, titleHighlight: e.target.value }))}
+                              placeholder='Highlight word in title (e.g. "OFF")'
+                              className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
+                            />
+                            <select
+                              value={pageDraft.titleHighlightColor}
+                              onChange={(e) => setPageDraft((s) => ({ ...s, titleHighlightColor: e.target.value as any }))}
+                              className="w-full rounded-xl border border-white/15 bg-black/60 text-white px-3 py-2 text-sm focus:outline-none focus:border-white/25"
+                            >
+                              <option value="accent">Accent</option>
+                              <option value="main">Main</option>
+                              <option value="secondary">Secondary</option>
+                            </select>
+                            <input
+                              value={pageDraft.subtitleHighlight}
+                              onChange={(e) => setPageDraft((s) => ({ ...s, subtitleHighlight: e.target.value }))}
+                              placeholder='Highlight word in subtitle (optional)'
+                              className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
+                            />
+                            <select
+                              value={pageDraft.subtitleHighlightColor}
+                              onChange={(e) => setPageDraft((s) => ({ ...s, subtitleHighlightColor: e.target.value as any }))}
+                              className="w-full rounded-xl border border-white/15 bg-black/60 text-white px-3 py-2 text-sm focus:outline-none focus:border-white/25"
+                            >
+                              <option value="accent">Accent</option>
+                              <option value="main">Main</option>
+                              <option value="secondary">Secondary</option>
+                            </select>
+                          </div>
                             <button
                               type="button"
-                              onClick={() => saveConfig({ saasName: pageDraft.saasName.trim(), tagline: pageDraft.tagline.trim() })}
+                            onClick={() =>
+                              saveConfig({
+                                saasName: pageDraft.saasName.trim(),
+                                tagline: pageDraft.tagline.trim(),
+                                titleHighlight: pageDraft.titleHighlight.trim(),
+                                titleHighlightColor: pageDraft.titleHighlightColor,
+                                subtitleHighlight: pageDraft.subtitleHighlight.trim(),
+                                subtitleHighlightColor: pageDraft.subtitleHighlightColor,
+                              })
+                            }
                               disabled={saving}
                               className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm"
                             >
@@ -1653,6 +1718,10 @@ export default function DashboardClient() {
                       allowPromotionCodes: Boolean(config.allowPromotionCodes),
                       defaultDiscountId: String((config as any).defaultDiscountId || ""),
                       faq: pageDraft.faq,
+                      titleHighlight: pageDraft.titleHighlight,
+                      titleHighlightColor: pageDraft.titleHighlightColor,
+                      subtitleHighlight: pageDraft.subtitleHighlight,
+                      subtitleHighlightColor: pageDraft.subtitleHighlightColor,
                     }}
                   />
                 </Card>

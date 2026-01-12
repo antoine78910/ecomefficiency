@@ -114,6 +114,10 @@ export default async function Home() {
         const title = String(cfg?.saasName || slug);
         const subtitle = String(cfg?.tagline || 'A modern SaaS built for your audience.');
         const faq = Array.isArray((cfg as any)?.faq) ? ((cfg as any).faq as any[]) : [];
+        const titleHighlight = String((cfg as any)?.titleHighlight || "");
+        const titleHighlightColor = ((cfg as any)?.titleHighlightColor as any) || "accent";
+        const subtitleHighlight = String((cfg as any)?.subtitleHighlight || "");
+        const subtitleHighlightColor = ((cfg as any)?.subtitleHighlightColor as any) || "accent";
 
         return (
           <PartnerSimpleLanding
@@ -135,6 +139,10 @@ export default async function Home() {
               allowPromotionCodes: cfg?.allowPromotionCodes,
             }}
             faq={faq as any}
+            titleHighlight={titleHighlight}
+            titleHighlightColor={titleHighlightColor}
+            subtitleHighlight={subtitleHighlight}
+            subtitleHighlightColor={subtitleHighlightColor}
           />
         );
       }
