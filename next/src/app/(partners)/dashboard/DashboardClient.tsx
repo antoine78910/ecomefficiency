@@ -767,13 +767,19 @@ export default function DashboardClient() {
                           const a = Array.isArray(json?.checks?.a) ? json.checks.a.join(", ") : "";
                           const cname = Array.isArray(json?.checks?.cname) ? json.checks.cname.join(", ") : "";
                           const wwwCname = Array.isArray(json?.checks?.www_cname) ? json.checks.www_cname.join(", ") : "";
+                          const ns = Array.isArray(json?.nameservers) ? json.nameservers.slice(0, 3).join(", ") : "";
+                          const src = json?.source ? String(json.source) : "";
+                          const apiHint = json?.hint ? String(json.hint) : "";
                           const seenParts = [
                             a ? `A=${a}` : "",
                             cname ? `CNAME(root)=${cname}` : "",
                             wwwCname ? `CNAME(www)=${wwwCname}` : "",
+                            ns ? `NS=${ns}` : "",
+                            src ? `source=${src}` : "",
                           ].filter(Boolean);
                           const seen = seenParts.length ? ` Seen: ${seenParts.join(" • ")}` : "";
-                          const msg = hint ? `Not verified yet. Expected: ${hint}.${seen}` : `Not verified yet.${seen}`;
+                          const baseMsg = hint ? `Not verified yet. Expected: ${hint}.${seen}` : `Not verified yet.${seen}`;
+                          const msg = apiHint ? `${baseMsg}\n${apiHint}` : baseMsg;
                           setDomainVerify({ status: "fail", message: msg });
                         } catch (e: any) {
                           setDomainVerify({ status: "fail", message: e?.message || "Verify failed" });
