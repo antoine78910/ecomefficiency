@@ -79,6 +79,7 @@ export default function DashboardClient() {
   const [domainVerify, setDomainVerify] = React.useState<{ status: "idle" | "checking" | "ok" | "fail"; message?: string }>({
     status: "idle",
   });
+  const [vercelAttach, setVercelAttach] = React.useState<{ status: "idle" | "working" | "ok" | "fail"; message?: string }>({ status: "idle" });
   const [requests, setRequests] = React.useState<Array<{ id: string; createdAt: string; email?: string; message: string }>>([]);
   const [requestDraft, setRequestDraft] = React.useState("");
   const [requestLoading, setRequestLoading] = React.useState(false);
@@ -430,6 +431,37 @@ export default function DashboardClient() {
     }
   };
 
+  const addDomainOnVercel = async () => {
+    try {
+      const d = String(config.customDomain || "").trim();
+      if (!slug) return;
+      if (!d) {
+        setVercelAttach({ status: "fail", message: "Please enter a domain first." });
+        return;
+      }
+      setVercelAttach({ status: "working", message: "Adding domain in Vercel…" });
+      const res = await fetch("/api/partners/domain/vercel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(accountEmail ? { "x-user-email": accountEmail } : {}) },
+        body: JSON.stringify({ slug, domain: d }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) throw new Error(json?.detail || json?.error || "Failed to add domain on Vercel");
+
+      const rec = Array.isArray(json?.vercel?.record) ? json.vercel.record : [];
+      const verified = Boolean(json?.vercel?.verified);
+      const hint = rec.length
+        ? ` Verification required: ${rec
+            .slice(0, 2)
+            .map((r: any) => `${r.type} ${r.domain} ${r.value}`)
+            .join(" • ")}`
+        : "";
+      setVercelAttach({ status: "ok", message: verified ? "Domain added on Vercel ✅" : `Domain added on Vercel ✅.${hint}` });
+    } catch (e: any) {
+      setVercelAttach({ status: "fail", message: e?.message || "Failed to add domain on Vercel" });
+    }
+  };
+
   const setPromoActive = async (promotionCodeId: string, active: boolean, maxUses?: number) => {
     if (!slug) return;
     setPromosLoading(true);
@@ -719,37 +751,11 @@ export default function DashboardClient() {
 
           {/* Main */}
           <main className="flex-1 min-w-0">
-            <div className="mb-5 rounded-2xl border border-white/10 bg-black/60 shadow-[0_20px_80px_rgba(149,65,224,0.10)] p-4">
-              <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                <div className="flex items-center gap-2">
-                  <input
-                    value={slug}
-                    onChange={(e) => setSlug(e.target.value)}
-                    placeholder="your-slug"
-                    className="w-full md:w-64 rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => slug && loadAll(slug)}
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm"
-                    disabled={!slug || loading}
-                  >
-                    {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
-                    Refresh
-                  </button>
-                </div>
-                <div className="flex items-center gap-3">
-                  {searchParams?.get("submitted") === "1" ? (
-                    <span className="inline-flex items-center gap-2 text-green-300 text-sm">
-                      <Check className="w-4 h-4" /> Onboarding submitted
-                    </span>
-                  ) : (
-                    <span className="text-sm text-gray-400">—</span>
-                  )}
-                </div>
+            {error ? (
+              <div className="mb-5 rounded-2xl border border-red-500/20 bg-red-500/10 p-4 text-xs text-red-200 break-words">
+                {error}
               </div>
-              {error ? <div className="mt-3 text-xs text-red-300 break-words">{error}</div> : null}
-            </div>
+            ) : null}
 
             {tab === "data" ? (
               <div className="space-y-4">
@@ -867,6 +873,7 @@ export default function DashboardClient() {
                       onChange={(e) => {
                         setConfig((s) => ({ ...s, customDomain: e.target.value }));
                         setDomainVerify({ status: "idle" });
+                        setVercelAttach({ status: "idle" });
                       }}
                       placeholder="ecomwolf.com"
                       className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
@@ -883,6 +890,21 @@ export default function DashboardClient() {
                       Important: DNS can be “Verified” but the domain can still show another site if it’s attached to another Vercel project (domain ownership).
                       If `saave.io` still shows the old website, remove the domain from the other project and add it to this project in Vercel (it may ask for a TXT `_vercel` token).
                     </div>
+                    <button
+                      type="button"
+                      onClick={addDomainOnVercel}
+                      disabled={!slug || vercelAttach.status === "working"}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                      title="Automatically attach this domain to our Vercel project (may require a TXT _vercel record)."
+                    >
+                      {vercelAttach.status === "working" ? <Loader2 className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
+                      Add domain on Vercel
+                    </button>
+                    {vercelAttach.status !== "idle" ? (
+                      <div className={`text-xs ${vercelAttach.status === "ok" ? "text-green-300" : vercelAttach.status === "working" ? "text-gray-400" : "text-red-300"}`}>
+                        {vercelAttach.message || ""}
+                      </div>
+                    ) : null}
                     <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-gray-300">
                       <div className="text-gray-400 mb-3">DNS records (copy/paste)</div>
                       <div className="space-y-2">
