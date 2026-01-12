@@ -12,10 +12,12 @@ export default function DomainSignUpClient({
   title,
   subtitle,
   logoUrl,
+  preview,
 }: {
   title: string;
   subtitle: string;
   logoUrl?: string;
+  preview?: boolean;
 }) {
   const { toast } = useToast();
   const [name, setName] = React.useState("");
@@ -32,6 +34,10 @@ export default function DomainSignUpClient({
 
   const oauth = async () => {
     try {
+      if (preview) {
+        toast({ title: "Preview only", description: "OAuth is disabled in preview.", variant: "destructive" });
+        return;
+      }
       setPending(true);
       if (!SUPABASE_CONFIG_OK) {
         toast({ title: "Configuration required", description: "Supabase env vars missing", variant: "destructive" });
@@ -57,6 +63,10 @@ export default function DomainSignUpClient({
     e.preventDefault();
     if (!canSubmit) return;
     try {
+      if (preview) {
+        toast({ title: "Preview only", description: "Sign-up is disabled in preview.", variant: "destructive" });
+        return;
+      }
       setPending(true);
 
       if (!SUPABASE_CONFIG_OK) {
@@ -107,9 +117,9 @@ export default function DomainSignUpClient({
 
       toast({
         title: "Check your email",
-        description: "We sent a verification link. You can already open the app now.",
+        description: "We sent a verification link. Click it to finish creating your account.",
       });
-      window.location.href = `/app?just=1`;
+      window.location.href = `/verify-email?email=${encodeURIComponent(email)}`;
     } catch (e: any) {
       toast({ title: "Error", description: e?.message || "Unexpected error", variant: "destructive" });
       setPending(false);

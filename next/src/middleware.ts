@@ -185,8 +185,17 @@ export async function middleware(req: NextRequest) {
       r.pathname = `/domains/${bareHostname}/signup`;
       return NextResponse.rewrite(r, { request: { headers: req.headers } });
     }
-    // Note: we keep /app and other routes as-is (they already exist globally),
-    // and / (root) is handled server-side in `app/page.tsx` via host detection.
+    if (pathname === '/app' || pathname === '/app/') {
+      const r = url.clone();
+      r.pathname = `/domains/${bareHostname}/app`;
+      return NextResponse.rewrite(r, { request: { headers: req.headers } });
+    }
+    if (pathname === '/verify-email' || pathname === '/verify-email/') {
+      const r = url.clone();
+      r.pathname = `/domains/${bareHostname}/verify-email`;
+      return NextResponse.rewrite(r, { request: { headers: req.headers } });
+    }
+    // Note: / (root) is handled server-side in `app/page.tsx` via host detection.
   }
 
   // Non-partners domains: provide compatibility redirects for new short auth routes

@@ -8,7 +8,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { postGoal } from "@/lib/analytics";
 import TrendTrackStatus from "@/components/TrendTrackStatus";
 
-const App = () => {
+const App = ({ showAffiliateCta = true }: { showAffiliateCta?: boolean }) => {
   // no docker launch on this page anymore
   const [canvaInvite, setCanvaInvite] = React.useState<string | null>(null)
   const [appPlan, setAppPlan] = React.useState<'free'|'starter'|'pro'>('free')
@@ -298,22 +298,24 @@ const App = () => {
   return (
     <div>
       <div className="max-w-6xl mx-auto px-6 py-8">
-        <div className="mb-4">
-          <div className="relative overflow-hidden rounded-2xl border border-purple-500/30 bg-[linear-gradient(180deg,rgba(149,65,224,0.08)_0%,rgba(124,48,199,0.08)_100%)] p-4 md:p-5 flex items-center justify-between gap-4">
-            <div className="text-white/90 text-sm md:text-base">
-              <span className="font-semibold text-white">Earn 30% for life</span> by helping entrepreneurs save thousands on their Spy, AI & SEO tools.
+        {showAffiliateCta ? (
+          <div className="mb-4">
+            <div className="relative overflow-hidden rounded-2xl border border-purple-500/30 bg-[linear-gradient(180deg,rgba(149,65,224,0.08)_0%,rgba(124,48,199,0.08)_100%)] p-4 md:p-5 flex items-center justify-between gap-4">
+              <div className="text-white/90 text-sm md:text-base">
+                <span className="font-semibold text-white">Earn 30% for life</span> by helping entrepreneurs save thousands on their Spy, AI & SEO tools.
+              </div>
+              <a href="https://ecomefficiency.com/affiliate" className="shrink-0" target="_blank" rel="noreferrer noopener">
+                <button className="cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_32px_0_rgba(149,65,224,0.70)] px-6 py-3 rounded-xl border-[1px] border-[#9541e0] text-white font-medium group h-[48px]">
+                  <div className="relative overflow-hidden w-full text-center">
+                    <p className="transition-transform group-hover:-translate-y-7 duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] whitespace-nowrap">Become an affiliate</p>
+                    <p className="absolute left-1/2 -translate-x-1/2 top-7 group-hover:top-0 transition-all duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] whitespace-nowrap">Become an affiliate</p>
+                  </div>
+                </button>
+              </a>
+              <div className="pointer-events-none absolute -bottom-10 -right-10 h-40 w-40 bg-purple-600/20 blur-3xl" aria-hidden />
             </div>
-            <a href="https://ecomefficiency.com/affiliate" className="shrink-0" target="_blank" rel="noreferrer noopener">
-              <button className="cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_32px_0_rgba(149,65,224,0.70)] px-6 py-3 rounded-xl border-[1px] border-[#9541e0] text-white font-medium group h-[48px]">
-                <div className="relative overflow-hidden w-full text-center">
-                  <p className="transition-transform group-hover:-translate-y-7 duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] whitespace-nowrap">Become an affiliate</p>
-                  <p className="absolute left-1/2 -translate-x-1/2 top-7 group-hover:top-0 transition-all duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] whitespace-nowrap">Become an affiliate</p>
-                </div>
-              </button>
-            </a>
-            <div className="pointer-events-none absolute -bottom-10 -right-10 h-40 w-40 bg-purple-600/20 blur-3xl" aria-hidden />
           </div>
-        </div>
+        ) : null}
         <div className="mb-8">
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">

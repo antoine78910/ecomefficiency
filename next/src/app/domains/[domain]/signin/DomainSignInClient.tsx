@@ -91,10 +91,12 @@ export default function DomainSignInClient({
   title,
   subtitle,
   logoUrl,
+  preview,
 }: {
   title: string;
   subtitle: string;
   logoUrl?: string;
+  preview?: boolean;
 }) {
   const { toast } = useToast();
   const [email, setEmail] = React.useState("");
@@ -102,7 +104,7 @@ export default function DomainSignInClient({
   const [show, setShow] = React.useState(false);
   const [pending, setPending] = React.useState(false);
 
-  const ready = useAuthCallbackRedirect("/app");
+  const ready = preview ? true : useAuthCallbackRedirect("/app");
 
   const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
   const canSubmit = isValidEmail(email) && password.trim().length >= 6 && !pending;
@@ -116,6 +118,10 @@ export default function DomainSignInClient({
 
   const oauth = async () => {
     try {
+      if (preview) {
+        toast({ title: "Preview only", description: "OAuth is disabled in preview.", variant: "destructive" });
+        return;
+      }
       setPending(true);
       if (!SUPABASE_CONFIG_OK) {
         toast({ title: "Configuration required", description: "Supabase env vars missing", variant: "destructive" });
@@ -141,6 +147,10 @@ export default function DomainSignInClient({
     e.preventDefault();
     if (!canSubmit) return;
     try {
+      if (preview) {
+        toast({ title: "Preview only", description: "Sign-in is disabled in preview.", variant: "destructive" });
+        return;
+      }
       setPending(true);
       try {
         await supabase.auth.signOut();

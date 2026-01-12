@@ -11,7 +11,16 @@ import {
   DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 
-export default function AppTopNav() {
+export default function AppTopNav({
+  brand,
+}: {
+  brand?: {
+    title?: string;
+    logoUrl?: string;
+    hideAffiliate?: boolean;
+    signInPath?: string;
+  };
+}) {
   const [email, setEmail] = useState<string | null>(null);
   const [firstName, setFirstName] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
@@ -99,7 +108,7 @@ export default function AppTopNav() {
     try {
       await supabase.auth.signOut();
     } finally {
-      window.location.href = "/sign-in";
+      window.location.href = brand?.signInPath || "/sign-in";
     }
   };
 
@@ -107,7 +116,12 @@ export default function AppTopNav() {
     <div className="sticky top-0 z-50 w-full h-16 border-b border-[#5c3dfa]/20 bg-black/50 backdrop-blur flex items-center justify-between pl-5 pr-3 gap-4">
       <div className="flex items-center gap-2">
         <div className="rounded-xl overflow-hidden">
-          <Image src="/ecomefficiency.png" alt="Ecom Efficiency Logo" width={160} height={64} className="h-14 w-auto rounded-xl mix-blend-screen" />
+          {brand?.logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={brand.logoUrl} alt={brand?.title ? `${brand.title} Logo` : "Logo"} className="h-14 w-auto rounded-xl object-contain mix-blend-screen" />
+          ) : (
+            <Image src="/ecomefficiency.png" alt="Ecom Efficiency Logo" width={160} height={64} className="h-14 w-auto rounded-xl mix-blend-screen" />
+          )}
         </div>
       </div>
       {email ? (
@@ -138,9 +152,11 @@ export default function AppTopNav() {
             <DropdownMenuItem className="hover:bg-[#5c3dfa]/20 focus:bg-[#5c3dfa]/20 cursor-pointer">
               <Link href="/subscription" className="w-full">Subscription</Link>
             </DropdownMenuItem>
+            {!brand?.hideAffiliate ? (
               <DropdownMenuItem className="hover:bg-[#5c3dfa]/20 focus:bg-[#5c3dfa]/20 cursor-pointer">
                 <Link href="/affiliate" className="w-full">Affiliate</Link>
               </DropdownMenuItem>
+            ) : null}
             <DropdownMenuItem onClick={handleLogout} className="hover:bg-[#5c3dfa]/20 focus:bg-[#5c3dfa]/20 cursor-pointer text-red-400">
               Log out
             </DropdownMenuItem>

@@ -3,6 +3,8 @@
 import React from "react";
 import Image from "next/image";
 import PartnerSlugClient from "@/app/(partners)/[slug]/PartnerSlugClient";
+import DomainSignInClient from "@/app/domains/[domain]/signin/DomainSignInClient";
+import DomainSignUpClient from "@/app/domains/[domain]/signup/DomainSignUpClient";
 
 type PreviewConfig = {
   slug: string;
@@ -36,14 +38,6 @@ export default function TemplatePreview({ config }: { config: PreviewConfig }) {
   const accent = safeColor(config.colors?.accent, "#ab63ff");
   const background = safeColor(config.colors?.background, "#000000");
 
-  const externalUrl =
-    mode === "signin"
-      ? "https://ecomefficiency.com/signin"
-      : mode === "signup"
-        ? "https://ecomefficiency.com/signup"
-        : mode === "app"
-          ? "https://ecomefficiency.com/app"
-          : "";
 
   return (
     <div className="rounded-2xl border border-white/10 bg-black/60 shadow-[0_20px_80px_rgba(149,65,224,0.10)] overflow-hidden">
@@ -143,32 +137,27 @@ export default function TemplatePreview({ config }: { config: PreviewConfig }) {
               />
             </div>
           </>
+        ) : mode === "signin" ? (
+          <DomainSignInClient title={title} subtitle="Sign in" logoUrl={config.logoUrl} preview />
+        ) : mode === "signup" ? (
+          <DomainSignUpClient title={title} subtitle="Sign up" logoUrl={config.logoUrl} preview />
         ) : (
-          <div>
-            <div className="flex items-center justify-between gap-3 mb-3">
-              <div className="text-sm font-semibold text-white">
-                {mode === "signin" ? "Signin (exact)" : mode === "signup" ? "Signup (exact)" : "App (exact)"}
-              </div>
-              {externalUrl ? (
-                <a
-                  href={externalUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-xs text-purple-300 hover:text-purple-200 inline-flex items-center gap-2"
-                >
-                  Open <span className="opacity-70">{externalUrl.replace(/^https?:\/\//, "")}</span>
-                </a>
-              ) : null}
+          <div className="min-h-[420px]">
+            <div className="text-xl font-semibold">App</div>
+            <div className="mt-2 text-sm text-gray-400">Preview of the app experience (exact UI is served on custom domains at /app).</div>
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-3">
+              {[
+                ["AdsPower", "Step-by-step login"],
+                ["Canva", "Access + templates"],
+                ["Brain.fm", "Focus music"],
+              ].map(([h, d]) => (
+                <div key={h} className="rounded-2xl border border-white/10 bg-black/60 p-5">
+                  <div className="text-sm font-semibold">{h}</div>
+                  <div className="mt-2 text-xs text-gray-400">{d}</div>
+                  <div className="mt-4 h-9 rounded-xl border border-white/10 bg-white/5" />
+                </div>
+              ))}
             </div>
-
-            {/* Exact copy of current pages (external). If the site sends X-Frame-Options, use Open link above. */}
-            {externalUrl ? (
-              <iframe
-                src={externalUrl}
-                className="w-full h-[780px] rounded-2xl border border-white/10 bg-black"
-                referrerPolicy="no-referrer"
-              />
-            ) : null}
           </div>
         )}
 
