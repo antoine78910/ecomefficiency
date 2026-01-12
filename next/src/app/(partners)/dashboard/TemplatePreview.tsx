@@ -27,6 +27,7 @@ function safeColor(hex: string | undefined, fallback: string) {
 }
 
 export default function TemplatePreview({ config }: { config: PreviewConfig }) {
+  const [mode, setMode] = React.useState<"landing" | "signin" | "signup" | "app">("landing");
   const title = config.saasName || "Your SaaS";
   const tagline = config.tagline || "A modern SaaS built for your audience.";
 
@@ -41,8 +42,31 @@ export default function TemplatePreview({ config }: { config: PreviewConfig }) {
         <div className="text-xs text-gray-300">
           <span className="font-semibold text-white">Live preview</span> • updates instantly
         </div>
-        <div className="text-xs text-gray-500 truncate max-w-[55%]">
-          {config.slug ? `partners.ecomefficiency.com/${config.slug}` : "partners.ecomefficiency.com"}
+        <div className="flex items-center gap-2">
+          <div className="inline-flex rounded-xl border border-white/10 bg-white/5 p-1">
+            {(
+              [
+                ["landing", "Landing"],
+                ["signin", "Signin"],
+                ["signup", "Signup"],
+                ["app", "App"],
+              ] as const
+            ).map(([k, label]) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => setMode(k)}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-medium transition ${
+                  mode === k ? "bg-white/10 text-white" : "text-gray-300 hover:text-white"
+                }`}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+          <div className="text-xs text-gray-500 truncate max-w-[55%]">
+            {config.slug ? `/${mode === "landing" ? "" : mode}`.replace(/\/$/, "") + ` • partners.ecomefficiency.com/${config.slug}` : "partners.ecomefficiency.com"}
+          </div>
         </div>
       </div>
 
@@ -56,61 +80,107 @@ export default function TemplatePreview({ config }: { config: PreviewConfig }) {
             `linear-gradient(to bottom, ${background}cc, ${background}cc)`,
         }}
       >
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3 min-w-0">
-            {config.logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img src={String(config.logoUrl)} alt={`${title} logo`} className="h-9 w-auto object-contain" />
-            ) : (
-              <Image
-                src="/ecomefficiency.png"
-                alt="Ecom Efficiency"
-                width={160}
-                height={52}
-                priority
-                className="h-9 w-auto object-contain opacity-90"
+        {mode === "landing" ? (
+          <>
+            <div className="flex items-center justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0">
+                {config.logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={String(config.logoUrl)} alt={`${title} logo`} className="h-9 w-auto object-contain" />
+                ) : (
+                  <Image
+                    src="/ecomefficiency.png"
+                    alt="Ecom Efficiency"
+                    width={160}
+                    height={52}
+                    priority
+                    className="h-9 w-auto object-contain opacity-90"
+                  />
+                )}
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold truncate">{title}</div>
+                  <div className="text-xs text-gray-400 truncate">
+                    {config.slug ? `partners.ecomefficiency.com/${config.slug}` : "partners.ecomefficiency.com"}
+                  </div>
+                </div>
+              </div>
+
+              <div className="text-xs text-gray-400 border border-white/10 bg-white/5 rounded-xl px-3 py-2">Preview</div>
+            </div>
+
+            <div className="mt-10">
+              <div className="text-3xl md:text-4xl font-semibold leading-tight">{title}</div>
+              <div className="mt-3 text-base text-gray-300 max-w-2xl">{tagline}</div>
+            </div>
+
+            <div className="mt-10">
+              <div className="text-xl font-semibold">Checkout</div>
+              <div className="mt-2 text-sm text-gray-400">Subscribe in a few clicks. Payments are handled securely by Stripe.</div>
+
+              <PartnerSlugClient
+                config={{
+                  slug: config.slug,
+                  saasName: config.saasName,
+                  tagline: config.tagline,
+                  logoUrl: config.logoUrl,
+                  colors: config.colors,
+                  currency: config.currency,
+                  monthlyPrice: config.monthlyPrice,
+                  yearlyPrice: config.yearlyPrice,
+                  annualDiscountPercent: config.annualDiscountPercent,
+                  allowPromotionCodes: config.allowPromotionCodes,
+                  defaultDiscountId: config.defaultDiscountId,
+                } as any}
               />
-            )}
-            <div className="min-w-0">
-              <div className="text-sm font-semibold truncate">{title}</div>
-              <div className="text-xs text-gray-400 truncate">
-                {config.slug ? `partners.ecomefficiency.com/${config.slug}` : "partners.ecomefficiency.com"}
+            </div>
+          </>
+        ) : mode === "signin" || mode === "signup" ? (
+          <div className="min-h-[420px] flex items-center justify-center">
+            <div className="w-full max-w-md bg-black/60 border border-white/10 rounded-2xl shadow-[0_20px_80px_rgba(149,65,224,0.15)] p-6">
+              <div className="flex items-center gap-3 mb-5">
+                {config.logoUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={String(config.logoUrl)} alt={`${title} logo`} className="h-10 w-auto object-contain" />
+                ) : (
+                  <Image src="/ecomefficiency.png" alt="Ecom Efficiency" width={160} height={52} className="h-10 w-auto object-contain opacity-90" />
+                )}
+                <div className="min-w-0">
+                  <div className="text-sm font-semibold truncate">{title}</div>
+                  <div className="text-xs text-gray-400 truncate">{mode === "signin" ? "Sign in" : "Sign up"}</div>
+                </div>
+              </div>
+              <div className="text-xl font-semibold">{mode === "signin" ? "Sign in" : "Create your account"}</div>
+              <div className="mt-2 text-sm text-gray-400">Preview only (UI)</div>
+              <div className="mt-5 space-y-3">
+                {mode === "signup" ? <div className="h-10 rounded-lg border border-white/15 bg-white/5" /> : null}
+                <div className="h-10 rounded-lg border border-white/15 bg-white/5" />
+                <div className="h-10 rounded-lg border border-white/15 bg-white/5" />
+                <div
+                  className="h-10 rounded-lg border shadow-[0_8px_40px_rgba(149,65,224,0.35)]"
+                  style={{ background: `linear-gradient(to bottom, ${main}, ${secondary})`, borderColor: main }}
+                />
               </div>
             </div>
           </div>
-
-          <div className="text-xs text-gray-400 border border-white/10 bg-white/5 rounded-xl px-3 py-2">
-            Preview mode
+        ) : (
+          <div className="min-h-[420px]">
+            <div className="text-xl font-semibold">App</div>
+            <div className="mt-2 text-sm text-gray-400">Preview of the app experience (tools + step-by-step).</div>
+            <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-3">
+              {[
+                ["AdsPower", "Step-by-step login"],
+                ["Canva", "Access + templates"],
+                ["Brain.fm", "Focus music"],
+              ].map(([h, d]) => (
+                <div key={h} className="rounded-2xl border border-white/10 bg-black/60 p-5">
+                  <div className="text-sm font-semibold">{h}</div>
+                  <div className="mt-2 text-xs text-gray-400">{d}</div>
+                  <div className="mt-4 h-9 rounded-xl border border-white/10 bg-white/5" />
+                </div>
+              ))}
+            </div>
           </div>
-        </div>
-
-        <div className="mt-10">
-          <div className="text-3xl md:text-4xl font-semibold leading-tight">{title}</div>
-          <div className="mt-3 text-base text-gray-300 max-w-2xl">{tagline}</div>
-        </div>
-
-        <div className="mt-10">
-          <div className="text-xl font-semibold">Checkout</div>
-          <div className="mt-2 text-sm text-gray-400">
-            Subscribe in a few clicks. Payments are handled securely by Stripe.
-          </div>
-
-          <PartnerSlugClient
-            config={{
-              slug: config.slug,
-              saasName: config.saasName,
-              tagline: config.tagline,
-              logoUrl: config.logoUrl,
-              colors: config.colors,
-              currency: config.currency,
-              monthlyPrice: config.monthlyPrice,
-              yearlyPrice: config.yearlyPrice,
-              annualDiscountPercent: config.annualDiscountPercent,
-              allowPromotionCodes: config.allowPromotionCodes,
-              defaultDiscountId: config.defaultDiscountId,
-            } as any}
-          />
-        </div>
+        )}
 
         <div className="mt-10 text-xs text-gray-600">
           Powered by <span className="text-gray-400">Ecom Efficiency Partners</span>

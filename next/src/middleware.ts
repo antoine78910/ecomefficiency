@@ -92,6 +92,10 @@ export async function middleware(req: NextRequest) {
   const hostHeader = (req.headers.get('host') || '')
   const hostname = hostHeader.toLowerCase().split(':')[0]
   const bareHostname = hostname.replace(/^www\./, '')
+  const isKnownDomain =
+    bareHostname === 'ecomefficiency.com' ||
+    bareHostname.endsWith('.ecomefficiency.com') ||
+    bareHostname.endsWith('localhost')
   const hasAuth = Boolean(
     req.cookies.get('sb-access-token') ||
     req.cookies.get('sb:token') ||
@@ -160,6 +164,29 @@ export async function middleware(req: NextRequest) {
     }
     // Allow everything else to resolve normally (App Router routes handle auth/onboarding)
     return response
+  }
+
+  // Custom domains (white-label public domains): serve dedicated /signin and /signup (do NOT redirect to /sign-in /sign-up)
+  // This avoids blank pages caused by main-domain auth redirects on custom hosts.
+  const isCustomDomain =
+    !isKnownDomain &&
+    !(hostname === 'tools.localhost' || bareHostname.startsWith('tools.')) &&
+    !(hostname === 'app.localhost' || bareHostname.startsWith('app.')) &&
+    !(hostname === 'partners.localhost' || bareHostname.startsWith('partners.'));
+
+  if (isCustomDomain) {
+    if (pathname === '/signin' || pathname === '/signin/') {
+      const r = url.clone();
+      r.pathname = `/domains/${bareHostname}/signin`;
+      return NextResponse.rewrite(r, { request: { headers: req.headers } });
+    }
+    if (pathname === '/signup' || pathname === '/signup/') {
+      const r = url.clone();
+      r.pathname = `/domains/${bareHostname}/signup`;
+      return NextResponse.rewrite(r, { request: { headers: req.headers } });
+    }
+    // Note: we keep /app and other routes as-is (they already exist globally),
+    // and / (root) is handled server-side in `app/page.tsx` via host detection.
   }
 
   // Non-partners domains: provide compatibility redirects for new short auth routes
