@@ -36,6 +36,15 @@ export default function TemplatePreview({ config }: { config: PreviewConfig }) {
   const accent = safeColor(config.colors?.accent, "#ab63ff");
   const background = safeColor(config.colors?.background, "#000000");
 
+  const externalUrl =
+    mode === "signin"
+      ? "https://ecomefficiency.com/signin"
+      : mode === "signup"
+        ? "https://ecomefficiency.com/signup"
+        : mode === "app"
+          ? "https://ecomefficiency.com/app"
+          : "";
+
   return (
     <div className="rounded-2xl border border-white/10 bg-black/60 shadow-[0_20px_80px_rgba(149,65,224,0.10)] overflow-hidden">
       <div className="px-4 py-3 border-b border-white/10 bg-white/5 flex items-center justify-between">
@@ -134,51 +143,32 @@ export default function TemplatePreview({ config }: { config: PreviewConfig }) {
               />
             </div>
           </>
-        ) : mode === "signin" || mode === "signup" ? (
-          <div className="min-h-[420px] flex items-center justify-center">
-            <div className="w-full max-w-md bg-black/60 border border-white/10 rounded-2xl shadow-[0_20px_80px_rgba(149,65,224,0.15)] p-6">
-              <div className="flex items-center gap-3 mb-5">
-                {config.logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={String(config.logoUrl)} alt={`${title} logo`} className="h-10 w-auto object-contain" />
-                ) : (
-                  <Image src="/ecomefficiency.png" alt="Ecom Efficiency" width={160} height={52} className="h-10 w-auto object-contain opacity-90" />
-                )}
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold truncate">{title}</div>
-                  <div className="text-xs text-gray-400 truncate">{mode === "signin" ? "Sign in" : "Sign up"}</div>
-                </div>
-              </div>
-              <div className="text-xl font-semibold">{mode === "signin" ? "Sign in" : "Create your account"}</div>
-              <div className="mt-2 text-sm text-gray-400">Preview only (UI)</div>
-              <div className="mt-5 space-y-3">
-                {mode === "signup" ? <div className="h-10 rounded-lg border border-white/15 bg-white/5" /> : null}
-                <div className="h-10 rounded-lg border border-white/15 bg-white/5" />
-                <div className="h-10 rounded-lg border border-white/15 bg-white/5" />
-                <div
-                  className="h-10 rounded-lg border shadow-[0_8px_40px_rgba(149,65,224,0.35)]"
-                  style={{ background: `linear-gradient(to bottom, ${main}, ${secondary})`, borderColor: main }}
-                />
-              </div>
-            </div>
-          </div>
         ) : (
-          <div className="min-h-[420px]">
-            <div className="text-xl font-semibold">App</div>
-            <div className="mt-2 text-sm text-gray-400">Preview of the app experience (tools + step-by-step).</div>
-            <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-3">
-              {[
-                ["AdsPower", "Step-by-step login"],
-                ["Canva", "Access + templates"],
-                ["Brain.fm", "Focus music"],
-              ].map(([h, d]) => (
-                <div key={h} className="rounded-2xl border border-white/10 bg-black/60 p-5">
-                  <div className="text-sm font-semibold">{h}</div>
-                  <div className="mt-2 text-xs text-gray-400">{d}</div>
-                  <div className="mt-4 h-9 rounded-xl border border-white/10 bg-white/5" />
-                </div>
-              ))}
+          <div>
+            <div className="flex items-center justify-between gap-3 mb-3">
+              <div className="text-sm font-semibold text-white">
+                {mode === "signin" ? "Signin (exact)" : mode === "signup" ? "Signup (exact)" : "App (exact)"}
+              </div>
+              {externalUrl ? (
+                <a
+                  href={externalUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-purple-300 hover:text-purple-200 inline-flex items-center gap-2"
+                >
+                  Open <span className="opacity-70">{externalUrl.replace(/^https?:\/\//, "")}</span>
+                </a>
+              ) : null}
             </div>
+
+            {/* Exact copy of current pages (external). If the site sends X-Frame-Options, use Open link above. */}
+            {externalUrl ? (
+              <iframe
+                src={externalUrl}
+                className="w-full h-[780px] rounded-2xl border border-white/10 bg-black"
+                referrerPolicy="no-referrer"
+              />
+            ) : null}
           </div>
         )}
 

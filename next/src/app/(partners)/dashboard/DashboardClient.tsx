@@ -662,12 +662,10 @@ export default function DashboardClient() {
         <div className="flex items-start justify-between gap-4 mb-6">
           <div className="flex items-center gap-3">
             <Image src="/ecomefficiency.png" alt="Ecom Efficiency" width={160} height={52} priority className="h-10 w-auto object-contain" />
-            {tab === "page" ? (
-              <div>
-                <div className="text-sm font-semibold">Page</div>
-                <div className="text-xs text-gray-400">Branding & requests</div>
-              </div>
-            ) : null}
+            <div>
+              <div className="text-sm font-semibold">Partners Dashboard</div>
+              <div className="text-xs text-gray-400">Manage your white-label setup</div>
+            </div>
           </div>
           <div className="flex items-center gap-3">
             {accountEmail ? (
