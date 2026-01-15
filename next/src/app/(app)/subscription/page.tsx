@@ -34,6 +34,12 @@ export default function SubscriptionPage() {
         const headers: Record<string,string> = { 'Content-Type': 'application/json' }
         if (user?.email) headers['x-user-email'] = user.email
         if (meta.stripe_customer_id) headers['x-stripe-customer-id'] = meta.stripe_customer_id
+        // White-label: detect partnerSlug from global variable (set by DomainAppClient)
+        let partnerSlug: string | undefined = undefined
+        if (typeof window !== 'undefined') {
+          partnerSlug = (window as any).__wl_partner_slug
+        }
+        if (partnerSlug) headers['x-partner-slug'] = partnerSlug
         const r = await fetch('/api/stripe/verify', { method:'POST', headers, body: JSON.stringify({ email: user?.email || '' }) })
         const j = await r.json().catch(() => ({}))
         const vp = (j?.plan as string)?.toLowerCase()
