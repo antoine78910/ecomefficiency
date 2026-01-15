@@ -25,17 +25,18 @@ export default function ToolImage({ toolName, icon, className = "w-full h-full o
     .replace(/[^a-z0-9]/g, '');
 
   // Determine initial src
+  // For carousel, prioritize tools-logos (as per user request)
   let initialSrc: string;
-  if (icon.startsWith('/tools-images/')) {
+  if (icon.startsWith('/tools-logos/')) {
     initialSrc = icon;
-  } else if (icon.startsWith('/tools-logos/')) {
-    // If it's tools-logos, try tools-images first
-    initialSrc = icon.replace('/tools-logos/', '/tools-images/');
+  } else if (icon.startsWith('/tools-images/')) {
+    // If it's tools-images, try tools-logos first for carousel
+    initialSrc = icon.replace('/tools-images/', '/tools-logos/');
   } else if (icon.startsWith('/')) {
     initialSrc = icon;
   } else {
-    // Try tools-images first
-    initialSrc = `/tools-images/${normalizedName}.png`;
+    // Try tools-logos first for carousel
+    initialSrc = `/tools-logos/${normalizedName}.png`;
   }
 
   const handleError = (e: React.SyntheticEvent<HTMLImageElement, Event>) => {
@@ -45,11 +46,11 @@ export default function ToolImage({ toolName, icon, className = "w-full h-full o
 
     // Fallback chain
     if (retryCount === 0) {
-      // First fallback: try /tools-logos/
-      const toolsLogosPath = `/tools-logos/${normalizedName}.png`;
-      if (!currentSrc.includes('/tools-logos/')) {
+      // First fallback: try /tools-images/ (if we started with tools-logos)
+      const toolsImagesPath = `/tools-images/${normalizedName}.png`;
+      if (!currentSrc.includes('/tools-images/')) {
         (target as any).dataset.retryCount = '1';
-        target.src = toolsLogosPath;
+        target.src = toolsImagesPath;
         return;
       }
     }
