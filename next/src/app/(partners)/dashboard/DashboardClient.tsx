@@ -525,17 +525,29 @@ export default function DashboardClient() {
 
   const customers = React.useMemo(() => {
     const signups = stats?.recentSignups || [];
-    const paid = new Set(
-      (stats?.recentPayments || [])
-        .map((p) => (p.email || "").toLowerCase().trim())
-        .filter(Boolean)
-    );
-    return signups.map((s) => ({
-      firstName: s.firstName || "",
-      email: s.email || "",
-      createdAt: s.createdAt,
-      paid: paid.has((s.email || "").toLowerCase().trim()),
-    }));
+    const paymentsByEmail = new Map<string, { amount: number; currency?: string }>();
+    (stats?.recentPayments || []).forEach((p) => {
+      const email = (p.email || "").toLowerCase().trim();
+      if (email) {
+        paymentsByEmail.set(email, {
+          amount: Number(p.amount || 0),
+          currency: p.currency || undefined,
+        });
+      }
+    });
+    const paid = new Set(paymentsByEmail.keys());
+    return signups.map((s) => {
+      const emailKey = (s.email || "").toLowerCase().trim();
+      const payment = paymentsByEmail.get(emailKey);
+      return {
+        firstName: s.firstName || "",
+        email: s.email || "",
+        createdAt: s.createdAt,
+        paid: paid.has(emailKey),
+        paymentAmount: payment?.amount,
+        paymentCurrency: payment?.currency,
+      };
+    });
   }, [stats]);
 
   const checkDomainStatus = React.useCallback(async (domain: string) => {
