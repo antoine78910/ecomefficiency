@@ -22,6 +22,61 @@ function isPartnersHost(hostHeader: string) {
   return hostname === "partners.localhost" || hostname.startsWith("partners.");
 }
 
+function AnimatedPrimaryButton({
+  href,
+  children,
+  className = "",
+}: {
+  href: string;
+  children: string;
+  className?: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className={[
+        "cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)]",
+        "shadow-[0_4px_32px_0_rgba(149,65,224,0.70)]",
+        "px-6 py-3 rounded-xl border border-[#9541e0] text-white font-medium",
+        "hover:brightness-110 group overflow-hidden",
+        "inline-flex items-center justify-center h-12",
+        className,
+      ].join(" ")}
+    >
+      <div className="relative overflow-hidden w-full text-center">
+        <span className="inline-block transition-transform group-hover:-translate-y-7 duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] whitespace-nowrap">
+          {children}
+        </span>
+        <span className="absolute left-1/2 -translate-x-1/2 top-7 group-hover:top-0 transition-all duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] whitespace-nowrap">
+          {children}
+        </span>
+      </div>
+    </Link>
+  );
+}
+
+function AnimatedSecondaryButton({ href, children }: { href: string; children: string }) {
+  return (
+    <Link
+      href={href}
+      className={[
+        "cursor-pointer bg-white/10 hover:bg-white/20",
+        "px-5 py-3 rounded-xl border border-white/20 text-white font-medium",
+        "group overflow-hidden inline-flex items-center justify-center h-12",
+      ].join(" ")}
+    >
+      <div className="relative overflow-hidden w-full text-center">
+        <span className="inline-block transition-transform group-hover:-translate-y-7 duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] whitespace-nowrap">
+          {children}
+        </span>
+        <span className="absolute left-1/2 -translate-x-1/2 top-7 group-hover:top-0 transition-all duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] whitespace-nowrap">
+          {children}
+        </span>
+      </div>
+    </Link>
+  );
+}
+
 function VideoBlock({ title, subtitle }: { title: string; subtitle: string }) {
   return (
     <div className="mt-8">
@@ -100,9 +155,16 @@ export default async function PartnersLpPage() {
             </Link>
             <a
               href="#request"
-              className="inline-flex items-center justify-center h-10 px-4 rounded-xl text-sm font-semibold bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] border border-[#9541e0] hover:brightness-110 shadow-[0_4px_24px_rgba(149,65,224,0.35)]"
+              className="cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_24px_rgba(149,65,224,0.55)] px-4 py-2 rounded-xl border border-[#9541e0] text-white font-medium hover:brightness-110 group overflow-hidden inline-flex items-center justify-center h-10 text-sm"
             >
-              Request White-Label Access
+              <div className="relative overflow-hidden w-full text-center">
+                <span className="inline-block transition-transform group-hover:-translate-y-7 duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] whitespace-nowrap">
+                  Request White-Label Access
+                </span>
+                <span className="absolute left-1/2 -translate-x-1/2 top-7 group-hover:top-0 transition-all duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] whitespace-nowrap">
+                  Request White-Label Access
+                </span>
+              </div>
             </a>
           </div>
         </div>
@@ -147,12 +209,7 @@ export default async function PartnersLpPage() {
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3" id="request">
-              <Link
-                href="/signup"
-                className="inline-flex items-center justify-center h-12 px-6 rounded-xl text-sm font-semibold bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] border border-[#9541e0] hover:brightness-110 shadow-[0_4px_32px_rgba(149,65,224,0.45)]"
-              >
-                Request White-Label Access
-              </Link>
+              <AnimatedPrimaryButton href="/signup">Request White-Label Access</AnimatedPrimaryButton>
               <a
                 href="#infrastructure"
                 className="inline-flex items-center justify-center h-12 px-6 rounded-xl text-sm font-medium border border-white/15 bg-white/5 hover:bg-white/10 text-gray-200"
@@ -351,12 +408,7 @@ export default async function PartnersLpPage() {
           </div>
 
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link
-              href="/signup"
-              className="inline-flex items-center justify-center h-12 px-6 rounded-xl text-sm font-semibold bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] border border-[#9541e0] hover:brightness-110 shadow-[0_4px_32px_rgba(149,65,224,0.45)]"
-            >
-              Launch Your SaaS
-            </Link>
+            <AnimatedPrimaryButton href="/signup">Launch Your SaaS</AnimatedPrimaryButton>
           </div>
         </div>
       </section>
@@ -456,18 +508,8 @@ export default async function PartnersLpPage() {
           </div>
 
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link
-              href="/signup"
-              className="inline-flex items-center justify-center h-12 px-6 rounded-xl text-sm font-semibold bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] border border-[#9541e0] hover:brightness-110 shadow-[0_4px_32px_rgba(149,65,224,0.45)]"
-            >
-              Request White-Label Access
-            </Link>
-            <Link
-              href="/signup"
-              className="inline-flex items-center justify-center h-12 px-6 rounded-xl text-sm font-medium border border-white/15 bg-white/5 hover:bg-white/10 text-gray-200"
-            >
-              Book a Demo
-            </Link>
+            <AnimatedPrimaryButton href="/signup">Request White-Label Access</AnimatedPrimaryButton>
+            <AnimatedSecondaryButton href="/signup">Book a Demo</AnimatedSecondaryButton>
           </div>
 
           <div className="mt-14 max-w-4xl mx-auto">
