@@ -191,6 +191,22 @@ export async function POST(req: NextRequest) {
     const interval: "month" | "year" = intervalRaw === "year" ? "year" : "month";
     if (!slug) return NextResponse.json({ ok: false, error: "missing_slug" }, { status: 400 });
 
+    // Try to get userId from header or by looking up email in Supabase
+    let userId: string | undefined = undefined;
+    const userIdHeader = req.headers.get("x-user-id");
+    const userEmailHeader = req.headers.get("x-user-email") || customerEmail;
+    
+    if (userIdHeader) {
+      userId = userIdHeader;
+    } else if (userEmailHeader && supabaseAdmin) {
+      // Look up user by email
+      try {
+        const { data: { users } } = await supabaseAdmin.auth.admin.listUsers();
+        const user = users?.find((u: any) => u.email === userEmailHeader);
+        if (user?.id) userId = user.id;
+      } catch {}
+    }
+
     const stripe = getStripe();
     const origin = req.headers.get("origin") || "https://partners.ecomefficiency.com";
     const host = String(req.headers.get("x-forwarded-host") || req.headers.get("host") || "").toLowerCase();
@@ -291,14 +307,26 @@ export async function POST(req: NextRequest) {
         cancel_url: cancelUrl,
         line_items: [{ price: priceId, quantity: 1 }],
         customer_email: customerEmail || undefined,
+        client_reference_id: userId || undefined,
         ...(promoToApply?.promotionCodeId ? { discounts: [{ promotion_code: String(promoToApply.promotionCodeId) }] } : {}),
         // Promo codes are entered in Stripe Checkout (restrictions enforced by Stripe via coupon.applies_to.products).
         allow_promotion_codes: allowPromotionCodes && !promoToApply?.promotionCodeId,
         subscription_data: {
           application_fee_percent: 50,
-          metadata: { partner_slug: slug },
+          metadata: { 
+            partner_slug: slug,
+            ...(userId ? { userId } : {}),
+          },
         } as any,
-        metadata: { partner_slug: slug, billing_interval: interval, price_id: priceId, product_id: productIdForInterval, currency },
+        metadata: { 
+          partner_slug: slug, 
+          billing_interval: interval, 
+          price_id: priceId, 
+          product_id: productIdForInterval, 
+          currency,
+          ...(userId ? { userId } : {}),
+          ...(customerEmail ? { user_email: customerEmail } : {}),
+        },
       } as any,
       { stripeAccount: connectedAccountId }
     );
