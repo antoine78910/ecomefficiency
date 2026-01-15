@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { updateSession } from './integrations/supabase/middleware'
 import { performSecurityCheck, getClientIP } from './lib/security'
+import { createServerClient, type CookieOptions } from '@supabase/ssr'
 
 export async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname
@@ -80,6 +81,7 @@ export async function middleware(req: NextRequest) {
   
   // Skip Supabase session update for admin routes (they have their own auth)
   let response: NextResponse
+  let hasAuth = false
   if (pathname.startsWith('/admin')) {
     response = NextResponse.next({ request: { headers: req.headers } })
   } else {
@@ -88,10 +90,22 @@ export async function middleware(req: NextRequest) {
       const supabaseResponse = await updateSession(req)
       // If Supabase middleware returned a response, use it as base
       response = supabaseResponse
+      
+      // Check auth AFTER updateSession: check all cookies that might indicate auth
+      // Supabase uses cookies like sb-<project-id>-auth-token, so we check for any sb-* cookie
+      const allCookies = req.cookies.getAll()
+      hasAuth = allCookies.some(c => 
+        c.name.startsWith('sb-') && c.value && c.value.length > 10
+      ) || Boolean(req.cookies.get('ee-auth')?.value === '1')
     } catch (error) {
       // Never fail the whole request if Supabase middleware throws (prevents 500 MIDDLEWARE_INVOCATION_FAILED)
       console.error('Supabase middleware error:', error)
       response = NextResponse.next({ request: { headers: req.headers } })
+      // Fallback: check cookies from request
+      const allCookies = req.cookies.getAll()
+      hasAuth = allCookies.some(c => 
+        c.name.startsWith('sb-') && c.value && c.value.length > 10
+      ) || Boolean(req.cookies.get('ee-auth')?.value === '1')
     }
   }
   const url = req.nextUrl
@@ -102,12 +116,6 @@ export async function middleware(req: NextRequest) {
     bareHostname === 'ecomefficiency.com' ||
     bareHostname.endsWith('.ecomefficiency.com') ||
     bareHostname.endsWith('localhost')
-  const hasAuth = Boolean(
-    req.cookies.get('sb-access-token') ||
-    req.cookies.get('sb:token') ||
-    req.cookies.get('sb-refresh-token') ||
-    (req.cookies.get('ee-auth')?.value === '1')
-  )
 
   // Pretty aliases to proxy routes
   if (pathname === '/pipiads' || pathname === '/pipiads/') {

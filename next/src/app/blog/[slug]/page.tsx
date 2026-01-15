@@ -149,7 +149,7 @@ export default function BlogPostPage() {
           )}
         </div>
         
-        <style jsx global>{`
+        <style dangerouslySetInnerHTML={{ __html: `
           .outrank-content {
             color: #e5e7eb;
             line-height: 1.8;
@@ -307,7 +307,7 @@ export default function BlogPostPage() {
             border-top: 1px solid rgba(255, 255, 255, 0.1);
             margin: 2rem 0;
           }
-        `}</style>
+        ` }} />
 
         {/* Tags */}
         {post.tags && post.tags.length > 0 && (

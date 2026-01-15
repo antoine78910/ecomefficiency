@@ -132,12 +132,12 @@ export default function AffiliatePage() {
                     </>
                   )
                 })()}
-                <style jsx>{`
+                <style dangerouslySetInnerHTML={{ __html: `
                   input[type='range']::-webkit-slider-runnable-track { height: 6px; border-radius: 9999px; }
                   input[type='range']::-moz-range-track { height: 6px; border-radius: 9999px; background: transparent; }
                   input[type='range']::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: 22px; height: 22px; border-radius: 9999px; background: #9b5ef7; border: 2px solid rgba(255,255,255,0.6); box-shadow: 0 0 0 8px rgba(155,94,247,0.22); margin-top: -8px; }
                   input[type='range']::-moz-range-thumb { width: 22px; height: 22px; border-radius: 9999px; background: #9b5ef7; border: 2px solid rgba(255,255,255,0.6); box-shadow: 0 0 0 8px rgba(155,94,247,0.22); }
-                `}</style>
+                ` }} />
               </div>
               <div className="text-xs text-gray-500 mt-2">Commission: ≈ {currency === "EUR" ? "9€" : "$9"} per active subscription</div>
             </div>
