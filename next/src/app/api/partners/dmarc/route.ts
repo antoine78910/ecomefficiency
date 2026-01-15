@@ -115,13 +115,33 @@ function normalizeTxtData(d: string) {
 }
 
 async function dohTxt(name: string) {
+  // Try Google DoH first
   const url = `https://dns.google/resolve?name=${encodeURIComponent(name)}&type=TXT`;
   const res = await fetch(url, { cache: "no-store" });
   const json = await res.json().catch(() => ({} as any));
   const answers = Array.isArray((json as any)?.Answer) ? (json as any).Answer : [];
-  const data = answers
+  let data = answers
     .map((a: any) => normalizeTxtData(String(a?.data || "")))
     .filter(Boolean);
+  
+  // If no results from Google DoH, try Cloudflare DoH as fallback
+  if (data.length === 0) {
+    try {
+      const cfUrl = `https://cloudflare-dns.com/dns-query?name=${encodeURIComponent(name)}&type=TXT`;
+      const cfRes = await fetch(cfUrl, { 
+        cache: "no-store",
+        headers: { "Accept": "application/dns-json" }
+      });
+      const cfJson = await cfRes.json().catch(() => ({} as any));
+      const cfAnswers = Array.isArray((cfJson as any)?.Answer) ? (cfJson as any).Answer : [];
+      data = cfAnswers
+        .map((a: any) => normalizeTxtData(String(a?.data || "")))
+        .filter(Boolean);
+    } catch {
+      // Ignore Cloudflare fallback errors
+    }
+  }
+  
   return { ok: res.ok, status: res.status, data };
 }
 
@@ -157,7 +177,12 @@ export async function POST(req: NextRequest) {
 
     const lookup = await dohTxt(name);
     const records: string[] = lookup.data || [];
-    const hasDmarc = records.some((r: string) => /v\s*=\s*dmarc1/i.test(String(r)));
+    // Improved DMARC detection: check for v=DMARC1 (case-insensitive, with flexible spacing)
+    // Also check for common variations like "v=DMARC1", "v = DMARC1", etc.
+    const hasDmarc = records.some((r: string) => {
+      const normalized = String(r).toLowerCase().replace(/\s+/g, "");
+      return /v\s*=\s*dmarc1/i.test(String(r)) || normalized.includes("v=dmarc1");
+    });
     const matchesRecommended = records.some(
       (r: string) => normalizeTxtData(String(r)).toLowerCase() === normalizeTxtData(recommended).toLowerCase()
     );
