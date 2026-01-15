@@ -163,9 +163,10 @@ export async function middleware(req: NextRequest) {
       return NextResponse.redirect(r)
     }
     // Default entry point
+    // Serve the marketing landing page (no auth gating).
     if (pathname === '/' || pathname === '') {
-      const r = url.clone(); r.pathname = hasAuth ? '/dashboard' : '/signin';
-      return NextResponse.redirect(r)
+      const r = url.clone(); r.pathname = '/lp';
+      return NextResponse.rewrite(r)
     }
     // Allow everything else to resolve normally (App Router routes handle auth/onboarding)
     return response
