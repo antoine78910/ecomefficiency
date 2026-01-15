@@ -84,9 +84,15 @@ export async function middleware(req: NextRequest) {
     response = NextResponse.next({ request: { headers: req.headers } })
   } else {
     // Update Supabase session cookies first
-    const supabaseResponse = await updateSession(req)
-    // If Supabase middleware returned a response, use it as base
-    response = supabaseResponse
+    try {
+      const supabaseResponse = await updateSession(req)
+      // If Supabase middleware returned a response, use it as base
+      response = supabaseResponse
+    } catch (error) {
+      // Never fail the whole request if Supabase middleware throws (prevents 500 MIDDLEWARE_INVOCATION_FAILED)
+      console.error('Supabase middleware error:', error)
+      response = NextResponse.next({ request: { headers: req.headers } })
+    }
   }
   const url = req.nextUrl
   const hostHeader = (req.headers.get('host') || '')
@@ -282,7 +288,7 @@ export async function middleware(req: NextRequest) {
 export const config = {
   matcher: [
     // Exclude Next internals, API routes, and common static assets/folders to save Edge CPU
-    '/((?!api/|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|public_app_assets|app_assets|tools-logos|images|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|txt|xml|css|js|map)).*)',
+    '/((?!api/|_next/static|_next/image|favicon.ico|robots.txt|sitemap.xml|public_app_assets|app_assets|tools-logos|tools-images|images|.*\\.(?:png|jpg|jpeg|gif|webp|svg|ico|txt|xml|css|js|map)).*)',
   ],
 }
 
