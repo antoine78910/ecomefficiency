@@ -102,7 +102,7 @@ export default async function PartnersLpPage() {
               href="#request"
               className="inline-flex items-center justify-center h-10 px-4 rounded-xl text-sm font-semibold bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] border border-[#9541e0] hover:brightness-110 shadow-[0_4px_24px_rgba(149,65,224,0.35)]"
             >
-              Request access
+              Request White-Label Access
             </a>
           </div>
         </div>
