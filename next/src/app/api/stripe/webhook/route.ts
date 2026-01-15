@@ -137,10 +137,12 @@ export async function POST(req: NextRequest) {
           const partnerSlug = session?.metadata?.partner_slug || session?.metadata?.partnerSlug;
 
           // Partner dashboard stats: count payment for this partner (dedupe by invoice id)
-          if (partnerSlug) {
+          // NOTE: Only record if invoice is available to avoid double-counting.
+          // The invoice.payment_succeeded event will record it with the proper invoiceId for deduplication.
+          if (partnerSlug && session?.invoice) {
             await recordPartnerPayment({
               partnerSlug: String(partnerSlug),
-              invoiceId: session?.invoice ? String(session.invoice) : null,
+              invoiceId: String(session.invoice),
               amount: Number(amountTotal || 0) / 100,
               currency,
               email: userEmail || null,

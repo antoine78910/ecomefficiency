@@ -254,11 +254,16 @@ const App = ({
         const { data } = await mod.supabase.auth.getUser()
         const email = data.user?.email || ''
         const customerId = ((data.user?.user_metadata as any) || {}).stripe_customer_id || ''
+        // White-label: detect partnerSlug from prop or global variable
+        let detectedPartnerSlug = partnerSlug;
+        if (!detectedPartnerSlug && typeof window !== 'undefined') {
+          detectedPartnerSlug = (window as any).__wl_partner_slug;
+        }
         const headers: Record<string, string> = {}
         if (email) headers['x-user-email'] = email
         if (customerId) headers['x-stripe-customer-id'] = customerId
         // White-label: allow credentials endpoint to validate subscription on partner Stripe Connect account.
-        if (!showAffiliateCta && partnerSlug) headers['x-partner-slug'] = String(partnerSlug)
+        if (!showAffiliateCta && detectedPartnerSlug) headers['x-partner-slug'] = String(detectedPartnerSlug)
         const res = await fetch('/api/credentials', { headers, cache: 'no-store' }).catch(() => null)
         if (!res) return
         const json = await res.json().catch(() => ({}))
@@ -280,41 +285,70 @@ const App = ({
         const { data } = await mod.supabase.auth.getUser()
         const email = data.user?.email || ''
         const customerId = ((data.user?.user_metadata as any) || {}).stripe_customer_id || ''
+        
+        // White-label: detect partnerSlug from prop or global variable
+        let detectedPartnerSlug = partnerSlug;
+        if (!detectedPartnerSlug && typeof window !== 'undefined') {
+          detectedPartnerSlug = (window as any).__wl_partner_slug;
+        }
+        
         const headers: Record<string, string> = {}
         if (email) headers['x-user-email'] = email
         if (customerId) headers['x-stripe-customer-id'] = customerId
         // White-label: allow credentials endpoint to validate subscription on partner Stripe Connect account.
-        if (!showAffiliateCta && partnerSlug) headers['x-partner-slug'] = String(partnerSlug)
+        if (!showAffiliateCta && detectedPartnerSlug) headers['x-partner-slug'] = String(detectedPartnerSlug)
         const res = await fetch('/api/credentials', { headers, cache: 'no-store' }).catch(() => null)
         if (res) {
           const json = await res.json().catch(() => ({}))
           if (json?.canva_invite_url) setCanvaInvite(String(json.canva_invite_url))
         }
+        
+        // Check for checkout=success and force plan refresh with retry
+        const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+        const isCheckoutSuccess = urlParams?.get('checkout') === 'success';
+        
         // Determine user plan at app level - SECURITY: Only trust active subscriptions
-        try {
-          const verifyHeaders: Record<string, string> = { 'Content-Type': 'application/json' }
-          if (email) verifyHeaders['x-user-email'] = email
-          if (customerId) verifyHeaders['x-stripe-customer-id'] = customerId
-          // White-label: subscription is on partner's Stripe Connect account
-          if (!showAffiliateCta && partnerSlug) verifyHeaders['x-partner-slug'] = String(partnerSlug)
-          const vr = await fetch('/api/stripe/verify', { method: 'POST', headers: verifyHeaders, body: JSON.stringify({ email }) }).catch(() => null)
-          if (vr) {
-            const vj = await vr.json().catch(() => ({}))
-            const p = (vj?.plan as string)?.toLowerCase()
-            // SECURITY: Only allow access if subscription is both OK and ACTIVE
-      if (vj?.ok && vj?.active === true && (p === 'starter' || p === 'pro')) {
-              setAppPlan(p as any)
+        const verifyPlan = async (attempt = 0): Promise<void> => {
+          try {
+            const verifyHeaders: Record<string, string> = { 'Content-Type': 'application/json' }
+            if (email) verifyHeaders['x-user-email'] = email
+            if (customerId) verifyHeaders['x-stripe-customer-id'] = customerId
+            // White-label: subscription is on partner's Stripe Connect account
+            if (!showAffiliateCta && detectedPartnerSlug) verifyHeaders['x-partner-slug'] = String(detectedPartnerSlug)
+            const vr = await fetch('/api/stripe/verify', { method: 'POST', headers: verifyHeaders, body: JSON.stringify({ email }) }).catch(() => null)
+            if (vr) {
+              const vj = await vr.json().catch(() => ({}))
+              const p = (vj?.plan as string)?.toLowerCase()
+              // SECURITY: Only allow access if subscription is both OK and ACTIVE
+              if (vj?.ok && vj?.active === true && (p === 'starter' || p === 'pro')) {
+                setAppPlan(p as any)
+                // If checkout success, clean URL after successful verification
+                if (isCheckoutSuccess && typeof window !== 'undefined') {
+                  const url = new URL(window.location.href);
+                  url.searchParams.delete('checkout');
+                  window.history.replaceState({}, '', url.toString());
+                }
+                return;
+              } else {
+                // SECURITY: Don't trust user_metadata alone, always default to free for inactive subscriptions
+                setAppPlan('free')
+              }
             } else {
-              // SECURITY: Don't trust user_metadata alone, always default to free for inactive subscriptions
               setAppPlan('free')
             }
-          } else {
+          } catch {
+            // SECURITY: On any error, default to free plan
             setAppPlan('free')
           }
-        } catch {
-          // SECURITY: On any error, default to free plan
-          setAppPlan('free')
-        }
+          
+          // Retry logic for checkout=success (up to 5 attempts with 500ms delay)
+          if (isCheckoutSuccess && attempt < 5) {
+            await new Promise(r => setTimeout(r, 500));
+            return verifyPlan(attempt + 1);
+          }
+        };
+        
+        await verifyPlan();
       } catch {
         // Silently handle errors - network failures are expected
       }
@@ -956,11 +990,16 @@ function CredentialsPanel({
         const { data } = await mod.supabase.auth.getUser();
         const email = data.user?.email || '';
         const customerId = ((data.user?.user_metadata as any) || {}).stripe_customer_id || '';
+        // White-label: detect partnerSlug from prop or global variable
+        let detectedPartnerSlug = partnerSlug;
+        if (!detectedPartnerSlug && typeof window !== 'undefined') {
+          detectedPartnerSlug = (window as any).__wl_partner_slug;
+        }
         const headers: Record<string, string> = {};
         if (email) headers['x-user-email'] = email;
         if (customerId) headers['x-stripe-customer-id'] = customerId;
         // White-label: allow per-partner AdsPower credentials override (Brain/Canva stay global).
-        if (whiteLabel && partnerSlug) headers['x-partner-slug'] = String(partnerSlug);
+        if (whiteLabel && detectedPartnerSlug) headers['x-partner-slug'] = String(detectedPartnerSlug);
 
         // console.log('[CREDENTIALS] Fetching with:', { email, customerId });
 
