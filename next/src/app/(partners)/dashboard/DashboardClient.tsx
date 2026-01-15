@@ -1758,6 +1758,7 @@ export default function DashboardClient() {
 
                       const found = Boolean((config as any)?.dmarcFound);
                       const checkedAt = (config as any)?.dmarcLastCheckedAt;
+                      const foundRecords = Array.isArray((config as any)?.dmarcFoundRecords) ? (config as any).dmarcFoundRecords : [];
 
                       return (
                         <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-gray-300">
@@ -1780,6 +1781,18 @@ export default function DashboardClient() {
                               </button>
                             </div>
                           </div>
+                          
+                          {/* Show found records for debugging */}
+                          {foundRecords.length > 0 && (
+                            <div className="mt-3 rounded-md border border-white/5 bg-black/20 px-2 py-2">
+                              <div className="text-[11px] text-gray-400 mb-1">Found DNS records:</div>
+                              {foundRecords.map((record: string, idx: number) => (
+                                <div key={idx} className="font-mono text-[10px] text-gray-300 break-all mt-1">
+                                  {record}
+                                </div>
+                              ))}
+                            </div>
+                          )}
 
                           <div className="mt-2 space-y-2">
                             <div className="rounded-md border border-white/10 bg-black/20 px-2 py-2 flex items-center justify-between gap-2">
