@@ -177,7 +177,6 @@ const TOOLS: ToolCard[] = [
     title: "ElevenLabs",
     description: "AI-powered voice synthesis technology that creates realistic and customizable human-like speech for various applications",
     group: true,
-    showElevenlabsPopup: true,
   },
   {
     href: "https://vmake.ai/workspace",
