@@ -652,7 +652,23 @@ export default function DashboardClient() {
         body: JSON.stringify({ slug, domain: root, rua: ruaEmail }),
       });
       const json = await res.json().catch(() => ({}));
-      if (!res.ok || !json?.ok) throw new Error(json?.detail || json?.error || "DMARC check failed");
+      if (!res.ok || !json?.ok) {
+        const errorMsg = json?.detail || json?.error || "DMARC check failed";
+        // Include debug info in error if available
+        if (json?.debug) {
+          console.error("DMARC check debug:", json.debug);
+        }
+        throw new Error(errorMsg);
+      }
+      // Log debug info for troubleshooting
+      if (json?.debug) {
+        console.log("DMARC check result:", {
+          searched: json.debug.searchedName,
+          found: json.found,
+          recordsCount: json.debug.recordsCount,
+          records: json.debug.recordsFound,
+        });
+      }
       if (json?.config) setConfig((s) => ({ ...s, ...(json.config || {}) }));
     } catch (e: any) {
       setDmarcError(e?.message || "DMARC check failed");
@@ -1783,16 +1799,24 @@ export default function DashboardClient() {
                           </div>
                           
                           {/* Show found records for debugging */}
-                          {foundRecords.length > 0 && (
+                          {foundRecords.length > 0 ? (
                             <div className="mt-3 rounded-md border border-white/5 bg-black/20 px-2 py-2">
-                              <div className="text-[11px] text-gray-400 mb-1">Found DNS records:</div>
+                              <div className="text-[11px] text-gray-400 mb-1">Found DNS records ({foundRecords.length}):</div>
                               {foundRecords.map((record: string, idx: number) => (
                                 <div key={idx} className="font-mono text-[10px] text-gray-300 break-all mt-1">
                                   {record}
                                 </div>
                               ))}
                             </div>
-                          )}
+                          ) : checkedAt ? (
+                            <div className="mt-3 rounded-md border border-amber-500/20 bg-amber-500/5 px-2 py-2">
+                              <div className="text-[11px] text-amber-300">
+                                No DNS records found for <span className="font-mono">{dmarcName}</span>
+                                <br />
+                                <span className="text-amber-400/80">Make sure the TXT record is configured in your DNS provider (Namecheap).</span>
+                              </div>
+                            </div>
+                          ) : null}
 
                           <div className="mt-2 space-y-2">
                             <div className="rounded-md border border-white/10 bg-black/20 px-2 py-2 flex items-center justify-between gap-2">

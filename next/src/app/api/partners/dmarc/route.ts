@@ -142,6 +142,27 @@ async function dohTxt(name: string) {
     }
   }
   
+  // Also try Quad9 DoH as additional fallback
+  if (data.length === 0) {
+    try {
+      const q9Url = `https://dns.quad9.net/dns-query?name=${encodeURIComponent(name)}&type=TXT`;
+      const q9Res = await fetch(q9Url, { 
+        cache: "no-store",
+        headers: { "Accept": "application/dns-json" }
+      });
+      const q9Json = await q9Res.json().catch(() => ({} as any));
+      const q9Answers = Array.isArray((q9Json as any)?.Answer) ? (q9Json as any).Answer : [];
+      const q9Data = q9Answers
+        .map((a: any) => normalizeTxtData(String(a?.data || "")))
+        .filter(Boolean);
+      if (q9Data.length > 0) {
+        data = q9Data;
+      }
+    } catch {
+      // Ignore Quad9 fallback errors
+    }
+  }
+  
   return { ok: res.ok, status: res.status, data };
 }
 
@@ -177,12 +198,19 @@ export async function POST(req: NextRequest) {
 
     const lookup = await dohTxt(name);
     const records: string[] = lookup.data || [];
+    
     // Improved DMARC detection: check for v=DMARC1 (case-insensitive, with flexible spacing)
     // Also check for common variations like "v=DMARC1", "v = DMARC1", etc.
     const hasDmarc = records.some((r: string) => {
-      const normalized = String(r).toLowerCase().replace(/\s+/g, "");
-      return /v\s*=\s*dmarc1/i.test(String(r)) || normalized.includes("v=dmarc1");
+      const recordStr = String(r);
+      const normalized = recordStr.toLowerCase().replace(/\s+/g, "");
+      // Check multiple patterns to be more robust
+      const pattern1 = /v\s*=\s*dmarc1/i.test(recordStr);
+      const pattern2 = normalized.includes("v=dmarc1");
+      const pattern3 = /^v\s*=\s*dmarc1/i.test(recordStr.trim());
+      return pattern1 || pattern2 || pattern3;
     });
+    
     const matchesRecommended = records.some(
       (r: string) => normalizeTxtData(String(r)).toLowerCase() === normalizeTxtData(recommended).toLowerCase()
     );
@@ -211,6 +239,14 @@ export async function POST(req: NextRequest) {
         records,
         matchesRecommended,
         config: saved.config,
+        // Debug info
+        debug: {
+          searchedName: name,
+          recordsCount: records.length,
+          recordsFound: records,
+          lookupOk: lookup.ok,
+          lookupStatus: lookup.status,
+        },
       },
       { status: 200 }
     );
