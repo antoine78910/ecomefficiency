@@ -7,6 +7,8 @@ export const runtime = "nodejs";
 type Currency = "USD" | "EUR" | "OTHER";
 type SignupMode = "public" | "invite_only";
 
+const DEFAULT_TAGLINE = "Access to +50 Ecom tools for nothing";
+
 function cleanSlug(input: string) {
   return String(input || "")
     .trim()
@@ -15,6 +17,16 @@ function cleanSlug(input: string) {
     .replace(/[^a-z0-9-]/g, "")
     .replace(/-+/g, "-")
     .replace(/^-|-$/g, "");
+}
+
+function prettyNameFromSlug(slug: string) {
+  const s = cleanSlug(slug);
+  if (!s) return "";
+  return s
+    .split("-")
+    .filter(Boolean)
+    .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+    .join(" ");
 }
 
 export async function POST(req: NextRequest) {
@@ -31,12 +43,12 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "invalid_admin_email" }, { status: 400 });
     }
 
-    const saasName = String(body?.saasName || slug).trim();
+    const saasName = String(body?.saasName || prettyNameFromSlug(slug) || slug).trim();
 
     const payload = {
       saasName,
       slug,
-      tagline: body?.tagline ? String(body.tagline).trim() : "",
+      tagline: body?.tagline ? String(body.tagline).trim() : DEFAULT_TAGLINE,
       logoUrl: body?.logoUrl ? String(body.logoUrl) : "",
       faviconUrl: body?.faviconUrl ? String(body.faviconUrl) : "",
       colors: {

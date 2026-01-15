@@ -1,5 +1,6 @@
 import React from "react";
 import { carouselTools, logoDomainMap } from "@/data/carouselTools";
+import ToolImage from "@/components/ToolImage";
 
 // Prefer fully static generation for marketing to reduce runtime costs
 export const dynamic = 'force-static';
@@ -77,12 +78,7 @@ export default function StarterToolsPage() {
                   <span className="absolute -top-2 -left-2 z-10 text-[10px] px-2 py-0.5 rounded-full bg-[linear-gradient(135deg,#ffd70055,#ffcc00)] text-white border border-[#ffcc00]/30 shadow-[0_0_12px_rgba(255,215,0,0.45)]">Pro only</span>
                 )}
                 <div className="w-full h-36 md:h-40 mb-4 rounded-xl overflow-hidden" style={{ aspectRatio: '16 / 9' }}>
-                  <img
-                    src={tool.icon.startsWith('/') ? tool.icon : (logoDomainMap[tool.name.toLowerCase()] ? `https://logo.clearbit.com/${logoDomainMap[tool.name.toLowerCase()]}` : '/placeholder.svg')}
-                    alt={tool.name}
-                    className="w-full h-full object-contain bg-black"
-                    loading="lazy"
-                  />
+                  <ToolImage toolName={tool.name} icon={tool.icon} />
                 </div>
                 <h3 className="text-white font-semibold text-base mb-2">{tool.name}</h3>
                 <p className="text-gray-400 text-sm leading-relaxed">{tool.description}</p>
@@ -109,12 +105,7 @@ export default function StarterToolsPage() {
                   aria-disabled="true"
                 >
                   <div className="w-full h-36 md:h-40 mb-4 rounded-xl overflow-hidden" style={{ aspectRatio: '16 / 9' }}>
-                    <img
-                      src={tool.icon.startsWith('/') ? tool.icon : (logoDomainMap[tool.name.toLowerCase()] ? `https://logo.clearbit.com/${logoDomainMap[tool.name.toLowerCase()]}` : '/placeholder.svg')}
-                      alt={tool.name}
-                      className="w-full h-full object-contain bg-black opacity-60"
-                      loading="lazy"
-                    />
+                    <ToolImage toolName={tool.name} icon={tool.icon} className="w-full h-full object-contain bg-black opacity-60" />
                   </div>
                   <h3 className="text-white/80 font-semibold text-base mb-2">{tool.name}</h3>
                   <p className="text-gray-400 text-sm leading-relaxed">{tool.description}</p>

@@ -4,6 +4,20 @@ import { supabaseAdmin } from "@/integrations/supabase/server";
 
 export const runtime = "nodejs";
 
+function parseMaybeJson<T = any>(value: any): T | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "string") {
+    const s = value.trim();
+    if (!s) return null;
+    try {
+      return JSON.parse(s) as T;
+    } catch {
+      return value as any as T;
+    }
+  }
+  return value as T;
+}
+
 function cleanSlug(input: string) {
   return String(input || "")
     .trim()
@@ -52,8 +66,8 @@ export async function GET(req: NextRequest) {
       const key = `partner_config:${slug}`;
       const { data, error } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
       if (error) return NextResponse.json({ ok: false, error: "db_error", detail: error.message }, { status: 500 });
-      const cfg = (data as any)?.value || {};
-      connectedAccountId = String(cfg?.connectedAccountId || "");
+      const cfg = parseMaybeJson((data as any)?.value) || {};
+      connectedAccountId = String((cfg as any)?.connectedAccountId || "");
     }
     if (!connectedAccountId && slug) {
       connectedAccountId = await findAccountIdBySlug(slug);

@@ -65,11 +65,14 @@ export default function PartnerSlugClient({ config }: { config: PartnerPublicCon
   const currency = String(config.currency || "EUR").toUpperCase();
   const isUsd = currency === "USD";
   const symbol = isUsd ? "$" : "€";
-  const monthly = Number(String(config.monthlyPrice || "29.99").replace(",", ".")) || 29.99;
+  const monthlyBase = Number(String(config.monthlyPrice || "29.99").replace(",", ".")) || 29.99;
   const explicitYearly = config.yearlyPrice ? Number(String(config.yearlyPrice).replace(",", ".")) : 0;
-  const annualDiscount = typeof config.annualDiscountPercent === "number" ? config.annualDiscountPercent : 0;
+  const annualDiscountRaw = typeof config.annualDiscountPercent === "number" ? config.annualDiscountPercent : 20;
+  const annualDiscount = Number.isFinite(annualDiscountRaw) ? Math.min(Math.max(annualDiscountRaw, 0), 90) : 20;
+  const yearlyBase = explicitYearly > 0 ? explicitYearly : Math.round(monthlyBase * 12 * 100) / 100;
+  const monthly = monthlyBase;
   const computedYearly =
-    explicitYearly > 0 ? explicitYearly : Math.round(monthly * 12 * (1 - Math.min(Math.max(annualDiscount, 0), 90) / 100) * 100) / 100;
+    annualDiscount > 0 ? Math.round(yearlyBase * (1 - Math.min(Math.max(annualDiscount, 0), 90) / 100) * 100) / 100 : yearlyBase;
   const hasYearly = Number.isFinite(computedYearly) && computedYearly > 0;
   const display = billing === "year" && hasYearly ? computedYearly : monthly;
   const per = billing === "year" && hasYearly ? "/year" : "/month";
@@ -123,6 +126,7 @@ export default function PartnerSlugClient({ config }: { config: PartnerPublicCon
             <div className="text-xs text-gray-500">Stripe not connected yet</div>
           )}
         </div>
+        {/* No promo title text here (keeps UI clean). */}
 
         <div className="flex items-center justify-between gap-3 mb-3">
           <div className="inline-flex rounded-xl border border-white/10 bg-white/5 p-1">
@@ -150,7 +154,12 @@ export default function PartnerSlugClient({ config }: { config: PartnerPublicCon
           {hasYearly ? (
             <div className="text-xs text-gray-400">
               Yearly: <span className="text-gray-200 font-medium">{formatMoney(computedYearly)}</span>
-              {annualDiscount > 0 && !explicitYearly ? <span className="text-green-300"> • {annualDiscount}% off</span> : null}
+              {annualDiscount > 0 ? (
+                <>
+                  <span className="text-gray-500 line-through ml-1">{formatMoney(yearlyBase)}</span>
+                  <span className="text-green-300"> • {Math.min(Math.max(annualDiscount, 0), 90)}% off</span>
+                </>
+              ) : null}
             </div>
           ) : null}
         </div>

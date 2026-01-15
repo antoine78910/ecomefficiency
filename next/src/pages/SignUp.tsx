@@ -196,7 +196,7 @@ export default function SignUp() {
             </form>
 
             <div className="mt-4 text-center text-gray-400 text-sm">
-              Already have an account? <Link href="/sign-in" className="text-purple-300 hover:text-purple-200">Sign in</Link>
+              Already have an account? <Link href="/signin" className="text-purple-300 hover:text-purple-200">Sign in</Link>
             </div>
           </div>
         </div>

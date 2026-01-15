@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
-import { carouselTools, logoDomainMap } from "@/data/carouselTools";
+import { carouselTools } from "@/data/carouselTools";
+import ToolImage from "@/components/ToolImage";
 
 export default function ToolsAppPage() {
   return (
@@ -13,23 +14,7 @@ export default function ToolsAppPage() {
         {carouselTools.map((tool) => (
           <div key={tool.name} className="bg-gray-900 border border-white/10 rounded-2xl p-4 flex flex-col items-center text-center">
             <div className="w-full h-36 rounded-xl overflow-hidden mb-3">
-              <img
-                src={tool.icon.startsWith('/') ? tool.icon : (logoDomainMap[tool.name.toLowerCase()] ? `https://logo.clearbit.com/${logoDomainMap[tool.name.toLowerCase()]}` : '/placeholder.svg')}
-                alt={tool.name}
-                className="w-full h-full object-contain bg-black"
-                loading="lazy"
-                onError={(e) => {
-                  const target = e.currentTarget as HTMLImageElement;
-                  const domain = logoDomainMap[tool.name.toLowerCase()];
-                  const fallback = domain ? `https://logo.clearbit.com/${domain}` : '/placeholder.svg';
-                  if ((target as any).dataset.retry !== '1' && target.src !== fallback) {
-                    (target as any).dataset.retry = '1';
-                    target.src = fallback;
-                  } else if (target.src.indexOf('/placeholder.svg') === -1) {
-                    target.src = '/placeholder.svg';
-                  }
-                }}
-              />
+              <ToolImage toolName={tool.name} icon={tool.icon} />
             </div>
             <div className="text-white font-semibold mb-1">{tool.name}</div>
             <div className="text-gray-400 text-sm">{tool.description}</div>

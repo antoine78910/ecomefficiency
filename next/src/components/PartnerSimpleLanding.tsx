@@ -1,7 +1,11 @@
-import PartnerPricingClient from "@/components/PartnerPricingClient";
+"use client";
+
 import { PARTNER_TOOLS } from "@/components/partnerTools";
 import PartnerNavbar from "@/components/PartnerNavbar";
 import FloatingPricingWidget from "@/components/FloatingPricingWidget";
+import PartnerPolicies from "@/components/PartnerPolicies";
+import Link from "next/link";
+import { bestTextColorOn, hexWithAlpha, mixHex, normalizeHex } from "@/lib/color";
 
 export type PartnerFaqItem = { q: string; a: string };
 
@@ -30,6 +34,11 @@ export default function PartnerSimpleLanding({
   title,
   subtitle,
   logoUrl,
+  preview,
+  onPreviewNavigate,
+  hideFloatingPricingWidget,
+  supportEmail,
+  domain,
   colors,
   pricing,
   faq,
@@ -42,8 +51,14 @@ export default function PartnerSimpleLanding({
   title: string;
   subtitle: string;
   logoUrl?: string;
+  preview?: boolean;
+  onPreviewNavigate?: (path: "/signup" | "/signin" | "/app") => void;
+  hideFloatingPricingWidget?: boolean;
+  supportEmail?: string;
+  domain?: string;
   colors?: { main?: string; secondary?: string; accent?: string; background?: string };
   pricing?: {
+    offerTitle?: string;
     monthlyPrice?: string | number;
     yearlyPrice?: string | number;
     annualDiscountPercent?: number;
@@ -56,29 +71,69 @@ export default function PartnerSimpleLanding({
   subtitleHighlight?: string;
   subtitleHighlightColor?: "accent" | "main" | "secondary";
 }) {
-  const main = String(colors?.main || "#9541e0");
-  const secondary = String(colors?.secondary || "#7c30c7");
-  const accent = String(colors?.accent || "#ab63ff");
-  const background = String(colors?.background || "#000000");
+  const main = normalizeHex(String(colors?.main || "#9541e0"), "#9541e0");
+  const secondary = normalizeHex(String(colors?.secondary || "#7c30c7"), "#7c30c7");
+  const accent = normalizeHex(String(colors?.accent || "#ab63ff"), "#ab63ff");
+  const background = normalizeHex(String(colors?.background || "#000000"), "#000000");
   const pick = (k: "accent" | "main" | "secondary" | undefined) => (k === "main" ? main : k === "secondary" ? secondary : accent);
+  const primaryCtaText = bestTextColorOn(mixHex(main, secondary, 0.5));
+  const cardShadow = `0 20px 80px ${hexWithAlpha(accent, 0.12)}`;
 
   const safeFaq = Array.isArray(faq) ? faq.filter((x) => x && (x.q || x.a)) : [];
+  const preventNav = (e: any) => {
+    if (!preview) return;
+    try {
+      e?.preventDefault?.();
+      e?.stopPropagation?.();
+    } catch {}
+  };
+
+  const previewNav = (path: "/signup" | "/signin" | "/app") => {
+    if (!preview) return;
+    if (onPreviewNavigate) onPreviewNavigate(path);
+  };
 
   return (
     <div className="min-h-screen text-white">
-      <div className="min-h-screen" style={{ background: background }}>
-        <PartnerNavbar logoUrl={logoUrl} title={title} />
+      <div className={`min-h-screen ${preview ? "relative" : ""}`} style={{ background: background }}>
+        <PartnerNavbar
+          logoUrl={logoUrl}
+          title={title}
+          preview={preview}
+          onPreviewNavigate={
+            onPreviewNavigate
+              ? (p) => {
+                  if (p === "/") {
+                    try {
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    } catch {}
+                    return;
+                  }
+                  onPreviewNavigate(p as any);
+                }
+              : undefined
+          }
+          colors={{ main, secondary, accent }}
+        />
 
         {/* Floating pricing (bottom-right) */}
-        <FloatingPricingWidget
-          monthlyPrice={pricing?.monthlyPrice}
-          yearlyPrice={pricing?.yearlyPrice}
-          annualDiscountPercent={pricing?.annualDiscountPercent}
-          currency={pricing?.currency}
-          main={main}
-          secondary={secondary}
-          accent={accent}
-        />
+        {!hideFloatingPricingWidget ? (
+          <FloatingPricingWidget
+            slug={slug}
+            saasName={title}
+            preview={preview}
+            onPreviewNavigate={onPreviewNavigate}
+            supportEmail={supportEmail}
+            monthlyPrice={pricing?.monthlyPrice}
+            yearlyPrice={pricing?.yearlyPrice}
+            annualDiscountPercent={pricing?.annualDiscountPercent}
+            currency={pricing?.currency}
+            allowPromotionCodes={pricing?.allowPromotionCodes}
+            main={main}
+            secondary={secondary}
+            accent={accent}
+          />
+        ) : null}
 
         {/* Hero (centered) */}
         <div className="relative overflow-hidden">
@@ -97,7 +152,10 @@ export default function PartnerSimpleLanding({
           <div className="absolute inset-0 pointer-events-none">
             <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 30% 10%, ${main}2e, transparent 50%)` }} />
             <div className="absolute inset-0" style={{ background: `radial-gradient(circle at 80% 40%, ${secondary}24, transparent 55%)` }} />
-            <div className="absolute inset-0 bg-gradient-to-b from-transparent via-transparent to-black" />
+            <div
+              className="absolute inset-0"
+              style={{ background: `linear-gradient(to bottom, transparent 0%, transparent 55%, ${hexWithAlpha(background, 1)} 100%)` }}
+            />
           </div>
 
           <div className="relative max-w-5xl mx-auto px-6 py-12 md:py-16 text-center">
@@ -108,15 +166,19 @@ export default function PartnerSimpleLanding({
               {renderHighlighted(subtitle, subtitleHighlight || "", pick(subtitleHighlightColor))}
             </p>
             <div className="mt-8 flex flex-row flex-wrap gap-4 justify-center">
-              <button
-                type="button"
-                onClick={() => {
-                  try {
-                    const el = document.getElementById("pricing");
-                    if (el) el.scrollIntoView({ behavior: "smooth" });
-                  } catch {}
+              <Link
+                href="/signup"
+                onClick={(e) => {
+                  preventNav(e);
+                  previewNav("/app");
                 }}
-                className="cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_32px_0_rgba(149,65,224,0.70)] px-6 py-3 rounded-xl border-[1px] border-[#9541e0] text-white font-medium group h-[48px] min-w-[160px]"
+                className="cursor-pointer px-6 py-3 rounded-xl border-[1px] font-medium group h-[48px] min-w-[160px] inline-flex items-center justify-center"
+                style={{
+                  background: `linear-gradient(to bottom, ${main}, ${secondary})`,
+                  borderColor: main,
+                  color: primaryCtaText,
+                  boxShadow: `0 4px 32px ${hexWithAlpha(mixHex(main, secondary, 0.5), 0.7)}`,
+                }}
               >
                 <div className="relative overflow-hidden w-full text-center">
                   <p className="transition-transform group-hover:-translate-y-7 duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] whitespace-nowrap">
@@ -126,7 +188,7 @@ export default function PartnerSimpleLanding({
                     Get Started
                   </p>
                 </div>
-              </button>
+              </Link>
               <button
                 type="button"
                 onClick={() => {
@@ -144,7 +206,11 @@ export default function PartnerSimpleLanding({
         </div>
 
         <div className="max-w-5xl mx-auto px-6 pb-12">
-          <div id="tools" className="mt-10 rounded-2xl border border-white/10 bg-black/60 shadow-[0_20px_80px_rgba(149,65,224,0.10)] p-6">
+          <div
+            id="tools"
+            className="mt-10 rounded-2xl border border-white/10 bg-black/60 p-6"
+            style={{ boxShadow: cardShadow }}
+          >
             <div className="text-sm font-semibold text-white">Tools included</div>
             <div className="mt-2 text-sm text-gray-400">Everything you need, in one place.</div>
             <ol className="mt-5 space-y-2 text-sm">
@@ -162,21 +228,11 @@ export default function PartnerSimpleLanding({
             </ol>
           </div>
 
-          <div id="pricing" className="mt-10">
-            <PartnerPricingClient
-              config={{
-                slug,
-                colors: { main, secondary },
-                monthlyPrice: pricing?.monthlyPrice,
-                yearlyPrice: pricing?.yearlyPrice,
-                annualDiscountPercent: pricing?.annualDiscountPercent,
-                currency: pricing?.currency,
-                allowPromotionCodes: pricing?.allowPromotionCodes,
-              }}
-            />
-          </div>
-
-          <div id="faq" className="mt-10 rounded-2xl border border-white/10 bg-black/60 shadow-[0_20px_80px_rgba(149,65,224,0.10)] p-6">
+          <div
+            id="faq"
+            className="mt-10 rounded-2xl border border-white/10 bg-black/60 p-6"
+            style={{ boxShadow: cardShadow }}
+          >
             <div className="text-sm font-semibold text-white">FAQ</div>
             <div className="mt-2 text-sm text-gray-400">Quick answers to common questions.</div>
             {safeFaq.length ? (
@@ -193,9 +249,11 @@ export default function PartnerSimpleLanding({
             )}
           </div>
 
-          <div className="mt-10 text-xs text-gray-600">
-            Powered by <span className="text-gray-400">Ecom Efficiency Partners</span>
+          <div id="policies">
+            <PartnerPolicies saasName={title} supportEmail={supportEmail} domain={domain} />
           </div>
+
+          
         </div>
       </div>
     </div>

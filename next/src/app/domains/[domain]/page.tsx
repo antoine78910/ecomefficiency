@@ -39,6 +39,7 @@ export default async function DomainRootPage({ params }: { params: Promise<{ dom
   const colors = (cfg as any)?.colors || {};
   const title = String(cfg?.saasName || info.slug);
   const subtitle = String(cfg?.tagline || "A modern SaaS built for your audience.");
+  const supportEmail = cfg?.supportEmail ? String(cfg.supportEmail) : undefined;
   const faq = Array.isArray((cfg as any)?.faq) ? ((cfg as any).faq as any[]) : [];
   const titleHighlight = String((cfg as any)?.titleHighlight || "");
   const titleHighlightColor = ((cfg as any)?.titleHighlightColor as any) || "accent";
@@ -50,6 +51,8 @@ export default async function DomainRootPage({ params }: { params: Promise<{ dom
       slug={info.slug}
       title={title}
       subtitle={subtitle}
+      supportEmail={supportEmail}
+      domain={info.domain}
       logoUrl={cfg?.logoUrl ? String(cfg.logoUrl) : undefined}
       colors={{
         main: colors?.main,

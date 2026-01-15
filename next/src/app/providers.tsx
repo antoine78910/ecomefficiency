@@ -9,6 +9,8 @@ import { usePathname } from "next/navigation";
 function RouteLoaderProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const pathname = usePathname();
+  // Requested: make the 3-bar loader white everywhere (including ecomefficiency.com).
+  const barColor = "#ffffff";
   useEffect(() => {
     let timeout: any;
     let failSafe: any;
@@ -71,9 +73,9 @@ function RouteLoaderProvider({ children }: { children: ReactNode }) {
       {loading && (
         <div style={{ position:'fixed', inset:0, background:'#000000', display:'flex', alignItems:'center', justifyContent:'center', zIndex:2147483647 }}>
           <div style={{ display:'flex', alignItems:'center' }}>
-            <span style={{ display:'inline-block', width:3, height:20, background:'#9e4cfc', borderRadius:10, animation:'ee-scale 1s linear infinite' }} />
-            <span style={{ display:'inline-block', width:3, height:35, background:'#9e4cfc', borderRadius:10, margin:'0 5px', animation:'ee-scale 1s linear infinite', animationDelay:'.25s' }} />
-            <span style={{ display:'inline-block', width:3, height:20, background:'#9e4cfc', borderRadius:10, animation:'ee-scale 1s linear infinite', animationDelay:'.5s' }} />
+            <span style={{ display:'inline-block', width:3, height:20, background:barColor, borderRadius:10, animation:'ee-scale 1s linear infinite' }} />
+            <span style={{ display:'inline-block', width:3, height:35, background:barColor, borderRadius:10, margin:'0 5px', animation:'ee-scale 1s linear infinite', animationDelay:'.25s' }} />
+            <span style={{ display:'inline-block', width:3, height:20, background:barColor, borderRadius:10, animation:'ee-scale 1s linear infinite', animationDelay:'.5s' }} />
           </div>
           <style>{`@keyframes ee-scale{20%{transform:scaleY(1.5)}40%{transform:scaleY(1)}}`}</style>
         </div>

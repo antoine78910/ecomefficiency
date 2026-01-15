@@ -7,7 +7,8 @@ import Link from "next/link";
 import JoinMembersSection from "@/components/JoinMembersSection";
 import Footer from "@/components/Footer";
 import NewNavbar from "@/components/NewNavbar";
-import { carouselTools, logoDomainMap } from "@/data/carouselTools";
+import { carouselTools } from "@/data/carouselTools";
+import ToolImage from "@/components/ToolImage";
 import { useRouter, usePathname } from "next/navigation";
 
 type GalleryTool = { id: number; name: string; description: string; icon: string };
@@ -219,23 +220,7 @@ const Tools = () => {
                       )}
                       {renderPrice(tool.name)}
                       <div className="w-full h-28 md:h-40 rounded-xl overflow-hidden mb-3 md:mb-4">
-                        <img
-                          src={tool.icon.startsWith('/') ? tool.icon : (logoDomainMap[tool.name.toLowerCase()] ? `https://logo.clearbit.com/${logoDomainMap[tool.name.toLowerCase()]}` : '/placeholder.svg')}
-                          alt={tool.name}
-                          className="w-full h-full object-contain bg-black"
-                          loading="lazy"
-                          onError={(e) => {
-                            const target = e.currentTarget as HTMLImageElement;
-                            const domain = logoDomainMap[tool.name.toLowerCase()];
-                            const fallback = domain ? `https://logo.clearbit.com/${domain}` : '/placeholder.svg';
-                            if ((target as any).dataset.retry !== '1' && target.src !== fallback) {
-                              (target as any).dataset.retry = '1';
-                              target.src = fallback;
-                            } else if (target.src.indexOf('/placeholder.svg') === -1) {
-                              target.src = '/placeholder.svg';
-                            }
-                          }}
-                        />
+                        <ToolImage toolName={tool.name} icon={tool.icon} />
                       </div>
                       <h3 className="text-white font-semibold text-sm md:text-base mb-1">{tool.name}</h3>
                       <p className="text-gray-400 text-xs md:text-sm leading-relaxed">{tool.description}</p>
@@ -253,23 +238,7 @@ const Tools = () => {
                     )}
                     {renderPrice(tool.name)}
                     <div className="w-full h-28 md:h-40 rounded-xl overflow-hidden mb-3 md:mb-4">
-                      <img
-                        src={tool.icon.startsWith('/') ? tool.icon : (logoDomainMap[tool.name.toLowerCase()] ? `https://logo.clearbit.com/${logoDomainMap[tool.name.toLowerCase()]}` : '/placeholder.svg')}
-                        alt={tool.name}
-                        className="w-full h-full object-contain bg-black"
-                        loading="lazy"
-                        onError={(e) => {
-                          const target = e.currentTarget as HTMLImageElement;
-                          const domain = logoDomainMap[tool.name.toLowerCase()];
-                          const fallback = domain ? `https://logo.clearbit.com/${domain}` : '/placeholder.svg';
-                          if ((target as any).dataset.retry !== '1' && target.src !== fallback) {
-                            (target as any).dataset.retry = '1';
-                            target.src = fallback;
-                          } else if (target.src.indexOf('/placeholder.svg') === -1) {
-                            target.src = '/placeholder.svg';
-                          }
-                        }}
-                      />
+                      <ToolImage toolName={tool.name} icon={tool.icon} />
                 </div>
                     <h3 className="text-white font-semibold text-sm md:text-base mb-1">{tool.name}</h3>
                     <p className="text-gray-400 text-xs md:text-sm leading-relaxed">{tool.description}</p>

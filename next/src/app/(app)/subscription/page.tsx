@@ -131,11 +131,11 @@ export default function SubscriptionPage() {
             <div className="flex-1">
               <p className="font-medium">{error}</p>
               {error.includes("No billing account found") && (
-                <a 
-                  href="/pricing" 
+                <a
+                  href="/app?billing=1"
                   className="mt-2 inline-block text-sm text-red-300 hover:text-red-200 underline"
                 >
-                  Go to Pricing →
+                  Open paywall →
                 </a>
               )}
             </div>
@@ -160,42 +160,16 @@ export default function SubscriptionPage() {
             <button type="submit" className="px-4 py-2 rounded-md border border-white/20 text-white hover:bg-white/10 cursor-pointer">Manage billing</button>
           </form>
         ) : (
-          <div className="px-4 py-2 rounded-md border border-white/10 text-white/50 cursor-not-allowed" title="Subscribe first to manage billing">
+          <a
+            href="/app?billing=1"
+            className="px-4 py-2 rounded-md border border-white/20 text-white hover:bg-white/10 cursor-pointer"
+          >
             Manage billing
-          </div>
+          </a>
         )}
 
-        {(plan === 'starter' || plan === 'free') && (
-          <UpgradeButton email={email} customerId={customerId} plan={plan} />
-        )}
+        {/* Upgrade to Pro button removed (requested) */}
       </div>
     </div>
-  )
-}
-
-
-function UpgradeButton({ email, customerId, plan }: { email?: string; customerId?: string; plan: 'free'|'starter'|'pro' }) {
-  const [pending, setPending] = React.useState(false)
-  return (
-    <button
-      onClick={async ()=>{
-        try {
-          let currency: 'EUR'|'USD' = 'EUR'
-          try { const r = await fetch('/api/ip-region', { cache: 'no-store' }); const j = await r.json().catch(()=>({})); if (j?.currency === 'USD') currency = 'USD' } catch {}
-          const res = await fetch('/api/stripe/upgrade', { method:'POST', headers: { 'Content-Type':'application/json', ...(customerId? {'x-stripe-customer-id': customerId}: {}), ...(email? {'x-user-email': email}: {}) }, body: JSON.stringify({ billing: 'monthly', currency }) })
-          const j = await res.json().catch(()=>({}))
-          if (j?.ok) { window.location.href = '/subscription'; return }
-          // Fallback: open portal upgrade flow if direct update fails
-          const f = document.createElement('form'); f.method='POST'; f.action='/create-customer-portal-session';
-          const c = document.createElement('input'); c.type='hidden'; c.name='customerId'; c.value = customerId || '';
-          const e = document.createElement('input'); e.type='hidden'; e.name='email'; e.value = email || '';
-          const a = document.createElement('input'); a.type='hidden'; a.name='action'; a.value='upgrade';
-          f.appendChild(c); f.appendChild(e); f.appendChild(a); document.body.appendChild(f); f.submit();
-        } catch {}
-      }}
-      className={`px-4 py-2 rounded-md bg-[#9541e0] hover:bg-[#8636d2] text-white cursor-pointer`}
-    >
-      Upgrade to Pro
-    </button>
   )
 }

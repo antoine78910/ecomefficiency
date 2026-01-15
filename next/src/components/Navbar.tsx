@@ -11,10 +11,12 @@ import {
 import { User, LogOut } from "lucide-react";
 import Image from "next/image";
 import { supabase } from "@/integrations/supabase/client";
+import { hexWithAlpha, normalizeHex } from "@/lib/color";
 
 const Navbar = () => {
   const [email, setEmail] = React.useState<string | null>(null);
   const [firstName, setFirstName] = React.useState<string | null>(null);
+  const wlAccent = normalizeHex(String((typeof window !== "undefined" ? (window as any).__wl_accent : "") || "#5c3dfa"), "#5c3dfa");
   React.useEffect(() => {
     (async () => {
       try {
@@ -57,7 +59,10 @@ const Navbar = () => {
   };
   
   return (
-    <nav className="py-4 px-6 md:px-12 flex items-center justify-between z-10 relative backdrop-blur-xl bg-[#202031]/50 border border-[#5c3dfa]/40 rounded-xl mx-4 mt-4 shadow-lg">
+    <nav
+      className="py-4 px-6 md:px-12 flex items-center justify-between z-10 relative backdrop-blur-xl bg-[#202031]/50 border rounded-xl mx-4 mt-4 shadow-lg"
+      style={{ borderColor: hexWithAlpha(wlAccent, 0.4) }}
+    >
       <div className="flex items-center gap-4">
         <div className="w-auto h-20 md:h-24 relative">
           <img 
@@ -102,26 +107,35 @@ const Navbar = () => {
               <span className="hidden md:inline text-[#cfd3d8]">Account</span>
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-56 bg-[#202031]/95 backdrop-blur-xl border-[#5c3dfa]/40 text-white">
-            <div className="px-3 py-2 text-sm font-medium border-b border-[#5c3dfa]/20">
+          <DropdownMenuContent
+            align="end"
+            className="w-56 bg-[#202031]/95 backdrop-blur-xl text-white border"
+            style={
+              {
+                borderColor: hexWithAlpha(wlAccent, 0.4),
+                ["--wl-menu-hover" as any]: hexWithAlpha(wlAccent, 0.18),
+              } as any
+            }
+          >
+            <div className="px-3 py-2 text-sm font-medium border-b" style={{ borderBottomColor: hexWithAlpha(wlAccent, 0.2) }}>
               {`Bienvenue ${firstName || email || ''}!`}
             </div>
-            <DropdownMenuItem className="hover:bg-[#5c3dfa]/20 focus:bg-[#5c3dfa]/20 cursor-pointer">
+            <DropdownMenuItem className="hover:bg-[color:var(--wl-menu-hover)] focus:bg-[color:var(--wl-menu-hover)] cursor-pointer">
               <Link href="/app" className="flex items-center gap-2 w-full">
                 Mon Productify
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem className="hover:bg-[#5c3dfa]/20 focus:bg-[#5c3dfa]/20 cursor-pointer">
+            <DropdownMenuItem className="hover:bg-[color:var(--wl-menu-hover)] focus:bg-[color:var(--wl-menu-hover)] cursor-pointer">
               <Link href="/app/tools" className="flex items-center gap-2 w-full">
                 Générer du contenu
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem className="hover:bg-[#5c3dfa]/20 focus:bg-[#5c3dfa]/20 cursor-pointer">
+            <DropdownMenuItem className="hover:bg-[color:var(--wl-menu-hover)] focus:bg-[color:var(--wl-menu-hover)] cursor-pointer">
               <Link href="/account" className="flex items-center gap-2 w-full">
                 Mon compte
               </Link>
             </DropdownMenuItem>
-            <DropdownMenuItem className="hover:bg-[#5c3dfa]/20 focus:bg-[#5c3dfa]/20 cursor-pointer">
+            <DropdownMenuItem className="hover:bg-[color:var(--wl-menu-hover)] focus:bg-[color:var(--wl-menu-hover)] cursor-pointer">
               <Link href="#" className="flex items-center gap-2 w-full text-red-400">
                 <LogOut size={16} />
                 Se déconnecter

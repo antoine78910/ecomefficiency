@@ -3,7 +3,8 @@
 import React from 'react';
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { carouselTools, logoDomainMap } from "@/data/carouselTools";
+import { carouselTools } from "@/data/carouselTools";
+import ToolImage from "@/components/ToolImage";
 
 const ToolsScrollingSection = () => {
   const tools = carouselTools;
@@ -39,23 +40,7 @@ const ToolsScrollingSection = () => {
                       style={{ width: 170 }}
                     >
                       <div className="w-full h-24 mb-2.5 rounded-lg overflow-hidden">
-                        <img
-                          src={tool.icon.startsWith('/') ? tool.icon : (logoDomainMap[tool.name.toLowerCase()] ? `https://logo.clearbit.com/${logoDomainMap[tool.name.toLowerCase()]}` : '/placeholder.svg')}
-                          alt={tool.name}
-                          className="w-full h-full object-contain bg-black"
-                          loading="lazy"
-                          onError={(e) => {
-                            const target = e.currentTarget as HTMLImageElement;
-                            const domain = logoDomainMap[tool.name.toLowerCase()];
-                            const fallback = domain ? `https://logo.clearbit.com/${domain}` : '/placeholder.svg';
-                            if (target.dataset.retry !== '1' && target.src !== fallback) {
-                              target.dataset.retry = '1';
-                              target.src = fallback;
-                            } else if (target.src.indexOf('/placeholder.svg') === -1) {
-                              target.src = '/placeholder.svg';
-                            }
-                          }}
-                        />
+                        <ToolImage toolName={tool.name} icon={tool.icon} />
                       </div>
                       <h3 className="text-white font-semibold text-xs mb-0.5">{tool.name}</h3>
                       <p className="text-gray-400 text-[11px] leading-relaxed line-clamp-2">{tool.description}</p>
@@ -124,23 +109,7 @@ const ToolsScrollingSection = () => {
                       className="tool-card bg-gray-900 rounded-2xl p-4 transition-all duration-300 relative overflow-hidden min-h-[200px] flex flex-col items-center text-center"
                     >
                       <div className="w-full h-32 md:h-36 mb-4 rounded-xl overflow-hidden">
-                        <img
-                          src={tool.icon.startsWith('/') ? tool.icon : (logoDomainMap[tool.name.toLowerCase()] ? `https://logo.clearbit.com/${logoDomainMap[tool.name.toLowerCase()]}` : '/placeholder.svg')}
-                          alt={tool.name}
-                          className="w-full h-full object-contain bg-black"
-                          loading="lazy"
-                          onError={(e) => {
-                            const target = e.currentTarget as HTMLImageElement;
-                            const domain = logoDomainMap[tool.name.toLowerCase()];
-                            const fallback = domain ? `https://logo.clearbit.com/${domain}` : '/placeholder.svg';
-                            if (target.dataset.retry !== '1' && target.src !== fallback) {
-                              target.dataset.retry = '1';
-                              target.src = fallback;
-                            } else if (target.src.indexOf('/placeholder.svg') === -1) {
-                              target.src = '/placeholder.svg';
-                            }
-                          }}
-                        />
+                        <ToolImage toolName={tool.name} icon={tool.icon} />
                       </div>
                       <h3 className="text-white font-semibold text-base mb-2">{tool.name}</h3>
                       <p className="text-gray-400 text-sm leading-relaxed">{tool.description}</p>
@@ -158,23 +127,7 @@ const ToolsScrollingSection = () => {
                       className="tool-card bg-gray-900 rounded-2xl p-4 transition-all duration-300 relative overflow-hidden min-h-[200px] flex flex-col items-center text-center"
                     >
                       <div className="w-full h-32 md:h-36 mb-4 rounded-xl overflow-hidden">
-                        <img
-                          src={tool.icon.startsWith('/') ? tool.icon : (logoDomainMap[tool.name.toLowerCase()] ? `https://logo.clearbit.com/${logoDomainMap[tool.name.toLowerCase()]}` : '/placeholder.svg')}
-                          alt={tool.name}
-                          className="w-full h-full object-contain bg-black"
-                          loading="lazy"
-                          onError={(e) => {
-                            const target = e.currentTarget as HTMLImageElement;
-                            const domain = logoDomainMap[tool.name.toLowerCase()];
-                            const fallback = domain ? `https://logo.clearbit.com/${domain}` : '/placeholder.svg';
-                            if (target.dataset.retry !== '1' && target.src !== fallback) {
-                              target.dataset.retry = '1';
-                              target.src = fallback;
-                            } else if (target.src.indexOf('/placeholder.svg') === -1) {
-                              target.src = '/placeholder.svg';
-                            }
-                          }}
-                        />
+                        <ToolImage toolName={tool.name} icon={tool.icon} />
                       </div>
                       <h3 className="text-white font-semibold text-base mb-2">{tool.name}</h3>
                       <p className="text-gray-400 text-sm leading-relaxed">{tool.description}</p>
@@ -192,23 +145,7 @@ const ToolsScrollingSection = () => {
                       className="tool-card bg-gray-900 rounded-2xl p-4 transition-all duration-300 relative overflow-hidden min-h-[200px] flex flex-col items-center text-center"
                     >
                       <div className="w-full h-32 md:h-36 mb-4 rounded-xl overflow-hidden">
-                        <img
-                          src={tool.icon.startsWith('/') ? tool.icon : (logoDomainMap[tool.name.toLowerCase()] ? `https://logo.clearbit.com/${logoDomainMap[tool.name.toLowerCase()]}` : '/placeholder.svg')}
-                          alt={tool.name}
-                          className="w-full h-full object-contain bg-black"
-                          loading="lazy"
-                          onError={(e) => {
-                            const target = e.currentTarget as HTMLImageElement;
-                            const domain = logoDomainMap[tool.name.toLowerCase()];
-                            const fallback = domain ? `https://logo.clearbit.com/${domain}` : '/placeholder.svg';
-                            if (target.dataset.retry !== '1' && target.src !== fallback) {
-                              target.dataset.retry = '1';
-                              target.src = fallback;
-                            } else if (target.src.indexOf('/placeholder.svg') === -1) {
-                              target.src = '/placeholder.svg';
-                            }
-                          }}
-                        />
+                        <ToolImage toolName={tool.name} icon={tool.icon} />
                       </div>
                       <h3 className="text-white font-semibold text-base mb-2">{tool.name}</h3>
                       <p className="text-gray-400 text-sm leading-relaxed">{tool.description}</p>

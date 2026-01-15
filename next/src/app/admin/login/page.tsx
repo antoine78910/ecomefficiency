@@ -4,7 +4,6 @@ import { useState, FormEvent } from 'react'
 import { useRouter } from 'next/navigation'
 
 export default function AdminLoginPage() {
-  const [password, setPassword] = useState('')
   const [email, setEmail] = useState('anto.delbos@gmail.com')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -21,7 +20,7 @@ export default function AdminLoginPage() {
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email }),
       })
 
       const data = await response.json()
@@ -29,7 +28,7 @@ export default function AdminLoginPage() {
       if (data.success) {
         router.push('/admin/sessions')
       } else {
-        setError(data.message || 'Mot de passe incorrect')
+        setError(data.message || 'Email incorrect')
       }
     } catch (err) {
       setError('Une erreur est survenue')
@@ -44,7 +43,7 @@ export default function AdminLoginPage() {
         <div className="bg-white/5 border border-white/10 rounded-lg p-8">
           <h1 className="text-3xl font-bold mb-2 text-center">Admin Login</h1>
           <p className="text-gray-400 text-center mb-8">
-            Entrez le mot de passe administrateur
+            Entrez votre email administrateur
           </p>
 
           <form onSubmit={handleSubmit} className="space-y-6">
@@ -59,20 +58,6 @@ export default function AdminLoginPage() {
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-3 bg-black border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
                 placeholder="anto.delbos@gmail.com"
-                required
-              />
-            </div>
-            <div>
-              <label htmlFor="password" className="block text-sm font-medium mb-2">
-                Mot de passe
-              </label>
-              <input
-                type="password"
-                id="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 bg-black border border-white/20 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-white"
-                placeholder="Entrez votre mot de passe"
                 required
               />
             </div>

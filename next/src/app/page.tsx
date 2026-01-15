@@ -99,6 +99,40 @@ export default async function Home() {
     bareHost.endsWith('.ecomefficiency.com') ||
     bareHost.endsWith('localhost');
 
+  // If this is a custom domain but server-side Supabase env is missing, don't fall back to the main marketing site
+  // (it looks like "wrong site" and hides the real issue).
+  if (!isKnown && !supabaseAdmin) {
+    return (
+      <div className="min-h-screen bg-black text-white flex items-center justify-center px-6 py-16">
+        <div className="max-w-xl w-full rounded-2xl border border-white/10 bg-black/60 shadow-[0_20px_80px_rgba(149,65,224,0.10)] p-6">
+          <div className="text-lg font-semibold">Domain template unavailable</div>
+          <div className="mt-2 text-sm text-gray-300">
+            This request is for <span className="font-mono text-gray-100">{bareHost || "unknown-host"}</span>, but the server is missing Supabase environment variables,
+            so it cannot load the white-label configuration.
+          </div>
+          <div className="mt-4 text-sm text-gray-400 space-y-2">
+            <div>- Add these env vars to the <span className="text-gray-200">Vercel project “next”</span> and redeploy:</div>
+            <div className="text-xs text-gray-500 font-mono">
+              NEXT_PUBLIC_SUPABASE_URL<br />
+              NEXT_PUBLIC_SUPABASE_ANON_KEY<br />
+              SUPABASE_SERVICE_ROLE_KEY
+            </div>
+          </div>
+          <div className="mt-5 flex flex-wrap gap-3">
+            <a
+              href="https://vercel.com/dashboard"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center justify-center h-11 px-5 rounded-xl text-sm font-semibold bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] border border-[#9541e0] hover:brightness-110"
+            >
+              Open Vercel settings
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   if (!isKnown && supabaseAdmin) {
     try {
       const key = `partner_domain:${bareHost}`;
@@ -113,6 +147,7 @@ export default async function Home() {
         const colors = (cfg as any)?.colors || {};
         const title = String(cfg?.saasName || slug);
         const subtitle = String(cfg?.tagline || 'A modern SaaS built for your audience.');
+        const supportEmail = cfg?.supportEmail ? String(cfg.supportEmail) : undefined;
         const faq = Array.isArray((cfg as any)?.faq) ? ((cfg as any).faq as any[]) : [];
         const titleHighlight = String((cfg as any)?.titleHighlight || "");
         const titleHighlightColor = ((cfg as any)?.titleHighlightColor as any) || "accent";
@@ -124,6 +159,8 @@ export default async function Home() {
             slug={slug}
             title={title}
             subtitle={subtitle}
+            supportEmail={supportEmail}
+            domain={bareHost}
             logoUrl={cfg?.logoUrl ? String(cfg.logoUrl) : undefined}
             colors={{
               main: colors?.main,

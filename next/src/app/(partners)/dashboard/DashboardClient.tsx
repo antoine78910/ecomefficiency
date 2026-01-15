@@ -4,8 +4,9 @@ import React from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
-import { Check, Copy, ExternalLink, Loader2, RefreshCcw, Save, Palette, LayoutTemplate, Trash2, Link2 } from "lucide-react";
+import { Check, Copy, ExternalLink, Loader2, RefreshCcw, Save, Palette, LayoutTemplate, Trash2, Link2, CheckCircle2, XCircle, AlertCircle } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { useToast } from "@/hooks/use-toast";
 import TemplatePreview from "./TemplatePreview";
 
 type PartnerConfig = {
@@ -15,7 +16,20 @@ type PartnerConfig = {
   supportEmail?: string;
   whatsappNumber?: string;
   customDomain?: string;
+  domainVerified?: boolean;
+  domainVerifiedAt?: string;
   stripeAccountEmail?: string;
+  emailDomain?: string;
+  resendDomainId?: string;
+  resendDomainStatus?: string;
+  resendDomainRecords?: Array<{ record?: string; type?: string; name?: string; value?: string; priority?: number; ttl?: number; status?: string }>;
+  resendDomainLastCheckedAt?: string;
+  dmarcName?: string;
+  dmarcRecommended?: string;
+  dmarcFound?: boolean;
+  dmarcFoundRecords?: string[];
+  dmarcMatchesRecommended?: boolean;
+  dmarcLastCheckedAt?: string;
   connectedAccountId?: string;
   feeModel?: "percent_50" | "";
   notes?: string;
@@ -26,6 +40,7 @@ type PartnerConfig = {
   currency?: string;
   monthlyPrice?: string | number;
   yearlyPrice?: string | number;
+  offerTitle?: string;
   annualDiscountPercent?: number;
   allowPromotionCodes?: boolean;
   defaultDiscountId?: string;
@@ -55,16 +70,37 @@ type StripeStatus = {
   bankLast4?: string | null;
 };
 
-function Card({ title, children }: { title: string; children: React.ReactNode }) {
+function Card({ title, children, statusIcon }: { title: string; children: React.ReactNode; statusIcon?: React.ReactNode }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-black/60 shadow-[0_20px_80px_rgba(149,65,224,0.10)] p-5">
-      <div className="text-sm font-semibold text-white mb-3">{title}</div>
+      <div className="text-sm font-semibold text-white mb-3 flex items-center gap-2">
+        {statusIcon}
+        {title}
+      </div>
       {children}
     </div>
   );
 }
 
 export default function DashboardClient() {
+  const DEFAULT_TAGLINE = "Access to +50 Ecom tools for nothing";
+  const prettyNameFromSlug = React.useCallback((s: string) => {
+    const clean = String(s || "")
+      .trim()
+      .toLowerCase()
+      .replace(/\s+/g, "-")
+      .replace(/[^a-z0-9-]/g, "")
+      .replace(/-+/g, "-")
+      .replace(/^-|-$/g, "");
+    if (!clean) return "";
+    return clean
+      .split("-")
+      .filter(Boolean)
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(" ");
+  }, []);
+
+  const { toast } = useToast();
   const searchParams = useSearchParams();
   const qsSlug = searchParams?.get("slug") || "";
   const initialTab = (searchParams?.get("tab") || "settings") as "data" | "settings" | "page" | "promos";
@@ -81,6 +117,7 @@ export default function DashboardClient() {
   const [accountEmail, setAccountEmail] = React.useState<string>("");
   const [tab, setTab] = React.useState<"data" | "settings" | "page" | "promos">(initialTab);
   const [stripeStatus, setStripeStatus] = React.useState<StripeStatus>({ connected: false });
+  const [stripeStatusError, setStripeStatusError] = React.useState<string | null>(null);
   const [domainVerify, setDomainVerify] = React.useState<{ status: "idle" | "checking" | "ok" | "fail"; message?: string }>({
     status: "idle",
   });
@@ -94,6 +131,7 @@ export default function DashboardClient() {
   const [pageDraft, setPageDraft] = React.useState<{
     saasName: string;
     tagline: string;
+    supportEmail: string;
     logoUrl: string;
     faviconUrl: string;
     monthlyPrice: string;
@@ -110,13 +148,14 @@ export default function DashboardClient() {
     subtitleHighlight: string;
     subtitleHighlightColor: "accent" | "main" | "secondary";
   }>({
-    saasName: "",
-    tagline: "",
+    saasName: prettyNameFromSlug(qsSlug),
+    tagline: DEFAULT_TAGLINE,
+    supportEmail: "",
     logoUrl: "",
     faviconUrl: "",
     monthlyPrice: "",
     yearlyPrice: "",
-    annualDiscountPercent: "",
+    annualDiscountPercent: "20",
     currency: "EUR",
     main: "",
     secondary: "",
@@ -139,21 +178,55 @@ export default function DashboardClient() {
       maxUses?: number;
       timesRedeemed?: number;
       active: boolean;
+      excludeMonthly?: boolean;
+      excludeAnnual?: boolean;
       couponId: string;
       promotionCodeId: string;
     }>
   >([]);
   const [promosLoading, setPromosLoading] = React.useState(false);
   const [promosError, setPromosError] = React.useState<string | null>(null);
-  const [promoDraft, setPromoDraft] = React.useState<{ code: string; type: "percent_once" | "percent_forever"; percentOff: string; maxUses: string }>({
+  const [promoDraft, setPromoDraft] = React.useState<{
+    code: string;
+    type: "percent_once" | "percent_forever";
+    percentOff: string;
+    maxUses: string;
+    excludeMonthly: boolean;
+    excludeAnnual: boolean;
+  }>({
     code: "",
     type: "percent_once",
     percentOff: "50",
     maxUses: "100",
+    excludeMonthly: false,
+    excludeAnnual: false,
   });
 
-  const [editPromoId, setEditPromoId] = React.useState<string | null>(null);
-  const [editMaxUses, setEditMaxUses] = React.useState<string>("");
+  const [emailDomainDraft, setEmailDomainDraft] = React.useState<string>("");
+  const [emailDomainLoading, setEmailDomainLoading] = React.useState(false);
+  const [emailDomainError, setEmailDomainError] = React.useState<string | null>(null);
+  const [dmarcLoading, setDmarcLoading] = React.useState(false);
+  const [dmarcError, setDmarcError] = React.useState<string | null>(null);
+
+  const [promoEditor, setPromoEditor] = React.useState<null | {
+    promotionCodeId: string;
+    code: string;
+    type: "percent_once" | "percent_forever";
+    percentOff: string;
+    maxUses: string;
+    active: boolean;
+    excludeMonthly: boolean;
+    excludeAnnual: boolean;
+    original: {
+      code: string;
+      type: "percent_once" | "percent_forever";
+      percentOff: number;
+      maxUses?: number;
+      active: boolean;
+      excludeMonthly?: boolean;
+      excludeAnnual?: boolean;
+    };
+  }>(null);
 
   const copyText = async (text: string) => {
     try {
@@ -167,9 +240,11 @@ export default function DashboardClient() {
 
   const toColorInputValue = (value: string) => {
     const v = String(value || "").trim();
-    if (/^#[0-9a-f]{6}$/i.test(v)) return v;
-    if (/^#[0-9a-f]{3}$/i.test(v)) {
-      const r = v[1], g = v[2], b = v[3];
+    // Accept "#fff", "fff", "#ffffff", "ffffff" and normalize to "#rrggbb" for the <input type="color" />.
+    const withHash = v.startsWith("#") ? v : (v ? `#${v}` : "");
+    if (/^#[0-9a-f]{6}$/i.test(withHash)) return withHash;
+    if (/^#[0-9a-f]{3}$/i.test(withHash)) {
+      const r = withHash[1], g = withHash[2], b = withHash[3];
       return `#${r}${r}${g}${g}${b}${b}`;
     }
     return "#000000";
@@ -216,6 +291,19 @@ export default function DashboardClient() {
     };
   }, []);
 
+  const ensureRequesterEmail = React.useCallback(async () => {
+    const current = String(accountEmail || "").trim();
+    if (current) return current;
+    try {
+      const { data } = await supabase.auth.getUser();
+      const email = String(data.user?.email || "").trim();
+      if (email) setAccountEmail(email);
+      return email;
+    } catch {
+      return "";
+    }
+  }, [accountEmail]);
+
   React.useEffect(() => {
     if (slug) return;
     try {
@@ -250,10 +338,34 @@ export default function DashboardClient() {
     return `https://${d}`;
   }, [(config as any)?.customDomain]);
 
+  const parsePrice = React.useCallback((v: any) => {
+    const n = Number(String(v ?? "").replace(",", "."));
+    return Number.isFinite(n) && n > 0 ? n : 0;
+  }, []);
+
+  const format2 = React.useCallback((n: number) => {
+    return (Math.round(n * 100) / 100).toFixed(2);
+  }, []);
+
+  // Auto-compute yearly base price (= monthly * 12) for a simpler pricing UX.
+  React.useEffect(() => {
+    const m = parsePrice(pageDraft.monthlyPrice);
+    const nextYearly = m > 0 ? format2(m * 12) : "";
+    if (String(pageDraft.yearlyPrice || "") === nextYearly) return;
+    setPageDraft((s) => ({ ...s, yearlyPrice: nextYearly }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pageDraft.monthlyPrice, parsePrice, format2]);
+
   const publishPatch = React.useMemo(() => {
+    const monthly = Number(String(pageDraft.monthlyPrice || "").replace(",", "."));
+    const derivedYearly =
+      Number.isFinite(monthly) && monthly > 0 ? (Math.round(monthly * 12 * 100) / 100).toFixed(2) : "";
+    const aDisc = pageDraft.annualDiscountPercent ? Number(pageDraft.annualDiscountPercent) : undefined;
+    const aDiscNum = aDisc !== undefined && Number.isFinite(aDisc) ? Math.min(Math.max(aDisc, 0), 90) : 20;
     return {
       saasName: pageDraft.saasName.trim(),
       tagline: pageDraft.tagline.trim(),
+      supportEmail: pageDraft.supportEmail.trim(),
       logoUrl: pageDraft.logoUrl.trim(),
       faviconUrl: pageDraft.faviconUrl.trim(),
       titleHighlight: pageDraft.titleHighlight.trim(),
@@ -266,9 +378,11 @@ export default function DashboardClient() {
         accent: pageDraft.accent.trim(),
         background: pageDraft.background.trim(),
       },
+      // Offer name is no longer configurable: leave empty so Stripe uses `${saasName} Subscription`.
+      offerTitle: "",
       monthlyPrice: pageDraft.monthlyPrice.trim(),
-      yearlyPrice: pageDraft.yearlyPrice.trim(),
-      annualDiscountPercent: pageDraft.annualDiscountPercent ? Number(pageDraft.annualDiscountPercent) : undefined,
+      yearlyPrice: derivedYearly,
+      annualDiscountPercent: aDiscNum,
       currency: pageDraft.currency,
       faq: Array.isArray(pageDraft.faq)
         ? pageDraft.faq
@@ -279,6 +393,7 @@ export default function DashboardClient() {
   }, [
     pageDraft.saasName,
     pageDraft.tagline,
+    pageDraft.supportEmail,
     pageDraft.logoUrl,
     pageDraft.faviconUrl,
     pageDraft.titleHighlight,
@@ -290,7 +405,6 @@ export default function DashboardClient() {
     pageDraft.accent,
     pageDraft.background,
     pageDraft.monthlyPrice,
-    pageDraft.yearlyPrice,
     pageDraft.annualDiscountPercent,
     pageDraft.currency,
     pageDraft.faq,
@@ -305,21 +419,49 @@ export default function DashboardClient() {
     const same =
       String(c?.saasName || "").trim() === publishPatch.saasName &&
       String(c?.tagline || "").trim() === publishPatch.tagline &&
+      String((c as any)?.supportEmail || "").trim() === String((publishPatch as any)?.supportEmail || "").trim() &&
       String(c?.logoUrl || "").trim() === publishPatch.logoUrl &&
       String((c as any)?.faviconUrl || "").trim() === publishPatch.faviconUrl &&
       String(colors?.main || "").trim() === (publishPatch as any)?.colors?.main &&
       String(colors?.secondary || "").trim() === (publishPatch as any)?.colors?.secondary &&
       String(colors?.accent || "").trim() === (publishPatch as any)?.colors?.accent &&
       String(colors?.background || "").trim() === (publishPatch as any)?.colors?.background &&
+      String((c as any)?.offerTitle || "").trim() === String((publishPatch as any)?.offerTitle || "").trim() &&
       String(c?.monthlyPrice ?? "").trim() === String(publishPatch.monthlyPrice || "").trim() &&
       String(c?.yearlyPrice ?? "").trim() === String(publishPatch.yearlyPrice || "").trim() &&
       String(c?.currency || "").trim() === String(publishPatch.currency || "").trim() &&
-      (c?.annualDiscountPercent === undefined || c?.annualDiscountPercent === null
-        ? (publishPatch as any)?.annualDiscountPercent === undefined
-        : Number(c.annualDiscountPercent) === Number((publishPatch as any)?.annualDiscountPercent)) &&
+      (Number(c?.annualDiscountPercent ?? 20) || 0) === (Number((publishPatch as any)?.annualDiscountPercent ?? 20) || 0) &&
       faqSame;
     return !same;
   }, [config, publishPatch]);
+
+  // Auto-publish page branding so the live site updates like the preview.
+  const [autoPublishPage, setAutoPublishPage] = React.useState(true);
+  React.useEffect(() => {
+    try {
+      const v = localStorage.getItem("__partners_auto_publish_page");
+      if (v === "0") setAutoPublishPage(false);
+    } catch {}
+  }, []);
+  React.useEffect(() => {
+    try {
+      localStorage.setItem("__partners_auto_publish_page", autoPublishPage ? "1" : "0");
+    } catch {}
+  }, [autoPublishPage]);
+
+  React.useEffect(() => {
+    if (tab !== "page") return;
+    if (!slug) return;
+    if (!autoPublishPage) return;
+    if (!pageNeedsPublish) return;
+    if (saving) return;
+    const t = window.setTimeout(() => {
+      // Best-effort: apply to live
+      saveConfig(publishPatch);
+    }, 700);
+    return () => window.clearTimeout(t);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [tab, slug, autoPublishPage, pageNeedsPublish, publishPatch]);
 
   const loadRequests = React.useCallback(async (s: string) => {
     try {
@@ -335,6 +477,7 @@ export default function DashboardClient() {
 
   const fetchStripeStatus = React.useCallback(async (s: string) => {
     try {
+      setStripeStatusError(null);
       let account = "";
       try {
         account =
@@ -350,7 +493,13 @@ export default function DashboardClient() {
 
       const res = await fetch(`/api/partners/stripe/status?${qs}`, { cache: "no-store" });
       const json = await res.json().catch(() => ({}));
-      if (!res.ok || !json?.ok) return;
+      if (!res.ok || !json?.ok) {
+        if (account) {
+          setStripeStatus((prev) => ({ ...prev, connected: true, connectedAccountId: prev.connectedAccountId || account }));
+        }
+        setStripeStatusError(String(json?.detail || json?.error || "Stripe status unavailable"));
+        return;
+      }
       setStripeStatus({
         connected: Boolean(json.connected),
         connectedAccountId: json.connectedAccountId,
@@ -389,6 +538,20 @@ export default function DashboardClient() {
     }));
   }, [stats]);
 
+  const checkDomainStatus = React.useCallback(async (domain: string) => {
+    if (!domain) return;
+    try {
+      const res = await fetch(`/api/partners/domain/verify?domain=${encodeURIComponent(domain)}`, { cache: "no-store" });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json?.ok && json?.verified) {
+        setDomainVerify({ status: "ok", message: "Verified ✅" });
+      } else {
+        // Don't set to "fail" on load, keep as "idle" to avoid false negatives
+        // User can manually verify if needed
+      }
+    } catch {}
+  }, []);
+
   const loadAll = async (s: string) => {
     setLoading(true);
     setError(null);
@@ -401,7 +564,21 @@ export default function DashboardClient() {
       const cfgJson = await cfgRes.json().catch(() => ({}));
       const statsJson = await statsRes.json().catch(() => ({}));
 
-      if (cfgRes.ok && cfgJson?.ok) setConfig(cfgJson.config || {});
+      if (cfgRes.ok && cfgJson?.ok) {
+        const loadedConfig = cfgJson.config || {};
+        setConfig(loadedConfig);
+        // Restore domain verification status from config if it was previously verified
+        const customDomain = String((loadedConfig as any)?.customDomain || "").trim();
+        if (customDomain && (loadedConfig as any)?.domainVerified === true) {
+          // Immediately set to verified (from persisted state)
+          setDomainVerify({ status: "ok", message: "Verified ✅" });
+          // Then verify in background to confirm it's still valid
+          checkDomainStatus(customDomain);
+        } else if (customDomain) {
+          // Domain exists but not verified yet, check it
+          checkDomainStatus(customDomain);
+        }
+      }
       if (statsRes.ok && statsJson?.ok) setStats(statsJson.stats || null);
       // Refresh Stripe status (best-effort)
       fetchStripeStatus(s);
@@ -436,6 +613,56 @@ export default function DashboardClient() {
     }
   };
 
+  const checkDmarc = async () => {
+    if (!slug) return;
+    setDmarcLoading(true);
+    setDmarcError(null);
+    try {
+      const normalizeDomain = (v: any) =>
+        String(v || "")
+          .trim()
+          .toLowerCase()
+          .replace(/^https?:\/\//, "")
+          .replace(/\/.*$/, "")
+          .replace(/:\d+$/, "")
+          .replace(/\.$/, "")
+          .replace(/^www\./, "");
+
+      const base = normalizeDomain((config as any)?.customDomain || "") || normalizeDomain(emailDomainDraft);
+      if (!base) throw new Error("Please enter a custom domain (Step 2) first.");
+      const parts = base.split(".").filter(Boolean);
+      const root = parts.length <= 2 ? base : parts.slice(-2).join(".");
+
+      // Force rua mailbox domain to match the custom domain root.
+      const normalizeLocalPart = (v: any) =>
+        String(v || "")
+          .trim()
+          .toLowerCase()
+          .replace(/^mailto:/, "")
+          .split("@")[0]
+          .replace(/\s+/g, "")
+          .replace(/[^a-z0-9._+-]/g, "");
+      const fromSupportEmail = normalizeLocalPart(String((config as any)?.supportEmail || ""));
+      const localPart = fromSupportEmail || "support";
+      const ruaEmail = `${localPart}@${root}`;
+
+      const res = await fetch("/api/partners/dmarc", {
+        method: "POST",
+        headers: { "Content-Type": "application/json", ...(accountEmail ? { "x-user-email": accountEmail } : {}) },
+        body: JSON.stringify({ slug, domain: root, rua: ruaEmail }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) throw new Error(json?.detail || json?.error || "DMARC check failed");
+      if (json?.config) setConfig((s) => ({ ...s, ...(json.config || {}) }));
+    } catch (e: any) {
+      setDmarcError(e?.message || "DMARC check failed");
+    } finally {
+      setDmarcLoading(false);
+    }
+  };
+
+  // (DMARC rua local-part now comes from Page → supportEmail, not from Step 2.)
+
   const createPromo = async () => {
     if (!slug) return;
     setPromosLoading(true);
@@ -447,6 +674,8 @@ export default function DashboardClient() {
         type: promoDraft.type,
         percentOff: promoDraft.percentOff ? Number(promoDraft.percentOff) : 0,
         maxUses: promoDraft.maxUses ? Number(promoDraft.maxUses) : undefined,
+        excludeMonthly: Boolean(promoDraft.excludeMonthly),
+        excludeAnnual: Boolean(promoDraft.excludeAnnual),
       };
       const res = await fetch("/api/partners/promo-codes", {
         method: "POST",
@@ -464,6 +693,16 @@ export default function DashboardClient() {
     }
   };
 
+  const parseBoolFlag = (v: any): boolean => {
+    if (v === true || v === 1) return true;
+    if (v === false || v === 0 || v === null || v === undefined) return false;
+    const s = String(v).trim().toLowerCase();
+    if (!s) return false;
+    if (s === "1" || s === "true" || s === "yes" || s === "y") return true;
+    if (s === "0" || s === "false" || s === "no" || s === "n") return false;
+    return Boolean(s);
+  };
+
   const addDomainOnVercel = async () => {
     try {
       const d = String(config.customDomain || "").trim();
@@ -473,9 +712,13 @@ export default function DashboardClient() {
         return;
       }
       setVercelAttach({ status: "working", message: "Adding domain in Vercel…" });
+      const email = await ensureRequesterEmail();
+      if (!email) {
+        throw new Error("Please sign in first (we need your email to authorize this action).");
+      }
       const res = await fetch("/api/partners/domain/vercel", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...(accountEmail ? { "x-user-email": accountEmail } : {}) },
+        headers: { "Content-Type": "application/json", "x-user-email": email },
         body: JSON.stringify({ slug, domain: d }),
       });
       const json = await res.json().catch(() => ({}));
@@ -515,14 +758,76 @@ export default function DashboardClient() {
     }
   };
 
+  const replacePromo = async (
+    promotionCodeId: string,
+    patch: {
+      code: string;
+      type: "percent_once" | "percent_forever";
+      percentOff: number;
+      maxUses?: number;
+      active?: boolean;
+      excludeMonthly?: boolean;
+      excludeAnnual?: boolean;
+    }
+  ) => {
+    if (!slug) return;
+    setPromosLoading(true);
+    setPromosError(null);
+    try {
+      const res = await fetch("/api/partners/promo-codes", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", ...(accountEmail ? { "x-user-email": accountEmail } : {}) },
+        body: JSON.stringify({ slug, promotionCodeId, ...patch }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) throw new Error(json?.detail || json?.error || "Edit failed");
+      const nextPromos = Array.isArray(json.promos) ? json.promos : promos;
+      setPromos(nextPromos);
+      const newItem = json?.item as any;
+      // If user saved as disabled, immediately disable the newly created promo.
+      if (newItem?.promotionCodeId && patch.active === false) {
+        await setPromoActive(String(newItem.promotionCodeId), false);
+        setPromoEditor(null);
+      } else {
+        setPromoEditor(null);
+      }
+    } catch (e: any) {
+      setPromosError(e?.message || "Edit failed");
+    } finally {
+      setPromosLoading(false);
+    }
+  };
+
+  const deletePromo = async (promotionCodeId: string) => {
+    if (!slug) return;
+    setPromosLoading(true);
+    setPromosError(null);
+    try {
+      const res = await fetch("/api/partners/promo-codes", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json", ...(accountEmail ? { "x-user-email": accountEmail } : {}) },
+        body: JSON.stringify({ slug, promotionCodeId }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) throw new Error(json?.detail || json?.error || "Delete failed");
+      setPromos(Array.isArray(json.promos) ? json.promos : promos);
+      setPromoEditor(null);
+    } catch (e: any) {
+      setPromosError(e?.message || "Delete failed");
+    } finally {
+      setPromosLoading(false);
+    }
+  };
+
   // Keep page editor draft in sync with loaded config
   React.useEffect(() => {
     const c = config || {};
     const colors = (c as any).colors || {};
     setPageDraft((d) => ({
       ...d,
-      saasName: String(c.saasName || d.saasName || ""),
-      tagline: String(c.tagline || d.tagline || ""),
+      saasName: String(c.saasName || d.saasName || prettyNameFromSlug((c as any)?.slug || slug) || ""),
+      tagline: String(c.tagline || d.tagline || DEFAULT_TAGLINE),
+      supportEmail: String((c as any).supportEmail || d.supportEmail || ""),
       logoUrl: String((c as any).logoUrl || d.logoUrl || ""),
       faviconUrl: String((c as any).faviconUrl || d.faviconUrl || ""),
       titleHighlight: String((c as any).titleHighlight || d.titleHighlight || ""),
@@ -532,7 +837,9 @@ export default function DashboardClient() {
       monthlyPrice: c.monthlyPrice !== undefined && c.monthlyPrice !== null ? String(c.monthlyPrice) : d.monthlyPrice,
       yearlyPrice: c.yearlyPrice !== undefined && c.yearlyPrice !== null ? String(c.yearlyPrice) : d.yearlyPrice,
       annualDiscountPercent:
-        c.annualDiscountPercent !== undefined && c.annualDiscountPercent !== null ? String(c.annualDiscountPercent) : d.annualDiscountPercent,
+        c.annualDiscountPercent !== undefined && c.annualDiscountPercent !== null
+          ? String(c.annualDiscountPercent)
+          : d.annualDiscountPercent,
       currency: String(c.currency || d.currency || "EUR"),
       main: String(colors.main || d.main || ""),
       secondary: String(colors.secondary || d.secondary || ""),
@@ -544,6 +851,7 @@ export default function DashboardClient() {
   }, [
     config?.saasName,
     (config as any)?.tagline,
+    (config as any)?.supportEmail,
     (config as any)?.logoUrl,
     (config as any)?.faviconUrl,
     (config as any)?.monthlyPrice,
@@ -552,7 +860,106 @@ export default function DashboardClient() {
     (config as any)?.currency,
     (config as any)?.colors,
     (config as any)?.faq,
+    slug,
+    prettyNameFromSlug,
   ]);
+
+  // Email domain draft defaults (notify.<customDomain>) and stays in sync with loaded config
+  React.useEffect(() => {
+    const existing = String((config as any)?.emailDomain || "").trim();
+    if (existing) {
+      setEmailDomainDraft(existing);
+      return;
+    }
+    const cd = String((config as any)?.customDomain || "")
+      .trim()
+      .replace(/^https?:\/\//, "")
+      .replace(/\/.*$/, "")
+      .replace(/:\d+$/, "")
+      .replace(/\.$/, "")
+      .replace(/^www\./, "");
+    if (cd) setEmailDomainDraft(`notify.${cd}`);
+  }, [(config as any)?.emailDomain, (config as any)?.customDomain]);
+
+  const refreshEmailDomain = async (action: "create" | "verify") => {
+    if (!slug) return;
+    const domain = String(emailDomainDraft || "").trim();
+    if (!domain) {
+      setEmailDomainError("Please enter an email domain (e.g. notify.yourdomain.com)");
+      return;
+    }
+    setEmailDomainLoading(true);
+    setEmailDomainError(null);
+    try {
+      const email = await ensureRequesterEmail();
+      if (!email) {
+        throw new Error("Please sign in first (we need your email to authorize this action).");
+      }
+      const res = await fetch("/api/partners/email-domain", {
+        method: action === "create" ? "POST" : "PUT",
+        headers: { "Content-Type": "application/json", "x-user-email": email },
+        body: JSON.stringify({ slug, domain }),
+      });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) {
+        if (res.status === 429) {
+          throw new Error("Too many requests. Please wait 2 seconds and click Verify again.");
+        }
+        throw new Error(json?.detail || json?.error || "Email domain request failed");
+      }
+      if (json?.config) {
+        setConfig((s) => ({ ...s, ...(json.config || {}) }));
+        const status = String((json.config as any)?.resendDomainStatus || "").toLowerCase();
+        if (action === "create") {
+          toast({
+            title: "Domain registered",
+            description: `The ${domain} domain has been registered in Resend. Add the DNS records below, then click "Verify".`,
+          });
+        } else if (action === "verify") {
+          if (status === "verified" || status === "active") {
+            toast({
+              title: "Domain verified",
+              description: `The ${domain} domain is now verified and ready to send emails.`,
+            });
+          } else {
+            toast({
+              title: "Verification pending",
+              description: `DNS records are still propagating. Status: ${status}. Check again in a few minutes.`,
+              variant: "default",
+            });
+          }
+        }
+      }
+    } catch (e: any) {
+      const msg = String(e?.message || "Email domain request failed");
+      if (msg.includes("resend_not_configured")) {
+        setEmailDomainError("Resend is not configured on this deployment. Add RESEND_API_KEY to the Vercel project “next” (Production) and redeploy, then retry.");
+        toast({
+          title: "Resend not configured",
+          description: "Add RESEND_API_KEY to Vercel environment variables.",
+          variant: "destructive",
+        });
+      } else if (/registered already/i.test(msg)) {
+        // Domain likely already exists in Resend — don't show this as a scary error.
+        const friendly = "This domain already exists in Resend. Click “Verify” to refresh status and DNS records.";
+        setEmailDomainError(friendly);
+        toast({
+          title: "Domain already exists",
+          description: friendly,
+          variant: "default",
+        });
+      } else {
+        setEmailDomainError(msg);
+        toast({
+          title: "Error",
+          description: msg,
+          variant: "destructive",
+        });
+      }
+    } finally {
+      setEmailDomainLoading(false);
+    }
+  };
 
   // ... rest of file ...
 
@@ -858,8 +1265,51 @@ export default function DashboardClient() {
                 </Card>
               </div>
             ) : tab === "settings" ? (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                <Card title="Stripe payments (Connect)">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+                {(() => {
+                  // Helper to determine status icon for each step
+                  const getStripeStatusIcon = () => {
+                    if (stripeStatusError) return <AlertCircle className="w-4 h-4 text-amber-400" />;
+                    if (stripeStatus.connected && stripeStatus.chargesEnabled && stripeStatus.payoutsEnabled) return <CheckCircle2 className="w-4 h-4 text-green-400" />;
+                    if (stripeStatus.connected) return <AlertCircle className="w-4 h-4 text-amber-400" />;
+                    return <XCircle className="w-4 h-4 text-gray-500" />;
+                  };
+                  const getDomainStatusIcon = () => {
+                    if (domainVerify.status === "ok") return <CheckCircle2 className="w-4 h-4 text-green-400" />;
+                    if (domainVerify.status === "fail" || (config.customDomain && domainVerify.status === "idle")) return <AlertCircle className="w-4 h-4 text-amber-400" />;
+                    if (config.customDomain) return <AlertCircle className="w-4 h-4 text-amber-400" />;
+                    return <XCircle className="w-4 h-4 text-gray-500" />;
+                  };
+                  const getEmailStatusIcon = () => {
+                    const normalizeDomain = (v: any) =>
+                      String(v || "")
+                        .trim()
+                        .toLowerCase()
+                        .replace(/^https?:\/\//, "")
+                        .replace(/\/.*$/, "")
+                        .replace(/:\d+$/, "")
+                        .replace(/\.$/, "")
+                        .replace(/^www\./, "");
+                    const draft = normalizeDomain(emailDomainDraft);
+                    const configured = normalizeDomain((config as any)?.emailDomain);
+                    const matches = Boolean(draft && configured && draft === configured);
+
+                    // If user typed a new domain but hasn't created/verified it yet,
+                    // never show "verified" from the previous configured domain.
+                    if (!matches) {
+                      if (draft) return <AlertCircle className="w-4 h-4 text-amber-400" />;
+                      return <XCircle className="w-4 h-4 text-gray-500" />;
+                    }
+
+                    const st = String((config as any)?.resendDomainStatus || "").toLowerCase();
+                    if (st === "verified" || st === "active") return <CheckCircle2 className="w-4 h-4 text-green-400" />;
+                    if (st === "pending" || st === "not_started" || emailDomainError) return <AlertCircle className="w-4 h-4 text-amber-400" />;
+                    if ((config as any)?.resendDomainId) return <AlertCircle className="w-4 h-4 text-amber-400" />;
+                    return <XCircle className="w-4 h-4 text-gray-500" />;
+                  };
+                  return (
+                    <>
+                      <Card title="Step 1 — Stripe payments (Connect)" statusIcon={getStripeStatusIcon()}>
                   <div className="text-sm text-gray-300">
                     Connect your Stripe so your SaaS can receive payments.
                     <div className="mt-2 text-xs text-gray-500">
@@ -898,50 +1348,30 @@ export default function DashboardClient() {
                         </>
                       )}
                     </div>
+                    {stripeStatusError ? (
+                      <div className="text-[11px] text-amber-300/90 mt-2">
+                        Stripe status warning: {stripeStatusError}
+                      </div>
+                    ) : null}
                   </div>
                 </Card>
 
-                <Card title="Custom domain">
+                <Card title="Step 2 — Custom domain" statusIcon={getDomainStatusIcon()}>
                   <div className="text-sm text-gray-300">Connect your own domain for your SaaS website.</div>
                   <div className="mt-4 space-y-3">
-                    <div className="text-xs text-gray-400">Domain to connect</div>
+                    <div className="text-xs text-gray-400">Step 1 — Connect your custom domain</div>
                     <input
                       value={config.customDomain || ""}
                       onChange={(e) => {
-                        setConfig((s) => ({ ...s, customDomain: e.target.value }));
+                        const newDomain = e.target.value;
+                        setConfig((s) => ({ ...s, customDomain: newDomain, domainVerified: false, domainVerifiedAt: undefined }));
                         setDomainVerify({ status: "idle" });
                         setVercelAttach({ status: "idle" });
                       }}
                       placeholder="ecomwolf.com"
                       className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
                     />
-                    {customDomainUrl ? (
-                      <div className="text-xs text-gray-500">
-                        Once verified, your template is served automatically on{" "}
-                        <a href={customDomainUrl} target="_blank" rel="noreferrer" className="text-purple-300 hover:text-purple-200 break-all">
-                          {customDomainUrl}
-                        </a>
-                      </div>
-                    ) : null}
-                    <div className="text-[11px] text-gray-500">
-                      Important: DNS can be “Verified” but the domain can still show another site if it’s attached to another Vercel project (domain ownership).
-                      If `saave.io` still shows the old website, remove the domain from the other project and add it to this project in Vercel (it may ask for a TXT `_vercel` token).
-                    </div>
-                    <button
-                      type="button"
-                      onClick={addDomainOnVercel}
-                      disabled={!slug || vercelAttach.status === "working"}
-                      className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
-                      title="Automatically attach this domain to our Vercel project (may require a TXT _vercel record)."
-                    >
-                      {vercelAttach.status === "working" ? <Loader2 className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
-                      Add domain on Vercel
-                    </button>
-                    {vercelAttach.status !== "idle" ? (
-                      <div className={`text-xs ${vercelAttach.status === "ok" ? "text-green-300" : vercelAttach.status === "working" ? "text-gray-400" : "text-red-300"}`}>
-                        {vercelAttach.message || ""}
-                      </div>
-                    ) : null}
+
                     <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-gray-300">
                       <div className="text-gray-400 mb-3">DNS records (copy/paste)</div>
                       <div className="space-y-2">
@@ -1013,9 +1443,9 @@ export default function DashboardClient() {
                           const res = await fetch(`/api/partners/domain/verify?domain=${encodeURIComponent(d)}`, { cache: "no-store" });
                           const json = await res.json().catch(() => ({}));
                           if (res.ok && json?.ok && json?.verified) {
-                            setDomainVerify({ status: "ok", message: `Verified ✅${customDomainUrl ? ` Live: ${customDomainUrl}` : ""}` });
-                            // Auto-save mapping (no separate Save button)
-                            await saveConfig({ customDomain: d });
+                            setDomainVerify({ status: "ok", message: "Verified ✅" });
+                            // Auto-save mapping + persist verification status
+                            await saveConfig({ customDomain: d, domainVerified: true, domainVerifiedAt: new Date().toISOString() });
                             return;
                           }
                           const expected = Array.isArray(json?.expected) ? json.expected : [];
@@ -1055,23 +1485,347 @@ export default function DashboardClient() {
                         "Verify DNS"
                       )}
                     </button>
-                    {domainVerify.status === "ok" && customDomainUrl ? (
-                      <a
-                        href={customDomainUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm"
-                      >
-                        <ExternalLink className="w-4 h-4" /> Open domain
-                      </a>
-                    ) : null}
                     {domainVerify.status !== "idle" ? (
                       <div className={`text-xs ${domainVerify.status === "ok" ? "text-green-300" : domainVerify.status === "checking" ? "text-gray-400" : "text-red-300"}`}>
                         {domainVerify.message || (domainVerify.status === "checking" ? "Checking…" : "")}
                       </div>
                     ) : null}
+
+                    {/* Helpful hint for DNS propagation / common gotchas */}
+                    {domainVerify.status === "fail" ? (
+                      <div className="mt-2 text-[11px] text-gray-400 leading-relaxed">
+                        DNS propagation can take <b>10–30 minutes</b>, and sometimes up to <b>24–48h</b> depending on your provider and cached resolvers.
+                        <div className="mt-1">
+                          If it still doesn’t verify:
+                          <ul className="list-disc ml-5 mt-1 space-y-0.5">
+                            <li>Check there is only one <b>A</b> record for <b>@</b> (and remove conflicting <b>AAAA</b> if needed).</li>
+                            <li>Make sure <b>www</b> is a <b>CNAME</b> to <b>cname.vercel-dns.com</b> (or the exact <b>vercel-dns-*</b> shown in Vercel).</li>
+                            <li>If you use Cloudflare, set these DNS records to <b>DNS only</b> (not proxied).</li>
+                          </ul>
+                        </div>
+                      </div>
+                    ) : null}
+
+                    <div className="pt-2 border-t border-white/10" />
+                    <div className="text-xs text-gray-400">Step 2 — Push your template to your custom domain</div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const d = String(config.customDomain || "").trim();
+                          if (!d) {
+                            setVercelAttach({ status: "fail", message: "Please enter a domain first." });
+                            return;
+                          }
+                          await addDomainOnVercel();
+                          try {
+                            await saveConfig({ customDomain: d });
+                          } catch {}
+                          try {
+                            if (customDomainUrl) window.open(customDomainUrl, "_blank", "noopener,noreferrer");
+                          } catch {}
+                        }}
+                        disabled={!slug || vercelAttach.status === "working"}
+                        className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-purple-400/30 bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] hover:brightness-110 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                        title="Attach the domain to this Vercel project (if needed) and publish the mapping so your template serves on the domain."
+                      >
+                        {vercelAttach.status === "working" ? <Loader2 className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
+                        Push template to domain
+                      </button>
+                      {customDomainUrl ? (
+                        <a href={customDomainUrl} target="_blank" rel="noreferrer" className="text-sm text-purple-300 hover:text-purple-200">
+                          Open
+                        </a>
+                      ) : null}
+                    </div>
+                    {vercelAttach.status !== "idle" ? (
+                      <div className={`text-xs ${vercelAttach.status === "ok" ? "text-green-300" : vercelAttach.status === "working" ? "text-gray-400" : "text-red-300"}`}>
+                        {vercelAttach.message || ""}
+                      </div>
+                    ) : null}
                   </div>
                 </Card>
+
+                <Card title="Step 3 — Email (Resend)" statusIcon={getEmailStatusIcon()}>
+                  <div className="text-sm text-gray-300">
+                    Send magic-link emails from your own domain (recommended: <span className="font-mono text-gray-200">notify.yourdomain.com</span>).
+                    <div className="mt-2 text-xs text-gray-500">
+                      We’ll generate the exact DNS records (SPF/DKIM/etc.) for you to copy/paste, then you click “Verify”.
+                    </div>
+                  </div>
+
+                  <div className="mt-4 space-y-3">
+                    <div className="text-xs text-gray-400">Email domain</div>
+                    <input
+                      value={emailDomainDraft}
+                      onChange={(e) => {
+                        setEmailDomainDraft(e.target.value);
+                        setEmailDomainError(null);
+                      }}
+                      placeholder="notify.ecomefficiency.casa"
+                      className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
+                    />
+
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={() => refreshEmailDomain("create")}
+                        disabled={!slug || emailDomainLoading}
+                        className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                        title="Create (or fetch) this domain in Resend and show DNS records"
+                      >
+                        {emailDomainLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <ExternalLink className="w-4 h-4" />}
+                        Create / show DNS
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => refreshEmailDomain("verify")}
+                        disabled={!slug || emailDomainLoading}
+                        className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-purple-400/30 bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] hover:brightness-110 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                        title="Verify DNS records on Resend"
+                      >
+                        {emailDomainLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
+                        Verify
+                      </button>
+                    </div>
+
+                    <div className="text-xs text-gray-500">
+                      {(() => {
+                        const normalizeDomain = (v: any) =>
+                          String(v || "")
+                            .trim()
+                            .toLowerCase()
+                            .replace(/^https?:\/\//, "")
+                            .replace(/\/.*$/, "")
+                            .replace(/:\d+$/, "")
+                            .replace(/\.$/, "")
+                            .replace(/^www\./, "");
+                        const draft = normalizeDomain(emailDomainDraft);
+                        const configured = normalizeDomain((config as any)?.emailDomain);
+                        const matches = Boolean(draft && configured && draft === configured);
+                        const st = matches ? String((config as any)?.resendDomainStatus || "") : "";
+                        const stLower = String(st || "").toLowerCase();
+                        const checkedAt = matches ? (config as any)?.resendDomainLastCheckedAt : null;
+
+                        return (
+                          <>
+                            Status:{" "}
+                            <span className={stLower === "verified" || stLower === "active" ? "text-green-300" : "text-gray-300"}>
+                              {matches ? String(st || "not configured") : "not configured"}
+                            </span>
+                            {checkedAt ? <span className="text-gray-500"> • last check: {new Date(String(checkedAt)).toLocaleString()}</span> : null}
+                            {!matches && draft ? (
+                              <span className="text-amber-300">
+                                {" "}
+                                • you changed the domain — click “Create / show DNS” for this new domain
+                              </span>
+                            ) : null}
+                          </>
+                        );
+                      })()}
+                    </div>
+
+                    {(() => {
+                      const normalizeDomain = (v: any) =>
+                        String(v || "")
+                          .trim()
+                          .toLowerCase()
+                          .replace(/^https?:\/\//, "")
+                          .replace(/\/.*$/, "")
+                          .replace(/:\d+$/, "")
+                          .replace(/\.$/, "")
+                          .replace(/^www\./, "");
+                      const draft = normalizeDomain(emailDomainDraft);
+                      const configured = normalizeDomain((config as any)?.emailDomain);
+                      const matches = Boolean(draft && configured && draft === configured);
+                      const st = matches ? String((config as any)?.resendDomainStatus || "").toLowerCase() : "";
+                      if (!st || st === "verified" || st === "active") return null;
+                      if (st === "pending" || st === "not_started") {
+                        return (
+                          <div className="text-[11px] text-gray-500">
+                            Pending usually means DNS hasn’t propagated yet. Typical: 5–30 minutes, sometimes up to 24h (depends on your DNS provider/TTL).
+                            After you add the records, click “Verify” again.
+                          </div>
+                        );
+                      }
+                      return (
+                        <div className="text-[11px] text-gray-500">
+                          If this stays stuck, double-check the DNS record names/values match exactly (no extra dots/spaces) and that you added them to the correct DNS zone.
+                        </div>
+                      );
+                    })()}
+
+                    {emailDomainError ? <div className="text-xs text-red-300">{emailDomainError}</div> : null}
+
+                    {(() => {
+                      const normalizeDomain = (v: any) =>
+                        String(v || "")
+                          .trim()
+                          .toLowerCase()
+                          .replace(/^https?:\/\//, "")
+                          .replace(/\/.*$/, "")
+                          .replace(/:\d+$/, "")
+                          .replace(/\.$/, "")
+                          .replace(/^www\./, "");
+                      const draft = normalizeDomain(emailDomainDraft);
+                      const configured = normalizeDomain((config as any)?.emailDomain);
+                      const matches = Boolean(draft && configured && draft === configured);
+                      const recs = (config as any)?.resendDomainRecords;
+                      if (matches && Array.isArray(recs) && recs.length) {
+                        return (
+                      <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs">
+                        <div className="text-gray-400 mb-2">DNS records (copy/paste)</div>
+                        <div className="space-y-2">
+                          {(recs as any[]).map((r: any, idx: number) => (
+                            <div key={`${r?.type || "rec"}-${idx}`} className="rounded-lg border border-white/10 bg-black/20 p-3">
+                              <div className="flex items-center justify-between gap-3">
+                                <div className="text-xs text-gray-300">{String(r?.type || "RECORD")}</div>
+                                <div className="text-[11px] text-gray-500">{r?.status ? `Status: ${r.status}` : ""}</div>
+                              </div>
+                              <div className="mt-2 grid grid-cols-1 gap-2">
+                                <div className="rounded-md border border-white/10 bg-white/5 px-2 py-1.5 flex items-center justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <div className="text-[11px] text-gray-400">Name</div>
+                                    <div className="font-mono text-sm text-gray-200 truncate">{String(r?.name || "")}</div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => copyText(String(r?.name || ""))}
+                                    className="shrink-0 p-1 rounded hover:bg-white/10"
+                                    aria-label="Copy name"
+                                  >
+                                    <Copy className="w-4 h-4 text-gray-300" />
+                                  </button>
+                                </div>
+                                <div className="rounded-md border border-white/10 bg-white/5 px-2 py-1.5 flex items-center justify-between gap-2">
+                                  <div className="min-w-0">
+                                    <div className="text-[11px] text-gray-400">Value</div>
+                                    <div className="font-mono text-sm text-gray-200 break-all">{String(r?.value || "")}</div>
+                                  </div>
+                                  <button
+                                    type="button"
+                                    onClick={() => copyText(String(r?.value || ""))}
+                                    className="shrink-0 p-1 rounded hover:bg-white/10"
+                                    aria-label="Copy value"
+                                  >
+                                    <Copy className="w-4 h-4 text-gray-300" />
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                        );
+                      }
+                      return (
+                        <div className="text-[11px] text-gray-500">
+                          Click “Create / show DNS” to generate the records for the domain above. After you add them in your DNS provider, click “Verify”.
+                        </div>
+                      );
+                    })()}
+
+                    {/* DMARC helper: DMARC must be added in DNS (TXT). We generate the record for the custom domain and can check it automatically. */}
+                    {(() => {
+                      const normalizeDomain = (v: any) =>
+                        String(v || "")
+                          .trim()
+                          .toLowerCase()
+                          .replace(/^https?:\/\//, "")
+                          .replace(/\/.*$/, "")
+                          .replace(/:\d+$/, "")
+                          .replace(/\.$/, "")
+                          .replace(/^www\./, "");
+
+                      const base = normalizeDomain((config as any)?.customDomain || "") || normalizeDomain(emailDomainDraft);
+                      if (!base) return null;
+                      const parts = base.split(".").filter(Boolean);
+                      const root = parts.length <= 2 ? base : parts.slice(-2).join(".");
+
+                      const dmarcName = `_dmarc.${root}`;
+                      const normalizeLocalPart = (v: any) =>
+                        String(v || "")
+                          .trim()
+                          .toLowerCase()
+                          .replace(/^mailto:/, "")
+                          .split("@")[0]
+                          .replace(/\s+/g, "")
+                          .replace(/[^a-z0-9._+-]/g, "");
+                      const supportLp = normalizeLocalPart((config as any)?.supportEmail || "");
+                      const localPart = supportLp || "support";
+                      const ruaEmail = `${localPart}@${root}`;
+                      const recommended = `v=DMARC1; p=none; rua=mailto:${ruaEmail}`;
+
+                      const found = Boolean((config as any)?.dmarcFound);
+                      const checkedAt = (config as any)?.dmarcLastCheckedAt;
+
+                      return (
+                        <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3 text-xs text-gray-300">
+                          <div className="flex items-center justify-between gap-3">
+                            <div className="text-gray-400">DMARC</div>
+                            <div className="flex items-center gap-2">
+                              <div className={`text-[11px] ${found ? "text-green-300" : "text-amber-300"}`}>
+                                {found ? "present" : "missing"}
+                                {checkedAt ? <span className="text-gray-500"> • last check: {new Date(String(checkedAt)).toLocaleString()}</span> : null}
+                              </div>
+                              <button
+                                type="button"
+                                onClick={checkDmarc}
+                                disabled={!slug || dmarcLoading}
+                                className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                                title="Check DMARC TXT record in DNS"
+                              >
+                                {dmarcLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
+                                Check DMARC
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="mt-2 space-y-2">
+                            <div className="rounded-md border border-white/10 bg-black/20 px-2 py-2 flex items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <div className="text-[11px] text-gray-400">Name</div>
+                                <div className="font-mono text-sm text-gray-200 break-all">{dmarcName}</div>
+                              </div>
+                              <button type="button" onClick={() => copyText(dmarcName)} className="shrink-0 p-1 rounded hover:bg-white/10" aria-label="Copy DMARC name">
+                                <Copy className="w-4 h-4 text-gray-300" />
+                              </button>
+                            </div>
+                            <div className="rounded-md border border-white/10 bg-black/20 px-2 py-2 flex items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <div className="text-[11px] text-gray-400">Type</div>
+                                <div className="font-mono text-sm text-gray-200">TXT</div>
+                              </div>
+                              <button type="button" onClick={() => copyText("TXT")} className="shrink-0 p-1 rounded hover:bg-white/10" aria-label="Copy type">
+                                <Copy className="w-4 h-4 text-gray-300" />
+                              </button>
+                            </div>
+                            <div className="rounded-md border border-white/10 bg-black/20 px-2 py-2 flex items-center justify-between gap-2">
+                              <div className="min-w-0">
+                                <div className="text-[11px] text-gray-400">Value (starter)</div>
+                                <div className="font-mono text-sm text-gray-200 break-all">{recommended}</div>
+                              </div>
+                              <button type="button" onClick={() => copyText(recommended)} className="shrink-0 p-1 rounded hover:bg-white/10" aria-label="Copy DMARC value">
+                                <Copy className="w-4 h-4 text-gray-300" />
+                              </button>
+                            </div>
+                          </div>
+
+                          <div className="mt-2 text-[11px] text-gray-500">
+                            <span className="text-gray-300">Optional but recommended:</span> without DMARC, email deliverability is often worse (more chances to land in spam).
+                            <br />
+                            Start with <span className="font-mono">p=none</span>, then move to <span className="font-mono">p=quarantine</span> /{" "}
+                            <span className="font-mono">p=reject</span> once SPF/DKIM are stable.
+                          </div>
+                          {dmarcError ? <div className="mt-2 text-xs text-red-300">{dmarcError}</div> : null}
+                        </div>
+                      );
+                    })()}
+                  </div>
+                </Card>
+                    </>
+                  );
+                })()}
               </div>
             ) : tab === "promos" ? (
               <div className="space-y-4">
@@ -1138,6 +1892,28 @@ export default function DashboardClient() {
                           </div>
                         </div>
 
+                        <div className="mt-2 rounded-xl border border-white/10 bg-black/20 p-3">
+                          <div className="text-xs text-gray-400 mb-2">Exclude price</div>
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            <label className="flex items-center gap-2 text-sm text-gray-200">
+                              <input
+                                type="checkbox"
+                                checked={promoDraft.excludeMonthly}
+                                onChange={(e) => setPromoDraft((s) => ({ ...s, excludeMonthly: e.target.checked }))}
+                              />
+                              Exclude monthly
+                            </label>
+                            <label className="flex items-center gap-2 text-sm text-gray-200">
+                              <input
+                                type="checkbox"
+                                checked={promoDraft.excludeAnnual}
+                                onChange={(e) => setPromoDraft((s) => ({ ...s, excludeAnnual: e.target.checked }))}
+                              />
+                              Exclude annual
+                            </label>
+                          </div>
+                        </div>
+
                         <button
                           type="button"
                           onClick={createPromo}
@@ -1176,90 +1952,72 @@ export default function DashboardClient() {
                         <div className="divide-y divide-white/10">
                           {promos.length ? (
                             promos.map((p) => {
-                              const origin =
-                                typeof window !== "undefined"
-                                  ? `${window.location.protocol}//${window.location.hostname}`
-                                  : "https://partners.ecomefficiency.com";
-                              const link = `${origin}/api/partners/stripe/checkout?slug=${encodeURIComponent(slug)}&interval=month&code=${encodeURIComponent(
-                                p.code
-                              )}`;
                               const times = Number.isFinite(Number((p as any).timesRedeemed)) ? Number((p as any).timesRedeemed) : 0;
                               const max = Number.isFinite(Number(p.maxUses)) && Number(p.maxUses) > 0 ? Number(p.maxUses) : 0;
                               const pct = max > 0 ? Math.min(100, Math.round((times / max) * 100)) : 0;
+                              const selected = promoEditor?.promotionCodeId === p.promotionCodeId;
                               return (
-                                <div key={p.id} className="grid grid-cols-12 gap-0 px-3 py-3 text-sm items-center">
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setPromoEditor({
+                                      promotionCodeId: p.promotionCodeId,
+                                      code: p.code,
+                                      type: p.type,
+                                      percentOff: String(p.percentOff),
+                                      maxUses: p.maxUses ? String(p.maxUses) : "",
+                                      active: Boolean(p.active),
+                                      excludeMonthly: parseBoolFlag((p as any).excludeMonthly),
+                                      excludeAnnual: parseBoolFlag((p as any).excludeAnnual),
+                                      original: {
+                                        code: p.code,
+                                        type: p.type,
+                                        percentOff: Number(p.percentOff),
+                                        maxUses: p.maxUses,
+                                        active: Boolean(p.active),
+                                        excludeMonthly: parseBoolFlag((p as any).excludeMonthly),
+                                        excludeAnnual: parseBoolFlag((p as any).excludeAnnual),
+                                      },
+                                    });
+                                  }}
+                                  className={`w-full text-left grid grid-cols-12 gap-0 px-3 py-3 text-sm items-center hover:bg-white/5 transition ${
+                                    selected ? "bg-white/5" : ""
+                                  }`}
+                                >
                                   <div className="col-span-4 min-w-0">
-                                    <div className="font-mono text-gray-200 truncate">{p.code}</div>
+                                    <div className="flex items-center gap-2 min-w-0">
+                                      <div className="font-mono text-gray-200 truncate">{p.code}</div>
+                                      <button
+                                        type="button"
+                                        onClick={(e) => {
+                                          e.preventDefault();
+                                          e.stopPropagation();
+                                          copyText(String(p.code || ""));
+                                        }}
+                                        className="shrink-0 p-1 rounded hover:bg-white/10"
+                                        aria-label="Copy promo code"
+                                        title="Copy code"
+                                      >
+                                        <Copy className="w-4 h-4 text-gray-300" />
+                                      </button>
+                                    </div>
                                     <div className="mt-1 flex flex-wrap items-center gap-2 text-[11px] text-gray-500">
-                                      <button type="button" onClick={() => copyText(p.code)} className="inline-flex items-center gap-1 hover:text-gray-300">
-                                        <Copy className="w-3.5 h-3.5" /> Copy code
-                                      </button>
-                                      <button type="button" onClick={() => copyText(link)} className="inline-flex items-center gap-1 hover:text-gray-300">
-                                        <Link2 className="w-3.5 h-3.5" /> Copy link
-                                      </button>
+                                      {/* Copy link removed (requested). Keeping copy code as minimal convenience. */}
                                     </div>
                                   </div>
                                   <div className="col-span-2 text-gray-300 text-xs">{p.type === "percent_forever" ? "Forever" : "One payment"}</div>
                                   <div className="col-span-2 text-gray-300 text-xs">{p.percentOff}%</div>
                                   <div className="col-span-2 text-gray-300 text-xs">
-                                    {editPromoId === p.promotionCodeId ? (
-                                      <div className="flex items-center gap-2">
-                                        <input
-                                          value={editMaxUses}
-                                          onChange={(e) => setEditMaxUses(e.target.value)}
-                                          inputMode="numeric"
-                                          className="w-20 rounded-lg border border-white/15 bg-black/60 text-white px-2 py-1 text-xs focus:outline-none focus:border-white/25"
-                                        />
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            const n = Number(editMaxUses);
-                                            if (!Number.isFinite(n) || n <= 0) return;
-                                            setPromoActive(p.promotionCodeId, p.active, Math.floor(n));
-                                            setEditPromoId(null);
-                                          }}
-                                          className="text-[11px] text-purple-300 hover:text-purple-200"
-                                          disabled={promosLoading}
-                                        >
-                                          Save
-                                        </button>
-                                        <button
-                                          type="button"
-                                          onClick={() => setEditPromoId(null)}
-                                          className="text-[11px] text-gray-400 hover:text-gray-200"
-                                        >
-                                          Cancel
-                                        </button>
-                                      </div>
-                                    ) : (
-                                      <button
-                                        type="button"
-                                        className="text-gray-200 hover:text-white underline decoration-white/10 hover:decoration-white/20"
-                                        onClick={() => {
-                                          setEditPromoId(p.promotionCodeId);
-                                          setEditMaxUses(String(p.maxUses || ""));
-                                        }}
-                                        title="Click to edit max uses"
-                                      >
-                                        {p.maxUses || "—"}
-                                      </button>
-                                    )}
+                                    <span className="text-gray-200">{p.maxUses || "—"}</span>
                                   </div>
                                   <div className="col-span-2 text-right">
                                     <div className="flex flex-col items-end gap-1">
                                       <div className={`text-xs ${p.active ? "text-green-300" : "text-gray-500"}`}>{p.active ? "active" : "disabled"}</div>
                                       {max > 0 ? (
-                                        <button
-                                          type="button"
-                                          onClick={() => {
-                                            setEditPromoId(p.promotionCodeId);
-                                            setEditMaxUses(String(p.maxUses || ""));
-                                          }}
-                                          className="text-[11px] text-gray-400 hover:text-gray-200"
-                                          title="Edit max uses"
-                                        >
+                                        <div className="text-[11px] text-gray-400">
                                           Usage: {times}/{max} ({pct}%)
-                                        </button>
+                                        </div>
                                       ) : (
                                         <div className="text-[11px] text-gray-500">Usage: {times}</div>
                                       )}
@@ -1269,16 +2027,8 @@ export default function DashboardClient() {
                                         </div>
                                       ) : null}
                                     </div>
-                                    <button
-                                      type="button"
-                                      onClick={() => setPromoActive(p.promotionCodeId, !p.active)}
-                                      disabled={promosLoading}
-                                      className="mt-1 inline-flex items-center gap-1 text-[11px] text-gray-400 hover:text-gray-200 disabled:opacity-60"
-                                    >
-                                      {p.active ? "Disable" : "Enable"}
-                                    </button>
                                   </div>
-                                </div>
+                                </button>
                               );
                             })
                           ) : (
@@ -1286,6 +2036,195 @@ export default function DashboardClient() {
                           )}
                         </div>
                       </div>
+
+                      {promoEditor ? (
+                        <div className="mt-4 rounded-xl border border-white/10 bg-black/30 p-4">
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0">
+                              <div className="text-sm font-semibold text-white">Edit promo</div>
+                              <div className="text-[11px] text-gray-500 font-mono break-all">{promoEditor.promotionCodeId}</div>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setPromoEditor(null)}
+                              className="text-xs text-gray-400 hover:text-gray-200"
+                            >
+                              Close
+                            </button>
+                          </div>
+
+                          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <div>
+                              <div className="text-xs text-gray-400">Code</div>
+                              <div className="mt-1 flex items-center gap-2">
+                                <input
+                                  value={promoEditor.code}
+                                  onChange={(e) => setPromoEditor((s) => (s ? { ...s, code: e.target.value.toUpperCase() } : s))}
+                                  className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25 font-mono"
+                                />
+                                <button
+                                  type="button"
+                                  onClick={() => copyText(String(promoEditor.code || "").trim())}
+                                  className="shrink-0 inline-flex items-center gap-2 px-3 h-10 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm"
+                                  title="Copy promo code"
+                                >
+                                  <Copy className="w-4 h-4" /> Copy
+                                </button>
+                              </div>
+                              <div className="mt-1 text-[11px] text-gray-500">Changing the code creates a new Stripe promo and disables the old one.</div>
+                            </div>
+
+                            <div>
+                              <div className="text-xs text-gray-400">Type</div>
+                              <select
+                                value={promoEditor.type}
+                                onChange={(e) => setPromoEditor((s) => (s ? { ...s, type: e.target.value as any } : s))}
+                                className="mt-1 w-full rounded-xl border border-white/15 bg-black/60 text-white px-3 py-2 text-sm focus:outline-none focus:border-white/25"
+                              >
+                                <option value="percent_once">Percentage off (one payment)</option>
+                                <option value="percent_forever">Percentage off (forever)</option>
+                              </select>
+                            </div>
+
+                            <div>
+                              <div className="text-xs text-gray-400">Percent off</div>
+                              <input
+                                value={promoEditor.percentOff}
+                                onChange={(e) => setPromoEditor((s) => (s ? { ...s, percentOff: e.target.value } : s))}
+                                inputMode="numeric"
+                                className="mt-1 w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
+                              />
+                            </div>
+
+                            <div>
+                              <div className="text-xs text-gray-400">Max uses</div>
+                              <input
+                                value={promoEditor.maxUses}
+                                onChange={(e) => setPromoEditor((s) => (s ? { ...s, maxUses: e.target.value } : s))}
+                                inputMode="numeric"
+                                className="mt-1 w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
+                              />
+                              <div className="mt-1 text-[11px] text-gray-500">Leave empty for unlimited.</div>
+                            </div>
+                          </div>
+
+                          <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-3">
+                            <div className="text-xs text-gray-400 mb-2">Exclude price</div>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                              <label className="flex items-center gap-2 text-sm text-gray-200">
+                                <input
+                                  type="checkbox"
+                                  checked={promoEditor.excludeMonthly}
+                                  onChange={(e) => setPromoEditor((s) => (s ? { ...s, excludeMonthly: e.target.checked } : s))}
+                                />
+                                Exclude monthly
+                              </label>
+                              <label className="flex items-center gap-2 text-sm text-gray-200">
+                                <input
+                                  type="checkbox"
+                                  checked={promoEditor.excludeAnnual}
+                                  onChange={(e) => setPromoEditor((s) => (s ? { ...s, excludeAnnual: e.target.checked } : s))}
+                                />
+                                Exclude annual
+                              </label>
+                            </div>
+                          </div>
+
+                          <div className="mt-4 flex flex-wrap items-center gap-2">
+                            <button
+                              type="button"
+                              disabled={promosLoading}
+                              onClick={async () => {
+                                if (!promoEditor) return;
+                                const code = promoEditor.code.trim().toUpperCase();
+                                const percentOff = Number(promoEditor.percentOff);
+                                const maxUses = promoEditor.maxUses ? Number(promoEditor.maxUses) : undefined;
+                                const maxUsesClean = Number.isFinite(maxUses as any) && (maxUses as number) > 0 ? Math.floor(maxUses as number) : undefined;
+
+                                // Validation
+                                if (!/^[A-Z0-9_-]{3,}$/.test(code)) {
+                                  setPromosError("Invalid code (use A-Z 0-9 _ -)");
+                                  return;
+                                }
+                                if (!Number.isFinite(percentOff) || percentOff <= 0 || percentOff > 100) {
+                                  setPromosError("Invalid percent off (1-100)");
+                                  return;
+                                }
+
+                                // If only active/maxUses changes are needed, we can update in-place (PUT).
+                                if (
+                                  code === promoEditor.original.code &&
+                                  promoEditor.type === promoEditor.original.type &&
+                                  Number(percentOff) === Number(promoEditor.original.percentOff)
+                                ) {
+                                  // Exclusions cannot be changed in-place on Stripe promo codes; they require replacement.
+                                  if (
+                                    Boolean(promoEditor.excludeMonthly) !== Boolean(promoEditor.original.excludeMonthly) ||
+                                    Boolean(promoEditor.excludeAnnual) !== Boolean(promoEditor.original.excludeAnnual)
+                                  ) {
+                                    await replacePromo(promoEditor.promotionCodeId, {
+                                      code,
+                                      type: promoEditor.type,
+                                      percentOff,
+                                      ...(maxUsesClean ? { maxUses: maxUsesClean } : {}),
+                                      active: promoEditor.active,
+                                      excludeMonthly: promoEditor.excludeMonthly,
+                                      excludeAnnual: promoEditor.excludeAnnual,
+                                    } as any);
+                                    setPromoEditor(null);
+                                    return;
+                                  }
+                                  await setPromoActive(promoEditor.promotionCodeId, promoEditor.active, maxUsesClean);
+                                  setPromoEditor(null);
+                                  return;
+                                }
+
+                                // Otherwise replace promo (PATCH).
+                                await replacePromo(promoEditor.promotionCodeId, {
+                                  code,
+                                  type: promoEditor.type,
+                                  percentOff,
+                                  ...(maxUsesClean ? { maxUses: maxUsesClean } : {}),
+                                  active: promoEditor.active,
+                                  excludeMonthly: promoEditor.excludeMonthly,
+                                  excludeAnnual: promoEditor.excludeAnnual,
+                                });
+                              }}
+                              className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-xl text-sm font-semibold bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] border border-[#9541e0] hover:brightness-110 disabled:opacity-60 disabled:cursor-not-allowed"
+                            >
+                              {promosLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                              Save changes
+                            </button>
+
+                            <button
+                              type="button"
+                              disabled={promosLoading}
+                              onClick={async () => {
+                                if (!promoEditor) return;
+                                await setPromoActive(promoEditor.promotionCodeId, !promoEditor.active);
+                                setPromoEditor(null);
+                              }}
+                              className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-xl text-sm font-semibold border border-white/10 bg-white/5 hover:bg-white/10 disabled:opacity-60 disabled:cursor-not-allowed"
+                            >
+                              {promoEditor.active ? "Disable" : "Enable"}
+                            </button>
+
+                            <button
+                              type="button"
+                              disabled={promosLoading}
+                              onClick={async () => {
+                                if (!promoEditor) return;
+                                await deletePromo(promoEditor.promotionCodeId);
+                              }}
+                              className="inline-flex items-center justify-center gap-2 h-10 px-4 rounded-xl text-sm font-semibold border border-red-400/30 bg-red-500/10 text-red-200 hover:bg-red-500/15 disabled:opacity-60 disabled:cursor-not-allowed"
+                            >
+                              Delete
+                            </button>
+                          </div>
+
+                          {promosError ? <div className="mt-2 text-xs text-red-300 break-words">{promosError}</div> : null}
+                        </div>
+                      ) : null}
                     </div>
                   </div>
 
@@ -1347,6 +2286,21 @@ export default function DashboardClient() {
                             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
                             Publish changes
                           </button>
+                          <button
+                            type="button"
+                            onClick={() => setAutoPublishPage((v) => !v)}
+                            className={`h-7 w-12 rounded-full border transition ${
+                              autoPublishPage ? "bg-green-500/20 border-green-400/40" : "bg-white/5 border-white/10"
+                            }`}
+                            title="Auto-publish changes to the live site"
+                          >
+                            <span
+                              className={`block h-5 w-5 rounded-full bg-white/80 translate-y-[1px] transition ${
+                                autoPublishPage ? "translate-x-[22px]" : "translate-x-[2px]"
+                              }`}
+                            />
+                          </button>
+                          <div className="text-xs text-gray-500">{autoPublishPage ? "Auto-publish ON" : "Auto-publish OFF"}</div>
                           <div className="text-xs text-gray-500">Applies instantly to {customDomainUrl ? "custom domain + " : ""}public page.</div>
                         </div>
                       ) : (
@@ -1366,6 +2320,12 @@ export default function DashboardClient() {
                               value={pageDraft.tagline}
                               onChange={(e) => setPageDraft((s) => ({ ...s, tagline: e.target.value }))}
                               placeholder="Tagline"
+                              className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
+                            />
+                            <input
+                              value={pageDraft.supportEmail}
+                              onChange={(e) => setPageDraft((s) => ({ ...s, supportEmail: e.target.value }))}
+                              placeholder="Support email (used in policies/footer) — e.g. support@yourdomain.com"
                               className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
                             />
                           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
@@ -1406,6 +2366,7 @@ export default function DashboardClient() {
                               saveConfig({
                                 saasName: pageDraft.saasName.trim(),
                                 tagline: pageDraft.tagline.trim(),
+                                supportEmail: pageDraft.supportEmail.trim(),
                                 titleHighlight: pageDraft.titleHighlight.trim(),
                                 titleHighlightColor: pageDraft.titleHighlightColor,
                                 subtitleHighlight: pageDraft.subtitleHighlight.trim(),
@@ -1537,7 +2498,12 @@ export default function DashboardClient() {
                                 <div className="w-20 text-xs text-gray-400">{label}</div>
                                 <input
                                   value={(pageDraft as any)[key]}
-                                  onChange={(e) => setPageDraft((s) => ({ ...s, [key]: e.target.value } as any))}
+                                  onChange={(e) => {
+                                    // Normalize common inputs like "fff" -> "#fff" so they persist and apply immediately.
+                                    const raw = String(e.target.value || "").trim();
+                                    const next = raw && !raw.startsWith("#") && /^[0-9a-f]{3}([0-9a-f]{3})?$/i.test(raw) ? `#${raw}` : raw;
+                                    setPageDraft((s) => ({ ...s, [key]: next } as any));
+                                  }}
                                   placeholder="#111111"
                                   className="flex-1 rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25 font-mono"
                                 />
@@ -1566,53 +2532,103 @@ export default function DashboardClient() {
                         <div className="rounded-xl border border-white/10 bg-white/5 p-3">
                           <div className="text-xs text-gray-400 mb-1">Pricing</div>
                           <div className="space-y-2">
-                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                              <input
-                                value={pageDraft.monthlyPrice}
-                                onChange={(e) => setPageDraft((s) => ({ ...s, monthlyPrice: e.target.value }))}
-                                placeholder="29.99"
-                                inputMode="decimal"
-                                className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
-                              />
-                              <input
-                                value={pageDraft.yearlyPrice}
-                                onChange={(e) => setPageDraft((s) => ({ ...s, yearlyPrice: e.target.value }))}
-                                placeholder="Yearly (optional)"
-                                inputMode="decimal"
-                                className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
-                              />
-                              <select
-                                value={pageDraft.currency}
-                                onChange={(e) => setPageDraft((s) => ({ ...s, currency: e.target.value }))}
-                                className="w-full rounded-xl border border-white/15 bg-black/60 text-white px-3 py-2 text-sm focus:outline-none focus:border-white/25"
-                              >
-                                <option value="EUR">EUR</option>
-                                <option value="USD">USD</option>
-                              </select>
-                              <input
-                                value={pageDraft.annualDiscountPercent}
-                                onChange={(e) => setPageDraft((s) => ({ ...s, annualDiscountPercent: e.target.value }))}
-                                placeholder="Annual discount % (optional)"
-                                inputMode="numeric"
-                                className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
-                              />
+                            <div className="text-[11px] text-gray-500">
+                              Enter your <span className="text-gray-300 font-medium">monthly</span> price. We auto-calculate the{" "}
+                              <span className="text-gray-300 font-medium">annual</span> price as <span className="font-mono">monthly × 12</span>.
+                                You can optionally apply a discount on the annual plan.
+                            </div>
+
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                              <div>
+                                <div className="text-[11px] text-gray-400 mb-1">Monthly price</div>
+                                <input
+                                  value={pageDraft.monthlyPrice}
+                                  onChange={(e) => setPageDraft((s) => ({ ...s, monthlyPrice: e.target.value }))}
+                                  placeholder='Example: "29.99"'
+                                  inputMode="decimal"
+                                  className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
+                                />
+                              </div>
+
+                              <div>
+                                <div className="text-[11px] text-gray-400 mb-1">Annual price (auto)</div>
+                                <input
+                                  value={pageDraft.yearlyPrice}
+                                  readOnly
+                                  placeholder="Auto = monthly × 12"
+                                  className="w-full rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-gray-300 focus:outline-none"
+                                />
+                              </div>
+
+                              <div>
+                                <div className="text-[11px] text-gray-400 mb-1">Annual discount %</div>
+                                <input
+                                  value={pageDraft.annualDiscountPercent}
+                                  onChange={(e) => setPageDraft((s) => ({ ...s, annualDiscountPercent: e.target.value }))}
+                                  placeholder='Example: "20"'
+                                  inputMode="numeric"
+                                  className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
+                                />
+                              </div>
+
+                              <div>
+                                <div className="text-[11px] text-gray-400 mb-1">Currency</div>
+                                <select
+                                  value={pageDraft.currency}
+                                  onChange={(e) => setPageDraft((s) => ({ ...s, currency: e.target.value }))}
+                                  className="w-full rounded-xl border border-white/15 bg-black/60 text-white px-3 py-2 text-sm focus:outline-none focus:border-white/25"
+                                >
+                                  <option value="EUR">EUR</option>
+                                  <option value="USD">USD</option>
+                                </select>
+                              </div>
+                            </div>
+
+                            <div className="text-[11px] text-gray-500">
+                              Preview in popup:
+                              {" "}
+                              {(() => {
+                                const m = parsePrice(pageDraft.monthlyPrice);
+                                const y = m > 0 ? m * 12 : 0;
+                                const adRaw = pageDraft.annualDiscountPercent ? Number(pageDraft.annualDiscountPercent) : 20;
+                                const ad = Number.isFinite(adRaw) ? Math.min(Math.max(adRaw, 0), 90) : 20;
+                                const m2 = m;
+                                const y2 = y > 0 ? y * (1 - ad / 100) : y;
+                                const sym = String(pageDraft.currency || "EUR").toUpperCase() === "USD" ? "$" : "€";
+                                const fmt = (n: number) => (String(pageDraft.currency || "EUR").toUpperCase() === "USD" ? `${sym}${format2(n)}` : `${format2(n)}${sym}`);
+                                const offer = "";
+                                return (
+                                  <span className="text-gray-300">
+                                    Monthly: <span className="font-medium">{fmt(m2 || 0)}</span>
+                                    {" • "}
+                                    Annual: <span className="font-medium">{fmt(y2 || 0)}</span>
+                                    {ad > 0 && y > 0 ? <span className="text-gray-500 line-through ml-1">{fmt(y)}</span> : null}
+                                    {ad > 0 && y > 0 ? <span className="text-green-300 ml-1">-{ad}%</span> : null}
+                                  </span>
+                                );
+                              })()}
                             </div>
 
                             <button
                               type="button"
-                              onClick={() =>
+                              onClick={() => {
+                                const m = parsePrice(pageDraft.monthlyPrice);
+                                const yearly = m > 0 ? format2(m * 12) : "";
+                                const adRaw = pageDraft.annualDiscountPercent ? Number(pageDraft.annualDiscountPercent) : 20;
+                                const ad = Number.isFinite(adRaw) ? Math.min(Math.max(adRaw, 0), 90) : 20;
                                 saveConfig({
+                                  offerTitle: "",
                                   monthlyPrice: pageDraft.monthlyPrice.trim(),
-                                  yearlyPrice: pageDraft.yearlyPrice.trim(),
-                                  annualDiscountPercent: pageDraft.annualDiscountPercent ? Number(pageDraft.annualDiscountPercent) : undefined,
+                                  yearlyPrice: yearly,
+                                  annualDiscountPercent: ad,
                                   currency: pageDraft.currency,
-                                })
-                              }
+                                });
+                              }}
                               disabled={saving}
                               className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm"
                             >
                               {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                              Save
+                              Save pricing
                             </button>
                           </div>
                         </div>
@@ -1691,10 +2707,7 @@ export default function DashboardClient() {
                         </div>
                       </div>
                     </div>
-                    {config.logoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={String(config.logoUrl)} alt="Logo" className="w-24 h-24 rounded-xl border border-white/10 object-contain bg-black/30" />
-                    ) : null}
+                    {/* Removed big logo preview here (it was confusing in the Pages tab). */}
                   </div>
                 </Card>
 
@@ -1712,9 +2725,10 @@ export default function DashboardClient() {
                         background: pageDraft.background,
                       },
                       currency: pageDraft.currency,
+                        offerTitle: "",
                       monthlyPrice: pageDraft.monthlyPrice,
                       yearlyPrice: pageDraft.yearlyPrice,
-                      annualDiscountPercent: pageDraft.annualDiscountPercent ? Number(pageDraft.annualDiscountPercent) : undefined,
+                      annualDiscountPercent: pageDraft.annualDiscountPercent ? Number(pageDraft.annualDiscountPercent) : 20,
                       allowPromotionCodes: Boolean(config.allowPromotionCodes),
                       defaultDiscountId: String((config as any).defaultDiscountId || ""),
                       faq: pageDraft.faq,

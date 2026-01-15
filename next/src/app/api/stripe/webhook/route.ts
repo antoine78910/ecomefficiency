@@ -6,6 +6,76 @@ import { supabaseAdmin } from "@/integrations/supabase/server";
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
+function parseMaybeJson<T = any>(value: any): T | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "string") {
+    const s = value.trim();
+    if (!s) return null;
+    try {
+      return JSON.parse(s) as T;
+    } catch {
+      return value as any as T;
+    }
+  }
+  return value as T;
+}
+
+async function recordPartnerPayment(input: {
+  partnerSlug: string;
+  invoiceId?: string | null;
+  amount?: number; // major currency units
+  currency?: string | null;
+  email?: string | null;
+  createdAt?: string | null;
+}) {
+  try {
+    const slug = String(input.partnerSlug || "").trim().toLowerCase();
+    if (!slug || !supabaseAdmin) return;
+
+    const key = `partner_stats:${slug}`;
+    const { data } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
+    const current = parseMaybeJson((data as any)?.value) || {};
+
+    const payments = Number(current?.payments || 0) || 0;
+    const revenue = Number(current?.revenue || 0) || 0;
+    const recentPayments = Array.isArray(current?.recentPayments) ? current.recentPayments : [];
+    const invoiceIds = Array.isArray(current?.paymentInvoiceIds) ? current.paymentInvoiceIds : [];
+
+    const invoiceId = input.invoiceId ? String(input.invoiceId) : "";
+    if (invoiceId && invoiceIds.includes(invoiceId)) {
+      // dedupe
+      return;
+    }
+
+    const amount = Number(input.amount || 0) || 0;
+    const currency = input.currency ? String(input.currency).toUpperCase() : undefined;
+    const email = input.email ? String(input.email) : undefined;
+    const createdAt = input.createdAt ? String(input.createdAt) : new Date().toISOString();
+
+    const nextInvoiceIds = invoiceId ? [invoiceId, ...invoiceIds].slice(0, 200) : invoiceIds;
+    const nextRecentPayments = [
+      { invoiceId: invoiceId || undefined, amount, currency, email, createdAt },
+      ...recentPayments,
+    ].slice(0, 50);
+
+    const next = {
+      ...current,
+      payments: payments + 1,
+      revenue: Math.round((revenue + amount) * 100) / 100,
+      recentPayments: nextRecentPayments,
+      paymentInvoiceIds: nextInvoiceIds,
+      lastUpdated: new Date().toISOString(),
+    };
+
+    await supabaseAdmin
+      .from("app_state")
+      .upsert({ key, value: next, updated_at: new Date().toISOString() }, { onConflict: "key" as any });
+  } catch (e) {
+    // never break webhook delivery
+    console.error("[webhook] recordPartnerPayment failed", (e as any)?.message || e);
+  }
+}
+
 export async function POST(req: NextRequest) {
   const requestId = `wh_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
   console.log('[webhook]', requestId, '🔔 Webhook endpoint called');
@@ -48,6 +118,8 @@ export async function POST(req: NextRequest) {
 
   try {
     console.log('[webhook]', requestId, 'Event received:', event.type);
+    const stripeAccount = (event as any)?.account as string | undefined;
+    const stripeOpts = stripeAccount ? ({ stripeAccount } as any) : undefined;
     switch (event.type) {
       case 'checkout.session.completed': {
         // Only process completed checkouts with successful payment
@@ -62,6 +134,19 @@ export async function POST(req: NextRequest) {
           const userEmail = session?.customer_details?.email || session?.customer_email;
           const amountTotal = session?.amount_total || 0;
           const currency = session?.currency?.toUpperCase() || 'USD';
+          const partnerSlug = session?.metadata?.partner_slug || session?.metadata?.partnerSlug;
+
+          // Partner dashboard stats: count payment for this partner (dedupe by invoice id)
+          if (partnerSlug) {
+            await recordPartnerPayment({
+              partnerSlug: String(partnerSlug),
+              invoiceId: session?.invoice ? String(session.invoice) : null,
+              amount: Number(amountTotal || 0) / 100,
+              currency,
+              email: userEmail || null,
+              createdAt: session?.created ? new Date(Number(session.created) * 1000).toISOString() : null,
+            });
+          }
           
           if (userEmail) {
              console.log('[webhook][checkout.session.completed]', requestId, '🚀 Tracking payment_succeeded in Brevo for:', userEmail);
@@ -223,10 +308,11 @@ export async function POST(req: NextRequest) {
         if (subscriptionId) {
           try {
             // Fetch subscription to get metadata
-            const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+            const subscription = await stripe.subscriptions.retrieve(subscriptionId, stripeOpts as any);
             const clientRef = subscription?.metadata?.userId;
             const customerId = subscription?.customer;
              tier = subscription?.metadata?.tier || 'pro'; // 'starter' or 'pro'
+            const partnerSlug = (subscription as any)?.metadata?.partner_slug || (subscription as any)?.metadata?.partnerSlug;
 
             console.log('[webhook][invoice.payment_succeeded]', requestId, '📋 Subscription metadata:', { clientRef, customerId, tier });
 
@@ -244,6 +330,25 @@ export async function POST(req: NextRequest) {
             
             // Try to find email from subscription if missing from invoice
             if (!userEmail && (subscription as any).customer_email) userEmail = (subscription as any).customer_email;
+
+            // Partner dashboard stats: count paid invoices for partner subscriptions
+            if (partnerSlug && invoice?.amount_paid) {
+              // Best-effort: fetch customer email if missing (common on some invoice events)
+              if (!userEmail && invoice?.customer) {
+                try {
+                  const cust = await stripe.customers.retrieve(String(invoice.customer), stripeOpts as any);
+                  if (!("deleted" in cust) && cust?.email) userEmail = cust.email;
+                } catch {}
+              }
+              await recordPartnerPayment({
+                partnerSlug: String(partnerSlug),
+                invoiceId: invoice?.id ? String(invoice.id) : null,
+                amount: Number(invoice.amount_paid || 0) / 100,
+                currency: invoice?.currency ? String(invoice.currency).toUpperCase() : null,
+                email: userEmail || null,
+                createdAt: invoice?.created ? new Date(Number(invoice.created) * 1000).toISOString() : null,
+              });
+            }
 
             if (clientRef && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL) {
               const updateRes = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users/${clientRef}`, {

@@ -11,6 +11,7 @@ export default async function DomainSignUpPage({ params }: { params: Promise<{ d
   const title = String(cfg?.saasName || info.slug || "Your SaaS");
   const subtitle = "Sign up";
   const logoUrl = cfg?.logoUrl ? String(cfg.logoUrl) : undefined;
+  const colors = (cfg as any)?.colors || {};
 
   if (!info.slug) {
     return (
@@ -33,6 +34,10 @@ export default async function DomainSignUpPage({ params }: { params: Promise<{ d
     );
   }
 
-  return <DomainSignUpClient title={title} subtitle={subtitle} logoUrl={logoUrl} />;
+  return (
+    <div style={{ ["--wl-main" as any]: String(colors?.main || ""), ["--wl-accent" as any]: String(colors?.accent || "") } as any}>
+      <DomainSignUpClient title={title} subtitle={subtitle} logoUrl={logoUrl} colors={colors} />
+    </div>
+  );
 }
 

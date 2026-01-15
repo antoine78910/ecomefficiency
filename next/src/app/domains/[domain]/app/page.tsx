@@ -10,6 +10,9 @@ export default async function DomainAppPage({ params }: { params: Promise<{ doma
   const cfg = info.cfg || {};
   const title = String(cfg?.saasName || info.slug || "Your SaaS");
   const logoUrl = cfg?.logoUrl ? String(cfg.logoUrl) : undefined;
+  const colors = cfg?.colors ? (cfg.colors as any) : {};
+  const main = colors?.main ? String(colors.main) : undefined;
+  const accent = colors?.accent ? String(colors.accent) : undefined;
 
   if (!info.slug) {
     return (
@@ -38,6 +41,6 @@ export default async function DomainAppPage({ params }: { params: Promise<{ doma
     );
   }
 
-  return <DomainAppClient title={title} logoUrl={logoUrl} />;
+  return <DomainAppClient title={title} logoUrl={logoUrl} slug={String(info.slug)} colors={{ main, accent }} />;
 }
 

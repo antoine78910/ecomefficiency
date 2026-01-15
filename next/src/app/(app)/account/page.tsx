@@ -2,6 +2,7 @@
 import React from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/components/ui/use-toast";
+import { hexWithAlpha, normalizeHex } from "@/lib/color";
 
 export default function AccountPage() {
   const { toast } = useToast();
@@ -9,6 +10,9 @@ export default function AccountPage() {
   const [currentEmail, setCurrentEmail] = React.useState<string>("");
   const [newEmail, setNewEmail] = React.useState<string>("");
   const [savingEmail, setSavingEmail] = React.useState(false);
+
+  // White-label theming (keeps current look for ecomefficiency.com)
+  const wlAccent = normalizeHex(String((typeof window !== "undefined" ? (window as any).__wl_accent : "") || "#9541e0"), "#9541e0");
 
   React.useEffect(() => {
     (async () => {
@@ -64,13 +68,15 @@ export default function AccountPage() {
           <input value={currentEmail} readOnly placeholder="Current email"
                  className="bg-gray-800/60 border border-white/10 rounded-md px-3 py-2 text-white/70 focus:outline-none" />
           <input value={newEmail} onChange={(e)=>setNewEmail(e.target.value)} placeholder="New email"
-                 className="bg-gray-800/60 border border-white/10 rounded-md px-3 py-2 text-white focus:outline-none focus:border-purple-500" />
+                 className="bg-gray-800/60 border border-white/10 rounded-md px-3 py-2 text-white focus:outline-none"
+                 style={{ borderColor: hexWithAlpha(wlAccent, 0.35) }} />
         </div>
         <div className="flex items-center gap-3">
           <button
             disabled={savingEmail}
             onClick={handleChangeEmail}
-            className={`px-4 py-2 rounded-md ${savingEmail ? 'bg-gray-700 text-gray-400' : 'bg-[#9541e0] hover:bg-[#8636d2] text-white'}`}
+            className={`px-4 py-2 rounded-md text-white ${savingEmail ? 'bg-gray-700 text-gray-400' : ''}`}
+            style={savingEmail ? undefined : { background: wlAccent }}
           >
             {savingEmail ? 'Sending…' : 'Change email address'}
           </button>

@@ -50,7 +50,7 @@ const Input = memo(
           background: useMotionTemplate`
         radial-gradient(
           ${visible ? radius + 'px' : '0px'} circle at ${mouseX}px ${mouseY}px,
-          #9541e0,
+          var(--wl-main, #9541e0),
           transparent 80%
         )
       `,

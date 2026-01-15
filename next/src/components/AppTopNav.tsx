@@ -4,6 +4,7 @@ import Link from "next/link";
 import Image from "next/image";
 import { supabase } from "@/integrations/supabase/client";
 import { Crown } from "lucide-react";
+import { hexWithAlpha, normalizeHex } from "@/lib/color";
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -25,6 +26,10 @@ export default function AppTopNav({
   const [firstName, setFirstName] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [plan, setPlan] = useState<'free'|'starter'|'pro'|null>(null);
+
+  // White-label theming (fallback keeps current look for ecomefficiency.com)
+  const wlMain = normalizeHex(String((typeof window !== "undefined" ? (window as any).__wl_main : "") || "#9541e0"), "#9541e0");
+  const wlAccent = normalizeHex(String((typeof window !== "undefined" ? (window as any).__wl_accent : "") || "#5c3dfa"), "#5c3dfa");
 
   const refreshPlan = React.useCallback(async () => {
     try {
@@ -108,12 +113,15 @@ export default function AppTopNav({
     try {
       await supabase.auth.signOut();
     } finally {
-      window.location.href = brand?.signInPath || "/sign-in";
+      window.location.href = brand?.signInPath || "/signin";
     }
   };
 
   return (
-    <div className="sticky top-0 z-50 w-full h-16 border-b border-[#5c3dfa]/20 bg-black/50 backdrop-blur flex items-center justify-between pl-5 pr-3 gap-4">
+    <div
+      className="sticky top-0 z-50 w-full h-16 border-b bg-black/50 backdrop-blur flex items-center justify-between pl-5 pr-3 gap-4"
+      style={{ borderBottomColor: hexWithAlpha(wlAccent, 0.2) }}
+    >
       <div className="flex items-center gap-2">
         <div className="rounded-xl overflow-hidden">
           {brand?.logoUrl ? (
@@ -141,29 +149,34 @@ export default function AppTopNav({
               </span>
             </button>
           </DropdownMenuTrigger>
-          <DropdownMenuContent align="end" className="w-64 bg-[#202031]/95 backdrop-blur-xl border-[#5c3dfa]/40 text-white">
-            <div className="px-3 py-2 text-sm border-b border-[#5c3dfa]/20">
+          <DropdownMenuContent
+            align="end"
+            className="w-64 bg-[#202031]/95 backdrop-blur-xl text-white border"
+            style={
+              {
+                borderColor: hexWithAlpha(wlAccent, 0.4),
+                ["--wl-menu-hover" as any]: hexWithAlpha(wlAccent, 0.18),
+              } as any
+            }
+          >
+            <div className="px-3 py-2 text-sm border-b" style={{ borderBottomColor: hexWithAlpha(wlAccent, 0.2) }}>
               Signed in as<br />
               <span className="font-medium">{email || ''}</span>
             </div>
-            <DropdownMenuItem className="hover:bg-[#5c3dfa]/20 focus:bg-[#5c3dfa]/20 cursor-pointer">
+            <DropdownMenuItem className="hover:bg-[color:var(--wl-menu-hover)] focus:bg-[color:var(--wl-menu-hover)] cursor-pointer">
               <Link href="/account" className="w-full">Account</Link>
             </DropdownMenuItem>
-            <DropdownMenuItem className="hover:bg-[#5c3dfa]/20 focus:bg-[#5c3dfa]/20 cursor-pointer">
+            <DropdownMenuItem className="hover:bg-[color:var(--wl-menu-hover)] focus:bg-[color:var(--wl-menu-hover)] cursor-pointer">
               <Link href="/subscription" className="w-full">Subscription</Link>
             </DropdownMenuItem>
-            {!brand?.hideAffiliate ? (
-              <DropdownMenuItem className="hover:bg-[#5c3dfa]/20 focus:bg-[#5c3dfa]/20 cursor-pointer">
-                <Link href="/affiliate" className="w-full">Affiliate</Link>
-              </DropdownMenuItem>
-            ) : null}
-            <DropdownMenuItem onClick={handleLogout} className="hover:bg-[#5c3dfa]/20 focus:bg-[#5c3dfa]/20 cursor-pointer text-red-400">
+            {/* Affiliate removed from account menu (requested) */}
+            <DropdownMenuItem onClick={handleLogout} className="hover:bg-[color:var(--wl-menu-hover)] focus:bg-[color:var(--wl-menu-hover)] cursor-pointer text-red-400">
               Log out
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>
       ) : (
-        <Link href="/sign-in" className="text-sm text-[#cfd3d8] hover:text-white">Sign in</Link>
+        <Link href="/signin" className="text-sm text-[#cfd3d8] hover:text-white">Sign in</Link>
       )}
     </div>
   );

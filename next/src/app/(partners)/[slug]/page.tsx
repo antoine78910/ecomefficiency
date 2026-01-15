@@ -40,6 +40,7 @@ async function readPublicConfig(slug: string) {
       saasName: cfg?.saasName ? String(cfg.saasName) : undefined,
       tagline: cfg?.tagline ? String(cfg.tagline) : undefined,
       logoUrl: cfg?.logoUrl ? String(cfg.logoUrl) : undefined,
+      supportEmail: (cfg as any)?.supportEmail ? String((cfg as any).supportEmail) : undefined,
       faviconUrl: (cfg as any)?.faviconUrl ? String((cfg as any).faviconUrl) : undefined,
       titleHighlight: (cfg as any)?.titleHighlight ? String((cfg as any).titleHighlight) : "",
       titleHighlightColor: (cfg as any)?.titleHighlightColor ? String((cfg as any).titleHighlightColor) : "accent",
@@ -90,6 +91,7 @@ export default async function PartnerSlugPage({ params }: { params: Promise<{ sl
       title={title}
       subtitle={subtitle}
       logoUrl={cfg.logoUrl}
+      supportEmail={(cfg as any).supportEmail as any}
       colors={cfg.colors as any}
       pricing={{
         monthlyPrice: (cfg as any).monthlyPrice,

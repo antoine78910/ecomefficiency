@@ -59,7 +59,7 @@ const ForgotPassword = () => {
               <button type="submit" disabled={isLoading} className={`w-full rounded-lg py-2 font-medium border ${!isLoading ? 'cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] border-[#9541e0] text-white hover:brightness-110' : 'bg-white/5 border-white/10 text-white/60 cursor-not-allowed'}`}>{isLoading ? 'Sending…' : 'Send reset link'}</button>
             </form>
             <div className="text-center mt-4 text-gray-400 text-sm">
-              <Link href="/sign-in" className="text-purple-300 hover:text-purple-200">← Back to sign in</Link>
+              <Link href="/signin" className="text-purple-300 hover:text-purple-200">← Back to sign in</Link>
             </div>
           </div>
         </div>

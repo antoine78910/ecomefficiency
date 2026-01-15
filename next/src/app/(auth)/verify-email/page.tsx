@@ -30,7 +30,7 @@ export default function VerifyEmailPage() {
             </p>
             <p className="text-xs text-gray-500 mt-5">If you don't see it, check your spam/promotions folder.</p>
             <div className="mt-8">
-              <Link href="/sign-in" className="text-sm text-purple-300 hover:text-purple-200">Already verified? Sign in</Link>
+              <Link href="/signin" className="text-sm text-purple-300 hover:text-purple-200">Already verified? Sign in</Link>
             </div>
           </div>
         </div>

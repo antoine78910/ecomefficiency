@@ -45,6 +45,14 @@ async function readPartnerConfig(slug: string): Promise<any | null> {
   return parseMaybeJson((data as any)?.value) || null;
 }
 
+async function upsertPartnerConfig(slug: string, patch: any) {
+  if (!supabaseAdmin) return;
+  const key = `partner_config:${slug}`;
+  const existing = await readPartnerConfig(slug);
+  const merged = { ...(existing || {}), ...(patch || {}), slug };
+  await supabaseAdmin.from("app_state").upsert({ key, value: merged, updated_at: new Date().toISOString() } as any, { onConflict: "key" as any });
+}
+
 function getVercelAuth() {
   const token = process.env.VERCEL_TOKEN || process.env.VERCEL_API_TOKEN;
   const projectId = process.env.VERCEL_PROJECT_ID;
@@ -123,9 +131,18 @@ export async function POST(req: NextRequest) {
     // Security: only the partner owner (adminEmail) or platform notify/admin email can attach domains.
     const adminEmail = cfg?.adminEmail ? String(cfg.adminEmail).trim().toLowerCase() : "";
     const platformEmail = (process.env.NOTIFY_EMAIL || "anto.delbos@gmail.com").trim().toLowerCase();
-    const allowed = (userEmail && adminEmail && userEmail === adminEmail) || (userEmail && userEmail === platformEmail);
+    // Bootstrap: if adminEmail isn't set yet, allow the first authenticated user to attach the domain
+    // and persist them as adminEmail (same behavior as email-domain).
+    const allowed = (userEmail && !adminEmail) || (userEmail && adminEmail && userEmail === adminEmail) || (userEmail && userEmail === platformEmail);
     if (!allowed) {
       return NextResponse.json({ ok: false, error: "forbidden", detail: "Not allowed to attach domains." }, { status: 403 });
+    }
+
+    // Persist adminEmail if missing (bootstrap ownership)
+    if (userEmail && !adminEmail && userEmail !== platformEmail) {
+      try {
+        await upsertPartnerConfig(slug, { adminEmail: userEmail });
+      } catch {}
     }
 
     // Safety: require the domain to match the one saved in config (prevents attaching random domains).

@@ -8,6 +8,20 @@ export const dynamic = 'force-dynamic'
 // In-memory store (replace by DB if needed)
 let latest: any = null
 
+function parseMaybeJson<T = any>(value: any): T | null {
+  if (value === null || value === undefined) return null
+  if (typeof value === 'string') {
+    const s = value.trim()
+    if (!s) return null
+    try {
+      return JSON.parse(s) as T
+    } catch {
+      return value as any as T
+    }
+  }
+  return value as T
+}
+
 // Helpers to parse credentials from free-form Discord message content
 const stripTicks = (s: string) => s.replace(/^`{1,3}/, '').replace(/`{1,3}$/, '').trim()
 const stripSpoilers = (s: string) => s.replace(/\|\|/g, '')
@@ -51,6 +65,7 @@ export async function GET(req: NextRequest) {
   try {
     const email = req.headers.get('x-user-email') || ''
     const customerIdHeader = req.headers.get('x-stripe-customer-id') || ''
+    const partnerSlugHeader = String(req.headers.get('x-partner-slug') || '').trim().toLowerCase()
     if (!email && !customerIdHeader) {
       return NextResponse.json({}, { status: 200 })
     }
@@ -60,10 +75,27 @@ export async function GET(req: NextRequest) {
     }
     if (process.env.STRIPE_SECRET_KEY) {
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-07-30.basil' })
+
+      // White-label: subscriptions are usually created on the partner Stripe Connect account.
+      // If we got a partner slug, try to scope Stripe lookups to that connected account.
+      let stripeAccount: string | undefined = undefined
+      if (partnerSlugHeader && supabaseAdmin) {
+        try {
+          const key = `partner_config:${partnerSlugHeader}`
+          const { data } = await supabaseAdmin.from('app_state').select('value').eq('key', key).maybeSingle()
+          const cfg = parseMaybeJson((data as any)?.value) || {}
+          const connectedAccountId = String((cfg as any)?.connectedAccountId || '').trim()
+          if (connectedAccountId) stripeAccount = connectedAccountId
+        } catch {}
+      }
+
       let customerId = customerIdHeader
       if (!customerId && email) {
         try {
-          const search = await stripe.customers.search({ query: `email:'${email}'`, limit: 1 })
+          const search = await stripe.customers.search(
+            { query: `email:'${email}'`, limit: 1 },
+            stripeAccount ? ({ stripeAccount } as any) : undefined
+          )
           const found = (search.data || [])[0]
           if (found) customerId = found.id
         } catch {}
@@ -71,7 +103,10 @@ export async function GET(req: NextRequest) {
       if (!customerId) {
         return NextResponse.json({}, { status: 200 })
       }
-      const subs = await stripe.subscriptions.list({ customer: customerId, status: 'all', limit: 10 })
+      const subs = await stripe.subscriptions.list(
+        { customer: customerId, status: 'all', limit: 10 },
+        stripeAccount ? ({ stripeAccount } as any) : undefined
+      )
       const sorted = subs.data.sort((a, b) => (b.created || 0) - (a.created || 0))
       
       // Check if ANY subscription is truly active (active/trialing status OR paid invoice)
@@ -99,7 +134,10 @@ export async function GET(req: NextRequest) {
             console.log('[CREDENTIALS] Checking invoice for incomplete sub:', { subId: sub.id, invoiceId });
             
             if (invoiceId) {
-              const invoice = await stripe.invoices.retrieve(invoiceId);
+              const invoice = await stripe.invoices.retrieve(
+                invoiceId,
+                stripeAccount ? ({ stripeAccount } as any) : undefined
+              );
               console.log('[CREDENTIALS] Invoice details:', { 
                 id: invoice.id, 
                 status: invoice.status,
@@ -131,7 +169,9 @@ export async function GET(req: NextRequest) {
         status, 
         anyActive, 
         latestId: latest?.id,
-        totalSubs: sorted.length
+        totalSubs: sorted.length,
+        stripeAccount: stripeAccount || null,
+        partnerSlug: partnerSlugHeader || null,
       })
 
       // Fail-closed unless ANY subscription is active/trialing OR has paid invoice
@@ -565,6 +605,42 @@ export async function GET(req: NextRequest) {
       }
     } catch {}
   }
+
+  // White-label: per-partner AdsPower override (DO NOT override Canva / Brain.fm)
+  try {
+    const partnerSlug = String(req.headers.get('x-partner-slug') || '').trim().toLowerCase()
+    if (partnerSlug && supabaseAdmin) {
+      const key = `partner_credentials:${partnerSlug}`
+      const { data } = await supabaseAdmin.from('app_state').select('value').eq('key', key).maybeSingle()
+      const v = (data as any)?.value
+      if (v && typeof v === 'object') {
+        const email = String((v as any)?.adspower_email || '').trim()
+        const password = String((v as any)?.adspower_password || '').trim()
+        if (email) latest = { ...(latest || {}), adspower_email: email }
+        if (password) latest = { ...(latest || {}), adspower_password: password }
+      }
+    }
+  } catch {}
+
+  // Compatibility: the UI may look for starter/pro-specific keys.
+  // We store a single AdsPower credential; mirror it into the expected fields.
+  try {
+    const baseEmail = String((latest as any)?.adspower_email || (latest as any)?.adspower_starter_email || (latest as any)?.adspower_pro_email || '').trim()
+    const basePassword = String((latest as any)?.adspower_password || (latest as any)?.adspower_starter_password || (latest as any)?.adspower_pro_password || '').trim()
+    if (latest && typeof latest === 'object') {
+      if (baseEmail) {
+        ;(latest as any).adspower_email = baseEmail
+        ;(latest as any).adspower_starter_email = (latest as any).adspower_starter_email || baseEmail
+        ;(latest as any).adspower_pro_email = (latest as any).adspower_pro_email || baseEmail
+      }
+      if (basePassword) {
+        ;(latest as any).adspower_password = basePassword
+        ;(latest as any).adspower_starter_password = (latest as any).adspower_starter_password || basePassword
+        ;(latest as any).adspower_pro_password = (latest as any).adspower_pro_password || basePassword
+      }
+    }
+  } catch {}
+
   return NextResponse.json(latest || {}, { status: 200 })
 }
 

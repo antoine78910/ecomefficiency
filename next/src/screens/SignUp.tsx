@@ -356,7 +356,7 @@ const SignUp = () => {
             <div className="text-center mt-6">
               <p className="text-gray-400">
                 Already have an account?{" "}
-                <Link href="/sign-in" className="text-purple-400 hover:text-purple-300 font-medium">
+                <Link href="/signin" className="text-purple-400 hover:text-purple-300 font-medium">
                   Sign in
                 </Link>
               </p>

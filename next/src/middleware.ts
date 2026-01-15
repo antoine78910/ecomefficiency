@@ -157,9 +157,14 @@ export async function middleware(req: NextRequest) {
   // partners subdomain routes (white-label onboarding portal)
   // Note: we intentionally keep paths clean (/signup, /signin, /configuration) on partners.*
   if (hostname === 'partners.localhost' || bareHostname.startsWith('partners.')) {
+    // If already authenticated, avoid bouncing users back to /signin.
+    if (hasAuth && (pathname === '/signin' || pathname === '/signin/')) {
+      const r = url.clone(); r.pathname = '/dashboard';
+      return NextResponse.redirect(r)
+    }
     // Default entry point
     if (pathname === '/' || pathname === '') {
-      const r = url.clone(); r.pathname = '/signin';
+      const r = url.clone(); r.pathname = hasAuth ? '/dashboard' : '/signin';
       return NextResponse.redirect(r)
     }
     // Allow everything else to resolve normally (App Router routes handle auth/onboarding)
@@ -195,16 +200,32 @@ export async function middleware(req: NextRequest) {
       r.pathname = `/domains/${bareHostname}/verify-email`;
       return NextResponse.rewrite(r, { request: { headers: req.headers } });
     }
+    if (pathname === '/terms' || pathname === '/terms/') {
+      const r = url.clone();
+      r.pathname = `/domains/${bareHostname}/terms`;
+      return NextResponse.rewrite(r, { request: { headers: req.headers } });
+    }
+    if (pathname === '/privacy' || pathname === '/privacy/') {
+      const r = url.clone();
+      r.pathname = `/domains/${bareHostname}/privacy`;
+      return NextResponse.rewrite(r, { request: { headers: req.headers } });
+    }
+    if (pathname === '/terms-of-sale' || pathname === '/terms-of-sale/') {
+      const r = url.clone();
+      r.pathname = `/domains/${bareHostname}/terms-of-sale`;
+      return NextResponse.rewrite(r, { request: { headers: req.headers } });
+    }
     // Note: / (root) is handled server-side in `app/page.tsx` via host detection.
   }
 
-  // Non-partners domains: provide compatibility redirects for new short auth routes
-  if (pathname === '/signin' || pathname === '/signin/') {
-    const r = url.clone(); r.pathname = '/sign-in';
+  // Non-partners domains: keep canonical short auth routes (/signin, /signup)
+  // and redirect legacy dashed routes to them.
+  if (pathname === '/sign-in' || pathname === '/sign-in/') {
+    const r = url.clone(); r.pathname = '/signin';
     return NextResponse.redirect(r)
   }
-  if (pathname === '/signup' || pathname === '/signup/') {
-    const r = url.clone(); r.pathname = '/sign-up';
+  if (pathname === '/sign-up' || pathname === '/sign-up/') {
+    const r = url.clone(); r.pathname = '/signup';
     return NextResponse.redirect(r)
   }
   // Configuration is partners-only
@@ -230,13 +251,13 @@ export async function middleware(req: NextRequest) {
     // IMPORTANT: Allow unauthenticated access to root '/' so Supabase auth hash can be processed client-side.
     // Otherwise we lose the #access_token fragment on redirect and the user can't be auto-logged in after email verification.
     
-    // Explicitly handle /sign-in and /sign-up on app subdomain to prevent loop
-    if (pathname === '/sign-in' || pathname === '/sign-up') {
+    // Explicitly handle /signin and /signup on app subdomain to prevent loop
+    if (pathname === '/signin' || pathname === '/signup') {
       return response;
     }
 
     if (!hasAuth && pathname !== '/' && pathname !== '' && pathname.startsWith('/app')) {
-      const r = url.clone(); r.pathname = '/sign-in';
+      const r = url.clone(); r.pathname = '/signin';
       r.searchParams.set('callback', pathname + (url.search ? url.search : ''))
       return NextResponse.redirect(r)
     }

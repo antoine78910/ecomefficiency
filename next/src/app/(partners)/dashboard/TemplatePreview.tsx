@@ -1,18 +1,22 @@
 "use client";
 
 import React from "react";
-import Image from "next/image";
 import DomainSignInClient from "@/app/domains/[domain]/signin/DomainSignInClient";
 import DomainSignUpClient from "@/app/domains/[domain]/signup/DomainSignUpClient";
-import { PARTNER_TOOLS } from "@/components/partnerTools";
+import DomainAppClient from "@/app/domains/[domain]/app/DomainAppClient";
+import PartnerSimpleLanding from "@/components/PartnerSimpleLanding";
+import FloatingPricingWidget from "@/components/FloatingPricingWidget";
+import WhiteLabelPricingModal from "@/components/WhiteLabelPricingModal";
 
 type PreviewConfig = {
   slug: string;
   saasName?: string;
   tagline?: string;
   logoUrl?: string;
+  supportEmail?: string;
   colors?: { main?: string; secondary?: string; accent?: string; background?: string };
   currency?: string;
+  offerTitle?: string;
   monthlyPrice?: string;
   yearlyPrice?: string;
   annualDiscountPercent?: number;
@@ -35,16 +39,34 @@ function safeColor(hex: string | undefined, fallback: string) {
 
 export default function TemplatePreview({ config }: { config: PreviewConfig }) {
   const [mode, setMode] = React.useState<"landing" | "signin" | "signup" | "app">("landing");
+  const [previewBilling, setPreviewBilling] = React.useState<"month" | "year">("month");
+  const [showPaywall, setShowPaywall] = React.useState(false);
+  const lastModeRef = React.useRef<typeof mode>("landing");
   const title = config.saasName || "Your SaaS";
   const tagline = config.tagline || "A modern SaaS built for your audience.";
-  const currency = String(config.currency || "EUR").toUpperCase();
-  const isUsd = currency === "USD";
-  const symbol = isUsd ? "$" : "€";
 
   const main = safeColor(config.colors?.main, "#9541e0");
   const secondary = safeColor(config.colors?.secondary, "#7c30c7");
   const accent = safeColor(config.colors?.accent, "#ab63ff");
   const background = safeColor(config.colors?.background, "#000000");
+
+  const onPreviewNavigate = React.useCallback((path: "/signup" | "/signin" | "/app") => {
+    if (path === "/signin") setMode("signin");
+    else if (path === "/signup") setMode("signup");
+    else {
+      setMode("app");
+      setShowPaywall(true);
+    }
+  }, []);
+
+  // Ensure the paywall shows up again when switching the preview to "App" mode
+  // (but allow closing it while staying in App mode).
+  React.useEffect(() => {
+    const prev = lastModeRef.current;
+    if (mode === "app" && prev !== "app") setShowPaywall(true);
+    if (mode !== "app") setShowPaywall(false);
+    lastModeRef.current = mode;
+  }, [mode]);
 
 
   return (
@@ -81,138 +103,108 @@ export default function TemplatePreview({ config }: { config: PreviewConfig }) {
         </div>
       </div>
 
-      <div
-        className="relative p-6"
-        style={{
-          background:
-            `radial-gradient(circle at 30% 10%, ${main}2e, transparent 50%),` +
-            `radial-gradient(circle at 80% 40%, ${secondary}24, transparent 55%),` +
-            `radial-gradient(circle at 55% 85%, ${accent}1f, transparent 60%),` +
-            `linear-gradient(to bottom, ${background}cc, ${background}cc)`,
-        }}
-      >
+      <div className="relative p-0 bg-black">
         {mode === "landing" ? (
-          <>
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-3 min-w-0">
-                {config.logoUrl ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={String(config.logoUrl)} alt={`${title} logo`} className="h-9 w-auto object-contain" />
-                ) : (
-                  <Image
-                    src="/ecomefficiency.png"
-                    alt="Ecom Efficiency"
-                    width={160}
-                    height={52}
-                    priority
-                    className="h-9 w-auto object-contain opacity-90"
-                  />
-                )}
-                <div className="min-w-0">
-                  <div className="text-sm font-semibold truncate">{title}</div>
-                  <div className="text-xs text-gray-400 truncate">
-                    {config.slug ? `partners.ecomefficiency.com/${config.slug}` : "partners.ecomefficiency.com"}
-                  </div>
-                </div>
-              </div>
-
-              <div className="text-xs text-gray-400 border border-white/10 bg-white/5 rounded-xl px-3 py-2">Preview</div>
+          <div className="relative h-[740px] overflow-hidden">
+            <div className="h-full overflow-auto">
+              <PartnerSimpleLanding
+                slug={config.slug}
+                title={title}
+                subtitle={tagline}
+                logoUrl={config.logoUrl}
+                supportEmail={config.supportEmail}
+                preview
+                onPreviewNavigate={onPreviewNavigate}
+                hideFloatingPricingWidget
+                colors={{
+                  main,
+                  secondary,
+                  accent,
+                  background,
+                }}
+                pricing={{
+                  monthlyPrice: config.monthlyPrice,
+                  yearlyPrice: config.yearlyPrice,
+                  offerTitle: config.offerTitle,
+                  annualDiscountPercent: 20,
+                  currency: config.currency,
+                  allowPromotionCodes: config.allowPromotionCodes,
+                }}
+                faq={config.faq || []}
+                titleHighlight={config.titleHighlight}
+                titleHighlightColor={config.titleHighlightColor}
+                subtitleHighlight={config.subtitleHighlight}
+                subtitleHighlightColor={config.subtitleHighlightColor}
+              />
             </div>
 
-            <div className="mt-10">
-              <div className="text-3xl md:text-4xl font-semibold leading-tight">{title}</div>
-              <div className="mt-3 text-base text-gray-300 max-w-2xl">{tagline}</div>
-            </div>
-
-            <div className="mt-10 rounded-2xl border border-white/10 bg-black/60 p-6">
-              <div className="text-sm font-semibold text-white">Tools included</div>
-              <div className="mt-2 text-sm text-gray-400">Everything you need, in one place.</div>
-              <ol className="mt-5 space-y-2 text-sm">
-                {PARTNER_TOOLS.slice(0, 10).map((t, idx) => (
-                  <li key={`${t.name}-${idx}`} className="flex gap-3">
-                    <span className="w-7 h-7 rounded-full bg-white/5 border border-white/10 grid place-items-center text-xs shrink-0">
-                      {idx + 1}
-                    </span>
-                    <div className="min-w-0">
-                      <div className="text-gray-200 font-medium">{t.name}</div>
-                      <div className="text-xs text-gray-500">{t.description}</div>
-                    </div>
-                  </li>
-                ))}
-              </ol>
-              <div className="mt-4 text-xs text-gray-500">(+ {Math.max(PARTNER_TOOLS.length - 10, 0)} more)</div>
-            </div>
-
-            <div className="mt-6 rounded-2xl border border-white/10 bg-black/60 p-6">
-              <div className="text-sm font-semibold text-white">Pricing</div>
-              <div className="mt-2 text-3xl font-semibold text-white">
-                {isUsd ? (
-                  <>
-                    {symbol}
-                    {(config.monthlyPrice || "29.99").toString()}
-                  </>
-                ) : (
-                  <>
-                    {(config.monthlyPrice || "29.99").toString()}
-                    {symbol}
-                  </>
-                )}
-                <span className="text-base text-gray-400 font-normal">/month</span>
-              </div>
-              <div className="mt-2 text-sm text-gray-400">Preview only (checkout disabled).</div>
-              <button
-                type="button"
-                disabled
-                className="mt-5 w-full h-11 rounded-xl text-sm font-semibold border border-white/10 bg-white/5 text-gray-400 cursor-not-allowed"
-              >
-                Subscribe with Stripe
-              </button>
-            </div>
-
-            <div className="mt-6 rounded-2xl border border-white/10 bg-black/60 p-6">
-              <div className="text-sm font-semibold text-white">FAQ</div>
-              <div className="mt-2 text-sm text-gray-400">Editable in Dashboard → Page.</div>
-              {Array.isArray(config.faq) && config.faq.length ? (
-                <div className="mt-4 space-y-3">
-                  {config.faq.slice(0, 3).map((item, idx) => (
-                    <details key={`${idx}-${item.q}`} className="rounded-xl border border-white/10 bg-white/5 px-4 py-3">
-                      <summary className="cursor-pointer text-sm text-gray-200 font-medium">{item.q || `Question ${idx + 1}`}</summary>
-                      <div className="mt-2 text-sm text-gray-400 whitespace-pre-wrap">{item.a || ""}</div>
-                    </details>
-                  ))}
-                </div>
-              ) : (
-                <div className="mt-4 text-sm text-gray-500">No FAQ yet.</div>
-              )}
-            </div>
-          </>
+            {/* Keep widget pinned to the preview viewport (not the scroll content) */}
+            <FloatingPricingWidget
+              slug={config.slug}
+              saasName={title}
+              offerTitle={config.offerTitle}
+              supportEmail={config.supportEmail}
+              preview
+              onPreviewNavigate={onPreviewNavigate}
+              monthlyPrice={config.monthlyPrice}
+              yearlyPrice={config.yearlyPrice}
+              annualDiscountPercent={config.annualDiscountPercent}
+              currency={config.currency}
+              allowPromotionCodes={config.allowPromotionCodes}
+              main={main}
+              secondary={secondary}
+              accent={accent}
+            />
+          </div>
         ) : mode === "signin" ? (
-          <DomainSignInClient title={title} subtitle="Sign in" logoUrl={config.logoUrl} preview />
+          <DomainSignInClient
+            title={title}
+            subtitle="Sign in"
+            logoUrl={config.logoUrl}
+            colors={{ main, secondary, accent }}
+            preview
+          />
         ) : mode === "signup" ? (
-          <DomainSignUpClient title={title} subtitle="Sign up" logoUrl={config.logoUrl} preview />
+          <DomainSignUpClient
+            title={title}
+            subtitle="Sign up"
+            logoUrl={config.logoUrl}
+            colors={{ main, secondary, accent }}
+            preview
+          />
         ) : (
-          <div className="min-h-[420px]">
-            <div className="text-xl font-semibold">App</div>
-            <div className="mt-2 text-sm text-gray-400">Preview of the app experience (exact UI is served on custom domains at /app).</div>
-            <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-3">
-              {[
-                ["AdsPower", "Step-by-step login"],
-                ["Canva", "Access + templates"],
-                ["Brain.fm", "Focus music"],
-              ].map(([h, d]) => (
-                <div key={h} className="rounded-2xl border border-white/10 bg-black/60 p-5">
-                  <div className="text-sm font-semibold">{h}</div>
-                  <div className="mt-2 text-xs text-gray-400">{d}</div>
-                  <div className="mt-4 h-9 rounded-xl border border-white/10 bg-white/5" />
+          <div className="relative h-[740px] overflow-auto">
+            <DomainAppClient title={title} logoUrl={config.logoUrl} slug={config.slug} colors={{ main, accent }} preview />
+            {showPaywall ? (
+              <div
+                className="absolute inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-2"
+                onClick={() => setShowPaywall(false)}
+              >
+                <div
+                  className="bg-gray-900 border border-white/10 rounded-2xl p-4 w-full max-w-6xl max-h-[92vh] overflow-y-auto overflow-x-hidden"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <WhiteLabelPricingModal
+                    billing={previewBilling}
+                    onPick={(b) => setPreviewBilling(b)}
+                    onContinue={() => {}}
+                    loading={false}
+                    pricing={{
+                      currency: config.currency,
+                      offerTitle: config.offerTitle,
+                      monthlyPrice: config.monthlyPrice,
+                      yearlyPrice: config.yearlyPrice,
+                      annualDiscountPercent: config.annualDiscountPercent,
+                    }}
+                    colors={{ main, accent }}
+                  />
                 </div>
-              ))}
-            </div>
+              </div>
+            ) : null}
           </div>
         )}
 
-        <div className="mt-10 text-xs text-gray-600">
-          Powered by <span className="text-gray-400">Ecom Efficiency Partners</span>
-        </div>
+        
       </div>
     </div>
   );

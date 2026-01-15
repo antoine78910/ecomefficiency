@@ -7,11 +7,33 @@ import { Check, Clipboard, Crown, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { postGoal } from "@/lib/analytics";
 import TrendTrackStatus from "@/components/TrendTrackStatus";
+import { bestTextColorOn, hexWithAlpha, mixHex, normalizeHex } from "@/lib/color";
+import WhiteLabelPricingModal from "@/components/WhiteLabelPricingModal";
 
-const App = ({ showAffiliateCta = true }: { showAffiliateCta?: boolean }) => {
+const App = ({
+  showAffiliateCta = true,
+  partnerSlug,
+  brandColors,
+  preview = false,
+}: {
+  showAffiliateCta?: boolean;
+  partnerSlug?: string;
+  brandColors?: { main?: string; accent?: string };
+  preview?: boolean;
+}) => {
   // no docker launch on this page anymore
   const [canvaInvite, setCanvaInvite] = React.useState<string | null>(null)
   const [appPlan, setAppPlan] = React.useState<'free'|'starter'|'pro'>('free')
+
+  // Expose brand colors for a few deep child components (white-label logos tinting)
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (showAffiliateCta) return
+    try {
+      ;(window as any).__wl_main = String(brandColors?.main || '#9541e0')
+      ;(window as any).__wl_accent = String(brandColors?.accent || '#ab63ff')
+    } catch {}
+  }, [showAffiliateCta, brandColors?.main, brandColors?.accent])
   
   // Suppress "Failed to fetch" console errors from network failures
   React.useEffect(() => {
@@ -235,6 +257,8 @@ const App = ({ showAffiliateCta = true }: { showAffiliateCta?: boolean }) => {
         const headers: Record<string, string> = {}
         if (email) headers['x-user-email'] = email
         if (customerId) headers['x-stripe-customer-id'] = customerId
+        // White-label: allow credentials endpoint to validate subscription on partner Stripe Connect account.
+        if (!showAffiliateCta && partnerSlug) headers['x-partner-slug'] = String(partnerSlug)
         const res = await fetch('/api/credentials', { headers, cache: 'no-store' }).catch(() => null)
         if (!res) return
         const json = await res.json().catch(() => ({}))
@@ -248,7 +272,7 @@ const App = ({ showAffiliateCta = true }: { showAffiliateCta?: boolean }) => {
     run()
     timer = setInterval(run, 10_000)
     return () => { cancelled = true; try { clearInterval(timer) } catch {} }
-  }, [canvaInvite])
+  }, [canvaInvite, showAffiliateCta, partnerSlug])
   React.useEffect(() => {
     (async () => {
       try {
@@ -259,6 +283,8 @@ const App = ({ showAffiliateCta = true }: { showAffiliateCta?: boolean }) => {
         const headers: Record<string, string> = {}
         if (email) headers['x-user-email'] = email
         if (customerId) headers['x-stripe-customer-id'] = customerId
+        // White-label: allow credentials endpoint to validate subscription on partner Stripe Connect account.
+        if (!showAffiliateCta && partnerSlug) headers['x-partner-slug'] = String(partnerSlug)
         const res = await fetch('/api/credentials', { headers, cache: 'no-store' }).catch(() => null)
         if (res) {
           const json = await res.json().catch(() => ({}))
@@ -269,12 +295,14 @@ const App = ({ showAffiliateCta = true }: { showAffiliateCta?: boolean }) => {
           const verifyHeaders: Record<string, string> = { 'Content-Type': 'application/json' }
           if (email) verifyHeaders['x-user-email'] = email
           if (customerId) verifyHeaders['x-stripe-customer-id'] = customerId
+          // White-label: subscription is on partner's Stripe Connect account
+          if (!showAffiliateCta && partnerSlug) verifyHeaders['x-partner-slug'] = String(partnerSlug)
           const vr = await fetch('/api/stripe/verify', { method: 'POST', headers: verifyHeaders, body: JSON.stringify({ email }) }).catch(() => null)
           if (vr) {
             const vj = await vr.json().catch(() => ({}))
             const p = (vj?.plan as string)?.toLowerCase()
             // SECURITY: Only allow access if subscription is both OK and ACTIVE
-            if (vj?.ok && vj?.active === true && (p === 'starter' || p === 'pro')) {
+      if (vj?.ok && vj?.active === true && (p === 'starter' || p === 'pro')) {
               setAppPlan(p as any)
             } else {
               // SECURITY: Don't trust user_metadata alone, always default to free for inactive subscriptions
@@ -291,7 +319,7 @@ const App = ({ showAffiliateCta = true }: { showAffiliateCta?: boolean }) => {
         // Silently handle errors - network failures are expected
       }
     })()
-  }, [])
+  }, [showAffiliateCta, partnerSlug])
 
   // Bottom-right server country/currency badge for debugging currency decision
 
@@ -320,10 +348,15 @@ const App = ({ showAffiliateCta = true }: { showAffiliateCta?: boolean }) => {
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
               <h2 className="text-2xl font-bold text-white">Tools</h2>
-              <PlanBadgeInline />
+              <PlanBadgeInline whiteLabel={!showAffiliateCta} partnerSlug={partnerSlug} />
         </div>
       </div>
-          <CredentialsPanel />
+          <CredentialsPanel
+            whiteLabel={!showAffiliateCta}
+            partnerSlug={partnerSlug}
+            brandColors={brandColors}
+            preview={preview}
+          />
         </div>
         
         {/* TrendTrack Status - Pro Only Feature - TEMPORARILY DISABLED */}
@@ -371,7 +404,7 @@ function appHostBase() {
   return ''
 }
 
-function PlanBadgeInline() {
+function PlanBadgeInline({ whiteLabel, partnerSlug }: { whiteLabel?: boolean; partnerSlug?: string }) {
   const [plan, setPlan] = React.useState<'starter'|'pro'|null>(null)
   React.useEffect(() => {
     (async () => {
@@ -385,6 +418,7 @@ function PlanBadgeInline() {
           const headers: Record<string, string> = { 'Content-Type': 'application/json' }
           if (data.user?.email) headers['x-user-email'] = data.user.email
           if (meta.stripe_customer_id) headers['x-stripe-customer-id'] = meta.stripe_customer_id as string
+          if (whiteLabel && partnerSlug) headers['x-partner-slug'] = String(partnerSlug)
           const r = await fetch('/api/stripe/verify', { method: 'POST', headers, body: JSON.stringify({ email: data.user?.email || '' }) })
           const j = await r.json().catch(() => ({}))
           const p = (j?.plan as string)?.toLowerCase()
@@ -402,7 +436,7 @@ function PlanBadgeInline() {
         }
       } catch {}
     })()
-  }, [])
+  }, [whiteLabel, partnerSlug])
   if (!plan) return null
   return (
     <span className={`text-xs px-2 py-1 rounded capitalize ${plan==='pro' ? 'bg-yellow-400/20 text-yellow-300' : 'bg-gray-400/20 text-gray-200'}`}>{plan}</span>
@@ -514,6 +548,9 @@ function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'sta
   }, [])
 
   const isYearly = billing === 'yearly'
+  const wlMain = normalizeHex(String((typeof window !== 'undefined' ? (window as any).__wl_main : '') || '#9541e0'), '#9541e0')
+  const wlAccent = normalizeHex(String((typeof window !== 'undefined' ? (window as any).__wl_accent : '') || '#7c30c7'), '#7c30c7')
+  const wlBtnText = bestTextColorOn(mixHex(wlMain, wlAccent, 0.5))
   const proExtras = [
     'Pipiads', 'Atria', 'Runway', 'Heygen', 'Veo3/Gemini', 'Flair AI',
     'Exploding topics', 'Eleven labs', 'Higgsfield', 'Vmake',
@@ -566,19 +603,29 @@ function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'sta
               {plan.name === 'Starter' && (
                 <div className="mb-4 md:mb-6 space-y-2">
                   <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-gray-300">
-                    <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-purple-400" /><span>Dropship.io</span></li>
-                    <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-purple-400" /><span>Winning Hunter</span></li>
-                    <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-purple-400" /><span>Shophunter</span></li>
-                    <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-purple-400" /><span>Helium 10</span></li>
-                    <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-purple-400" /><span>GPT</span></li>
-                    <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-purple-400" /><span>Midjourney</span></li>
-                    <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-purple-400" /><span>SendShort</span></li>
-                    <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-purple-400" /><span>Brain.fm</span></li>
-                    <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-purple-400" /><span>Capcut</span></li>
-                    <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5 text-purple-400" /><span>Canva</span></li>
+                    <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5" style={{ color: wlAccent }} /><span>Dropship.io</span></li>
+                    <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5" style={{ color: wlAccent }} /><span>Winning Hunter</span></li>
+                    <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5" style={{ color: wlAccent }} /><span>Shophunter</span></li>
+                    <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5" style={{ color: wlAccent }} /><span>Helium 10</span></li>
+                    <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5" style={{ color: wlAccent }} /><span>GPT</span></li>
+                    <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5" style={{ color: wlAccent }} /><span>Midjourney</span></li>
+                    <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5" style={{ color: wlAccent }} /><span>SendShort</span></li>
+                    <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5" style={{ color: wlAccent }} /><span>Brain.fm</span></li>
+                    <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5" style={{ color: wlAccent }} /><span>Capcut</span></li>
+                    <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5" style={{ color: wlAccent }} /><span>Canva</span></li>
                     <li className="col-span-2 flex items-start gap-2">
-                      <Check className="w-3.5 h-3.5 text-purple-400 mt-0.5" />
-                      <span className="text-[11px] text-gray-300">+30 SEO tools (Ubersuggest, Semrush, Similarweb,...) <button type="button" onClick={()=>onOpenSeoModal?.()} className="text-purple-300 hover:text-purple-200 underline decoration-purple-500/40">see all SEO tools</button></span>
+                      <Check className="w-3.5 h-3.5 mt-0.5" style={{ color: wlAccent }} />
+                      <span className="text-[11px] text-gray-300">
+                        +30 SEO tools (Ubersuggest, Semrush, Similarweb,...){" "}
+                        <button
+                          type="button"
+                          onClick={()=>onOpenSeoModal?.()}
+                          className="underline cursor-pointer hover:opacity-90"
+                          style={{ color: wlAccent, textDecorationColor: hexWithAlpha(wlAccent, 0.5) }}
+                        >
+                          see all SEO tools
+                        </button>
+                      </span>
                     </li>
                   </ul>
                   <ul className="grid grid-cols-2 gap-x-3 gap-y-1">
@@ -594,11 +641,11 @@ function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'sta
 
               {plan.name === 'Pro' && (
                 <div className="mb-6 space-y-2 text-gray-300 text-[13px]">
-                  <div className="flex items-center gap-2 text-[11px]"><Check className="w-3.5 h-3.5 text-purple-400" /><span>Includes everything in Starter, plus:</span></div>
+                  <div className="flex items-center gap-2 text-[11px]"><Check className="w-3.5 h-3.5" style={{ color: wlAccent }} /><span>Includes everything in Starter, plus:</span></div>
                   <ul className="grid grid-cols-2 gap-x-4 gap-y-1">
                     {proExtras.map((t) => (
                       <li key={t} className="flex items-center gap-2 text-[11px]">
-                        <Check className="w-3.5 h-3.5 text-purple-400" />
+                        <Check className="w-3.5 h-3.5" style={{ color: wlAccent }} />
                         <span>{t}</span>
                         {t === 'Higgsfield' ? (
                           <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[linear-gradient(135deg,#8b5cf6,#7c3aed)] text-white/95 border border-[#a78bfa]/40">NEW</span>
@@ -626,11 +673,26 @@ function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'sta
                     } 
                   }
                   return plan.highlight ? (
-                    <button onClick={onClick} disabled={isDisabled} className={`w-full h-9 md:h-10 rounded-full text-xs font-semibold transition-colors ${isDisabled ? 'opacity-80 cursor-not-allowed' : 'cursor-pointer'} bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] text-white border border-[#9541e0] shadow-[0_4px_24px_rgba(149,65,224,0.45)] hover:shadow-[0_6px_28px_rgba(149,65,224,0.6)] hover:brightness-110`}>
+                    <button
+                      onClick={onClick}
+                      disabled={isDisabled}
+                      className={`w-full h-9 md:h-10 rounded-full text-xs font-semibold transition-colors ${isDisabled ? 'opacity-80 cursor-not-allowed' : 'cursor-pointer hover:brightness-110'}`}
+                      style={{
+                        background: `linear-gradient(to bottom, ${wlMain}, ${wlAccent})`,
+                        border: `1px solid ${wlMain}`,
+                        color: wlBtnText,
+                        boxShadow: `0 4px 24px ${hexWithAlpha(mixHex(wlMain, wlAccent, 0.5), 0.45)}`,
+                      }}
+                    >
                       {isLoading ? renderSpinner() : 'Subscribe'}
                     </button>
                   ) : (
-                    <button onClick={onClick} disabled={isDisabled} className={`group w-full h-9 md:h-10 rounded-full text-xs font-semibold ${isDisabled ? 'opacity-80 cursor-not-allowed' : 'cursor-pointer'} bg-[#2b2b2f]/70 text-white/90 border border-white/10 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)] hover:bg-[rgba(158,76,252,0.28)] hover:text-white hover:shadow-[0_8px_36px_rgba(158,76,252,0.38),0_0_0_1px_rgba(255,255,255,0.06)] transition-shadow`}>
+                    <button
+                      onClick={onClick}
+                      disabled={isDisabled}
+                      className={`group w-full h-9 md:h-10 rounded-full text-xs font-semibold ${isDisabled ? 'opacity-80 cursor-not-allowed' : 'cursor-pointer hover:brightness-110'} text-white/90 border border-white/10 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)] transition-shadow`}
+                      style={{ background: hexWithAlpha(wlMain, 0.12) }}
+                    >
                       <span className="transition-colors text-white group-hover:text-white">{isLoading ? renderSpinner() : 'Subscribe'}</span>
                     </button>
                   )
@@ -647,6 +709,9 @@ function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'sta
 function HowToAccess({ renderTrigger = true }: { renderTrigger?: boolean }) {
   const [open, setOpen] = React.useState(false)
   const [step, setStep] = React.useState(1)
+  const wlMain = normalizeHex(String((typeof window !== 'undefined' ? (window as any).__wl_main : '') || '#9541e0'), '#9541e0')
+  const wlAccent = normalizeHex(String((typeof window !== 'undefined' ? (window as any).__wl_accent : '') || '#7c30c7'), '#7c30c7')
+  const wlText = bestTextColorOn(mixHex(wlMain, wlAccent, 0.5))
   const next = () => setStep((s) => Math.min(3, s + 1))
   const prev = () => setStep((s) => Math.max(1, s - 1))
   React.useEffect(() => {
@@ -660,7 +725,13 @@ function HowToAccess({ renderTrigger = true }: { renderTrigger?: boolean }) {
       {renderTrigger && (
         <div className="mt-6 text-sm text-gray-400 flex items-center gap-2">
           <span>How to access the tools?</span>
-          <button onClick={() => { setOpen(true); setStep(1) }} className="underline text-purple-300 hover:text-purple-200 cursor-pointer">Open the 3‑step demo</button>
+          <button
+            onClick={() => { setOpen(true); setStep(1) }}
+            className="underline cursor-pointer"
+            style={{ color: wlAccent }}
+          >
+            Open the 3‑step demo
+          </button>
         </div>
       )}
       {open && (
@@ -675,7 +746,13 @@ function HowToAccess({ renderTrigger = true }: { renderTrigger?: boolean }) {
                 <div className="h-48 rounded-lg overflow-hidden mb-3 border border-white/10 bg-black">
                   <video src="/adspower-step1.mp4" className="w-full h-full object-cover" autoPlay muted playsInline loop />
                 </div>
-                <p className="text-gray-300 text-sm">Download AdsPower (64-bit) from the official website and install it. Link: <a className="text-purple-300 underline" href="https://activity.adspower.com/" target="_blank" rel="noreferrer">adspower.com</a>.</p>
+                <p className="text-gray-300 text-sm">
+                  Download AdsPower (64-bit) from the official website and install it. Link:{" "}
+                  <a className="underline" style={{ color: wlMain }} href="https://activity.adspower.com/" target="_blank" rel="noreferrer">
+                    adspower.com
+                  </a>
+                  .
+                </p>
               </div>
             )}
             {step === 2 && (
@@ -697,7 +774,14 @@ function HowToAccess({ renderTrigger = true }: { renderTrigger?: boolean }) {
             <div className="flex items-center justify-between mt-4">
               <button onClick={prev} disabled={step===1} className={`px-3 py-2 rounded-md border border-white/20 ${step===1 ? 'text-gray-500 cursor-not-allowed' : 'text-white hover:bg-white/10 cursor-pointer'}`}>Prev</button>
               <div className="text-xs text-gray-400">Step {step}/3</div>
-              <button onClick={next} disabled={step===3} className={`px-3 py-2 rounded-md ${step===3 ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'bg-[#9541e0] hover:bg-[#8636d2] text-white cursor-pointer'}`}>Next</button>
+              <button
+                onClick={next}
+                disabled={step===3}
+                className={`px-3 py-2 rounded-md ${step===3 ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'cursor-pointer'}`}
+                style={step===3 ? undefined : { background: wlMain, color: wlText }}
+              >
+                Next
+              </button>
             </div>
           </div>
         </div>
@@ -710,6 +794,20 @@ function CopyButton({ value, label, disabled = false }: { value?: string; label:
   const [copied, setCopied] = React.useState(false)
   const [open, setOpen] = React.useState(false)
   const audioCtxRef = React.useRef<any>(null)
+
+  const wl = React.useMemo(() => {
+    try {
+      if (typeof window === 'undefined') return null
+      const mainRaw = String((window as any)?.__wl_main || '').trim()
+      const accentRaw = String((window as any)?.__wl_accent || '').trim()
+      if (!mainRaw || !accentRaw) return null
+      const main = normalizeHex(mainRaw, '#9541e0')
+      const accent = normalizeHex(accentRaw, main)
+      return { main, accent }
+    } catch {
+      return null
+    }
+  }, [])
 
   const playClick = async () => {
     try {
@@ -752,7 +850,22 @@ function CopyButton({ value, label, disabled = false }: { value?: string; label:
             onClick={onCopy}
             aria-label={label}
             disabled={disabled}
-            className={`relative w-9 h-9 rounded-[10px] ${disabled ? 'bg-gray-700 text-gray-400 cursor-not-allowed opacity-60' : 'bg-[#5c3dfa]/20 hover:bg-[#5c3dfa]/30 text-[#cfd3d8]'} flex items-center justify-center border ${copied ? 'outline outline-1 outline-white border-white/60' : 'border-[#8B5CF6]/40'} outline-none transition-colors`}
+            className={`relative w-9 h-9 rounded-[10px] flex items-center justify-center border outline-none transition-colors ${
+              disabled
+                ? 'bg-gray-700 text-gray-400 cursor-not-allowed opacity-60 border-white/10'
+                : wl
+                  ? 'cursor-pointer bg-[color:var(--wl_copy_bg)] hover:bg-[color:var(--wl_copy_bg_hover)] border-[color:var(--wl_copy_border)] text-white'
+                  : 'cursor-pointer bg-[#5c3dfa]/20 hover:bg-[#5c3dfa]/30 text-[#cfd3d8] border-[#8B5CF6]/40'
+            } ${copied ? 'outline outline-1 outline-white border-white/60' : ''}`}
+            style={
+              wl
+                ? ({
+                    ['--wl_copy_bg' as any]: hexWithAlpha(wl.main, 0.18),
+                    ['--wl_copy_bg_hover' as any]: hexWithAlpha(wl.main, 0.28),
+                    ['--wl_copy_border' as any]: hexWithAlpha(wl.accent, 0.42),
+                  } as any)
+                : undefined
+            }
           >
             <span className="sr-only">{label}</span>
             {!copied ? (
@@ -817,7 +930,20 @@ function SafeSecret({ value, reveal }: { value?: string; reveal?: boolean }) {
   )
 }
 
-function CredentialsPanel() {
+function CredentialsPanel({
+  whiteLabel,
+  partnerSlug,
+  brandColors,
+  preview = false,
+}: {
+  whiteLabel: boolean;
+  partnerSlug?: string;
+  brandColors?: { main?: string; accent?: string };
+  preview?: boolean;
+}) {
+  const wlMain = normalizeHex(String(brandColors?.main || (typeof window !== 'undefined' ? (window as any).__wl_main : '') || '#9541e0'), '#9541e0')
+  const wlAccent = normalizeHex(String(brandColors?.accent || (typeof window !== 'undefined' ? (window as any).__wl_accent : '') || '#7c30c7'), '#7c30c7')
+  const wlText = bestTextColorOn(mixHex(wlMain, wlAccent, 0.5))
   const [creds, setCreds] = useState<ToolCredentials | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -833,6 +959,8 @@ function CredentialsPanel() {
         const headers: Record<string, string> = {};
         if (email) headers['x-user-email'] = email;
         if (customerId) headers['x-stripe-customer-id'] = customerId;
+        // White-label: allow per-partner AdsPower credentials override (Brain/Canva stay global).
+        if (whiteLabel && partnerSlug) headers['x-partner-slug'] = String(partnerSlug);
 
         // console.log('[CREDENTIALS] Fetching with:', { email, customerId });
 
@@ -888,10 +1016,24 @@ function CredentialsPanel() {
   const [plan, setPlan] = React.useState<'checking'|'inactive'|'starter'|'pro'>('checking')
   const [banner, setBanner] = React.useState<string | null>(null)
   const [showBilling, setShowBilling] = React.useState(false)
+  const [partnerCheckoutPending, setPartnerCheckoutPending] = React.useState(false)
   const [customerId, setCustomerId] = React.useState<string | null>(null)
   const [email, setEmail] = React.useState<string | null>(null)
   const [userId, setUserId] = React.useState<string | null>(null)
   const [seoModalOpen, setSeoModalOpen] = React.useState(false)
+
+  // If user clicks "Manage billing" from /subscription while not subscribed, open the paywall in /app.
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const url = new URL(window.location.href)
+      if (url.searchParams.get('billing') === '1') {
+        if (!preview) setShowBilling(true)
+        url.searchParams.delete('billing')
+        window.history.replaceState({}, '', url.toString())
+      }
+    } catch {}
+  }, [preview])
   React.useEffect(() => {
     let cancelled = false
     ;(async () => {
@@ -907,13 +1049,19 @@ function CredentialsPanel() {
           setCustomerId(meta.stripe_customer_id || null)
           const res = await fetch('/api/stripe/verify', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', ...(email ? { 'x-user-email': email } : {}), ...(meta.stripe_customer_id ? { 'x-stripe-customer-id': meta.stripe_customer_id } : {}) },
+            headers: {
+              'Content-Type': 'application/json',
+              ...(email ? { 'x-user-email': email } : {}),
+              ...(meta.stripe_customer_id ? { 'x-stripe-customer-id': meta.stripe_customer_id } : {}),
+              ...(whiteLabel && partnerSlug ? { 'x-partner-slug': String(partnerSlug) } : {}),
+            },
             body: JSON.stringify({ email })
           })
           const json = await res.json().catch(() => ({}))
           if (json?.ok && json?.active) {
             setPlan(json.plan==='pro' ? 'pro' : 'starter')
             setBanner(null)
+            try { setShowBilling(false) } catch {}
             return true
           }
         } catch {}
@@ -922,14 +1070,16 @@ function CredentialsPanel() {
 
       // If we just signed in, be patient and retry more times before showing billing
       let justSignedIn = false
+      let justPaid = false
       try {
         const h = (typeof window !== 'undefined' ? window.location.hash : '') || ''
         const s = (typeof window !== 'undefined' ? new URL(window.location.href).searchParams : null)
         justSignedIn = (/just_signed_in=1/.test(h) || (s && s.get('just') === '1')) || false
+        justPaid = Boolean(s && (s.get('checkout') === 'success'))
       } catch {}
 
-      const maxAttempts = justSignedIn ? 10 : 3
-      const delayMs = justSignedIn ? 1200 : 800
+      const maxAttempts = (justSignedIn || justPaid) ? 15 : 3
+      const delayMs = (justSignedIn || justPaid) ? 1200 : 800
       for (let i = 0; i < maxAttempts && !cancelled; i++) {
         const ok = await tryVerify()
         if (ok) return
@@ -939,14 +1089,67 @@ function CredentialsPanel() {
       if (!cancelled) {
         setPlan('inactive')
         setBanner('No active subscription. Go to Pricing to subscribe.')
-        setShowBilling(true)
+        // In preview (partners dashboard), NEVER open fixed overlays (they escape the preview frame).
+        if (!preview && !justPaid) setShowBilling(true)
       }
     })()
     return () => { cancelled = true }
   }, [])
 
+  // White-label: remember chosen billing interval from landing (/signup?plan=month|year or localStorage)
+  const [wlBilling, setWlBilling] = React.useState<null | 'month' | 'year'>(null)
+  const [wlPricing, setWlPricing] = React.useState<{
+    currency?: string;
+    offerTitle?: any;
+    monthlyPrice?: any;
+    yearlyPrice?: any;
+    annualDiscountPercent?: any;
+  } | null>(null)
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (!whiteLabel) return
+    try {
+      const url = new URL(window.location.href)
+      const qp = String(url.searchParams.get('plan') || '').toLowerCase()
+      const host = window.location.host
+      const stored = host ? (window.localStorage.getItem(`__wl_billing:${host}`) || '') : ''
+      const next = (qp === 'year' || qp === 'month') ? (qp as any) : (stored === 'year' || stored === 'month' ? (stored as any) : null)
+      if (next) {
+        setWlBilling(next)
+        if (host) window.localStorage.setItem(`__wl_billing:${host}`, next)
+      }
+    } catch {}
+  }, [whiteLabel])
+
+  // White-label: fetch partner pricing for displaying the paywall
+  React.useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (!whiteLabel) return
+    if (!partnerSlug) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch(`/api/partners/config?slug=${encodeURIComponent(partnerSlug)}`, { cache: 'no-store' })
+        const json = await res.json().catch(() => ({}))
+        const cfg = json?.config || {}
+        if (cancelled) return
+        setWlPricing({
+          currency: cfg?.currency,
+          offerTitle: cfg?.offerTitle || cfg?.promoTitle,
+          monthlyPrice: cfg?.monthlyPrice,
+          yearlyPrice: cfg?.yearlyPrice,
+          annualDiscountPercent: cfg?.annualDiscountPercent,
+        })
+      } catch {}
+    })()
+    return () => { cancelled = true }
+  }, [whiteLabel, partnerSlug])
+
   const openPortal = async () => {
-    if (!customerId) { window.location.href = '/pricing'; return }
+    if (!customerId) { 
+      try { setShowBilling(true); } catch {}
+      return;
+    }
     try {
       const res = await fetch('/api/stripe/portal', { method: 'POST', headers: { 'x-stripe-customer-id': customerId } })
       const data = await res.json()
@@ -999,6 +1202,38 @@ function CredentialsPanel() {
     }
   }
 
+  const startPartnerCheckout = async (interval: 'month' | 'year') => {
+    if (!partnerSlug) return
+    try {
+      setPartnerCheckoutPending(true)
+      // Prefill customer email in Stripe Checkout if logged in
+      let userEmail = email
+      try {
+        if (!userEmail) {
+          const mod = await import("@/integrations/supabase/client")
+          const { data } = await mod.supabase.auth.getUser()
+          userEmail = data.user?.email || null
+        }
+      } catch {}
+      const res = await fetch('/api/partners/stripe/checkout', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug: partnerSlug, interval, email: userEmail || undefined }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok || !json?.ok || !json?.url) {
+        const msg = String(json?.detail || json?.error || 'Checkout failed')
+        setBanner(msg)
+        setPartnerCheckoutPending(false)
+        return
+      }
+      window.location.href = String(json.url)
+    } catch (e: any) {
+      setBanner(e?.message || 'Checkout failed')
+      setPartnerCheckoutPending(false)
+    }
+  }
+
   if (plan === 'checking') {
     return (
       <div className="flex items-center justify-center min-h-[40vh]">
@@ -1020,7 +1255,13 @@ function CredentialsPanel() {
           <div className="text-sm text-red-300 bg-red-500/10 border border-red-500/30 rounded-md p-3 flex items-center justify-between gap-3">
             <span>{banner}</span>
             <div className="flex items-center gap-2">
-              <button onClick={() => setShowBilling(true)} className="px-3 py-1 rounded-md bg-[#9541e0] hover:bg-[#8636d2] text-white">Subscribe</button>
+                      <button
+                        onClick={() => setShowBilling(true)}
+                        className="px-3 py-1 rounded-md text-sm font-semibold"
+                        style={{ background: "rgb(141, 7, 7)", color: "rgb(255, 255, 255)" }}
+                      >
+                        Subscribe
+                      </button>
               <button onClick={openPortal} className="px-3 py-1 rounded-md border border-white/20 text-white hover:bg-white/10">Manage billing</button>
             </div>
           </div>
@@ -1082,7 +1323,8 @@ function CredentialsPanel() {
                           }
                         } catch {} 
                       }} 
-                      className="underline text-purple-300 hover:text-purple-200 cursor-pointer"
+                      className="underline cursor-pointer"
+                    style={{ color: wlAccent }}
                     >
                       Open the 3‑step demo
                     </button>
@@ -1199,7 +1441,8 @@ function CredentialsPanel() {
                       }
                     } catch {} 
                   }} 
-                  className="underline text-purple-300 hover:text-purple-200 cursor-pointer"
+                  className="underline cursor-pointer"
+                  style={{ color: wlAccent }}
                 >
                   Open the 3‑step demo
                 </button>
@@ -1214,53 +1457,73 @@ function CredentialsPanel() {
       </CardContent>
     </Card>
     <button id="howto-modal-open" className="hidden" />
-    {showBilling ? (
+    {showBilling && !preview ? (
       <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-2" onClick={() => setShowBilling(false)}>
         <div className="bg-gray-900 border border-white/10 rounded-2xl p-4 w-full max-w-6xl max-h-[92vh] overflow-y-auto overflow-x-hidden" onClick={(e) => e.stopPropagation()}>
           <h3 className="text-white text-lg font-semibold mb-2 text-center">Choose a subscription</h3>
           {banner && <p className="text-red-300 text-xs mb-2 text-center">{banner}</p>}
           <p className="text-gray-400 text-xs mb-3 text-center">Subscribe to unlock all features.</p>
-          <PricingCardsModal onSelect={(tier, billing, currency)=>{ 
-            try { postGoal('pricing_cta_click', { plan: tier, billing }); } catch {}; 
-            
-            // Brevo Checkout Initiated
-            if (email) {
-              try {
-                const basePrice = tier === 'starter' ? 19.99 : 29.99;
-                const isYearly = billing === 'yearly';
-                const amount = isYearly ? (basePrice * 12 * 0.6) : basePrice;
-                
-                fetch('/api/brevo/track', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    email: email,
-                    event: 'checkout_initiated',
-                    data: { 
-                      plan: tier, 
-                      billing,
-                      amount: Number(amount.toFixed(2)), 
-                      currency: currency || 'USD',
-                      name: email.split('@')[0] // Basic fallback name
-                    }
-                  })
-                }).catch(() => {});
-              } catch {}
-            }
 
-            startCheckout(tier, billing, currency) 
-          }} onOpenSeoModal={()=>setSeoModalOpen(true)} />
-          <div className="flex items-center justify-end mt-1">
-            <form method="POST" action="/create-customer-portal-session">
-              <input type="hidden" name="customerId" value={customerId || ''} />
-              <input type="hidden" name="email" value={email || ''} />
-              <button type="submit" className="text-white/80 underline cursor-pointer text-xs">Manage billing</button>
-            </form>
-          </div>
+          {!whiteLabel ? (
+            <PricingCardsModal onSelect={(tier, billing, currency)=>{ 
+              try { postGoal('pricing_cta_click', { plan: tier, billing }); } catch {}; 
+              
+              // Brevo Checkout Initiated
+              if (email) {
+                try {
+                  const basePrice = tier === 'starter' ? 19.99 : 29.99;
+                  const isYearly = billing === 'yearly';
+                  const amount = isYearly ? (basePrice * 12 * 0.6) : basePrice;
+                  
+                  fetch('/api/brevo/track', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      email: email,
+                      event: 'checkout_initiated',
+                      data: { 
+                        plan: tier, 
+                        billing,
+                        amount: Number(amount.toFixed(2)), 
+                        currency: currency || 'USD',
+                        name: email.split('@')[0] // Basic fallback name
+                      }
+                    })
+                  }).catch(() => {});
+                } catch {}
+              }
+
+              startCheckout(tier, billing, currency) 
+            }} onOpenSeoModal={()=>setSeoModalOpen(true)} />
+          ) : (
+            <WhiteLabelPricingModal
+              billing={wlBilling}
+              onPick={(b) => {
+                setWlBilling(b)
+                try { if (typeof window !== 'undefined') localStorage.setItem(`__wl_billing:${window.location.host}`, b) } catch {}
+              }}
+              onContinue={() => {
+                const b = wlBilling || 'month'
+                startPartnerCheckout(b)
+              }}
+              loading={partnerCheckoutPending}
+              pricing={wlPricing || undefined}
+              colors={brandColors || undefined}
+            />
+          )}
+          {!whiteLabel ? (
+            <div className="flex items-center justify-end mt-1">
+              <form method="POST" action="/create-customer-portal-session">
+                <input type="hidden" name="customerId" value={customerId || ''} />
+                <input type="hidden" name="email" value={email || ''} />
+                <button type="submit" className="text-white/80 underline cursor-pointer text-xs">Manage billing</button>
+              </form>
+            </div>
+          ) : null}
         </div>
       </div>
     ) : null}
-    {seoModalOpen && (
+    {seoModalOpen && !preview && (
       <div className="fixed inset-0 z-[60] bg-black/70 flex items-center justify-center p-4" onClick={()=>setSeoModalOpen(false)}>
         <div className="bg-gray-900 border border-white/10 rounded-2xl p-5 w-full max-w-3xl max-h-[80vh] overflow-auto" onClick={(e)=>e.stopPropagation()}>
           <div className="flex items-center justify-between mb-3">
@@ -1521,10 +1784,24 @@ function InfoToolCard({ img, title, description, link, note, cover, disabled, sm
 
 function BrainCredsCard({ disabled }: { disabled?: boolean }) {
   const [open, setOpen] = React.useState(false)
+  const wl = React.useMemo(() => {
+    try {
+      if (typeof window === 'undefined') return null
+      const mainRaw = String((window as any)?.__wl_main || '').trim()
+      const accentRaw = String((window as any)?.__wl_accent || '').trim()
+      if (!mainRaw || !accentRaw) return null
+      const main = normalizeHex(mainRaw, '#9541e0')
+      const accent = normalizeHex(accentRaw, main)
+      return { main, accent }
+    } catch {
+      return null
+    }
+  }, [])
   return (
     <div onClick={() => { if (!disabled) setOpen(true) }} className={`relative bg-gray-900 border border-white/10 rounded-2xl p-2 md:p-3 flex flex-col ${disabled ? 'opacity-60' : 'cursor-pointer hover:border-white/20'}`}>
       <div className="w-full rounded-xl bg-[#000000] border border-white/10 overflow-hidden relative" style={{ aspectRatio: '16 / 9' }}>
-        <Image src="/tools-logos/brain.png" alt="Brain.fm logo" fill className="object-contain p-2 bg-[#000000]" sizes="(max-width: 768px) 100vw, 50vw" />
+        {/* Keep default logo (same as ecomefficiency.com); no auto tinting */}
+        <Image src="/tools-logos/brain.png" alt="Brain.fm logo" fill className="object-contain p-2" sizes="(max-width: 768px) 100vw, 50vw" />
       </div>
       <div className="mt-2">
         <div className="text-white font-semibold text-sm md:text-base">Brain.fm</div>
@@ -1562,7 +1839,20 @@ function BrainCredsCard({ disabled }: { disabled?: boolean }) {
                       href="https://my.brain.fm/signin"
                       target="_blank"
                       rel="noreferrer noopener"
-                      className="inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-md border border-[#8B5CF6]/40 bg-[#5c3dfa]/20 hover:bg-[#5c3dfa]/30 text-white"
+                      className={
+                        wl
+                          ? "inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-md border bg-[color:var(--wl_bfm_bg)] hover:bg-[color:var(--wl_bfm_bg_hover)] border-[color:var(--wl_bfm_border)] text-white"
+                          : "inline-flex items-center gap-2 text-sm px-3 py-1.5 rounded-md border border-[#8B5CF6]/40 bg-[#5c3dfa]/20 hover:bg-[#5c3dfa]/30 text-white"
+                      }
+                      style={
+                        wl
+                          ? ({
+                              ['--wl_bfm_bg' as any]: hexWithAlpha(wl.main, 0.18),
+                              ['--wl_bfm_bg_hover' as any]: hexWithAlpha(wl.main, 0.28),
+                              ['--wl_bfm_border' as any]: hexWithAlpha(wl.accent, 0.42),
+                            } as any)
+                          : undefined
+                      }
                     >
                       Open Brain.fm sign‑in
                     </a>
@@ -1577,18 +1867,29 @@ function BrainCredsCard({ disabled }: { disabled?: boolean }) {
 
 function CanvaFlipCard({ inviteLink, disabled }: { inviteLink?: string | null; disabled?: boolean }) {
   const [open, setOpen] = React.useState(false)
+  const clickable = !disabled && Boolean(inviteLink)
   return (
-    <div onClick={() => { if (!disabled && inviteLink) window.open(inviteLink, '_blank', 'noreferrer') }} className={`relative bg-gray-900 border border-white/10 rounded-2xl p-2 md:p-3 flex flex-col ${disabled ? 'opacity-60' : 'cursor-pointer hover:border-white/20'}`}>
+    <div
+      onClick={() => { if (clickable && inviteLink) window.open(inviteLink, '_blank', 'noreferrer') }}
+      className={`relative bg-gray-900 border border-white/10 rounded-2xl p-2 md:p-3 flex flex-col ${
+        disabled ? 'opacity-60' : clickable ? 'cursor-pointer hover:border-white/20' : 'opacity-80'
+      }`}
+    >
       <div className="w-full rounded-xl bg-[#000000] border border-white/10 overflow-hidden relative" style={{ aspectRatio: '16 / 9' }}>
-        <Image src="/tools-logos/canva.png" alt="Canva logo" fill className="object-contain p-2 bg-[#000000]" sizes="(max-width: 768px) 100vw, 50vw" />
+        {/* Keep default logo (same as ecomefficiency.com); no auto tinting */}
+        <Image src="/tools-logos/canva.png" alt="Canva logo" fill className="object-contain p-2" sizes="(max-width: 768px) 100vw, 50vw" />
       </div>
       <div className="mt-2">
         <div className="text-white font-semibold text-sm md:text-base">Canva</div>
         {disabled ? (
           <div className="text-[11px] text-gray-400">Subscribe to access</div>
-        ) : (
+        ) : inviteLink ? (
           <div className="text-[11px] text-gray-400">
             Click to open the invite and connect on your account
+          </div>
+        ) : (
+          <div className="text-[11px] text-gray-500">
+            Invite link not available yet (it will appear once credentials are loaded).
           </div>
         )}
         {!disabled && (

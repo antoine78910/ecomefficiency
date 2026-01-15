@@ -1,5 +1,6 @@
 import React from "react";
 import { carouselTools, logoDomainMap } from "@/data/carouselTools";
+import ToolImage from "@/components/ToolImage";
 
 // Prefer fully static generation for marketing to reduce runtime costs
 export const dynamic = 'force-static';
@@ -29,7 +30,6 @@ export default function ProToolsPage() {
     'Fotor': 'https://www.fotor.com/fr/',
     'ForePlay': 'https://app.foreplay.co/login',
     'ElevenLabs': 'https://elevenlabs.io/app/sign-in',
-    'Runway': 'https://noxtools.com/secure/page/Runwayml',
     'Trendtrack': 'https://app.trendtrack.io/en/login',
     'Vmake': 'https://vmake.ai/',
   };
@@ -43,7 +43,7 @@ export default function ProToolsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {[seoTile, ...carouselTools
               .filter(t => [
-                'Flair.ai','ChatGPT','Gemini','Midjourney','Exploding Topics','Pipiads','Kalodata','WinningHunter','Capcut','SendShort','Helium10','Dropship.io','ShopHunter','Atria','Heygen','Fotor','ForePlay','ElevenLabs','Runway','Trendtrack','Higgsfield','Vmake'
+                'Flair.ai','ChatGPT','Gemini','Midjourney','Exploding Topics','Pipiads','Kalodata','WinningHunter','Capcut','SendShort','Helium10','Dropship.io','ShopHunter','Atria','Heygen','Fotor','ForePlay','ElevenLabs','Trendtrack','Higgsfield','Vmake'
               ].includes(t.name))
               .filter(t => t.name !== 'Canva' && t.name !== 'Brain.fm')
             ].map((tool) => (
@@ -70,12 +70,7 @@ export default function ProToolsPage() {
                   </div>
                 ) : null}
                 <div className="w-full h-36 md:h-40 mb-4 rounded-xl overflow-hidden" style={{ aspectRatio: '16 / 9' }}>
-                  <img
-                    src={tool.icon.startsWith('/') ? tool.icon : (logoDomainMap[tool.name.toLowerCase()] ? `https://logo.clearbit.com/${logoDomainMap[tool.name.toLowerCase()]}` : '/placeholder.svg')}
-                    alt={tool.name}
-                    className="w-full h-full object-contain bg-black"
-                    loading="lazy"
-                  />
+                  <ToolImage toolName={tool.name} icon={tool.icon} />
                 </div>
                 <h3 className="text-white font-semibold text-base mb-2">{tool.name}</h3>
                 <p className="text-gray-300 text-sm leading-relaxed">{tool.description}</p>

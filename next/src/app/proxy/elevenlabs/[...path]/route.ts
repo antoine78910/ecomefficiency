@@ -365,7 +365,7 @@ export async function GET(req: NextRequest, ctx: Ctx) {
           }, 10000);
           
           // Auto-login only on sign-in page and only if not already logged in
-          if (location.pathname.includes('/sign-in')) {
+          if (location.pathname.includes('/signin')) {
             // Check if already logged in by looking for user elements
             const isLoggedIn = document.querySelector('[data-testid="user-menu"], .user-avatar, .profile-menu') || 
                               document.body.textContent.includes('Sign out') ||

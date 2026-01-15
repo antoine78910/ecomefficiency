@@ -39,12 +39,12 @@ export default function AppPage() {
           } catch {}
           // Redirect to sign-in page with error message
           try {
-            const signInUrl = new URL('/sign-in', window.location.origin);
+            const signInUrl = new URL('/signin', window.location.origin);
             signInUrl.searchParams.set('error', 'oauth_cancelled');
             window.location.href = signInUrl.toString();
             return;
           } catch {
-            window.location.href = '/sign-in';
+            window.location.href = '/signin';
             return;
           }
         }

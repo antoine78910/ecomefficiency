@@ -77,7 +77,7 @@ const NewNavbar = () => {
               </div>
             </button>
 
-            <Link href="/sign-in" className="hidden md:flex">
+            <Link href="/signin" className="hidden md:flex">
               <Button 
                 variant="outline" 
                 className="border-white/20 text-white hover:bg-white/10"
@@ -85,7 +85,7 @@ const NewNavbar = () => {
                 Sign In
               </Button>
             </Link>
-            <Link href="/sign-up">
+            <Link href="/signup">
               <Button className="cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_24px_rgba(149,65,224,0.55)] px-5 py-2 rounded-xl border border-[#9541e0] text-white font-medium md:px-6 md:py-2 md:text-base hover:brightness-110 group overflow-hidden">
                 <div className="relative overflow-hidden w-full text-center">
                   <span className="inline-block transition-transform group-hover:-translate-y-7 duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)]">
@@ -116,7 +116,7 @@ const NewNavbar = () => {
             <Link href="/affiliate" className="block px-4 py-3 text-base text-white hover:bg-white/10">Affiliate</Link>
             <button onClick={handlePricingClick} className="w-full text-left px-4 py-3 text-base text-white hover:bg-white/10 cursor-pointer">Pricing</button>
             <button onClick={handleDiscordClick} className="w-full text-left px-4 py-3 text-base text-white hover:bg-white/10 cursor-pointer">Join Community</button>
-            <Link href="/sign-in" className="block px-4 py-3 text-base text-white hover:bg-white/10">Sign In</Link>
+            <Link href="/signin" className="block px-4 py-3 text-base text-white hover:bg-white/10">Sign In</Link>
           </div>
         )}
       </div>

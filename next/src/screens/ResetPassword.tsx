@@ -43,7 +43,7 @@ const ResetPassword = () => {
         toast({ title: "Error", description: error.message, variant: "destructive" });
       } else {
         toast({ title: "Password updated", description: "You can now sign in." });
-        window.location.href = "/sign-in";
+        window.location.href = "/signin";
       }
     } catch (error: any) {
       toast({ title: "Error", description: error?.message ?? "An unexpected error occurred", variant: "destructive" });
@@ -109,7 +109,7 @@ const ResetPassword = () => {
             </form>
 
             <div className="mt-4 text-center">
-              <Link href="/sign-in" className="text-sm text-purple-300 hover:text-purple-200">Back to sign in</Link>
+              <Link href="/signin" className="text-sm text-purple-300 hover:text-purple-200">Back to sign in</Link>
             </div>
           </div>
         </div>

@@ -7,6 +7,7 @@ import { supabase, SUPABASE_CONFIG_OK } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Eye, EyeOff } from "lucide-react";
 import { motion, useMotionTemplate, useMotionValue } from "framer-motion";
+import { bestTextColorOn, hexWithAlpha, mixHex, normalizeHex } from "@/lib/color";
 
 export default function PartnersSignUpPage() {
   const { toast } = useToast();
@@ -16,11 +17,19 @@ export default function PartnersSignUpPage() {
   const [show, setShow] = React.useState(false);
   const [pending, setPending] = React.useState(false);
 
+  // Dynamic theming (white-label if globals exist, otherwise fall back to violet)
+  const main = normalizeHex(String((typeof window !== "undefined" ? (window as any).__wl_main : "") || "#9541e0"), "#9541e0");
+  const accent = normalizeHex(String((typeof window !== "undefined" ? (window as any).__wl_accent : "") || "#7c30c7"), "#7c30c7");
+  const btnText = bestTextColorOn(mixHex(main, accent, 0.5));
+
   const canSubmit = name.trim().length > 1 && email.trim().length > 3 && password.length >= 6 && !pending;
 
   // Static narrower bottom halo (no mouse tracking) - same as legacy /sign-up
   const NarrowGradient = () => (
-    <span className="group-hover/btn:opacity-100 block transition duration-300 opacity-0 absolute h-[3px] w-full -bottom-px inset-x-0 bg-gradient-to-r from-transparent via-[#7c30c7] to-transparent" />
+    <span
+      className="group-hover/btn:opacity-100 block transition duration-300 opacity-0 absolute h-[3px] w-full -bottom-px inset-x-0"
+      style={{ backgroundImage: `linear-gradient(to right, transparent, ${accent}, transparent)` }}
+    />
   );
 
   const oauth = async () => {
@@ -113,14 +122,20 @@ export default function PartnersSignUpPage() {
   };
 
   return (
-    <div className="min-h-screen bg-black text-white flex items-center justify-center px-4">
+    <div
+      className="min-h-screen bg-black text-white flex items-center justify-center px-4"
+      style={{ ['--wl-main' as any]: main, ['--wl-accent' as any]: accent }}
+    >
       <div className="max-w-md w-full">
         <div className="flex flex-col items-center mb-6">
           <Image src="/ecomefficiency.png" alt="Ecom Efficiency" width={200} height={64} priority quality={100} className="h-16 w-auto object-contain" />
           <div className="mt-2 text-xs text-gray-400">Partners Portal</div>
         </div>
 
-        <div className="bg-black/60 border border-white/10 rounded-2xl shadow-[0_20px_80px_rgba(149,65,224,0.15)]">
+        <div
+          className="bg-black/60 border border-white/10 rounded-2xl"
+          style={{ boxShadow: `0 20px 80px ${hexWithAlpha(accent, 0.15)}` }}
+        >
           <div className="p-6 md:p-8">
             <h1 className="text-center text-2xl font-semibold">Create your account</h1>
             <p className="text-center text-gray-400 mt-2 mb-6">Start your white-label onboarding</p>
@@ -198,9 +213,19 @@ export default function PartnersSignUpPage() {
                 disabled={!canSubmit}
                 className={`w-full rounded-lg py-2 font-medium border flex items-center justify-center ${
                   canSubmit
-                    ? "cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] border-[#9541e0] text-white shadow-[0_8px_40px_rgba(149,65,224,0.35)] hover:brightness-110"
+                    ? "cursor-pointer hover:brightness-110"
                     : "bg-white/5 border-white/10 text-white/50 cursor-not-allowed"
                 }`}
+                style={
+                  canSubmit
+                    ? {
+                        background: `linear-gradient(to bottom, ${main}, ${accent})`,
+                        borderColor: main,
+                        color: btnText,
+                        boxShadow: `0 8px 40px ${hexWithAlpha(mixHex(main, accent, 0.5), 0.35)}`,
+                      }
+                    : undefined
+                }
               >
                 {pending ? <span className="inline-block h-4 w-4 rounded-full border-2 border-white/90 border-b-transparent animate-spin" /> : "Create account"}
               </button>
@@ -208,7 +233,7 @@ export default function PartnersSignUpPage() {
 
             <div className="mt-4 text-center text-gray-400 text-sm">
               Already have an account?{" "}
-              <Link href="/signin" className="text-purple-300 hover:text-purple-200">
+              <Link href="/signin" className="underline hover:opacity-90" style={{ color: accent }}>
                 Sign in
               </Link>
             </div>
@@ -227,7 +252,7 @@ function InputWithHalo({ children }: { children: React.ReactNode }) {
   const rectRef = React.useRef<DOMRect | null>(null);
 
   // Use plain motion value references where possible to avoid unnecessary JS re-execution
-  const bg = useMotionTemplate`radial-gradient(${visible ? radius : "0"}px circle at ${mouseX}px ${mouseY}px, #7c30c7, transparent 75%)`;
+  const bg = useMotionTemplate`radial-gradient(${visible ? radius : "0"}px circle at ${mouseX}px ${mouseY}px, var(--wl-accent, #7c30c7), transparent 75%)`;
 
   const onMove = (e: React.MouseEvent<HTMLDivElement>) => {
     if (rectRef.current) {

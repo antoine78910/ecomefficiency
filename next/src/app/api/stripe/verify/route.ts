@@ -3,6 +3,82 @@ import Stripe from "stripe";
 import { trackBrevoEvent } from "@/lib/brevo";
 import { supabaseAdmin } from "@/integrations/supabase/server";
 
+function parseMaybeJson<T = any>(value: any): T | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "string") {
+    const s = value.trim();
+    if (!s) return null;
+    try {
+      return JSON.parse(s) as T;
+    } catch {
+      return value as any as T;
+    }
+  }
+  return value as T;
+}
+
+function cleanSlug(input: string) {
+  return String(input || "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-")
+    .replace(/[^a-z0-9-]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
+}
+
+async function readPartnerConfig(slug: string) {
+  if (!supabaseAdmin) return null;
+  const key = `partner_config:${slug}`;
+  const { data } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
+  return parseMaybeJson((data as any)?.value) || null;
+}
+
+async function recordPartnerPayment(input: {
+  partnerSlug: string;
+  invoiceId?: string | null;
+  amount?: number; // major units
+  currency?: string | null;
+  email?: string | null;
+  createdAt?: string | null;
+}) {
+  try {
+    const slug = cleanSlug(input.partnerSlug || "");
+    if (!slug || !supabaseAdmin) return;
+
+    const key = `partner_stats:${slug}`;
+    const { data } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
+    const current = parseMaybeJson((data as any)?.value) || {};
+
+    const payments = Number(current?.payments || 0) || 0;
+    const revenue = Number(current?.revenue || 0) || 0;
+    const recentPayments = Array.isArray(current?.recentPayments) ? current.recentPayments : [];
+    const invoiceIds = Array.isArray(current?.paymentInvoiceIds) ? current.paymentInvoiceIds : [];
+
+    const invoiceId = input.invoiceId ? String(input.invoiceId) : "";
+    if (invoiceId && invoiceIds.includes(invoiceId)) return;
+
+    const amount = Number(input.amount || 0) || 0;
+    const currency = input.currency ? String(input.currency).toUpperCase() : undefined;
+    const email = input.email ? String(input.email) : undefined;
+    const createdAt = input.createdAt ? String(input.createdAt) : new Date().toISOString();
+
+    const nextInvoiceIds = invoiceId ? [invoiceId, ...invoiceIds].slice(0, 200) : invoiceIds;
+    const nextRecentPayments = [{ invoiceId: invoiceId || undefined, amount, currency, email, createdAt }, ...recentPayments].slice(0, 50);
+
+    const next = {
+      ...current,
+      payments: payments + 1,
+      revenue: Math.round((revenue + amount) * 100) / 100,
+      recentPayments: nextRecentPayments,
+      paymentInvoiceIds: nextInvoiceIds,
+      lastUpdated: new Date().toISOString(),
+    };
+
+    await supabaseAdmin.from("app_state").upsert({ key, value: next, updated_at: new Date().toISOString() }, { onConflict: "key" as any });
+  } catch {}
+}
+
 export async function POST(req: NextRequest) {
   try {
     if (!process.env.STRIPE_SECRET_KEY) {
@@ -13,7 +89,81 @@ export async function POST(req: NextRequest) {
     const body = await req.json().catch(() => ({})) as { email?: string };
     const emailHeader = req.headers.get("x-user-email") || undefined;
     const customerHeader = req.headers.get("x-stripe-customer-id") || undefined;
+    const partnerSlugHeader = cleanSlug(req.headers.get("x-partner-slug") || "");
     const email = body.email || emailHeader;
+
+    // White-label / partner domains: subscription lives on the partner Stripe Connect account.
+    if (partnerSlugHeader) {
+      const cfg: any = await readPartnerConfig(partnerSlugHeader);
+      const connectedAccountId = String(cfg?.connectedAccountId || "").trim();
+      if (!connectedAccountId) {
+        return NextResponse.json({ ok: true, active: false, status: "no_connected_account", plan: null });
+      }
+
+      // Find customer on the CONNECTED account by email (customer IDs are per-account).
+      let customerId: string | undefined = undefined;
+      if (email) {
+        try {
+          const search = await stripe.customers.search(
+            { query: `email:'${email}'`, limit: 1 },
+            { stripeAccount: connectedAccountId } as any
+          );
+          const found = (search.data || [])[0];
+          if (found?.id) customerId = found.id;
+        } catch {}
+      }
+      if (!customerId) {
+        return NextResponse.json({ ok: true, active: false, status: "no_customer", plan: null });
+      }
+
+      const allSubs = await stripe.subscriptions.list({ customer: customerId, limit: 10 }, { stripeAccount: connectedAccountId } as any);
+      const sortedSubs = allSubs.data.sort((a, b) => b.created - a.created);
+
+      let latest: typeof sortedSubs[0] | undefined;
+      for (const sub of sortedSubs) {
+        if (sub.status === "active" || sub.status === "trialing") {
+          latest = sub;
+          break;
+        }
+        if (sub.status === "incomplete" && sub.latest_invoice) {
+          try {
+            const invoiceId = typeof sub.latest_invoice === "string" ? sub.latest_invoice : sub.latest_invoice.id;
+            if (invoiceId) {
+              const invoice = await stripe.invoices.retrieve(invoiceId, { stripeAccount: connectedAccountId } as any);
+              if (invoice.status === "paid") {
+                latest = sub;
+                break;
+              }
+            }
+          } catch {}
+        }
+      }
+
+      if (!latest) return NextResponse.json({ ok: true, active: false, status: "no_active_subscription", plan: null });
+
+      // Partner offering: treat any active subscription as "pro" access inside the app.
+      const plan: "pro" = "pro";
+
+      // Best-effort stats sync (in case Connect webhook isn't delivering).
+      try {
+        const invoiceId = typeof latest.latest_invoice === "string" ? latest.latest_invoice : (latest.latest_invoice as any)?.id;
+        if (invoiceId) {
+          const inv = await stripe.invoices.retrieve(String(invoiceId), { stripeAccount: connectedAccountId } as any);
+          if (inv?.status === "paid") {
+            await recordPartnerPayment({
+              partnerSlug: partnerSlugHeader,
+              invoiceId: inv.id ? String(inv.id) : null,
+              amount: (Number(inv.amount_paid || 0) || 0) / 100,
+              currency: inv.currency ? String(inv.currency).toUpperCase() : null,
+              email: email || null,
+              createdAt: inv.created ? new Date(inv.created * 1000).toISOString() : new Date().toISOString(),
+            });
+          }
+        }
+      } catch {}
+
+      return NextResponse.json({ ok: true, active: true, status: latest.status, plan });
+    }
 
     let customerId = customerHeader || undefined;
     if (!customerId && email) {
