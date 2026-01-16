@@ -41,13 +41,14 @@ export function middleware(req: NextRequest) {
   const url = req.nextUrl
   const host = req.headers.get('host') || ''
 
+  // Block /dashboard on all domains EXCEPT partners.* (it's only for partners.ecomefficiency.com)
+  if (!host.startsWith('partners.') && (url.pathname === '/dashboard' || url.pathname.startsWith('/dashboard/'))) {
+    const redirectUrl = url.clone()
+    redirectUrl.pathname = '/sign-in'
+    return NextResponse.redirect(redirectUrl)
+  }
+
   if (host.startsWith('app.')) {
-    // Block /dashboard on app.* subdomain (it's only for partners.*)
-    if (url.pathname === '/dashboard' || url.pathname.startsWith('/dashboard/')) {
-      const redirectUrl = url.clone()
-      redirectUrl.pathname = '/app'
-      return NextResponse.redirect(redirectUrl)
-    }
     // Map root to /app
     if (url.pathname === '/') {
       const rewriteUrl = url.clone()
