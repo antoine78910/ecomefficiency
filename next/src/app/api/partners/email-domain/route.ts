@@ -240,6 +240,18 @@ function normalizeResendStatus(rawStatus: any, records: Array<{ status?: string 
   return status;
 }
 
+/**
+ * POST /api/partners/email-domain
+ *
+ * Configures a partner's email domain in Resend for sending transactional emails.
+ *
+ * ARCHITECTURE NOTE:
+ * This is separate from the Vercel domain configuration (/api/partners/domain/vercel).
+ * - Vercel domains: For hosting the white-label website (e.g., ecomwolf.com)
+ * - Email domains: For sending emails from the partner's domain (e.g., notify.ecomwolf.com)
+ *
+ * All email domains are configured in the SAME Resend account.
+ */
 export async function POST(req: NextRequest) {
   try {
     if (!supabaseAdmin) return NextResponse.json({ ok: false, error: "supabase_admin_missing" }, { status: 500 });
@@ -332,6 +344,12 @@ export async function POST(req: NextRequest) {
   }
 }
 
+/**
+ * PUT /api/partners/email-domain
+ *
+ * Verifies a partner's email domain in Resend.
+ * This checks if the DNS records have been properly configured.
+ */
 export async function PUT(req: NextRequest) {
   try {
     if (!supabaseAdmin) return NextResponse.json({ ok: false, error: "supabase_admin_missing" }, { status: 500 });

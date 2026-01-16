@@ -53,6 +53,14 @@ async function upsertPartnerConfig(slug: string, patch: any) {
   await supabaseAdmin.from("app_state").upsert({ key, value: merged, updated_at: new Date().toISOString() } as any, { onConflict: "key" as any });
 }
 
+/**
+ * Get Vercel authentication credentials.
+ *
+ * IMPORTANT: All partner custom domains are added to the same Vercel project (ecomefficiency).
+ * This ensures all domains are managed centrally in one project, avoiding multi-project complexity.
+ *
+ * The VERCEL_PROJECT_ID should always point to the "ecomefficiency" project.
+ */
 function getVercelAuth() {
   const token = process.env.VERCEL_TOKEN || process.env.VERCEL_API_TOKEN;
   const projectId = process.env.VERCEL_PROJECT_ID;
@@ -115,6 +123,21 @@ function normalizeVercelDomainResponse(json: any) {
   return { verified, name, apexName, record, raw: json };
 }
 
+/**
+ * POST /api/partners/domain/vercel
+ *
+ * Adds a partner's custom domain to the Vercel project.
+ *
+ * ARCHITECTURE NOTE:
+ * All partner domains (ecomwolf.com, another-partner.com, etc.) are added to the SAME Vercel project
+ * specified by VERCEL_PROJECT_ID (the "ecomefficiency" project). This centralizes domain management
+ * and avoids the complexity of managing multiple Vercel projects.
+ *
+ * The Next.js middleware (src/middleware.ts) handles routing by:
+ * 1. Detecting which domain the request comes from
+ * 2. Loading the partner config for that domain
+ * 3. Serving the white-label site with the partner's branding
+ */
 export async function POST(req: NextRequest) {
   try {
     if (!supabaseAdmin) return NextResponse.json({ ok: false, error: "supabase_admin_missing" }, { status: 500 });

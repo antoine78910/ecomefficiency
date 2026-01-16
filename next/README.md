@@ -1,8 +1,29 @@
-## Bot Discord → Mise à jour des identifiants
+## Configuration des Variables d'Environnement
 
-Variables à ajouter dans `.env.local` (ne pas commiter):
+Créer un fichier `.env.local` à la racine du projet avec les variables suivantes (ne pas commiter ce fichier):
 
+### Configuration Vercel (Domaines Partenaires)
+
+**IMPORTANT**: Tous les domaines personnalisés des partenaires sont ajoutés au projet Vercel **ecomefficiency**. Cela permet de centraliser tous les domaines dans un seul projet Vercel et d'éviter les problèmes de gestion multi-projets.
+
+```bash
+# ID du projet Vercel "ecomefficiency" - TOUS les domaines partenaires seront ajoutés à ce projet
+VERCEL_PROJECT_ID=prj_xxxxxxxxxxxxxxxxxxxxx
+VERCEL_TOKEN=your-vercel-token
+VERCEL_TEAM_ID=team_xxxxxxxxxxxxxxxxxxxxx
 ```
+
+### Configuration Resend (Domaines Email)
+
+Les domaines email des partenaires (ex: notify.partner-domain.com) sont configurés automatiquement dans Resend.
+
+```bash
+RESEND_API_KEY=re_xxxxxxxxxxxxxxxxxxxxx
+```
+
+### Bot Discord → Mise à jour des identifiants
+
+```bash
 DISCORD_BOT_TOKEN=xxx
 DISCORD_GUILD_ID=1221893988756226099
 DISCORD_CHANNEL_ID=1262357372970467451
@@ -10,7 +31,11 @@ CREDENTIALS_POST_URL=http://localhost:5000/api/credentials
 CREDENTIALS_SECRET=un_secret_a_toi
 ```
 
-L’API `/api/credentials` accepte un header optionnel `Authorization: Bearer <CREDENTIALS_SECRET>` pour sécuriser la mise à jour.
+L'API `/api/credentials` accepte un header optionnel `Authorization: Bearer <CREDENTIALS_SECRET>` pour sécuriser la mise à jour.
+
+### Autres Variables
+
+Voir le fichier `.env.example` pour la liste complète des variables d'environnement nécessaires.
 
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 

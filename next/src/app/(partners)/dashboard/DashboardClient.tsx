@@ -731,6 +731,14 @@ export default function DashboardClient() {
     return Boolean(s);
   };
 
+  /**
+   * Add the partner's custom domain to Vercel.
+   *
+   * IMPORTANT: This adds the domain to the centralized "ecomefficiency" project.
+   * All partner domains are managed in one Vercel project to avoid multi-project complexity.
+   *
+   * See: src/app/api/partners/domain/vercel/route.ts
+   */
   const addDomainOnVercel = async () => {
     try {
       const d = String(config.customDomain || "").trim();
@@ -909,6 +917,15 @@ export default function DashboardClient() {
     if (cd) setEmailDomainDraft(`notify.${cd}`);
   }, [(config as any)?.emailDomain, (config as any)?.customDomain]);
 
+  /**
+   * Configure or verify the partner's email domain in Resend.
+   *
+   * This is separate from the Vercel domain configuration:
+   * - Vercel domain: For hosting the website
+   * - Email domain: For sending transactional emails
+   *
+   * See: src/app/api/partners/email-domain/route.ts
+   */
   const refreshEmailDomain = async (action: "create" | "verify") => {
     if (!slug) return;
     const domain = String(emailDomainDraft || "").trim();
