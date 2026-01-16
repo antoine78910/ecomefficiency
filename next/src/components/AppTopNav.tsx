@@ -120,7 +120,7 @@ export default function AppTopNav({
     try {
       await supabase.auth.signOut();
     } finally {
-      window.location.href = brand?.signInPath || "/signin";
+      window.location.href = brand?.signInPath || "/sign-in";
     }
   };
 
@@ -183,7 +183,7 @@ export default function AppTopNav({
           </DropdownMenuContent>
         </DropdownMenu>
       ) : (
-        <Link href="/signin" className="text-sm text-[#cfd3d8] hover:text-white">Sign in</Link>
+        <Link href="/sign-in" className="text-sm text-[#cfd3d8] hover:text-white">Sign in</Link>
       )}
     </div>
   );
