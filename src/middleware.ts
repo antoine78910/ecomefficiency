@@ -42,6 +42,12 @@ export function middleware(req: NextRequest) {
   const host = req.headers.get('host') || ''
 
   if (host.startsWith('app.')) {
+    // Block /dashboard on app.* subdomain (it's only for partners.*)
+    if (url.pathname === '/dashboard' || url.pathname.startsWith('/dashboard/')) {
+      const redirectUrl = url.clone()
+      redirectUrl.pathname = '/app'
+      return NextResponse.redirect(redirectUrl)
+    }
     // Map root to /app
     if (url.pathname === '/') {
       const rewriteUrl = url.clone()
