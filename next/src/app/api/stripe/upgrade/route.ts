@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
     const secret = env.STRIPE_SECRET_KEY
     if (!secret) return NextResponse.json({ ok: false, error: 'stripe_not_configured' }, { status: 500 })
 
-    const stripe = new Stripe(secret, { apiVersion: '2025-07-30.basil' })
+    const stripe = new Stripe(secret, { apiVersion: '2025-08-27.basil' })
 
     // Identify customer
     let customerId = req.headers.get('x-stripe-customer-id') || undefined

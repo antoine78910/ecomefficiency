@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
     if (!env.STRIPE_SECRET_KEY) {
       return NextResponse.redirect(new URL('/subscription?err=stripe_not_configured', req.url), { status: 303 })
     }
-    const stripe = new Stripe(env.STRIPE_SECRET_KEY, { apiVersion: "2025-07-30.basil" })
+    const stripe = new Stripe(env.STRIPE_SECRET_KEY, { apiVersion: "2025-08-27.basil" })
 
     const origin = `${new URL(req.url).origin}`
 

@@ -6,7 +6,7 @@ export async function POST(req: NextRequest) {
     if (!process.env.STRIPE_SECRET_KEY) {
       return NextResponse.json({ error: "Stripe not configured" }, { status: 500 });
     }
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-07-30.basil" });
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-08-27.basil" });
     const origin = req.headers.get("origin") || process.env.APP_URL || "http://localhost:3000";
     let customerId = req.headers.get("x-stripe-customer-id");
     let email = req.headers.get("x-user-email") || undefined;

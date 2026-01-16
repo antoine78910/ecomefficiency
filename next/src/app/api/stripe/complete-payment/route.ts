@@ -49,7 +49,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: false, error: "stripe_not_configured" }, { status: 500 });
     }
 
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-07-30.basil" });
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-08-27.basil" });
 
     // Retrieve the PaymentIntent to get metadata
     const pi = await stripe.paymentIntents.retrieve(paymentIntentId);

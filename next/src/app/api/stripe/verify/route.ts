@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
     if (!process.env.STRIPE_SECRET_KEY) {
       return NextResponse.json({ ok: false, error: "not_configured" }, { status: 500 });
     }
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-07-30.basil" });
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-08-27.basil" });
 
     const body = await req.json().catch(() => ({})) as { email?: string };
     const emailHeader = req.headers.get("x-user-email") || undefined;

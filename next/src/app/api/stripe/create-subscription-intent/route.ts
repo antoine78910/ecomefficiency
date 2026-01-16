@@ -21,7 +21,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "stripe_not_configured" }, { status: 500 });
     }
 
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-07-30.basil" });
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-08-27.basil" });
     console.log('[create-subscription-intent]', requestId, 'Stripe client initialisé');
 
     // SECURITY: Rate limit by IP (10 requests per minute)
