@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import Footer from "@/components/Footer";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
 import RevenueSimulator from "./RevenueSimulator";
+import AutoRedirectToApp from "./AutoRedirectToApp";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -131,6 +132,9 @@ export default async function PartnersLpPage() {
 
   return (
     <div className="min-h-screen bg-black text-white">
+      {/* Auto-redirect authenticated users to /app */}
+      <AutoRedirectToApp />
+      
       {/* Top bar */}
       <nav className="bg-black/90 backdrop-blur-sm border-b border-white/10 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-14 md:h-16 flex items-center justify-between">

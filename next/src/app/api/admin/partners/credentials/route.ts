@@ -54,7 +54,11 @@ async function requireAdminSession() {
 async function readPartnerCreds(slug: string) {
   if (!supabaseAdmin) return {};
   const key = `partner_credentials:${slug}`;
-  const { data } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
+  console.log('[admin][partners][credentials] Reading from DB with key:', key);
+  const { data, error } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
+  if (error) {
+    console.warn('[admin][partners][credentials] Error reading from DB:', error);
+  }
   const val = (data as any)?.value;
   return val && typeof val === "object" ? val : {};
 }
@@ -62,9 +66,15 @@ async function readPartnerCreds(slug: string) {
 async function writePartnerCreds(slug: string, value: any) {
   if (!supabaseAdmin) throw new Error("supabase_admin_missing");
   const key = `partner_credentials:${slug}`;
-  await supabaseAdmin
+  console.log('[admin][partners][credentials] Writing to DB with key:', key);
+  const { error } = await supabaseAdmin
     .from("app_state")
     .upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: "key" as any });
+  if (error) {
+    console.error('[admin][partners][credentials] Error writing to DB:', error);
+    throw error;
+  }
+  console.log('[admin][partners][credentials] Successfully wrote to DB for key:', key);
 }
 
 export async function GET(req: NextRequest) {
@@ -76,7 +86,14 @@ export async function GET(req: NextRequest) {
   const slug = cleanSlug(url.searchParams.get("slug") || "");
   if (!slug) return NextResponse.json({ ok: false, error: "missing_slug" }, { status: 400 });
 
+  console.log('[admin][partners][credentials] GET request for slug:', slug);
   const value = await readPartnerCreds(slug);
+  console.log('[admin][partners][credentials] Found credentials:', {
+    slug,
+    hasEmail: Boolean(value?.adspower_email),
+    hasPassword: Boolean(value?.adspower_password),
+    updatedAt: value?.updatedAt
+  });
   return NextResponse.json({ ok: true, value }, { status: 200 });
 }
 
@@ -89,6 +106,7 @@ export async function PUT(req: NextRequest) {
   const slug = cleanSlug(body?.slug || "");
   if (!slug) return NextResponse.json({ ok: false, error: "missing_slug" }, { status: 400 });
 
+  console.log('[admin][partners][credentials] PUT request for slug:', slug);
   const current = await readPartnerCreds(slug);
   const clean = (v: any) => String(v ?? "").trim();
   const patch = {
@@ -98,7 +116,16 @@ export async function PUT(req: NextRequest) {
   };
 
   const next = { ...(current || {}), ...patch };
+  console.log('[admin][partners][credentials] Saving credentials:', {
+    slug,
+    hasEmail: Boolean(patch.adspower_email),
+    hasPassword: Boolean(patch.adspower_password),
+    emailLength: patch.adspower_email.length,
+    passwordLength: patch.adspower_password.length
+  });
+  
   await writePartnerCreds(slug, next);
+  console.log('[admin][partners][credentials] Credentials saved successfully for slug:', slug);
 
   return NextResponse.json({ ok: true, value: next }, { status: 200 });
 }
