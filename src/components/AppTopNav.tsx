@@ -120,7 +120,7 @@ export default function AppTopNav({
     try {
       await supabase.auth.signOut();
     } finally {
-      window.location.href = brand?.signInPath || "/signin";
+      window.location.href = brand?.signInPath || "/sign-in";
     }
   };
 
