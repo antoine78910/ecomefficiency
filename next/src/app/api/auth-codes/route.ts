@@ -62,7 +62,7 @@ function generateCode(): string {
 async function verifyGrowth(email?: string, customerId?: string): Promise<boolean> {
   if (!process.env.STRIPE_SECRET_KEY) return false;
   try {
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-07-30.basil' });
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-08-27.basil' });
     let cid = customerId || '';
     if (!cid && email) {
       const search = await stripe.customers.search({ query: `email:'${email}'`, limit: 1 });
