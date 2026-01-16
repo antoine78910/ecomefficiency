@@ -103,15 +103,19 @@ const nextContent = (lines: string[], fromIndex: number): string => {
 
 export async function GET(req: NextRequest) {
   // Authorization: only return credentials if user has an active Stripe subscription
+  const email = req.headers.get('x-user-email') || ''
+  const customerIdHeader = req.headers.get('x-stripe-customer-id') || ''
+  const partnerSlugHeader = String(req.headers.get('x-partner-slug') || '').trim().toLowerCase()
+  let partnerSlug = partnerSlugHeader
+  if (!partnerSlug) {
+    try {
+      partnerSlug = await resolvePartnerSlugFromHost(req)
+      if (partnerSlug) {
+        console.log('[credentials][white-label] Using partner slug inferred from host:', partnerSlug)
+      }
+    } catch {}
+  }
   try {
-    const email = req.headers.get('x-user-email') || ''
-    const customerIdHeader = req.headers.get('x-stripe-customer-id') || ''
-    const partnerSlugHeader = String(req.headers.get('x-partner-slug') || '').trim().toLowerCase()
-    const partnerSlugInferred = !partnerSlugHeader ? await resolvePartnerSlugFromHost(req) : ''
-    const partnerSlug = partnerSlugHeader || partnerSlugInferred
-    if (partnerSlugInferred) {
-      console.log('[credentials][white-label] Using partner slug inferred from host:', partnerSlugInferred)
-    }
     if (!email && !customerIdHeader) {
       return NextResponse.json({}, { status: 200 })
     }
