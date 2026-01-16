@@ -233,10 +233,15 @@ export async function middleware(req: NextRequest) {
     // Note: / (root) is handled server-side in `app/page.tsx` via host detection.
   }
 
-  // Non-partners domains (EXCEPT main ecomefficiency.com): keep canonical short auth routes (/signin, /signup)
+  // Non-partners/non-app domains: keep canonical short auth routes (/signin, /signup)
   // and redirect legacy dashed routes to them.
-  // Main domain (ecomefficiency.com) uses /sign-in and /sign-up (with dashes) natively.
-  if (!bareHostname.startsWith('ecomefficiency.com') && bareHostname !== 'ecomefficiency.com') {
+  // Main domain (ecomefficiency.com) and app subdomain use /sign-in and /sign-up (with dashes) natively.
+  // ONLY redirect to /signin for partners.* and custom white-label domains
+  const shouldRedirectAuth = 
+    bareHostname.startsWith('partners.') || 
+    (isCustomDomain && pathname !== '/signin' && pathname !== '/signup');
+  
+  if (shouldRedirectAuth) {
     if (pathname === '/sign-in' || pathname === '/sign-in/') {
       const r = url.clone(); r.pathname = '/signin';
       return NextResponse.redirect(r)
