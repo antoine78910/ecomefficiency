@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({}, { status: 200 })
     }
     if (process.env.STRIPE_SECRET_KEY) {
-      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-07-30.basil' })
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-08-27.basil' })
       let customerId = customerIdHeader
       if (!customerId && email) {
         try {
