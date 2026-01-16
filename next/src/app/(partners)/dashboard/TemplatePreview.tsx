@@ -1,9 +1,9 @@
-"use client";
+﻿"use client";
 
 import React from "react";
 import DomainSignInClient from "@/app/domains/[domain]/signin/DomainSignInClient";
 import DomainSignUpClient from "@/app/domains/[domain]/signup/DomainSignUpClient";
-import DomainAppClient from "@/app/domains/[domain]/app/DomainAppClient";
+import DomainAppClient from "@/app/domains/_components/DomainAppClient";
 import PartnerSimpleLanding from "@/components/PartnerSimpleLanding";
 import FloatingPricingWidget from "@/components/FloatingPricingWidget";
 import WhiteLabelPricingModal from "@/components/WhiteLabelPricingModal";
@@ -73,7 +73,7 @@ export default function TemplatePreview({ config }: { config: PreviewConfig }) {
     <div className="rounded-2xl border border-white/10 bg-black/60 shadow-[0_20px_80px_rgba(149,65,224,0.10)] overflow-hidden">
       <div className="px-4 py-3 border-b border-white/10 bg-white/5 flex items-center justify-between">
         <div className="text-xs text-gray-300">
-          <span className="font-semibold text-white">Live preview</span> • updates instantly
+          <span className="font-semibold text-white">Live preview</span> ÔÇó updates instantly
         </div>
         <div className="flex items-center gap-2">
           <div className="inline-flex rounded-xl border border-white/10 bg-white/5 p-1">
@@ -98,7 +98,7 @@ export default function TemplatePreview({ config }: { config: PreviewConfig }) {
             ))}
           </div>
           <div className="text-xs text-gray-500 truncate max-w-[55%]">
-            {config.slug ? `/${mode === "landing" ? "" : mode}`.replace(/\/$/, "") + ` • partners.ecomefficiency.com/${config.slug}` : "partners.ecomefficiency.com"}
+            {config.slug ? `/${mode === "landing" ? "" : mode}`.replace(/\/$/, "") + ` ÔÇó partners.ecomefficiency.com/${config.slug}` : "partners.ecomefficiency.com"}
           </div>
         </div>
       </div>

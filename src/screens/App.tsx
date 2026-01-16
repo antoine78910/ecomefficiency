@@ -435,18 +435,28 @@ function CredentialsPanel() {
               <p className="text-xs text-gray-400 mb-1">Email</p>
               <div className="group flex items-center gap-2">
                 <span className={`break-all text-white filter blur-sm transition ease-out duration-300 hover:blur-none group-hover:blur-none select-none`}>
-                  {plan==='inactive' ? '••••••••' : `${(plan==='pro' ? (creds.adspower_pro_email || '') : (creds.adspower_email || creds.adspower_starter_email || ''))}`}
+                  {plan === 'pro'
+                    ? (creds.adspower_pro_email || '')
+                    : (creds.adspower_email || creds.adspower_starter_email || '')}
                 </span>
-                <CopyButton value={plan==='inactive' ? undefined : (plan==='pro' ? creds.adspower_pro_email : (creds.adspower_email || creds.adspower_starter_email))} label="Copy email" disabled={plan==='inactive'} />
+                <CopyButton
+                  value={plan === 'pro' ? creds.adspower_pro_email : (creds.adspower_email || creds.adspower_starter_email)}
+                  label="Copy email"
+                />
               </div>
             </div>
             <div>
               <p className="text-xs text-gray-400 mb-1">Password</p>
               <div className="group flex items-center gap-2">
                 <span className={`break-all text-white filter blur-sm transition ease-out duration-300 hover:blur-none group-hover:blur-none select-none`}>
-                  {plan==='inactive' ? '••••••••' : `${(plan==='pro' ? (creds.adspower_pro_password || '') : (creds.adspower_password || creds.adspower_starter_password || ''))}`}
+                  {plan === 'pro'
+                    ? (creds.adspower_pro_password || '')
+                    : (creds.adspower_password || creds.adspower_starter_password || '')}
                 </span>
-                <CopyButton value={plan==='inactive' ? undefined : (plan==='pro' ? creds.adspower_pro_password : (creds.adspower_password || creds.adspower_starter_password))} label="Copy password" disabled={plan==='inactive'} />
+                <CopyButton
+                  value={plan === 'pro' ? creds.adspower_pro_password : (creds.adspower_password || creds.adspower_starter_password)}
+                  label="Copy password"
+                />
               </div>
             </div>
             <p className="text-xs text-gray-500 md:col-span-2">Last update: {creds?.updatedAt ? new Date(creds.updatedAt).toLocaleString() : '—'}</p>

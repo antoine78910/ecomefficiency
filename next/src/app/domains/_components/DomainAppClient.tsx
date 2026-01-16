@@ -1,4 +1,4 @@
-﻿"use client";
+"use client";
 
 import React from "react";
 import AppTopNav from "@/components/AppTopNav";
@@ -26,8 +26,15 @@ export default function DomainAppClient({
 
   return (
     <div className="min-h-screen bg-black">
-      <AppTopNav brand={{ title, logoUrl, signInPath: "/signin" }} />
+      <AppTopNav
+        brand={{
+          title,
+          logoUrl,
+          signInPath: "/signin",
+        }}
+      />
       <App showAffiliateCta={false} partnerSlug={slug} brandColors={colors} preview={preview} />
     </div>
   );
 }
+
