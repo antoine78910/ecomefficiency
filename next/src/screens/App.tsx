@@ -981,6 +981,8 @@ function CredentialsPanel({
   const [creds, setCreds] = useState<ToolCredentials | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const lastUpdatedAtRef = React.useRef<string | null>(null)
+  const [recentlyUpdated, setRecentlyUpdated] = React.useState(false)
 
   useEffect(() => {
     let active = true;
@@ -1020,6 +1022,15 @@ function CredentialsPanel({
         }); */
 
         if (active) {
+          try {
+            const nextUpdatedAt = json?.updatedAt ? String(json.updatedAt) : ''
+            const prevUpdatedAt = lastUpdatedAtRef.current
+            if (prevUpdatedAt && nextUpdatedAt && prevUpdatedAt !== nextUpdatedAt) {
+              setRecentlyUpdated(true)
+              setTimeout(() => setRecentlyUpdated(false), 6000)
+            }
+            lastUpdatedAtRef.current = nextUpdatedAt || null
+          } catch {}
           setCreds(json);
           setError(null);
         }
@@ -1041,7 +1052,8 @@ function CredentialsPanel({
     };
     document.addEventListener('visibilitychange', onVisible);
 
-    const id = setInterval(fetchCreds, 300000); // refresh every 5 min
+    const refreshMs = whiteLabel ? 30000 : 300000; // WL: refresh every 30s, main app: every 5 min
+    const id = setInterval(fetchCreds, refreshMs);
     return () => {
       active = false;
       clearInterval(id);
@@ -1303,6 +1315,11 @@ function CredentialsPanel({
                       </button>
               <button onClick={openPortal} className="px-3 py-1 rounded-md border border-white/20 text-white hover:bg-white/10">Manage billing</button>
             </div>
+          </div>
+        ) : null}
+        {recentlyUpdated ? (
+          <div className="text-xs rounded-md border border-green-500/30 bg-green-500/10 text-green-200 px-3 py-2">
+            AdsPower credentials updated from Admin — refreshing…
           </div>
         ) : null}
         {(() => {

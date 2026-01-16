@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
 import Script from "next/script";
+import { headers } from "next/headers";
 import DataFastScript from "@/components/DataFastScript";
 import SupabaseSessionGuard from "@/components/SupabaseSessionGuard";
 import CrossDomainLoginFlag from "@/components/CrossDomainLoginFlag";
@@ -41,11 +42,28 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
+function cleanHost(input: string) {
+  return String(input || "")
+    .trim()
+    .toLowerCase()
+    .split(":")[0]
+    .replace(/^www\./, "");
+}
+
+export default async function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  // Avoid loading noisy/brittle trackers on custom partner domains (prevents console errors like the Sonarly 502).
+  // Keep them on the core platform domains only (ecomefficiency.com + subdomains).
+  const h = await headers();
+  const host = cleanHost(h.get("x-forwarded-host") || h.get("host") || "");
+  const loadTrackers =
+    host === "ecomefficiency.com" ||
+    host.endsWith(".ecomefficiency.com") ||
+    host.endsWith("localhost") ||
+    host.endsWith(".vercel.app");
   return (
     <html lang="en" className="h-full" suppressHydrationWarning translate="no">
       <head>
@@ -65,8 +83,10 @@ export default function RootLayout({
         <Script src="https://cdn.firstpromoter.com/fpr.js" strategy="afterInteractive" />
         {/* DataFast - conditionally loaded only on main domain to prevent 403 errors on subdomains */}
         <DataFastScript />
-        <Script id="sonarly" strategy="beforeInteractive">
-          {`var initOpts = {
+        {/* Sonarly - disable on custom domains to avoid breaking the app when the tracker returns 502 */}
+        {loadTrackers ? (
+          <Script id="sonarly" strategy="beforeInteractive">
+            {`var initOpts = {
   projectKey: "ZE1R9a3lE3RjdngiFmDF",
   ingestPoint: "https://sonarly.dev/ingest"
 };
@@ -86,15 +106,18 @@ var startOpts = {};
   r.isActive=function(){return false};
   r.getSessionToken=function(){};
 })("https://sonarly.dev/static/tracker.js?v=1763957587150",1,0,initOpts,startOpts);`}
-        </Script>
+          </Script>
+        ) : null}
         {/* Microsoft Clarity - Load early for better tracking */}
-        <Script id="clarity" strategy="beforeInteractive">
-          {`(function(c,l,a,r,i,t,y){
+        {loadTrackers ? (
+          <Script id="clarity" strategy="beforeInteractive">
+            {`(function(c,l,a,r,i,t,y){
         c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
         t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
         y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
     })(window, document, "clarity", "script", "u2gln16w3i");`}
-        </Script>
+          </Script>
+        ) : null}
       </head>
       <body className="min-h-screen bg-background text-foreground overflow-x-hidden" suppressHydrationWarning>
         <noscript>

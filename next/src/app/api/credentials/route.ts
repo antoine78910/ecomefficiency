@@ -22,6 +22,47 @@ function parseMaybeJson<T = any>(value: any): T | null {
   return value as T
 }
 
+function cleanDomain(input: string) {
+  return String(input || '')
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, '')
+    .replace(/\/.*$/, '')
+    .replace(/:\d+$/, '')
+    .replace(/\.$/, '')
+    .replace(/^www\./, '')
+}
+
+async function resolvePartnerSlugFromHost(req: NextRequest): Promise<string> {
+  try {
+    const host = cleanDomain(req.headers.get('x-forwarded-host') || req.headers.get('host') || '')
+    if (!host) return ''
+
+    // Never infer a partner slug on core platform domains
+    if (
+      host === 'ecomefficiency.com' ||
+      host.endsWith('.ecomefficiency.com') ||
+      host.endsWith('localhost') ||
+      host.endsWith('.vercel.app')
+    ) {
+      return ''
+    }
+
+    if (!supabaseAdmin) return ''
+    const mapKey = `partner_domain:${host}`
+    const { data, error } = await supabaseAdmin.from('app_state').select('value').eq('key', mapKey).maybeSingle()
+    if (error) {
+      console.warn('[credentials][white-label] partner_domain mapping lookup error', { host, mapKey, message: error.message })
+      return ''
+    }
+    const mapping = parseMaybeJson((data as any)?.value) as any
+    const slug = String(mapping?.slug || '').trim().toLowerCase()
+    return slug
+  } catch {
+    return ''
+  }
+}
+
 // Helpers to parse credentials from free-form Discord message content
 const stripTicks = (s: string) => s.replace(/^`{1,3}/, '').replace(/`{1,3}$/, '').trim()
 const stripSpoilers = (s: string) => s.replace(/\|\|/g, '')
@@ -66,6 +107,11 @@ export async function GET(req: NextRequest) {
     const email = req.headers.get('x-user-email') || ''
     const customerIdHeader = req.headers.get('x-stripe-customer-id') || ''
     const partnerSlugHeader = String(req.headers.get('x-partner-slug') || '').trim().toLowerCase()
+    const partnerSlugInferred = !partnerSlugHeader ? await resolvePartnerSlugFromHost(req) : ''
+    const partnerSlug = partnerSlugHeader || partnerSlugInferred
+    if (partnerSlugInferred) {
+      console.log('[credentials][white-label] Using partner slug inferred from host:', partnerSlugInferred)
+    }
     if (!email && !customerIdHeader) {
       return NextResponse.json({}, { status: 200 })
     }
@@ -79,9 +125,9 @@ export async function GET(req: NextRequest) {
       // White-label: subscriptions are usually created on the partner Stripe Connect account.
       // If we got a partner slug, try to scope Stripe lookups to that connected account.
       let stripeAccount: string | undefined = undefined
-      if (partnerSlugHeader && supabaseAdmin) {
+      if (partnerSlug && supabaseAdmin) {
         try {
-          const key = `partner_config:${partnerSlugHeader}`
+          const key = `partner_config:${partnerSlug}`
           const { data } = await supabaseAdmin.from('app_state').select('value').eq('key', key).maybeSingle()
           const cfg = parseMaybeJson((data as any)?.value) || {}
           const connectedAccountId = String((cfg as any)?.connectedAccountId || '').trim()
@@ -608,7 +654,6 @@ export async function GET(req: NextRequest) {
 
   // White-label: per-partner AdsPower override (DO NOT override Canva / Brain.fm)
   try {
-    const partnerSlug = String(req.headers.get('x-partner-slug') || '').trim().toLowerCase()
     console.log('[credentials][white-label] Checking partner credentials for slug:', partnerSlug || '(none)')
     if (partnerSlug && supabaseAdmin) {
       const key = `partner_credentials:${partnerSlug}`
