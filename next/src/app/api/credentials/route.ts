@@ -609,18 +609,35 @@ export async function GET(req: NextRequest) {
   // White-label: per-partner AdsPower override (DO NOT override Canva / Brain.fm)
   try {
     const partnerSlug = String(req.headers.get('x-partner-slug') || '').trim().toLowerCase()
+    console.log('[credentials][white-label] Checking partner credentials for slug:', partnerSlug || '(none)')
     if (partnerSlug && supabaseAdmin) {
       const key = `partner_credentials:${partnerSlug}`
-      const { data } = await supabaseAdmin.from('app_state').select('value').eq('key', key).maybeSingle()
+      console.log('[credentials][white-label] Loading from key:', key)
+      const { data, error } = await supabaseAdmin.from('app_state').select('value').eq('key', key).maybeSingle()
+      if (error) {
+        console.warn('[credentials][white-label] Error loading partner credentials:', error)
+      }
       const v = (data as any)?.value
       if (v && typeof v === 'object') {
         const email = String((v as any)?.adspower_email || '').trim()
         const password = String((v as any)?.adspower_password || '').trim()
+        console.log('[credentials][white-label] Found partner credentials:', {
+          hasEmail: Boolean(email),
+          hasPassword: Boolean(password),
+          emailLength: email.length,
+          passwordLength: password.length
+        })
         if (email) latest = { ...(latest || {}), adspower_email: email }
         if (password) latest = { ...(latest || {}), adspower_password: password }
+      } else {
+        console.log('[credentials][white-label] No partner credentials found in DB')
       }
+    } else if (!partnerSlug) {
+      console.log('[credentials][white-label] No partner slug in request, using global credentials')
     }
-  } catch {}
+  } catch (e) {
+    console.error('[credentials][white-label] Exception:', e)
+  }
 
   // Compatibility: the UI may look for starter/pro-specific keys.
   // We store a single AdsPower credential; mirror it into the expected fields.
