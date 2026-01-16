@@ -74,7 +74,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({}, { status: 200 })
     }
     if (process.env.STRIPE_SECRET_KEY) {
-      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-07-30.basil' })
+      const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: '2025-08-27.basil' })
 
       // White-label: subscriptions are usually created on the partner Stripe Connect account.
       // If we got a partner slug, try to scope Stripe lookups to that connected account.
