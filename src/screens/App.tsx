@@ -743,8 +743,11 @@ function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'sta
 function HowToAccess({ renderTrigger = true }: { renderTrigger?: boolean }) {
   const [open, setOpen] = React.useState(false)
   const [step, setStep] = React.useState(1)
-  const wlMain = normalizeHex(String((typeof window !== 'undefined' ? (window as any).__wl_main : '') || '#9541e0'), '#9541e0')
-  const wlAccent = normalizeHex(String((typeof window !== 'undefined' ? (window as any).__wl_accent : '') || '#7c30c7'), '#7c30c7')
+  const wlMainRaw = typeof window !== 'undefined' ? (window as any).__wl_main : ''
+  const wlAccentRaw = typeof window !== 'undefined' ? (window as any).__wl_accent : ''
+  const isWhiteLabel = !!(wlMainRaw || wlAccentRaw)
+  const wlMain = normalizeHex(String(wlMainRaw || '#9541e0'), '#9541e0')
+  const wlAccent = normalizeHex(String(wlAccentRaw || '#7c30c7'), '#7c30c7')
   const wlText = bestTextColorOn(mixHex(wlMain, wlAccent, 0.5))
   const next = () => setStep((s) => Math.min(3, s + 1))
   const prev = () => setStep((s) => Math.max(1, s - 1))
@@ -762,7 +765,7 @@ function HowToAccess({ renderTrigger = true }: { renderTrigger?: boolean }) {
           <button
             onClick={() => { setOpen(true); setStep(1) }}
             className="underline cursor-pointer"
-            style={{ color: wlAccent }}
+            style={isWhiteLabel ? { color: wlAccent } : { color: "#7c30c7" }}
           >
             Open the 3‑step demo
           </button>
@@ -975,8 +978,10 @@ function CredentialsPanel({
   brandColors?: { main?: string; accent?: string };
   preview?: boolean;
 }) {
-  const wlMain = normalizeHex(String(brandColors?.main || (typeof window !== 'undefined' ? (window as any).__wl_main : '') || '#9541e0'), '#9541e0')
-  const wlAccent = normalizeHex(String(brandColors?.accent || (typeof window !== 'undefined' ? (window as any).__wl_accent : '') || '#7c30c7'), '#7c30c7')
+  // White-label (custom domains): use brandColors.accent; app.ecomefficiency.com: use fixed violet
+  const isWhiteLabel = !!brandColors
+  const wlMain = isWhiteLabel ? normalizeHex(String(brandColors?.main || '#9541e0'), '#9541e0') : '#9541e0'
+  const wlAccent = isWhiteLabel ? normalizeHex(String(brandColors?.accent || '#7c30c7'), '#7c30c7') : '#7c30c7'
   const wlText = bestTextColorOn(mixHex(wlMain, wlAccent, 0.5))
   const [creds, setCreds] = useState<ToolCredentials | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -1297,7 +1302,7 @@ function CredentialsPanel({
                       <button
                         onClick={() => setShowBilling(true)}
                         className="px-3 py-1 rounded-md text-sm font-semibold"
-                        style={{ background: "rgb(141, 7, 7)", color: "rgb(255, 255, 255)" }}
+                        style={isWhiteLabel ? { background: wlAccent, color: wlText } : { background: "#9541e0", color: "#ffffff" }}
                       >
                         Subscribe
                       </button>
@@ -1363,7 +1368,7 @@ function CredentialsPanel({
                         } catch {} 
                       }} 
                       className="underline cursor-pointer"
-                    style={{ color: wlAccent }}
+                    style={isWhiteLabel ? { color: wlAccent } : { color: "#7c30c7" }}
                     >
                       Open the 3‑step demo
                     </button>
@@ -1481,7 +1486,7 @@ function CredentialsPanel({
                     } catch {} 
                   }} 
                   className="underline cursor-pointer"
-                  style={{ color: wlAccent }}
+                  style={isWhiteLabel ? { color: wlAccent } : { color: "#7c30c7" }}
                 >
                   Open the 3‑step demo
                 </button>
