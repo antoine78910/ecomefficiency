@@ -981,8 +981,6 @@ function CredentialsPanel({
   const [creds, setCreds] = useState<ToolCredentials | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  const lastUpdatedAtRef = React.useRef<string | null>(null)
-  const [recentlyUpdated, setRecentlyUpdated] = React.useState(false)
   const [wlMeta, setWlMeta] = React.useState<any>(null)
 
   useEffect(() => {
@@ -1035,15 +1033,6 @@ function CredentialsPanel({
         }); */
 
         if (active) {
-          try {
-            const nextUpdatedAt = json?.updatedAt ? String(json.updatedAt) : ''
-            const prevUpdatedAt = lastUpdatedAtRef.current
-            if (prevUpdatedAt && nextUpdatedAt && prevUpdatedAt !== nextUpdatedAt) {
-              setRecentlyUpdated(true)
-              setTimeout(() => setRecentlyUpdated(false), 6000)
-            }
-            lastUpdatedAtRef.current = nextUpdatedAt || null
-          } catch {}
           try { setWlMeta((json as any)?._wl || null) } catch {}
           setCreds(json);
           setError(null);
@@ -1329,11 +1318,6 @@ function CredentialsPanel({
                       </button>
               <button onClick={openPortal} className="px-3 py-1 rounded-md border border-white/20 text-white hover:bg-white/10">Manage billing</button>
             </div>
-          </div>
-        ) : null}
-        {recentlyUpdated ? (
-          <div className="text-xs rounded-md border border-green-500/30 bg-green-500/10 text-green-200 px-3 py-2">
-            AdsPower credentials updated from Admin — refreshing…
           </div>
         ) : null}
         {(() => {
