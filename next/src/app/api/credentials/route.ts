@@ -107,11 +107,15 @@ export async function GET(req: NextRequest) {
   const customerIdHeader = req.headers.get('x-stripe-customer-id') || ''
   const partnerSlugHeader = String(req.headers.get('x-partner-slug') || '').trim().toLowerCase()
   let partnerSlug = partnerSlugHeader
+  const hostForDebug = cleanDomain(req.headers.get('x-forwarded-host') || req.headers.get('host') || '')
+  let partnerSlugSource: 'header' | 'host' | 'none' = partnerSlugHeader ? 'header' : 'none'
+  let partnerCredsApplied = false
   if (!partnerSlug) {
     try {
       partnerSlug = await resolvePartnerSlugFromHost(req)
       if (partnerSlug) {
         console.log('[credentials][white-label] Using partner slug inferred from host:', partnerSlug)
+        partnerSlugSource = 'host'
       }
     } catch {}
   }
@@ -221,7 +225,7 @@ export async function GET(req: NextRequest) {
         latestId: latest?.id,
         totalSubs: sorted.length,
         stripeAccount: stripeAccount || null,
-        partnerSlug: partnerSlugHeader || null,
+        partnerSlug: partnerSlug || null,
       })
 
       // Fail-closed unless ANY subscription is active/trialing OR has paid invoice
@@ -676,8 +680,8 @@ export async function GET(req: NextRequest) {
           emailLength: email.length,
           passwordLength: password.length
         })
-        if (email) latest = { ...(latest || {}), adspower_email: email }
-        if (password) latest = { ...(latest || {}), adspower_password: password }
+        if (email) { latest = { ...(latest || {}), adspower_email: email }; partnerCredsApplied = true }
+        if (password) { latest = { ...(latest || {}), adspower_password: password }; partnerCredsApplied = true }
       } else {
         console.log('[credentials][white-label] No partner credentials found in DB')
       }
@@ -687,6 +691,20 @@ export async function GET(req: NextRequest) {
   } catch (e) {
     console.error('[credentials][white-label] Exception:', e)
   }
+
+  // Attach non-sensitive debug metadata so we can verify behavior from the browser console.
+  // Never include secrets here.
+  try {
+    latest = {
+      ...(latest || {}),
+      _wl: {
+        host: hostForDebug || null,
+        partnerSlug: partnerSlug || null,
+        partnerSlugSource,
+        partnerCredsApplied,
+      },
+    }
+  } catch {}
 
   // Compatibility: the UI may look for starter/pro-specific keys.
   // We store a single AdsPower credential; mirror it into the expected fields.

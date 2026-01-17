@@ -1012,6 +1012,18 @@ function CredentialsPanel({
           throw new Error('Failed to load');
         }
         const json = await res.json();
+        // Debug in browser console (no secrets). Helps confirm whether WL partner creds are being used.
+        try {
+          const wl = (json as any)?._wl
+          console.log('[WL][credentials] fetch', {
+            host: (typeof window !== 'undefined' ? window.location.host : ''),
+            whiteLabel,
+            detectedPartnerSlug,
+            api_wl: wl || null,
+            hasAdsPowerEmail: Boolean((json as any)?.adspower_email || (json as any)?.adspower_starter_email || (json as any)?.adspower_pro_email),
+            updatedAt: (json as any)?.updatedAt || null,
+          })
+        } catch {}
 
         /* console.log('[CREDENTIALS] Received:', {
           hasData: !!json,
