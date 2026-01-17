@@ -983,6 +983,7 @@ function CredentialsPanel({
   const [error, setError] = useState<string | null>(null);
   const lastUpdatedAtRef = React.useRef<string | null>(null)
   const [recentlyUpdated, setRecentlyUpdated] = React.useState(false)
+  const [wlMeta, setWlMeta] = React.useState<any>(null)
 
   useEffect(() => {
     let active = true;
@@ -1043,6 +1044,7 @@ function CredentialsPanel({
             }
             lastUpdatedAtRef.current = nextUpdatedAt || null
           } catch {}
+          try { setWlMeta((json as any)?._wl || null) } catch {}
           setCreds(json);
           setError(null);
         }
@@ -1334,6 +1336,27 @@ function CredentialsPanel({
             AdsPower credentials updated from Admin — refreshing…
           </div>
         ) : null}
+        {(() => {
+          try {
+            if (typeof window === 'undefined') return null
+            const url = new URL(window.location.href)
+            const debug = url.searchParams.get('debug') === '1'
+            if (!debug) return null
+            return (
+              <div className="text-[11px] rounded-md border border-white/10 bg-black/40 text-gray-300 px-3 py-2">
+                <div className="text-gray-400">WL debug</div>
+                <div>host: <span className="text-white">{String(wlMeta?.host || window.location.host || '—')}</span></div>
+                <div>partnerSlug: <span className="text-white">{String(wlMeta?.partnerSlug || '—')}</span></div>
+                <div>partnerSlugSource: <span className="text-white">{String(wlMeta?.partnerSlugSource || '—')}</span></div>
+                <div>partnerDomainMapped: <span className="text-white">{String(wlMeta?.partnerDomainMapped)}</span></div>
+                <div>partnerCredsApplied: <span className="text-white">{String(wlMeta?.partnerCredsApplied)}</span></div>
+                <div>updatedAt: <span className="text-white">{String((creds as any)?.updatedAt || '—')}</span></div>
+              </div>
+            )
+          } catch {
+            return null
+          }
+        })()}
         {(() => {
           if (error) {
             return <p className="text-red-400 text-sm">{error}</p>;

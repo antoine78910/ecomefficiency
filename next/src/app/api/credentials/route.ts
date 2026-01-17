@@ -33,10 +33,10 @@ function cleanDomain(input: string) {
     .replace(/^www\./, '')
 }
 
-async function resolvePartnerSlugFromHost(req: NextRequest): Promise<string> {
+async function resolvePartnerFromHost(req: NextRequest): Promise<{ slug: string; mapped: boolean; host: string }> {
   try {
     const host = cleanDomain(req.headers.get('x-forwarded-host') || req.headers.get('host') || '')
-    if (!host) return ''
+    if (!host) return { slug: '', mapped: false, host: '' }
 
     // Never infer a partner slug on core platform domains
     if (
@@ -45,21 +45,22 @@ async function resolvePartnerSlugFromHost(req: NextRequest): Promise<string> {
       host.endsWith('localhost') ||
       host.endsWith('.vercel.app')
     ) {
-      return ''
+      return { slug: '', mapped: false, host }
     }
 
-    if (!supabaseAdmin) return ''
+    if (!supabaseAdmin) return { slug: '', mapped: false, host }
     const mapKey = `partner_domain:${host}`
     const { data, error } = await supabaseAdmin.from('app_state').select('value').eq('key', mapKey).maybeSingle()
     if (error) {
       console.warn('[credentials][white-label] partner_domain mapping lookup error', { host, mapKey, message: error.message })
-      return ''
+      return { slug: '', mapped: false, host }
     }
+    const mapped = Boolean(data)
     const mapping = parseMaybeJson((data as any)?.value) as any
     const slug = String(mapping?.slug || '').trim().toLowerCase()
-    return slug
+    return { slug, mapped, host }
   } catch {
-    return ''
+    return { slug: '', mapped: false, host: '' }
   }
 }
 
@@ -110,12 +111,19 @@ export async function GET(req: NextRequest) {
   const hostForDebug = cleanDomain(req.headers.get('x-forwarded-host') || req.headers.get('host') || '')
   let partnerSlugSource: 'header' | 'host' | 'none' = partnerSlugHeader ? 'header' : 'none'
   let partnerCredsApplied = false
+  let partnerDomainMapped: boolean | null = null
   if (!partnerSlug) {
     try {
-      partnerSlug = await resolvePartnerSlugFromHost(req)
+      const r = await resolvePartnerFromHost(req)
+      partnerDomainMapped = r.mapped
+      partnerSlug = r.slug
       if (partnerSlug) {
         console.log('[credentials][white-label] Using partner slug inferred from host:', partnerSlug)
         partnerSlugSource = 'host'
+      } else if (r.host && r.mapped) {
+        console.log('[credentials][white-label] partner_domain mapping exists but slug is empty', { host: r.host })
+      } else if (r.host) {
+        console.log('[credentials][white-label] No partner_domain mapping for host', { host: r.host })
       }
     } catch {}
   }
@@ -702,6 +710,7 @@ export async function GET(req: NextRequest) {
         partnerSlug: partnerSlug || null,
         partnerSlugSource,
         partnerCredsApplied,
+        partnerDomainMapped,
       },
     }
   } catch {}
