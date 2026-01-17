@@ -688,8 +688,23 @@ export async function GET(req: NextRequest) {
           emailLength: email.length,
           passwordLength: password.length
         })
-        if (email) { latest = { ...(latest || {}), adspower_email: email }; partnerCredsApplied = true }
-        if (password) { latest = { ...(latest || {}), adspower_password: password }; partnerCredsApplied = true }
+        // IMPORTANT: partner stores a single AdsPower credential (email+password).
+        // Force it to override ALL AdsPower variants so Pro/Starter screens never show global Discord creds.
+        if (email || password) {
+          const next: any = { ...(latest || {}) }
+          if (email) {
+            next.adspower_email = email
+            next.adspower_starter_email = email
+            next.adspower_pro_email = email
+          }
+          if (password) {
+            next.adspower_password = password
+            next.adspower_starter_password = password
+            next.adspower_pro_password = password
+          }
+          latest = next
+          partnerCredsApplied = true
+        }
       } else {
         console.log('[credentials][white-label] No partner credentials found in DB')
       }
