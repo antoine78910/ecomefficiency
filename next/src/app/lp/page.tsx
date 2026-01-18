@@ -417,70 +417,7 @@ export default async function PartnersLpPage() {
         </div>
       </section>
 
-      {/* SECTION 7 — PRICING */}
-      <section className="relative bg-black py-16 md:py-20">
-        <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="max-w-3xl">
-            <h2 className="text-3xl md:text-5xl font-bold text-white">Pricing (public plans you can resell)</h2>
-            <p className="mt-4 text-gray-300">These are the plans your users will buy from you.</p>
-          </div>
-
-          <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
-            <div className="rounded-2xl border border-white/10 bg-[#0d0e12] p-7">
-              <div className="text-2xl font-bold text-[#ab63ff]">Starter</div>
-              <div className="mt-2 text-4xl font-bold text-white">$19.99</div>
-              <div className="text-sm text-gray-400">/ month</div>
-              <div className="mt-5 text-sm text-gray-300 font-semibold">Access to 40 e-commerce & AI tools</div>
-              <ul className="mt-3 space-y-2 text-sm text-gray-300">
-                {["Core tool library", "Standard access", "Great entry plan"].map((t) => (
-                  <li key={t} className="flex items-center gap-2">
-                    <span className="text-green-400">✔️</span>
-                    {t}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="relative rounded-2xl border border-purple-500/25 bg-[linear-gradient(180deg,#1c1826_0%,#121019_100%)] p-7 shadow-[0_0_0_1px_rgba(139,92,246,0.18)]">
-              <div className="absolute -top-3 right-4 text-xs px-2 py-1 rounded-full bg-purple-500/80 text-white border border-white/10">
-                Most Popular
-              </div>
-              <div className="text-2xl font-bold text-[#ab63ff]">Pro</div>
-              <div className="mt-2 text-4xl font-bold text-white">$29.99</div>
-              <div className="text-sm text-gray-400">/ month</div>
-              <div className="mt-5 text-sm text-gray-300 font-semibold">Access to 50+ premium tools</div>
-              <ul className="mt-3 space-y-2 text-sm text-gray-300">
-                {["Everything in Starter", "Advanced tools & new releases", "Best value for most communities"].map((t) => (
-                  <li key={t} className="flex items-center gap-2">
-                    <span className="text-green-400">✔️</span>
-                    {t}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-
-          <div className="mt-10 rounded-2xl border border-white/10 bg-black/40 p-6 max-w-4xl">
-            <div className="text-white font-semibold">White-Label Partner Plan (private)</div>
-            <ul className="mt-3 space-y-2 text-sm text-gray-300">
-              {[
-                "Custom onboarding",
-                "Priority tool requests",
-                "Early access to new features",
-                "Dedicated Slack / Discord channel",
-              ].map((t) => (
-                <li key={t} className="flex items-center gap-2">
-                  <span className="text-green-400">✔️</span>
-                  {t}
-                </li>
-              ))}
-            </ul>
-            <div className="mt-4 text-sm text-gray-400">Pricing available on request.</div>
-          </div>
-        </div>
-      </section>
-
-      {/* SECTION 8 — WHO IS THIS FOR */}
+      {/* SECTION 7 — WHO IS THIS FOR */}
       <section className="relative bg-black py-16 md:py-20">
         <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8">
           <div className="max-w-3xl">
