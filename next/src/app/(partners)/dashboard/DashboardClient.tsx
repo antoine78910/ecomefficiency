@@ -557,9 +557,73 @@ export default function DashboardClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, qsAcct]);
 
+  const revenueCurrency = React.useMemo(() => {
+    const cfgCur = safeCurrencyCode((config as any)?.currency);
+    if (cfgCur) return cfgCur;
+    const payCur = safeCurrencyCode((stats?.recentPayments || [])[0]?.currency);
+    if (payCur) return payCur;
+    return "EUR";
+  }, [config, stats]);
+
+  const fallbackRows = React.useMemo<DataRow[]>(() => {
+    const signups = Array.isArray((stats as any)?.recentSignups) ? ((stats as any).recentSignups as any[]) : [];
+    const payments = Array.isArray((stats as any)?.recentPayments) ? ((stats as any).recentPayments as any[]) : [];
+    const paymentsByEmail = new Map<string, { amount?: number; currency?: string; createdAt?: string }>();
+    for (const p of payments) {
+      const email = String(p?.email || "").toLowerCase().trim();
+      if (!email) continue;
+      if (!paymentsByEmail.has(email)) {
+        paymentsByEmail.set(email, {
+          amount: Number(p?.amount || 0) || 0,
+          currency: p?.currency ? String(p.currency).toUpperCase() : "",
+          createdAt: p?.createdAt ? String(p.createdAt) : "",
+        });
+      }
+    }
+    return signups.map((s) => {
+      const email = String(s?.email || "").toLowerCase().trim();
+      const pay = email ? paymentsByEmail.get(email) : undefined;
+      return {
+        firstName: String(s?.firstName || ""),
+        email,
+        signupCreatedAt: s?.createdAt ? String(s.createdAt) : "",
+        paymentAmount: pay?.amount ?? null,
+        paymentCurrency: pay?.currency || "",
+        paymentCreatedAt: pay?.createdAt || "",
+        couponCode: "",
+        subscriptionCreatedAt: "",
+        subscriptionInterval: "",
+        subscriptionCanceled: false,
+        subscriptionActive: false,
+        subscriptionStatus: "",
+      };
+    });
+  }, [stats]);
+
+  const tableRows = React.useMemo<DataRow[]>(() => {
+    const map = new Map<string, DataRow>();
+    for (const r of Array.isArray(dataRows) ? dataRows : []) {
+      const k = String(r?.email || "").toLowerCase().trim();
+      if (!k) continue;
+      map.set(k, r);
+    }
+    for (const r of fallbackRows) {
+      const k = String(r?.email || "").toLowerCase().trim();
+      if (!k) continue;
+      if (!map.has(k)) map.set(k, r);
+    }
+    const merged = Array.from(map.values());
+    merged.sort((a, b) => {
+      const ta = Date.parse(String(a.subscriptionCreatedAt || a.signupCreatedAt || a.paymentCreatedAt || 0)) || 0;
+      const tb = Date.parse(String(b.subscriptionCreatedAt || b.signupCreatedAt || b.paymentCreatedAt || 0)) || 0;
+      return tb - ta;
+    });
+    return merged;
+  }, [dataRows, fallbackRows]);
+
   const exportCsv = React.useCallback(() => {
     try {
-      const rows = Array.isArray(dataRows) ? dataRows : [];
+      const rows = Array.isArray(tableRows) ? tableRows : [];
       const header = [
         "first_name",
         "email",
@@ -610,15 +674,7 @@ export default function DashboardClient() {
       a.remove();
       URL.revokeObjectURL(url);
     } catch {}
-  }, [dataRows, slug]);
-
-  const revenueCurrency = React.useMemo(() => {
-    const cfgCur = safeCurrencyCode((config as any)?.currency);
-    if (cfgCur) return cfgCur;
-    const payCur = safeCurrencyCode((stats?.recentPayments || [])[0]?.currency);
-    if (payCur) return payCur;
-    return "EUR";
-  }, [config, stats]);
+  }, [tableRows, slug]);
 
   const checkDomainStatus = React.useCallback(async (domain: string) => {
     if (!domain) return;
@@ -1375,7 +1431,7 @@ export default function DashboardClient() {
                     <button
                       type="button"
                       onClick={exportCsv}
-                      disabled={!dataRows.length}
+                      disabled={!tableRows.length}
                       className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
                       title="Export CSV"
                     >
@@ -1433,8 +1489,8 @@ export default function DashboardClient() {
                               Loading…
                             </td>
                           </tr>
-                        ) : dataRows.length ? (
-                          dataRows.map((c, i) => (
+                        ) : tableRows.length ? (
+                          tableRows.map((c, i) => (
                             <tr key={`${c.email}-${i}`} className="border-b border-white/5">
                               <td className="py-2 pr-4 text-gray-200">{c.firstName || "—"}</td>
                               <td className="py-2 pr-4 text-gray-300">{c.email || "—"}</td>

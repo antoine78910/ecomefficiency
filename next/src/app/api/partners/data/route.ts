@@ -84,6 +84,9 @@ export async function GET(req: NextRequest) {
 
     const stats = await readPartnerStats(slug);
     const recentSignups: any[] = Array.isArray((stats as any)?.recentSignups) ? (stats as any).recentSignups : [];
+    const signupEmails: string[] = Array.isArray((stats as any)?.signupEmails)
+      ? (stats as any).signupEmails.map((x: any) => safeEmail(x)).filter(Boolean)
+      : [];
     const recentPayments: any[] = Array.isArray((stats as any)?.recentPayments) ? (stats as any).recentPayments : [];
 
     // Map payment info by email (most recent wins)
@@ -115,14 +118,24 @@ export async function GET(req: NextRequest) {
 
     if (connectedAccountId) {
       const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-08-27.basil" as any });
-      const subs = await stripe.subscriptions.list(
-        {
-          limit: 100,
-          status: "all",
-          expand: ["data.customer", "data.items.data.price", "data.discount"],
-        } as any,
-        { stripeAccount: connectedAccountId } as any
-      );
+      const allSubs: Stripe.Subscription[] = [];
+      let startingAfter: string | undefined = undefined;
+      // paginate a bit so "old customers" still show up (bounded for performance)
+      for (let page = 0; page < 5; page++) {
+        const resp = await stripe.subscriptions.list(
+          {
+            limit: 100,
+            status: "all",
+            ...(startingAfter ? { starting_after: startingAfter } : {}),
+            expand: ["data.customer", "data.items.data.price", "data.discount"],
+          } as any,
+          { stripeAccount: connectedAccountId } as any
+        );
+        allSubs.push(...(resp.data || []));
+        if (!resp.has_more) break;
+        startingAfter = resp.data?.[resp.data.length - 1]?.id;
+        if (!startingAfter) break;
+      }
 
       // Best-effort promo-code lookup cache
       const promoCodeCache = new Map<string, string>();
@@ -141,7 +154,7 @@ export async function GET(req: NextRequest) {
         }
       };
 
-      for (const sub of subs.data || []) {
+      for (const sub of allSubs || []) {
         const cust: any = (sub as any).customer;
         const email = safeEmail(cust?.email);
         if (!email) continue;
@@ -174,6 +187,7 @@ export async function GET(req: NextRequest) {
       const em = safeEmail(s?.email);
       if (em) emails.add(em);
     }
+    for (const em of signupEmails) if (em) emails.add(em);
     for (const em of subsByEmail.keys()) emails.add(em);
 
     const rows = Array.from(emails).map((email) => {
