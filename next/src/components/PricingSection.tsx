@@ -40,6 +40,22 @@ type Currency = 'USD' | 'EUR';
     highlight: true,
     badge: "Most Popular"
   },
+  {
+    name: "Community",
+    range: "",
+    baseMonthly: null, // Custom pricing
+    features: [
+      "White-label SaaS",
+      "Fully personalized",
+      "Group pricing",
+      "Custom domain",
+      "Your Stripe account",
+      "50/50 revenue split",
+    ],
+    cta: "Request Access",
+    highlight: false,
+    isCustom: true,
+  },
 ];
 
 const proExtras = [
@@ -73,6 +89,13 @@ const PricingSection = () => {
   }, [currency])
 
 	const handleCheckout = async (planName: string) => {
+    // Community plan redirects to partners LP
+    if (planName.toLowerCase().includes('community')) {
+      try { postGoal('pricing_cta_click', { plan: 'community' }); } catch {}
+      window.location.href = 'https://partners.ecomefficiency.com/lp';
+      return;
+    }
+
 		const tier = planName.toLowerCase().includes('starter')
 			? 'starter'
 			: 'pro';
@@ -228,13 +251,13 @@ const PricingSection = () => {
 					</div>
 				</div>
 				
-			<div className="grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl mx-auto">
+			<div className="grid grid-cols-1 md:grid-cols-3 gap-6 max-w-6xl mx-auto">
 					{plans.map((plan) => (
             <div key={plan.name} className={`relative rounded-2xl border group/card ${plan.highlight ? 'bg-[linear-gradient(180deg,#1c1826_0%,#121019_100%)] border-purple-500/25 shadow-[0_0_0_1px_rgba(139,92,246,0.18)]' : 'bg-[#0d0e12] border-white/10'} flex flex-col`}>
               <div className="p-7 flex flex-col h-full">
               <h3 className="text-2xl font-bold text-[#ab63ff] drop-shadow-[0_0_12px_rgba(171,99,255,0.35)] mb-1 transition-all group-hover/card:text-[#b774ff] group-hover/card:drop-shadow-[0_0_16px_rgba(171,99,255,0.45)] font-sans tracking-normal">
                   {plan.name}
-									{isYearly ? (
+									{isYearly && !(plan as any).isCustom ? (
                     <span className="ml-2 align-middle text-xs px-2 py-0.5 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">-40%</span>
 									) : null}
                 </h3>
@@ -248,17 +271,20 @@ const PricingSection = () => {
                 <div className="min-h-[120px]">
 									{/* Price row */}
                   <div className="mb-1 flex items-end gap-3">
-                    {isYearly ? (
+                    {(plan as any).isCustom ? (
+                      <span className="text-3xl font-bold text-white antialiased tabular-nums font-sans drop-shadow-none">Custom</span>
+                    ) : isYearly ? (
                       <span className="text-5xl font-bold text-white antialiased tabular-nums font-sans drop-shadow-none">{formatPrice(plan.name==='Starter'?11.99:17.99, currency)}</span>
                     ) : (
-                      <span className="text-5xl font-bold text-white antialiased tabular-nums font-sans drop-shadow-none">{formatPrice(plan.baseMonthly, currency)}</span>
+                      <span className="text-5xl font-bold text-white antialiased tabular-nums font-sans drop-shadow-none">{formatPrice(plan.baseMonthly!, currency)}</span>
                     )}
-                    <span className="text-sm text-gray-400 mb-1.5">/mo</span>
+                    {!(plan as any).isCustom && <span className="text-sm text-gray-400 mb-1.5">/mo</span>}
                   </div>
 
                  <div className="text-xs text-gray-300 mt-3 mb-0">
                                             {plan.name === 'Starter' && 'Access to 40 Ecom tools'}
                                             {plan.name === 'Pro' && 'Access to +50 Ecom tools'}
+                                            {plan.name === 'Community' && 'White-label SaaS for communities'}
                                         </div>
 								</div>
 								
@@ -337,6 +363,22 @@ const PricingSection = () => {
                   </div>
                 )}
 
+                {plan.name === 'Community' && (
+                  <div className="mt-0 mb-8 space-y-2 text-gray-300 text-sm">
+                    <ul className="space-y-2">
+                      {plan.features.map((f) => (
+                        <li key={f} className="flex items-start gap-2 text-xs">
+                          <Check className="w-4 h-4 text-purple-400 mt-0.5 flex-shrink-0" />
+                          <span>{f}</span>
+                        </li>
+                      ))}
+                    </ul>
+                    <div className="mt-4 pt-4 border-t border-white/10 text-xs text-gray-400">
+                      Perfect for Discord communities, agencies, and creators with an audience.
+                    </div>
+                  </div>
+                )}
+
 									{/* Unlimited plan removed */}
 
                 <div className="pt-2 mt-auto">
@@ -346,6 +388,13 @@ const PricingSection = () => {
                       className="w-full h-12 rounded-full text-sm font-semibold transition-colors cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] text-white border border-[#9541e0] shadow-[0_4px_24px_rgba(149,65,224,0.45)] hover:shadow-[0_6px_28px_rgba(149,65,224,0.6)] hover:brightness-110"
                     >
                       Get Started
+                    </button>
+                  ) : (plan as any).isCustom ? (
+                    <button
+										onClick={() => handleCheckout(plan.name)}
+                      className="group w-full h-12 rounded-full text-sm font-semibold cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] text-white border border-[#9541e0] shadow-[0_4px_24px_rgba(149,65,224,0.45)] hover:shadow-[0_6px_28px_rgba(149,65,224,0.6)] hover:brightness-110 transition-all"
+                    >
+                      <span className="transition-colors text-white group-hover:text-white">{plan.cta}</span>
                     </button>
                   ) : (
                     <button
