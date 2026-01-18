@@ -113,6 +113,7 @@ export async function GET(req: NextRequest) {
         cancelAtPeriodEnd?: boolean;
         canceledAt?: string | null;
         couponCode?: string;
+        invoicePaid?: boolean;
       }
     >();
 
@@ -127,7 +128,7 @@ export async function GET(req: NextRequest) {
             limit: 100,
             status: "all",
             ...(startingAfter ? { starting_after: startingAfter } : {}),
-            expand: ["data.customer", "data.items.data.price", "data.discount"],
+            expand: ["data.customer", "data.items.data.price", "data.discount", "data.latest_invoice"],
           } as any,
           { stripeAccount: connectedAccountId } as any
         );
@@ -169,6 +170,20 @@ export async function GET(req: NextRequest) {
         const cancelAtPeriodEnd = Boolean((sub as any)?.cancel_at_period_end);
         const canceledAt = (sub as any)?.canceled_at ? new Date(Number((sub as any).canceled_at) * 1000).toISOString() : null;
 
+        // Determine invoice paid state (helps for "incomplete but paid" cases right after checkout)
+        let invoicePaid = false;
+        try {
+          const inv: any = (sub as any)?.latest_invoice;
+          if (inv && typeof inv === "object") {
+            if (String(inv?.status || "").toLowerCase() === "paid") invoicePaid = true;
+          } else if (typeof inv === "string" && inv) {
+            try {
+              const fetched = await stripe.invoices.retrieve(inv, { stripeAccount: connectedAccountId } as any);
+              if (String((fetched as any)?.status || "").toLowerCase() === "paid") invoicePaid = true;
+            } catch {}
+          }
+        } catch {}
+
         let couponCode = "";
         try {
           const discount: any = (sub as any)?.discount;
@@ -177,7 +192,7 @@ export async function GET(req: NextRequest) {
           else if (promotionCode && typeof promotionCode === "object") couponCode = String(promotionCode?.code || "").trim();
         } catch {}
 
-        subsByEmail.set(email, { createdAt: created, interval, status, cancelAtPeriodEnd, canceledAt, couponCode });
+        subsByEmail.set(email, { createdAt: created, interval, status, cancelAtPeriodEnd, canceledAt, couponCode, invoicePaid });
       }
     }
 
@@ -196,7 +211,11 @@ export async function GET(req: NextRequest) {
       const sub = subsByEmail.get(email);
 
       const interval = sub?.interval === "year" ? "year" : sub?.interval === "month" ? "month" : sub?.interval || "";
-      const isActive = sub?.status === "active" || sub?.status === "trialing";
+      const isActive =
+        sub?.status === "active" ||
+        sub?.status === "trialing" ||
+        (sub?.status === "incomplete" && Boolean(sub?.invoicePaid)) ||
+        sub?.status === "past_due";
       const isCanceled = sub?.status === "canceled" || Boolean(sub?.cancelAtPeriodEnd) || Boolean(sub?.canceledAt);
 
       return {
