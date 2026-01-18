@@ -391,7 +391,7 @@ const PricingSection = () => {
                   ) : (plan as any).isCustom ? (
                     <button
 										onClick={() => handleCheckout(plan.name)}
-                      className="group w-full h-12 rounded-full text-sm font-semibold cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] text-white border border-[#9541e0] shadow-[0_4px_24px_rgba(149,65,224,0.45)] hover:shadow-[0_6px_28px_rgba(149,65,224,0.6)] hover:brightness-110 transition-all"
+                      className="group w-full h-12 rounded-full text-sm font-semibold cursor-pointer bg-[#2b2b2f]/70 text-white/90 border border-white/10 shadow-[inset_0_0_0_1px_rgba(255,255,255,0.04)] hover:bg-[rgba(158,76,252,0.28)] hover:text-white hover:shadow-[0_8px_36px_rgba(158,76,252,0.38),0_0_0_1px_rgba(255,255,255,0.06)] transition-shadow"
                     >
                       <span className="transition-colors text-white group-hover:text-white">{plan.cta}</span>
                     </button>

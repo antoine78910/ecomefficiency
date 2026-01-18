@@ -7,7 +7,7 @@ function shouldEnableCrisp(hostname: string) {
   const h = (hostname || "").toLowerCase().replace(/:\d+$/, "");
   const bare = h.replace(/^www\./, "");
   // Enable only on main brand domains (avoid loading Crisp on custom domains).
-  return bare === "ecomefficiency.com" || bare.endsWith(".ecomefficiency.com");
+  return bare === "ecomefficiency.com" || bare.endsWith(".ecomefficiency.com") || bare.endsWith("localhost");
 }
 
 export default function CrispScript() {
