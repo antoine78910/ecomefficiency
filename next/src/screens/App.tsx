@@ -1859,18 +1859,35 @@ function InfoToolCard({ img, title, description, link, note, cover, disabled, sm
 
 function BrainCredsCard({ disabled }: { disabled?: boolean }) {
   const [open, setOpen] = React.useState(false)
-  const wl = React.useMemo(() => {
-    try {
-      if (typeof window === 'undefined') return null
-      const mainRaw = String((window as any)?.__wl_main || '').trim()
-      const accentRaw = String((window as any)?.__wl_accent || '').trim()
-      // If only one color is provided, reuse it for both so buttons never fall back to purple unexpectedly.
-      const main = normalizeHex(mainRaw || '#9541e0', '#9541e0')
-      const accent = normalizeHex(accentRaw || mainRaw || main, main)
-      return { main, accent }
-    } catch {
-      return null
+  const [wl, setWl] = React.useState<{ main: string; accent: string } | null>(null)
+  React.useEffect(() => {
+    let cancelled = false
+    let attempts = 0
+    const tryRead = () => {
+      attempts++
+      try {
+        if (typeof window === 'undefined') return
+        const mainRaw = String((window as any)?.__wl_main || '').trim()
+        const accentRaw = String((window as any)?.__wl_accent || '').trim()
+        if (!mainRaw || !accentRaw) return
+        const main = normalizeHex(mainRaw, '#9541e0')
+        const accent = normalizeHex(accentRaw, main)
+        if (!cancelled) setWl({ main, accent })
+      } catch {}
     }
+    // WL globals are set client-side; they may arrive after first render.
+    tryRead()
+    const id = window.setInterval(() => {
+      if (cancelled) return
+      if (wl) return
+      if (attempts >= 40) return window.clearInterval(id) // ~10s max
+      tryRead()
+    }, 250)
+    return () => {
+      cancelled = true
+      window.clearInterval(id)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   return (
     <div onClick={() => { if (!disabled) setOpen(true) }} className={`relative bg-gray-900 border border-white/10 rounded-2xl p-2 md:p-3 flex flex-col ${disabled ? 'opacity-60' : 'cursor-pointer hover:border-white/20'}`}>
