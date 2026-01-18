@@ -164,7 +164,7 @@ export default function PartnersConfigurationPage() {
       { key: "audienceMainChannel", title: "Where is your audience mainly?", help: "Choose one.", required: true },
       { key: "launchOnboardCount", title: "How many people can you onboard at launch?", help: "Rough estimate.", required: true },
       { key: "offerType", title: "Do you want it to be:", help: "Choose one.", required: true },
-      { key: "slug", title: "URL slug", help: "Used for your default URL (e.g. ecomwolf → partners.ecomefficiency.com/ecomwolf)", required: true },
+      { key: "slug", title: "URL slug", help: "Used for your default URL (e.g. zuckerbergspace → partners.ecomefficiency.com/zuckerbergspace)", required: true },
       { key: "adminEmail", title: "Admin email", help: "We’ll use it to contact you + give admin access.", required: true },
       { key: "review", title: "Review & submit", help: "Confirm your info", required: true },
     ],
@@ -476,7 +476,7 @@ export default function PartnersConfigurationPage() {
                   autoFocus
                   value={form.slug}
                   onChange={(e) => setForm((s) => ({ ...s, slug: e.target.value }))}
-                  placeholder="Example: ecomwolf"
+                  placeholder="Example: zuckerbergspace"
                   className="w-full text-lg md:text-xl rounded-xl border border-white/15 bg-white/5 px-4 py-3 focus:outline-none focus:border-white/25"
                 />
                 <div className="text-xs text-gray-400">
