@@ -2712,6 +2712,7 @@ export default function DashboardClient() {
                                 >
                                   <option value="EUR">EUR</option>
                                   <option value="USD">USD</option>
+                                  <option value="GBP">GBP</option>
                                 </select>
                               </div>
                             </div>
@@ -2726,8 +2727,9 @@ export default function DashboardClient() {
                                 const ad = Number.isFinite(adRaw) ? Math.min(Math.max(adRaw, 0), 90) : 20;
                                 const m2 = m;
                                 const y2 = y > 0 ? y * (1 - ad / 100) : y;
-                                const sym = String(pageDraft.currency || "EUR").toUpperCase() === "USD" ? "$" : "€";
-                                const fmt = (n: number) => (String(pageDraft.currency || "EUR").toUpperCase() === "USD" ? `${sym}${format2(n)}` : `${format2(n)}${sym}`);
+                                const cur = String(pageDraft.currency || "EUR").toUpperCase();
+                                const sym = cur === "USD" ? "$" : cur === "GBP" ? "£" : "€";
+                                const fmt = (n: number) => (cur === "USD" || cur === "GBP" ? `${sym}${format2(n)}` : `${format2(n)}${sym}`);
                                 const offer = "";
                                 return (
                                   <span className="text-gray-300">
