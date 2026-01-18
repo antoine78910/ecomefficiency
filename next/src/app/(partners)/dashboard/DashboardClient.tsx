@@ -70,6 +70,22 @@ type StripeStatus = {
   bankLast4?: string | null;
 };
 
+function safeCurrencyCode(input: any) {
+  const c = String(input || "").trim().toUpperCase();
+  return /^[A-Z]{3}$/.test(c) ? c : "";
+}
+
+function fmtCurrency(amount: any, currency: string) {
+  const n = Number(amount);
+  if (!Number.isFinite(n)) return `0 ${currency}`.trim();
+  const code = safeCurrencyCode(currency) || "EUR";
+  try {
+    return new Intl.NumberFormat("fr-FR", { style: "currency", currency: code, maximumFractionDigits: 2 }).format(n);
+  } catch {
+    return `${n.toFixed(2)} ${code}`.trim();
+  }
+}
+
 function Card({ title, children, statusIcon }: { title: string; children: React.ReactNode; statusIcon?: React.ReactNode }) {
   return (
     <div className="rounded-2xl border border-white/10 bg-black/60 shadow-[0_20px_80px_rgba(149,65,224,0.10)] p-5">
@@ -111,6 +127,7 @@ export default function DashboardClient() {
   const [saving, setSaving] = React.useState(false);
   const [config, setConfig] = React.useState<PartnerConfig>({});
   const [stats, setStats] = React.useState<PartnerStats | null>(null);
+  const [statsRefreshing, setStatsRefreshing] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [connectLoading, setConnectLoading] = React.useState(false);
   const didAutoSetFee = React.useRef(false);
@@ -550,6 +567,14 @@ export default function DashboardClient() {
     });
   }, [stats]);
 
+  const revenueCurrency = React.useMemo(() => {
+    const cfgCur = safeCurrencyCode((config as any)?.currency);
+    if (cfgCur) return cfgCur;
+    const payCur = safeCurrencyCode((stats?.recentPayments || [])[0]?.currency);
+    if (payCur) return payCur;
+    return "EUR";
+  }, [config, stats]);
+
   const checkDomainStatus = React.useCallback(async (domain: string) => {
     if (!domain) return;
     try {
@@ -608,6 +633,26 @@ export default function DashboardClient() {
       setLoading(false);
     }
   };
+
+  const refreshStats = React.useCallback(async () => {
+    if (!slug) return;
+    setStatsRefreshing(true);
+    try {
+      const res = await fetch(`/api/partners/stats?slug=${encodeURIComponent(slug)}`, { cache: "no-store" });
+      const json = await res.json().catch(() => ({}));
+      if (!res.ok || !json?.ok) throw new Error(json?.detail || json?.error || "Failed to refresh stats");
+      setStats(json.stats || null);
+      try {
+        toast({ title: "Data refreshed", description: "Your stats have been updated." });
+      } catch {}
+    } catch (e: any) {
+      try {
+        toast({ title: "Refresh failed", description: e?.message || "Failed to refresh stats" });
+      } catch {}
+    } finally {
+      setStatsRefreshing(false);
+    }
+  }, [slug, toast]);
 
   const loadPromos = async (s: string) => {
     if (!s) return;
@@ -1248,6 +1293,21 @@ export default function DashboardClient() {
 
             {tab === "data" ? (
               <div className="space-y-4">
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-white">Data</div>
+                    <div className="text-xs text-gray-500">Signups, payments & revenue for this slug</div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={refreshStats}
+                    disabled={!slug || statsRefreshing}
+                    className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    {statsRefreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
+                    Refresh
+                  </button>
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <Card title="Signups">
                     <div className="text-2xl font-semibold">{stats?.signups ?? 0}</div>
@@ -1258,7 +1318,7 @@ export default function DashboardClient() {
                     <div className="text-xs text-gray-500 mt-1">Tracked by slug</div>
                   </Card>
                   <Card title="Revenue">
-                    <div className="text-2xl font-semibold">{stats?.revenue ?? 0}</div>
+                    <div className="text-2xl font-semibold">{fmtCurrency(stats?.revenue ?? 0, revenueCurrency)}</div>
                     <div className="text-xs text-gray-500 mt-1">
                       Last updated: <span className="text-gray-300">{stats?.lastUpdated || "—"}</span>
                     </div>
