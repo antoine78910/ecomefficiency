@@ -181,6 +181,7 @@ export async function POST(req: NextRequest) {
 
     const root = guessRootDomain(domainInput);
     const name = `_dmarc.${root}`;
+    const nameDup = `_dmarc.${root}.${root}`; // common Namecheap mistake when user types full domain in Host/Name
 
     const rua = String(body?.rua || "").trim();
     const ruaEmail = (() => {
@@ -215,6 +216,24 @@ export async function POST(req: NextRequest) {
       (r: string) => normalizeTxtData(String(r)).toLowerCase() === normalizeTxtData(recommended).toLowerCase()
     );
 
+    // Diagnose common Namecheap mistake:
+    // User enters Host as "_dmarc.example.com" instead of "_dmarc", so provider appends the zone again.
+    // That creates a record at _dmarc.example.com.example.com (which our strict lookup won't see).
+    let namecheapHostMistake = false;
+    let dupRecords: string[] = [];
+    if (!hasDmarc) {
+      try {
+        const dupLookup = await dohTxt(nameDup);
+        dupRecords = dupLookup.data || [];
+        const dupHasDmarc = dupRecords.some((r: string) => {
+          const recordStr = String(r);
+          const normalized = recordStr.toLowerCase().replace(/\s+/g, "");
+          return /v\s*=\s*dmarc1/i.test(recordStr) || normalized.includes("v=dmarc1") || /^v\s*=\s*dmarc1/i.test(recordStr.trim());
+        });
+        if (dupHasDmarc) namecheapHostMistake = true;
+      } catch {}
+    }
+
     const patch = {
       dmarcName: name,
       dmarcRecommended: recommended,
@@ -222,6 +241,9 @@ export async function POST(req: NextRequest) {
       dmarcFoundRecords: records.slice(0, 5),
       dmarcMatchesRecommended: matchesRecommended,
       dmarcLastCheckedAt: new Date().toISOString(),
+      dmarcNamecheapHostMistake: namecheapHostMistake,
+      dmarcDuplicateName: nameDup,
+      dmarcDuplicateFoundRecords: dupRecords.slice(0, 5),
     };
 
     const saved = await upsertConfig(slug, patch);
@@ -238,6 +260,9 @@ export async function POST(req: NextRequest) {
         found: hasDmarc,
         records,
         matchesRecommended,
+        namecheapHostMistake,
+        duplicateName: nameDup,
+        duplicateRecords: dupRecords,
         config: saved.config,
         // Debug info
         debug: {
@@ -246,6 +271,9 @@ export async function POST(req: NextRequest) {
           recordsFound: records,
           lookupOk: lookup.ok,
           lookupStatus: lookup.status,
+          searchedDuplicateName: nameDup,
+          duplicateRecordsCount: dupRecords.length,
+          duplicateRecordsFound: dupRecords,
         },
       },
       { status: 200 }

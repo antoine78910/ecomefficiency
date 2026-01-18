@@ -1854,6 +1854,7 @@ export default function DashboardClient() {
                       const root = parts.length <= 2 ? base : parts.slice(-2).join(".");
 
                       const dmarcName = `_dmarc.${root}`;
+                      const dmarcHostNamecheap = `_dmarc`;
                       const normalizeLocalPart = (v: any) =>
                         String(v || "")
                           .trim()
@@ -1868,6 +1869,7 @@ export default function DashboardClient() {
                       const recommended = `v=DMARC1; p=none; rua=mailto:${ruaEmail}`;
 
                       const found = Boolean((config as any)?.dmarcFound);
+                      const namecheapMistake = Boolean((config as any)?.dmarcNamecheapHostMistake);
                       const checkedAt = (config as any)?.dmarcLastCheckedAt;
                       const foundRecords = Array.isArray((config as any)?.dmarcFoundRecords) ? (config as any).dmarcFoundRecords : [];
 
@@ -1908,7 +1910,16 @@ export default function DashboardClient() {
                               <div className="text-[11px] text-amber-300">
                                 No DNS records found for <span className="font-mono">{dmarcName}</span>
                                 <br />
-                                <span className="text-amber-400/80">Make sure the TXT record is configured in your DNS provider (Namecheap).</span>
+                                {namecheapMistake ? (
+                                  <span className="text-amber-400/80">
+                                    Namecheap hint: your record likely exists at <span className="font-mono">{`_dmarc.${root}.${root}`}</span> because you entered the full domain in the Host field.
+                                    Use Host <span className="font-mono">{dmarcHostNamecheap}</span> (not <span className="font-mono">{dmarcName}</span>).
+                                  </span>
+                                ) : (
+                                  <span className="text-amber-400/80">
+                                    If you're using Namecheap: set Host to <span className="font-mono">{dmarcHostNamecheap}</span> (Namecheap appends <span className="font-mono">.{root}</span> automatically).
+                                  </span>
+                                )}
                               </div>
                             </div>
                           ) : null}
@@ -1916,12 +1927,17 @@ export default function DashboardClient() {
                           <div className="mt-2 space-y-2">
                             <div className="rounded-md border border-white/10 bg-black/20 px-2 py-2 flex items-center justify-between gap-2">
                               <div className="min-w-0">
-                                <div className="text-[11px] text-gray-400">Name</div>
-                                <div className="font-mono text-sm text-gray-200 break-all">{dmarcName}</div>
+                                <div className="text-[11px] text-gray-400">Host / Name (Namecheap)</div>
+                                <div className="font-mono text-sm text-gray-200 break-all">{dmarcHostNamecheap}</div>
                               </div>
-                              <button type="button" onClick={() => copyText(dmarcName)} className="shrink-0 p-1 rounded hover:bg-white/10" aria-label="Copy DMARC name">
+                              <button type="button" onClick={() => copyText(dmarcHostNamecheap)} className="shrink-0 p-1 rounded hover:bg-white/10" aria-label="Copy DMARC host">
                                 <Copy className="w-4 h-4 text-gray-300" />
                               </button>
+                            </div>
+                            <div className="rounded-md border border-white/10 bg-black/20 px-2 py-2">
+                              <div className="text-[11px] text-gray-400">Full record (FQDN)</div>
+                              <div className="font-mono text-[11px] text-gray-300 break-all">{dmarcName}</div>
+                              <div className="mt-1 text-[10px] text-gray-500">Some DNS providers require the full name; Namecheap usually wants only the host.</div>
                             </div>
                             <div className="rounded-md border border-white/10 bg-black/20 px-2 py-2 flex items-center justify-between gap-2">
                               <div className="min-w-0">
