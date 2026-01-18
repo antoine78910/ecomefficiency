@@ -1864,9 +1864,9 @@ function BrainCredsCard({ disabled }: { disabled?: boolean }) {
       if (typeof window === 'undefined') return null
       const mainRaw = String((window as any)?.__wl_main || '').trim()
       const accentRaw = String((window as any)?.__wl_accent || '').trim()
-      if (!mainRaw || !accentRaw) return null
-      const main = normalizeHex(mainRaw, '#9541e0')
-      const accent = normalizeHex(accentRaw, main)
+      // If only one color is provided, reuse it for both so buttons never fall back to purple unexpectedly.
+      const main = normalizeHex(mainRaw || '#9541e0', '#9541e0')
+      const accent = normalizeHex(accentRaw || mainRaw || main, main)
       return { main, accent }
     } catch {
       return null
