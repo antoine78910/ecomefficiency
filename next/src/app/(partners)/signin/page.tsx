@@ -19,6 +19,30 @@ function useAuthCallbackRedirect(targetPath: string) {
       try {
         if (typeof window === "undefined") return;
 
+        const resolvePartnersNext = async (): Promise<string> => {
+          try {
+            const { data } = await supabase.auth.getUser();
+            const email = String(data.user?.email || "").trim();
+            if (!email) return "/signin";
+            const res = await fetch("/api/partners/me", { cache: "no-store", headers: { "x-user-email": email } });
+            const json = await res.json().catch(() => ({}));
+            const slugs: string[] = Array.isArray(json?.slugs) ? json.slugs : [];
+            if (!slugs.length) {
+              // New user: go to onboarding (configuration)
+              try { localStorage.removeItem("partners_current_slug"); } catch {}
+              return "/configuration";
+            }
+            const stored = (() => {
+              try { return String(localStorage.getItem("partners_current_slug") || "").trim().toLowerCase(); } catch { return ""; }
+            })();
+            const chosen = (stored && slugs.includes(stored)) ? stored : slugs[0];
+            try { localStorage.setItem("partners_current_slug", chosen); } catch {}
+            return `/dashboard?slug=${encodeURIComponent(chosen)}`;
+          } catch {
+            return targetPath;
+          }
+        };
+
         // OAuth error handling (e.g. user cancelled)
         try {
           const url = new URL(window.location.href);
@@ -53,7 +77,7 @@ function useAuthCallbackRedirect(targetPath: string) {
           try {
             history.replaceState(null, "", window.location.pathname + window.location.search);
           } catch {}
-          if (!cancelled) window.location.href = targetPath;
+          if (!cancelled) window.location.href = await resolvePartnersNext();
           return;
         }
 
@@ -64,7 +88,7 @@ function useAuthCallbackRedirect(targetPath: string) {
           try {
             history.replaceState(null, "", window.location.pathname);
           } catch {}
-          if (!cancelled) window.location.href = targetPath;
+          if (!cancelled) window.location.href = await resolvePartnersNext();
           return;
         }
 
@@ -72,7 +96,7 @@ function useAuthCallbackRedirect(targetPath: string) {
         try {
           const { data } = await supabase.auth.getUser();
           if (data?.user && !cancelled) {
-            window.location.href = targetPath;
+            window.location.href = await resolvePartnersNext();
             return;
           }
         } catch {}
@@ -166,7 +190,25 @@ export default function PartnersSignInPage() {
         setPending(false);
         return;
       }
-      window.location.href = "/dashboard";
+      // Decide destination: existing partner -> /dashboard?slug=..., new user -> /configuration
+      try {
+        const me = await fetch("/api/partners/me", { cache: "no-store", headers: { "x-user-email": data.user.email || "" } });
+        const mj = await me.json().catch(() => ({}));
+        const slugs: string[] = Array.isArray(mj?.slugs) ? mj.slugs : [];
+        if (!slugs.length) {
+          try { localStorage.removeItem("partners_current_slug"); } catch {}
+          window.location.href = "/configuration";
+          return;
+        }
+        const stored = (() => {
+          try { return String(localStorage.getItem("partners_current_slug") || "").trim().toLowerCase(); } catch { return ""; }
+        })();
+        const chosen = (stored && slugs.includes(stored)) ? stored : slugs[0];
+        try { localStorage.setItem("partners_current_slug", chosen); } catch {}
+        window.location.href = `/dashboard?slug=${encodeURIComponent(chosen)}`;
+      } catch {
+        window.location.href = "/dashboard";
+      }
     } catch (err: any) {
       toast({ title: "Error", description: err?.message || "Unexpected error", variant: "destructive" });
       setPending(false);

@@ -2,6 +2,9 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/integrations/supabase/server";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
+const ADMIN_EMAIL = "anto.delbos@gmail.com";
 
 function parseMaybeJson<T = any>(value: any): T | null {
   if (value === null || value === undefined) return null;
@@ -28,6 +31,10 @@ function cleanSlug(input: string) {
     .replace(/^-|-$/g, "");
 }
 
+function cleanEmail(input: any) {
+  return String(input || "").trim().toLowerCase();
+}
+
 function cleanDomain(input: string) {
   return String(input || "")
     .trim()
@@ -46,16 +53,60 @@ async function readConfig(slug: string) {
   return { ok: true as const, config };
 }
 
+function toPublicConfig(cfg: any) {
+  const c: any = (cfg && typeof cfg === "object") ? cfg : {};
+  // Only fields needed for public pricing/paywall + branding
+  return {
+    slug: c.slug,
+    saasName: c.saasName,
+    tagline: c.tagline,
+    logoUrl: c.logoUrl,
+    faviconUrl: c.faviconUrl,
+    colors: c.colors,
+    currency: c.currency,
+    monthlyPrice: c.monthlyPrice,
+    yearlyPrice: c.yearlyPrice,
+    annualDiscountPercent: c.annualDiscountPercent,
+    offerTitle: c.offerTitle,
+    allowPromotionCodes: c.allowPromotionCodes,
+    defaultDiscountId: c.defaultDiscountId,
+    titleHighlight: c.titleHighlight,
+    titleHighlightColor: c.titleHighlightColor,
+    subtitleHighlight: c.subtitleHighlight,
+    subtitleHighlightColor: c.subtitleHighlightColor,
+    customDomain: c.customDomain,
+    domainVerified: c.domainVerified,
+  };
+}
+
+async function canRead(slug: string, requesterEmail: string) {
+  const reqEmail = cleanEmail(requesterEmail);
+  if (!reqEmail) return false;
+  if (reqEmail === ADMIN_EMAIL.toLowerCase()) return true;
+  const cfg = await readConfig(slug);
+  const adminEmail = cleanEmail((cfg.ok ? (cfg.config as any)?.adminEmail : "") || "");
+  if (!adminEmail) return true; // bootstrap first user
+  return adminEmail === reqEmail;
+}
+
 export async function GET(req: NextRequest) {
   try {
     if (!supabaseAdmin) return NextResponse.json({ ok: false, error: "supabase_admin_missing" }, { status: 500 });
     const url = new URL(req.url);
     const slug = cleanSlug(url.searchParams.get("slug") || "");
     if (!slug) return NextResponse.json({ ok: false, error: "missing_slug" }, { status: 400 });
+    const requesterEmail = req.headers.get("x-user-email") || "";
     const r = await readConfig(slug);
     if (!r.ok) return NextResponse.json({ ok: false, error: "db_error", detail: r.error?.message }, { status: 500 });
     // If onboarding DB write failed earlier, allow dashboard to still work and let the first save create the config.
     if (!r.config) return NextResponse.json({ ok: true, exists: false, config: { slug } }, { status: 200 });
+    // Public (no email header): only expose safe subset (do NOT leak connectedAccountId, Resend status, etc.)
+    if (!cleanEmail(requesterEmail)) {
+      return NextResponse.json({ ok: true, exists: true, config: toPublicConfig(r.config) }, { status: 200 });
+    }
+    // Authenticated partners dashboard: only allow reading full config if owner
+    const allowed = await canRead(slug, requesterEmail);
+    if (!allowed) return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
     return NextResponse.json({ ok: true, exists: true, config: r.config }, { status: 200 });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: "unknown_error", detail: e?.message || String(e) }, { status: 500 });
@@ -68,13 +119,24 @@ export async function PUT(req: NextRequest) {
     const url = new URL(req.url);
     const slug = cleanSlug(url.searchParams.get("slug") || "");
     if (!slug) return NextResponse.json({ ok: false, error: "missing_slug" }, { status: 400 });
+    const requesterEmail = req.headers.get("x-user-email") || "";
+    if (!cleanEmail(requesterEmail)) return NextResponse.json({ ok: false, error: "missing_email" }, { status: 400 });
     const body = await req.json().catch(() => ({}));
     const patch = (body?.patch && typeof body.patch === "object") ? body.patch : {};
 
     const existing = await readConfig(slug);
     const current = existing.ok ? (existing.config || {}) : {};
 
-    const merged = { ...(current || {}), ...(patch || {}), slug };
+    // Security: first writer sets adminEmail to the authenticated email (prevents takeover by setting someone else's email).
+    const nextPatch: any = { ...(patch || {}) };
+    const currentAdmin = cleanEmail((current as any)?.adminEmail || "");
+    if (!currentAdmin) {
+      nextPatch.adminEmail = requesterEmail;
+    }
+    const merged = { ...(current || {}), ...(nextPatch || {}), slug };
+
+    const allowed = await canRead(slug, requesterEmail);
+    if (!allowed) return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
 
     const key = `partner_config:${slug}`;
     const shouldStringifyValue = (msg: string) =>

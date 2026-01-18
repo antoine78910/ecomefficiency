@@ -340,10 +340,30 @@ export default function DashboardClient() {
 
   React.useEffect(() => {
     if (slug) return;
-    try {
-      const s = localStorage.getItem("partners_current_slug") || "";
-      if (s) setSlug(s);
-    } catch {}
+    // SECURITY: never blindly reuse a stored slug across accounts.
+    // Resolve allowed slugs for the authenticated email and pick a matching slug (or force onboarding).
+    let cancelled = false;
+    (async () => {
+      try {
+        const requesterEmail = await ensureRequesterEmail();
+        if (!requesterEmail) return;
+        const res = await fetch("/api/partners/me", { cache: "no-store", headers: { "x-user-email": requesterEmail } });
+        const json = await res.json().catch(() => ({}));
+        const slugs: string[] = Array.isArray(json?.slugs) ? json.slugs : [];
+        if (!slugs.length) {
+          try { localStorage.removeItem("partners_current_slug"); } catch {}
+          if (!cancelled) window.location.href = "/configuration";
+          return;
+        }
+        const stored = (() => {
+          try { return String(localStorage.getItem("partners_current_slug") || "").trim().toLowerCase(); } catch { return ""; }
+        })();
+        const chosen = (stored && slugs.includes(stored)) ? stored : slugs[0];
+        try { localStorage.setItem("partners_current_slug", chosen); } catch {}
+        if (!cancelled) setSlug(chosen);
+      } catch {}
+    })();
+    return () => { cancelled = true; };
   }, [slug]);
 
   const portalUrl = React.useMemo(() => {
@@ -694,14 +714,26 @@ export default function DashboardClient() {
     setLoading(true);
     setError(null);
     try {
+      const requesterEmail = await ensureRequesterEmail();
+      if (!requesterEmail) {
+        setError("Please sign in again.");
+        window.location.href = "/signin";
+        return;
+      }
       const [cfgRes, statsRes] = await Promise.all([
-        fetch(`/api/partners/config?slug=${encodeURIComponent(s)}`, { cache: "no-store" }),
-        fetch(`/api/partners/stats?slug=${encodeURIComponent(s)}`, { cache: "no-store" }),
+        fetch(`/api/partners/config?slug=${encodeURIComponent(s)}`, { cache: "no-store", headers: { "x-user-email": requesterEmail } }),
+        fetch(`/api/partners/stats?slug=${encodeURIComponent(s)}`, { cache: "no-store", headers: { "x-user-email": requesterEmail } }),
       ]);
 
       const cfgJson = await cfgRes.json().catch(() => ({}));
       const statsJson = await statsRes.json().catch(() => ({}));
 
+      if (cfgRes.status === 403) {
+        // Security: user is not allowed to view this slug -> force onboarding
+        try { localStorage.removeItem("partners_current_slug"); } catch {}
+        window.location.href = "/configuration";
+        return;
+      }
       if (cfgRes.ok && cfgJson?.ok) {
         const loadedConfig = cfgJson.config || {};
         setConfig(loadedConfig);
@@ -753,7 +785,11 @@ export default function DashboardClient() {
     if (!slug) return;
     setStatsRefreshing(true);
     try {
-      const res = await fetch(`/api/partners/stats?slug=${encodeURIComponent(slug)}`, { cache: "no-store" });
+      const requesterEmail = await ensureRequesterEmail();
+      const res = await fetch(`/api/partners/stats?slug=${encodeURIComponent(slug)}`, {
+        cache: "no-store",
+        headers: requesterEmail ? { "x-user-email": requesterEmail } : undefined,
+      });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json?.ok) throw new Error(json?.detail || json?.error || "Failed to refresh stats");
       setStats(json.stats || null);
@@ -781,6 +817,15 @@ export default function DashboardClient() {
       setStatsRefreshing(false);
     }
   }, [slug, toast]);
+
+  const onLogout = async () => {
+    try {
+      await supabase.auth.signOut();
+    } catch {}
+    try { localStorage.removeItem("partners_current_slug"); } catch {}
+    try { if (slug) localStorage.removeItem(`partners_connected_account_id:${slug}`); } catch {}
+    window.location.href = "/signin";
+  };
 
   const loadPromos = async (s: string) => {
     if (!s) return;
@@ -1342,6 +1387,13 @@ export default function DashboardClient() {
             <Link href="/configuration" className="text-sm text-gray-400 hover:text-white">
               Edit onboarding
             </Link>
+            <button
+              type="button"
+              onClick={onLogout}
+              className="text-sm text-gray-400 hover:text-white border border-white/10 bg-white/5 hover:bg-white/10 px-3 py-1.5 rounded-xl"
+            >
+              Log out
+            </button>
           </div>
         </div>
 
