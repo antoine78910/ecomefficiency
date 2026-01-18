@@ -1342,9 +1342,13 @@ export default function DashboardClient() {
     setSaving(true);
     setError(null);
     try {
+      const requesterEmail = await ensureRequesterEmail();
+      if (!requesterEmail) {
+        throw new Error("Please sign in again (missing email).");
+      }
       const res = await fetch(`/api/partners/config?slug=${encodeURIComponent(slug)}`, {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-user-email": requesterEmail },
         body: JSON.stringify({ patch }),
       });
       const json = await res.json().catch(() => ({}));
@@ -2044,12 +2048,19 @@ export default function DashboardClient() {
                           .replace(/^www\./, "");
                       const draft = normalizeDomain(emailDomainDraft);
                       const configured = normalizeDomain((config as any)?.emailDomain);
-                      const matches = Boolean(draft && configured && draft === configured);
                       const recs = (config as any)?.resendDomainRecords;
-                      if (matches && Array.isArray(recs) && recs.length) {
+                      const hasRecs = Array.isArray(recs) && recs.length;
+                      if (hasRecs) {
+                        const showWarning = Boolean(draft && configured && draft !== configured);
                         return (
                       <div className="rounded-xl border border-white/10 bg-white/5 p-3 text-xs">
-                        <div className="text-gray-400 mb-2">DNS records (copy/paste)</div>
+                        <div className="text-gray-400 mb-2">DNS records (copy/paste){configured ? ` — for ${configured}` : ""}</div>
+                        {showWarning ? (
+                          <div className="mb-2 text-[11px] text-amber-300">
+                            You changed the domain to <span className="font-mono">{draft}</span>. These records are for the saved domain <span className="font-mono">{configured}</span>. Click{" "}
+                            <span className="font-semibold">“Create / show DNS”</span> to generate records for the new domain.
+                          </div>
+                        ) : null}
                         <div className="space-y-2">
                           {(recs as any[]).map((r: any, idx: number) => (
                             <div key={`${r?.type || "rec"}-${idx}`} className="rounded-lg border border-white/10 bg-black/20 p-3">
