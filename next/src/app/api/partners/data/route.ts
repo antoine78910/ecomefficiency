@@ -122,7 +122,7 @@ export async function GET(req: NextRequest) {
       let startingAfter: string | undefined = undefined;
       // paginate a bit so "old customers" still show up (bounded for performance)
       for (let page = 0; page < 5; page++) {
-        const resp = await stripe.subscriptions.list(
+        const resp: Stripe.ApiList<Stripe.Subscription> = await stripe.subscriptions.list(
           {
             limit: 100,
             status: "all",
