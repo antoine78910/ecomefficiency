@@ -61,6 +61,21 @@ type PartnerStats = {
   recentPayments?: Array<{ email?: string; amount?: number; currency?: string; createdAt?: string }>;
 };
 
+type DataRow = {
+  firstName: string;
+  email: string;
+  signupCreatedAt: string;
+  paymentAmount: number | null;
+  paymentCurrency: string;
+  paymentCreatedAt: string;
+  couponCode: string;
+  subscriptionCreatedAt: string;
+  subscriptionInterval: string; // month|year|unknown
+  subscriptionCanceled: boolean;
+  subscriptionActive: boolean;
+  subscriptionStatus: string;
+};
+
 type StripeStatus = {
   connected: boolean;
   connectedAccountId?: string;
@@ -128,6 +143,8 @@ export default function DashboardClient() {
   const [config, setConfig] = React.useState<PartnerConfig>({});
   const [stats, setStats] = React.useState<PartnerStats | null>(null);
   const [statsRefreshing, setStatsRefreshing] = React.useState(false);
+  const [dataRows, setDataRows] = React.useState<DataRow[]>([]);
+  const [dataLoading, setDataLoading] = React.useState(false);
   const [error, setError] = React.useState<string | null>(null);
   const [connectLoading, setConnectLoading] = React.useState(false);
   const didAutoSetFee = React.useRef(false);
@@ -540,32 +557,60 @@ export default function DashboardClient() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [slug, qsAcct]);
 
-  const customers = React.useMemo(() => {
-    const signups = stats?.recentSignups || [];
-    const paymentsByEmail = new Map<string, { amount: number; currency?: string }>();
-    (stats?.recentPayments || []).forEach((p) => {
-      const email = (p.email || "").toLowerCase().trim();
-      if (email) {
-        paymentsByEmail.set(email, {
-          amount: Number(p.amount || 0),
-          currency: p.currency || undefined,
-        });
-      }
-    });
-    const paid = new Set(paymentsByEmail.keys());
-    return signups.map((s) => {
-      const emailKey = (s.email || "").toLowerCase().trim();
-      const payment = paymentsByEmail.get(emailKey);
-      return {
-        firstName: s.firstName || "",
-        email: s.email || "",
-        createdAt: s.createdAt,
-        paid: paid.has(emailKey),
-        paymentAmount: payment?.amount,
-        paymentCurrency: payment?.currency,
+  const exportCsv = React.useCallback(() => {
+    try {
+      const rows = Array.isArray(dataRows) ? dataRows : [];
+      const header = [
+        "first_name",
+        "email",
+        "signup_created_at",
+        "coupon_code",
+        "subscription_created_at",
+        "subscription_interval",
+        "subscription_active",
+        "subscription_canceled",
+        "subscription_status",
+        "payment_amount",
+        "payment_currency",
+        "payment_created_at",
+      ];
+      const esc = (v: any) => {
+        const s = String(v ?? "");
+        // RFC4180-ish: quote if contains comma/quote/newline
+        if (/[,"\r\n]/.test(s)) return `"${s.replace(/"/g, '""')}"`;
+        return s;
       };
-    });
-  }, [stats]);
+      const lines = [header.join(",")].concat(
+        rows.map((r) =>
+          [
+            esc(r.firstName),
+            esc(r.email),
+            esc(r.signupCreatedAt),
+            esc(r.couponCode),
+            esc(r.subscriptionCreatedAt),
+            esc(r.subscriptionInterval),
+            esc(r.subscriptionActive),
+            esc(r.subscriptionCanceled),
+            esc(r.subscriptionStatus),
+            esc(r.paymentAmount ?? ""),
+            esc(r.paymentCurrency),
+            esc(r.paymentCreatedAt),
+          ].join(",")
+        )
+      );
+      const csv = lines.join("\r\n");
+      const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+      const a = document.createElement("a");
+      const url = URL.createObjectURL(blob);
+      a.href = url;
+      const safeSlug = String(slug || "partner").replace(/[^a-z0-9_-]+/gi, "_");
+      a.download = `partner_data_${safeSlug}.csv`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch {}
+  }, [dataRows, slug]);
 
   const revenueCurrency = React.useMemo(() => {
     const cfgCur = safeCurrencyCode((config as any)?.currency);
@@ -617,6 +662,20 @@ export default function DashboardClient() {
         }
       }
       if (statsRes.ok && statsJson?.ok) setStats(statsJson.stats || null);
+
+      // Load live enriched rows (best-effort)
+      try {
+        const requesterEmail = await ensureRequesterEmail();
+        setDataLoading(true);
+        const dr = await fetch(`/api/partners/data?slug=${encodeURIComponent(s)}`, {
+          cache: "no-store",
+          headers: requesterEmail ? { "x-user-email": requesterEmail } : undefined,
+        });
+        const dj = await dr.json().catch(() => ({}));
+        if (dr.ok && dj?.ok && Array.isArray(dj?.rows)) setDataRows(dj.rows as DataRow[]);
+      } catch {} finally {
+        setDataLoading(false);
+      }
       // Refresh Stripe status (best-effort)
       fetchStripeStatus(s);
       // Best-effort load requests (for Page tab)
@@ -642,6 +701,19 @@ export default function DashboardClient() {
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json?.ok) throw new Error(json?.detail || json?.error || "Failed to refresh stats");
       setStats(json.stats || null);
+      // refresh enriched rows too
+      try {
+        const requesterEmail = await ensureRequesterEmail();
+        setDataLoading(true);
+        const dr = await fetch(`/api/partners/data?slug=${encodeURIComponent(slug)}`, {
+          cache: "no-store",
+          headers: requesterEmail ? { "x-user-email": requesterEmail } : undefined,
+        });
+        const dj = await dr.json().catch(() => ({}));
+        if (dr.ok && dj?.ok && Array.isArray(dj?.rows)) setDataRows(dj.rows as DataRow[]);
+      } catch {} finally {
+        setDataLoading(false);
+      }
       try {
         toast({ title: "Data refreshed", description: "Your stats have been updated." });
       } catch {}
@@ -1299,15 +1371,26 @@ export default function DashboardClient() {
                     <div className="text-sm font-semibold text-white">Data</div>
                     <div className="text-xs text-gray-500">Signups, payments & revenue for this slug</div>
                   </div>
-                  <button
-                    type="button"
-                    onClick={refreshStats}
-                    disabled={!slug || statsRefreshing}
-                    className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
-                  >
-                    {statsRefreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
-                    Refresh
-                  </button>
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={exportCsv}
+                      disabled={!dataRows.length}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                      title="Export CSV"
+                    >
+                      Export CSV
+                    </button>
+                    <button
+                      type="button"
+                      onClick={refreshStats}
+                      disabled={!slug || statsRefreshing}
+                      className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 text-sm disabled:opacity-60 disabled:cursor-not-allowed"
+                    >
+                      {statsRefreshing ? <Loader2 className="w-4 h-4 animate-spin" /> : <RefreshCcw className="w-4 h-4" />}
+                      Refresh
+                    </button>
+                  </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                   <Card title="Signups">
@@ -1334,39 +1417,61 @@ export default function DashboardClient() {
                         <tr className="text-left text-xs text-gray-400 border-b border-white/10">
                           <th className="py-2 pr-4">First name</th>
                           <th className="py-2 pr-4">Email</th>
-                          <th className="py-2 pr-4">Paid</th>
-                          <th className="py-2">Created</th>
+                          <th className="py-2 pr-4">Coupon code</th>
+                          <th className="py-2 pr-4">Sub created</th>
+                          <th className="py-2 pr-4">Interval</th>
+                          <th className="py-2 pr-4">Active</th>
+                          <th className="py-2 pr-4">Canceled</th>
+                          <th className="py-2 pr-4">Payment</th>
+                          <th className="py-2">Signup created</th>
                         </tr>
                       </thead>
                       <tbody>
-                        {customers.length ? (
-                          customers.map((c, i) => (
+                        {dataLoading ? (
+                          <tr>
+                            <td colSpan={11} className="py-6 text-center text-gray-500">
+                              Loading…
+                            </td>
+                          </tr>
+                        ) : dataRows.length ? (
+                          dataRows.map((c, i) => (
                             <tr key={`${c.email}-${i}`} className="border-b border-white/5">
                               <td className="py-2 pr-4 text-gray-200">{c.firstName || "—"}</td>
                               <td className="py-2 pr-4 text-gray-300">{c.email || "—"}</td>
+                              <td className="py-2 pr-4 text-gray-300">{c.couponCode || "—"}</td>
+                              <td className="py-2 pr-4 text-gray-400">{c.subscriptionCreatedAt ? new Date(c.subscriptionCreatedAt).toLocaleString() : "—"}</td>
+                              <td className="py-2 pr-4 text-gray-300">{c.subscriptionInterval || "—"}</td>
                               <td className="py-2 pr-4">
-                                {c.paid ? (
-                                  <span className="inline-flex items-center gap-2 text-green-300 flex-wrap">
-                                    <span className="w-2 h-2 rounded-full bg-green-400/80" /> 
-                                    <span>Paid</span>
-                                    {c.paymentAmount !== undefined && c.paymentAmount > 0 ? (
-                                      <span className="text-xs text-gray-300">
-                                        ({c.paymentCurrency || 'EUR'} {c.paymentAmount.toFixed(2)})
-                                      </span>
-                                    ) : null}
+                                {c.subscriptionActive ? (
+                                  <span className="inline-flex items-center gap-2 text-green-300">
+                                    <span className="w-2 h-2 rounded-full bg-green-400/80" /> Active
                                   </span>
                                 ) : (
                                   <span className="inline-flex items-center gap-2 text-gray-400">
-                                    <span className="w-2 h-2 rounded-full bg-gray-500/60" /> Not paid
+                                    <span className="w-2 h-2 rounded-full bg-gray-500/60" /> —
                                   </span>
                                 )}
                               </td>
-                              <td className="py-2 text-gray-400">{c.createdAt ? new Date(c.createdAt).toLocaleString() : "—"}</td>
+                              <td className="py-2 pr-4">
+                                {c.subscriptionCanceled ? (
+                                  <span className="inline-flex items-center gap-2 text-amber-300">
+                                    <span className="w-2 h-2 rounded-full bg-amber-400/80" /> Yes
+                                  </span>
+                                ) : (
+                                  <span className="text-gray-400">No</span>
+                                )}
+                              </td>
+                              <td className="py-2 pr-4 text-gray-300">
+                                {c.paymentAmount !== null && c.paymentAmount !== undefined
+                                  ? `${c.paymentAmount.toFixed(2)} ${c.paymentCurrency || revenueCurrency}`
+                                  : "—"}
+                              </td>
+                              <td className="py-2 text-gray-400">{c.signupCreatedAt ? new Date(c.signupCreatedAt).toLocaleString() : "—"}</td>
                             </tr>
                           ))
                         ) : (
                           <tr>
-                            <td colSpan={4} className="py-6 text-center text-gray-500">
+                            <td colSpan={11} className="py-6 text-center text-gray-500">
                               No customer data yet.
                             </td>
                           </tr>
