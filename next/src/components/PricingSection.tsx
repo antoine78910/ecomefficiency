@@ -88,10 +88,14 @@ const PricingSection = () => {
   }, [currency])
 
 	const handleCheckout = async (planName: string) => {
-    // Community plan opens email
+    // Community plan shows message
     if (planName.toLowerCase().includes('community')) {
       try { postGoal('pricing_cta_click', { plan: 'community' }); } catch {}
-      window.location.href = 'mailto:admin@ecomefficiency.com?subject=Community Plan Inquiry';
+      toast({ 
+        title: 'Contact us for more details',
+        description: 'You can send us a message at admin@ecomefficiency.com to learn more and get more details about the Community Plan.',
+        duration: 6000,
+      });
       return;
     }
 
