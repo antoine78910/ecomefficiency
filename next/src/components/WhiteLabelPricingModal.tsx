@@ -19,8 +19,8 @@ export default function WhiteLabelPricingModal({
   colors?: { main?: string; accent?: string };
 }) {
   const c = String(pricing?.currency || "EUR").toUpperCase();
-  const isUsd = c === "USD";
-  const symbol = isUsd ? "$" : "€";
+  const isPrefix = c === "USD" || c === "GBP";
+  const symbol = c === "USD" ? "$" : c === "GBP" ? "£" : "€";
   const toNum = (v: any, fb: number) => {
     const n = Number(String(v ?? "").replace(",", "."));
     return Number.isFinite(n) && n > 0 ? n : fb;
@@ -34,7 +34,7 @@ export default function WhiteLabelPricingModal({
   const computedYearly = Math.round(yearlyBase * (1 - annualPct / 100) * 100) / 100;
   const fmt = (n: number) => {
     const s = n.toFixed(2);
-    return isUsd ? `${symbol}${s}` : `${s}${symbol}`;
+    return isPrefix ? `${symbol}${s}` : `${s}${symbol}`;
   };
 
   const main = normalizeHex(String(colors?.main || "#9541e0"), "#9541e0");

@@ -56,8 +56,8 @@ export default function PartnerPricingClient({ config }: { config: PartnerPricin
   };
 
   const currency = String(config.currency || "EUR").toUpperCase();
-  const isUsd = currency === "USD";
-  const symbol = isUsd ? "$" : "€";
+  const isPrefix = currency === "USD" || currency === "GBP";
+  const symbol = currency === "USD" ? "$" : currency === "GBP" ? "£" : "€";
 
   const monthlyBase = Number(String(config.monthlyPrice ?? "29.99").replace(",", ".")) || 29.99;
   const explicitYearly =
@@ -75,7 +75,7 @@ export default function PartnerPricingClient({ config }: { config: PartnerPricin
   const formatMoney = (amount: number) => {
     const v = Number.isFinite(amount) ? amount : 0;
     const s = v.toFixed(2);
-    return isUsd ? `${symbol}${s}` : `${s}${symbol}`;
+    return isPrefix ? `${symbol}${s}` : `${s}${symbol}`;
   };
 
   const main = normalizeHex(String(config.colors?.main || "#9541e0"), "#9541e0");

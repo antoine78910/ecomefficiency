@@ -229,7 +229,7 @@ export async function POST(req: NextRequest) {
         saasName = String(cfg?.saasName || "");
         offerTitle = String(cfg?.offerTitle || cfg?.promoTitle || "") || "";
         const c = String(cfg?.currency || "EUR").toUpperCase();
-        currency = c === "USD" || c === "EUR" ? c : "EUR";
+        currency = c === "USD" || c === "EUR" || c === "GBP" ? c : "EUR";
         monthlyPrice = String(cfg?.monthlyPrice || monthlyPrice);
         yearlyPrice = String(cfg?.yearlyPrice || "");
         const a = Number(cfg?.annualDiscountPercent);
@@ -370,7 +370,7 @@ export async function GET(req: NextRequest) {
         saasName = String(cfg?.saasName || "");
         offerTitle = String(cfg?.offerTitle || cfg?.promoTitle || "") || "";
         const c = String(cfg?.currency || "EUR").toUpperCase();
-        currency = c === "USD" || c === "EUR" ? c : "EUR";
+        currency = c === "USD" || c === "EUR" || c === "GBP" ? c : "EUR";
         monthlyPrice = String(cfg?.monthlyPrice || monthlyPrice);
         yearlyPrice = String(cfg?.yearlyPrice || "");
         const a = Number(cfg?.annualDiscountPercent);

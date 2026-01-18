@@ -46,8 +46,8 @@ export default function FloatingPricingWidget({
   const [connected, setConnected] = React.useState(false);
 
   const c = String(currency || "EUR").toUpperCase();
-  const isUsd = c === "USD";
-  const symbol = isUsd ? "$" : "€";
+  const isPrefix = c === "USD" || c === "GBP";
+  const symbol = c === "USD" ? "$" : c === "GBP" ? "£" : "€";
   const monthlyBase = parseAmountToNumber(monthlyPrice, 29.99);
   const explicitYearly = yearlyPrice ? parseAmountToNumber(yearlyPrice, 0) : 0;
   const yearlyBase = explicitYearly > 0 ? explicitYearly : Math.round(monthlyBase * 12 * 100) / 100;
@@ -61,7 +61,7 @@ export default function FloatingPricingWidget({
 
   const fmt = (n: number) => {
     const s = n.toFixed(2);
-    return isUsd ? `${symbol}${s}` : `${s}${symbol}`;
+    return isPrefix ? `${symbol}${s}` : `${s}${symbol}`;
   };
 
   React.useEffect(() => {
