@@ -675,6 +675,7 @@ export default function DashboardClient() {
     setDmarcLoading(true);
     setDmarcError(null);
     try {
+      const requesterEmail = await ensureRequesterEmail();
       const normalizeDomain = (v: any) =>
         String(v || "")
           .trim()
@@ -705,7 +706,7 @@ export default function DashboardClient() {
 
       const res = await fetch("/api/partners/dmarc", {
         method: "POST",
-        headers: { "Content-Type": "application/json", ...(accountEmail ? { "x-user-email": accountEmail } : {}) },
+        headers: { "Content-Type": "application/json", ...(requesterEmail ? { "x-user-email": requesterEmail } : {}) },
         body: JSON.stringify({ slug, domain: root, rua: ruaEmail }),
       });
       const json = await res.json().catch(() => ({}));
