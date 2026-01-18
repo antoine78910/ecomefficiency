@@ -873,7 +873,7 @@ export default function DashboardClient() {
           .split("@")[0]
           .replace(/\s+/g, "")
           .replace(/[^a-z0-9._+-]/g, "");
-      const fromSupportEmail = normalizeLocalPart(String((config as any)?.supportEmail || ""));
+      const fromSupportEmail = normalizeLocalPart(String(pageDraft.supportEmail || (config as any)?.supportEmail || ""));
       const localPart = fromSupportEmail || "support";
       const ruaEmail = `${localPart}@${root}`;
 
@@ -1135,6 +1135,28 @@ export default function DashboardClient() {
       .replace(/^www\./, "");
     if (cd) setEmailDomainDraft(`notify.${cd}`);
   }, [(config as any)?.emailDomain, (config as any)?.customDomain]);
+
+  // Default support email to the DMARC rua mailbox (support@<root-domain>) when empty
+  React.useEffect(() => {
+    const normalizeDomain = (v: any) =>
+      String(v || "")
+        .trim()
+        .toLowerCase()
+        .replace(/^https?:\/\//, "")
+        .replace(/\/.*$/, "")
+        .replace(/:\d+$/, "")
+        .replace(/\.$/, "")
+        .replace(/^www\./, "");
+    const base = normalizeDomain((config as any)?.customDomain || "") || normalizeDomain(emailDomainDraft);
+    if (!base) return;
+    const parts = base.split(".").filter(Boolean);
+    const root = parts.length <= 2 ? base : parts.slice(-2).join(".");
+    const current = String(pageDraft.supportEmail || "").trim();
+    const existing = String((config as any)?.supportEmail || "").trim();
+    if (current || existing) return;
+    setPageDraft((s) => ({ ...s, supportEmail: `support@${root}` }));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [(config as any)?.customDomain, emailDomainDraft, (config as any)?.supportEmail]);
 
   /**
    * Configure or verify the partner's email domain in Resend.
@@ -1880,6 +1902,34 @@ export default function DashboardClient() {
                   </div>
 
                   <div className="mt-4 space-y-3">
+                    {(() => {
+                      const normalizeDomain = (v: any) =>
+                        String(v || "")
+                          .trim()
+                          .toLowerCase()
+                          .replace(/^https?:\/\//, "")
+                          .replace(/\/.*$/, "")
+                          .replace(/:\d+$/, "")
+                          .replace(/\.$/, "")
+                          .replace(/^www\./, "");
+                      const base = normalizeDomain((config as any)?.customDomain || "") || normalizeDomain(emailDomainDraft);
+                      const parts = base ? base.split(".").filter(Boolean) : [];
+                      const root = base ? (parts.length <= 2 ? base : parts.slice(-2).join(".")) : "";
+                      const placeholder = root ? `support@${root}` : "support@yourdomain.com";
+                      return (
+                        <div>
+                          <div className="text-xs text-gray-400">What’s your support email?</div>
+                          <input
+                            value={pageDraft.supportEmail}
+                            onChange={(e) => setPageDraft((s) => ({ ...s, supportEmail: e.target.value }))}
+                            placeholder={placeholder}
+                            className="mt-1 w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm focus:outline-none focus:border-white/25"
+                          />
+                          <div className="mt-1 text-[11px] text-gray-500">Used in DMARC reporting (rua) + footer/policies.</div>
+                        </div>
+                      );
+                    })()}
+
                     <div className="text-xs text-gray-400">Email domain</div>
                     <input
                       value={emailDomainDraft}
@@ -2077,7 +2127,7 @@ export default function DashboardClient() {
                           .split("@")[0]
                           .replace(/\s+/g, "")
                           .replace(/[^a-z0-9._+-]/g, "");
-                      const supportLp = normalizeLocalPart((config as any)?.supportEmail || "");
+                      const supportLp = normalizeLocalPart(pageDraft.supportEmail || (config as any)?.supportEmail || "");
                       const localPart = supportLp || "support";
                       const ruaEmail = `${localPart}@${root}`;
                       const recommended = `v=DMARC1; p=none; rua=mailto:${ruaEmail}`;
