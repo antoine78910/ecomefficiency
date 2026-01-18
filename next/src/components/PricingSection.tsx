@@ -50,9 +50,8 @@ type Currency = 'USD' | 'EUR';
       "Group pricing",
       "Custom domain",
       "Your Stripe account",
-      "50/50 revenue split",
     ],
-    cta: "Request Access",
+    cta: "Know more",
     highlight: false,
     isCustom: true,
   },
@@ -89,10 +88,10 @@ const PricingSection = () => {
   }, [currency])
 
 	const handleCheckout = async (planName: string) => {
-    // Community plan redirects to partners LP
+    // Community plan opens email
     if (planName.toLowerCase().includes('community')) {
       try { postGoal('pricing_cta_click', { plan: 'community' }); } catch {}
-      window.location.href = 'https://partners.ecomefficiency.com/lp';
+      window.location.href = 'mailto:admin@ecomefficiency.com?subject=Community Plan Inquiry';
       return;
     }
 
