@@ -238,7 +238,7 @@ export default async function PartnersLpPage() {
             </p>
           </div>
 
-          <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="mt-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             <div className="rounded-2xl border border-white/10 bg-[#0d0e12] p-6">
               <div className="text-white font-semibold mb-3">Connect your Stripe</div>
               <p className="text-sm text-gray-400">Your own Stripe account. Your revenue. Your control.</p>
@@ -250,6 +250,10 @@ export default async function PartnersLpPage() {
             <div className="rounded-2xl border border-white/10 bg-[#0d0e12] p-6">
               <div className="text-white font-semibold mb-3">Custom email sender</div>
               <p className="text-sm text-gray-400">Send emails from your own email address. No mention of us. Ever.</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-[#0d0e12] p-6">
+              <div className="text-white font-semibold mb-3">Data & export</div>
+              <p className="text-sm text-gray-400">You own your data. Export all your database anytime.</p>
             </div>
           </div>
 
