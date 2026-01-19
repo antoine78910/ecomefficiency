@@ -221,21 +221,16 @@ export default async function PartnersLpPage() {
                 See the Infrastructure
               </a>
             </div>
-
-            <VideoBlock
-              title="Video #1 — “This is not a template. This is a real SaaS.”"
-              subtitle="Dashboard · Tools library · User management · Billing section"
-            />
           </div>
         </div>
       </header>
 
-      {/* SECTION 2 — YOU OWN THE SAAS */}
+      {/* SECTION 1 — YOU OWN THE INFRA */}
       <section className="relative bg-black py-16 md:py-20" id="infrastructure">
         <div className="pointer-events-none absolute -top-20 left-1/2 -translate-x-1/2 h-80 w-[60rem] bg-gradient-to-b from-purple-600/15 to-transparent blur-3xl" />
         <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8">
           <div className="max-w-3xl">
-            <h2 className="text-3xl md:text-5xl font-bold text-white">You Own the SaaS. We Stay Invisible.</h2>
+            <h2 className="text-3xl md:text-5xl font-bold text-white">You Own the Infra</h2>
             <p className="mt-4 text-gray-300">
               This is not an affiliate program. This is not co-branding.
               <br />
@@ -243,58 +238,45 @@ export default async function PartnersLpPage() {
             </p>
           </div>
 
-          <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-6">
             <div className="rounded-2xl border border-white/10 bg-[#0d0e12] p-6">
-              <ul className="space-y-3 text-gray-200">
-                {[
-                  "Connect your own Stripe account",
-                  "Use your custom domain",
-                  "Send emails from your own email address",
-                  "Your logo, your brand, your identity",
-                  "No mention of us. Ever.",
-                  "Your users never know we exist.",
-                ].map((t) => (
-                  <li key={t} className="flex items-start gap-3">
-                    <span className="mt-1 inline-block h-2 w-2 rounded-full bg-purple-400" />
-                    <span>{t}</span>
-                  </li>
-                ))}
-              </ul>
+              <div className="text-white font-semibold mb-3">Connect your Stripe</div>
+              <p className="text-sm text-gray-400">Your own Stripe account. Your revenue. Your control.</p>
             </div>
-
-            <div className="rounded-2xl border border-white/10 bg-black/40 p-6">
-              <div className="text-sm font-semibold text-white">Why this matters</div>
-              <div className="mt-2 text-sm text-gray-400 leading-relaxed">
-                You sell under your brand and build long-term trust. We operate behind the scenes so you never end up in
-                tech, support, or operational hell.
-              </div>
+            <div className="rounded-2xl border border-white/10 bg-[#0d0e12] p-6">
+              <div className="text-white font-semibold mb-3">Custom domain</div>
+              <p className="text-sm text-gray-400">Use your own domain. Your brand. Your identity.</p>
+            </div>
+            <div className="rounded-2xl border border-white/10 bg-[#0d0e12] p-6">
+              <div className="text-white font-semibold mb-3">Custom email sender</div>
+              <p className="text-sm text-gray-400">Send emails from your own email address. No mention of us. Ever.</p>
             </div>
           </div>
 
           <VideoBlock
-            title="Video #2 — Infra ownership"
+            title="Video #1 — Infra ownership"
             subtitle="Stripe connection · Custom domain · Email sender · Branding settings"
           />
         </div>
       </section>
 
-      {/* SECTION 3 — FULLY CUSTOMISABLE */}
+      {/* SECTION 2 — PERSONALISE YOUR SAAS */}
       <section className="relative bg-black py-16 md:py-20">
         <div className="pointer-events-none absolute -bottom-16 left-1/2 -translate-x-1/2 h-80 w-[60rem] bg-gradient-to-t from-purple-600/20 to-transparent blur-3xl" />
         <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8">
           <div className="max-w-3xl">
-            <h2 className="text-3xl md:text-5xl font-bold text-white">Your SaaS. Your Rules.</h2>
-            <p className="mt-4 text-gray-300">You decide how your SaaS looks, feels, and sells.</p>
+            <h2 className="text-3xl md:text-5xl font-bold text-white">Personalise Your SaaS</h2>
+            <p className="mt-4 text-gray-300">Make it yours. Every detail, every color, every word.</p>
           </div>
 
-          <div className="mt-10 grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div className="mt-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {[
-              "Edit pages & content",
-              "Change colors, fonts & layout",
-              "Set your own prices",
-              "Create promo codes",
-              "Run discounts & limited offers",
-              "Decide who gets access to what",
+              "Colors & themes",
+              "Title & subtitle",
+              "FAQ customization",
+              "Logo & favicon",
+              "Page content",
+              "Layout & fonts",
             ].map((t) => (
               <div key={t} className="rounded-2xl border border-white/10 bg-[#0d0e12] p-6">
                 <div className="text-white font-semibold">{t}</div>
@@ -302,18 +284,45 @@ export default async function PartnersLpPage() {
             ))}
           </div>
 
-          <div className="mt-8 text-gray-300">
-            You are the CEO. <span className="text-white font-semibold">We are the backend.</span>
-          </div>
-
           <VideoBlock
-            title="Video #3 — Customisation"
-            subtitle="Page builder · Content editing · Pricing change · Promo code creation"
+            title="Video #2 — Customisation"
+            subtitle="Page builder · Content editing · Branding · Logo & colors"
           />
         </div>
       </section>
 
-      {/* SECTION 4 — WE EARN WHEN YOU EARN */}
+      {/* SECTION 3 — YOUR SAAS YOUR RULES */}
+      <section className="relative bg-black py-16 md:py-20">
+        <div className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 h-80 w-[60rem] bg-gradient-to-b from-purple-600/20 to-transparent blur-3xl" />
+        <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8">
+          <div className="max-w-3xl">
+            <h2 className="text-3xl md:text-5xl font-bold text-white">Your SaaS. Your Rules.</h2>
+            <p className="mt-4 text-gray-300">You decide how your SaaS looks, feels, and sells.</p>
+          </div>
+
+          <div className="mt-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {[
+              "Create promo codes",
+              "Choose your pricing",
+              "Run discounts & offers",
+              "Set access rules",
+              "Manage subscriptions",
+              "Control features",
+            ].map((t) => (
+              <div key={t} className="rounded-2xl border border-white/10 bg-[#0d0e12] p-6">
+                <div className="text-white font-semibold">{t}</div>
+              </div>
+            ))}
+          </div>
+
+          <VideoBlock
+            title="Video #3 — Your rules"
+            subtitle="Promo codes · Pricing · Discounts · Access control"
+          />
+        </div>
+      </section>
+
+      {/* SECTION 4 — WE ONLY WIN IF YOU WIN */}
       <section className="relative bg-black py-16 md:py-20">
         <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8">
           <div className="max-w-3xl">
@@ -326,7 +335,7 @@ export default async function PartnersLpPage() {
           </div>
 
           <div className="mt-10 rounded-2xl border border-white/10 bg-[#0d0e12] p-6 md:p-8">
-            <div className="text-sm font-semibold text-white">What’s included in the 50%</div>
+            <div className="text-sm font-semibold text-white">What's included in the 50%</div>
             <ul className="mt-4 grid grid-cols-1 md:grid-cols-2 gap-3 text-gray-200">
               {[
                 "Customer support (tickets, issues, refunds)",
@@ -348,53 +357,10 @@ export default async function PartnersLpPage() {
               You sell. <span className="text-white font-semibold">We run everything else.</span>
             </div>
           </div>
-
-          <VideoBlock
-            title='Video #4 — “What happens behind the scenes”'
-            subtitle="Support dashboard · Infra · Tools onboarding · Updates pipeline"
-          />
         </div>
       </section>
 
-      {/* SECTION 5 — YOU DO THE FUN PART */}
-      <section className="relative bg-black py-16 md:py-20">
-        <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="max-w-3xl">
-            <h2 className="text-3xl md:text-5xl font-bold text-white">You Handle Marketing. We Handle the Pain.</h2>
-            <p className="mt-4 text-gray-300">
-              No dev team. No support headaches. No technical maintenance.
-            </p>
-          </div>
-
-          <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="rounded-2xl border border-white/10 bg-[#0d0e12] p-6">
-              <div className="text-white font-semibold">You focus on</div>
-              <ul className="mt-3 space-y-2 text-gray-300">
-                {["Content", "Community", "Distribution", "Growth"].map((t) => (
-                  <li key={t} className="flex items-center gap-2">
-                    <span className="h-1.5 w-1.5 rounded-full bg-purple-400" />
-                    {t}
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            <div className="rounded-2xl border border-white/10 bg-black/40 p-6">
-              <div className="text-white font-semibold">We handle</div>
-              <ul className="mt-3 space-y-2 text-gray-300">
-                {["Bugs", "Uptime", "Angry users", "Billing issues", "Tools access"].map((t) => (
-                  <li key={t} className="flex items-center gap-2">
-                    <span className="h-1.5 w-1.5 rounded-full bg-white/40" />
-                    {t}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* SECTION 6 — REVENUE SIMULATOR */}
+      {/* SECTION 5 — REVENUE SIMULATOR */}
       <section className="relative bg-black py-16 md:py-20">
         <div className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 h-80 w-[60rem] bg-gradient-to-b from-purple-600/20 to-transparent blur-3xl" />
         <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8">
@@ -417,24 +383,27 @@ export default async function PartnersLpPage() {
         </div>
       </section>
 
-      {/* SECTION 7 — WHO IS THIS FOR */}
+      {/* SECTION 6 — WHO IS THIS FOR */}
       <section className="relative bg-black py-16 md:py-20">
         <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8">
           <div className="max-w-3xl">
             <h2 className="text-3xl md:text-5xl font-bold text-white">Who is this for?</h2>
           </div>
-          <div className="mt-10 grid grid-cols-1 md:grid-cols-2 gap-6 max-w-4xl">
-            {[
-              "Creators with an audience",
-              "Discord communities",
-              "Agencies",
-              "Educators / coaches",
-              "SaaS founders who don’t want to build infra",
-            ].map((t) => (
-              <div key={t} className="rounded-2xl border border-white/10 bg-[#0d0e12] p-6 text-gray-200">
-                {t}
-              </div>
-            ))}
+          <div className="mt-10 max-w-4xl">
+            <ul className="space-y-3 text-gray-200">
+              {[
+                "Creators with an audience",
+                "Discord communities",
+                "Agencies",
+                "Educators / coaches",
+                "SaaS founders who don't want to build infra",
+              ].map((t) => (
+                <li key={t} className="flex items-start gap-3">
+                  <span className="mt-1.5 inline-block h-2 w-2 rounded-full bg-purple-400" />
+                  <span className="text-lg">{t}</span>
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </section>
@@ -481,4 +450,3 @@ export default async function PartnersLpPage() {
     </div>
   );
 }
-
