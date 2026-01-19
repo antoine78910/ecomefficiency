@@ -41,6 +41,13 @@ export function middleware(req: NextRequest) {
   const url = req.nextUrl
   const host = req.headers.get('host') || ''
 
+  // partners portal should not expose /app (reserved for app.* and custom domains)
+  if (host.startsWith('partners.') && (url.pathname === '/app' || url.pathname.startsWith('/app/'))) {
+    const redirectUrl = url.clone()
+    redirectUrl.pathname = '/dashboard'
+    return NextResponse.redirect(redirectUrl)
+  }
+
   // Block /dashboard on all domains EXCEPT partners.* (it's only for partners.ecomefficiency.com)
   if (!host.startsWith('partners.') && (url.pathname === '/dashboard' || url.pathname.startsWith('/dashboard/'))) {
     const redirectUrl = url.clone()

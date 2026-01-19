@@ -171,6 +171,11 @@ export async function middleware(req: NextRequest) {
   // partners subdomain routes (white-label onboarding portal)
   // Note: we intentionally keep paths clean (/signup, /signin, /configuration) on partners.*
   if (hostname === 'partners.localhost' || bareHostname.startsWith('partners.')) {
+    // partners portal should not expose /app (reserved for app.* and custom domains)
+    if (pathname === '/app' || pathname.startsWith('/app/')) {
+      const r = url.clone(); r.pathname = '/dashboard';
+      return NextResponse.redirect(r)
+    }
     // If already authenticated, avoid bouncing users back to /signin.
     if (hasAuth && (pathname === '/signin' || pathname === '/signin/')) {
       const r = url.clone(); r.pathname = '/dashboard';

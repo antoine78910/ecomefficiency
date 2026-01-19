@@ -78,9 +78,19 @@ function AnimatedSecondaryButton({ href, children }: { href: string; children: s
   );
 }
 
-function VideoBlock({ title, subtitle }: { title: string; subtitle: string }) {
+function VideoFrame({
+  title,
+  subtitle,
+  src = "/demo.mp4",
+  poster = "/ecomefficiency.png",
+}: {
+  title: string;
+  subtitle: string;
+  src?: string;
+  poster?: string;
+}) {
   return (
-    <div className="mt-8">
+    <div>
       <div className="max-w-2xl">
         <h3 className="text-2xl md:text-3xl font-bold text-white">{title}</h3>
         <p className="mt-2 text-gray-400">{subtitle}</p>
@@ -89,8 +99,8 @@ function VideoBlock({ title, subtitle }: { title: string; subtitle: string }) {
       <div className="mt-6 relative mx-auto w-full max-w-5xl aspect-video rounded-xl overflow-hidden border border-white/10 bg-black">
         <video
           className="absolute inset-0 w-full h-full object-cover"
-          src="/demo.mp4"
-          poster="/ecomefficiency.png"
+          src={src}
+          poster={poster}
           loop
           playsInline
           muted
@@ -147,7 +157,6 @@ export default async function PartnersLpPage() {
               className="h-12 w-auto mix-blend-screen"
               priority
             />
-            <span className="hidden sm:inline text-sm text-white/70 border-l border-white/10 pl-3">White-Label</span>
           </Link>
 
           <div className="flex items-center gap-2">
@@ -163,10 +172,10 @@ export default async function PartnersLpPage() {
             >
               <div className="relative overflow-hidden w-full text-center">
                 <span className="inline-block transition-transform group-hover:-translate-y-7 duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] whitespace-nowrap">
-                  Request White-Label Access
+                  Get started
                 </span>
                 <span className="absolute left-1/2 -translate-x-1/2 top-7 group-hover:top-0 transition-all duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] whitespace-nowrap">
-                  Request White-Label Access
+                  Get started
                 </span>
               </div>
             </a>
@@ -213,7 +222,7 @@ export default async function PartnersLpPage() {
             </p>
 
             <div className="mt-8 flex flex-wrap gap-3" id="request">
-              <AnimatedPrimaryButton href="/signup">Request White-Label Access</AnimatedPrimaryButton>
+              <AnimatedPrimaryButton href="/signup">Launch your SaaS</AnimatedPrimaryButton>
               <a
                 href="#infrastructure"
                 className="inline-flex items-center justify-center h-12 px-6 rounded-xl text-sm font-medium border border-white/15 bg-white/5 hover:bg-white/10 text-gray-200"
@@ -229,38 +238,36 @@ export default async function PartnersLpPage() {
       <section className="relative bg-black py-16 md:py-20" id="infrastructure">
         <div className="pointer-events-none absolute -top-20 left-1/2 -translate-x-1/2 h-80 w-[60rem] bg-gradient-to-b from-purple-600/15 to-transparent blur-3xl" />
         <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="max-w-3xl">
-            <h2 className="text-3xl md:text-5xl font-bold text-white">You Own the Infra</h2>
-            <p className="mt-4 text-gray-300">
-              This is not an affiliate program. This is not co-branding.
-              <br />
-              <span className="text-white font-semibold">This is your SaaS.</span>
-            </p>
-          </div>
+          <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
+            <div>
+              <h2 className="text-3xl md:text-5xl font-bold text-white">You Own the Infra</h2>
+              <p className="mt-4 text-gray-300">
+                Stripe, domain, email sender and data ownership — it’s your SaaS.
+              </p>
 
-          <div className="mt-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            <div className="rounded-2xl border border-white/10 bg-[#0d0e12] p-6">
-              <div className="text-white font-semibold mb-3">Connect your Stripe</div>
-              <p className="text-sm text-gray-400">Your own Stripe account. Your revenue. Your control.</p>
+              <ul className="mt-6 space-y-3 text-gray-200">
+                {[
+                  "Connect your own Stripe account",
+                  "Use your custom domain",
+                  "Send emails from your own email address",
+                  "Own your data & export your full database anytime",
+                ].map((t) => (
+                  <li key={t} className="flex items-start gap-3">
+                    <span className="mt-1.5 inline-block h-2 w-2 rounded-full bg-purple-400" />
+                    <span>{t}</span>
+                  </li>
+                ))}
+              </ul>
             </div>
-            <div className="rounded-2xl border border-white/10 bg-[#0d0e12] p-6">
-              <div className="text-white font-semibold mb-3">Custom domain</div>
-              <p className="text-sm text-gray-400">Use your own domain. Your brand. Your identity.</p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-[#0d0e12] p-6">
-              <div className="text-white font-semibold mb-3">Custom email sender</div>
-              <p className="text-sm text-gray-400">Send emails from your own email address. No mention of us. Ever.</p>
-            </div>
-            <div className="rounded-2xl border border-white/10 bg-[#0d0e12] p-6">
-              <div className="text-white font-semibold mb-3">Data & export</div>
-              <p className="text-sm text-gray-400">You own your data. Export all your database anytime.</p>
+
+            <div className="lg:pt-2">
+              <VideoFrame
+                title="Video #1 — Infra ownership"
+                subtitle="Stripe connection · Custom domain · Email sender · Data export"
+                src="/partners-lp/infra.mp4"
+              />
             </div>
           </div>
-
-          <VideoBlock
-            title="Video #1 — Infra ownership"
-            subtitle="Stripe connection · Custom domain · Email sender · Branding settings"
-          />
         </div>
       </section>
 
@@ -268,30 +275,36 @@ export default async function PartnersLpPage() {
       <section className="relative bg-black py-16 md:py-20">
         <div className="pointer-events-none absolute -bottom-16 left-1/2 -translate-x-1/2 h-80 w-[60rem] bg-gradient-to-t from-purple-600/20 to-transparent blur-3xl" />
         <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="max-w-3xl">
-            <h2 className="text-3xl md:text-5xl font-bold text-white">Personalise Your SaaS</h2>
-            <p className="mt-4 text-gray-300">Make it yours. Every detail, every color, every word.</p>
-          </div>
+          <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
+            <div className="order-2 lg:order-1 lg:pt-2">
+              <VideoFrame
+                title="Video #2 — Personalisation"
+                subtitle="Colors · Title/subtitle · FAQ · Logo & favicon"
+                src="/partners-lp/personalise.mp4"
+              />
+            </div>
 
-          <div className="mt-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[
-              "Colors & themes",
-              "Title & subtitle",
-              "FAQ customization",
-              "Logo & favicon",
-              "Page content",
-              "Layout & fonts",
-            ].map((t) => (
-              <div key={t} className="rounded-2xl border border-white/10 bg-[#0d0e12] p-6">
-                <div className="text-white font-semibold">{t}</div>
-              </div>
-            ))}
-          </div>
+            <div className="order-1 lg:order-2">
+              <h2 className="text-3xl md:text-5xl font-bold text-white">Personalise Your SaaS</h2>
+              <p className="mt-4 text-gray-300">Make it yours. Every detail, every color, every word.</p>
 
-          <VideoBlock
-            title="Video #2 — Customisation"
-            subtitle="Page builder · Content editing · Branding · Logo & colors"
-          />
+              <ul className="mt-6 space-y-3 text-gray-200">
+                {[
+                  "Colors & theme",
+                  "Title & subtitle",
+                  "FAQ",
+                  "Logo & favicon",
+                  "Landing content",
+                  "Policies / support email",
+                ].map((t) => (
+                  <li key={t} className="flex items-start gap-3">
+                    <span className="mt-1.5 inline-block h-2 w-2 rounded-full bg-purple-400" />
+                    <span>{t}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -299,30 +312,35 @@ export default async function PartnersLpPage() {
       <section className="relative bg-black py-16 md:py-20">
         <div className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 h-80 w-[60rem] bg-gradient-to-b from-purple-600/20 to-transparent blur-3xl" />
         <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="max-w-3xl">
-            <h2 className="text-3xl md:text-5xl font-bold text-white">Your SaaS. Your Rules.</h2>
-            <p className="mt-4 text-gray-300">You decide how your SaaS looks, feels, and sells.</p>
-          </div>
+          <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
+            <div>
+              <h2 className="text-3xl md:text-5xl font-bold text-white">Your SaaS. Your Rules.</h2>
+              <p className="mt-4 text-gray-300">You decide how your SaaS looks, feels, and sells.</p>
 
-          <div className="mt-10 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {[
-              "Create promo codes",
-              "Choose your pricing",
-              "Run discounts & offers",
-              "Set access rules",
-              "Manage subscriptions",
-              "Control features",
-            ].map((t) => (
-              <div key={t} className="rounded-2xl border border-white/10 bg-[#0d0e12] p-6">
-                <div className="text-white font-semibold">{t}</div>
-              </div>
-            ))}
-          </div>
+              <ul className="mt-6 space-y-3 text-gray-200">
+                {[
+                  "Create promo codes",
+                  "Choose your pricing (monthly/yearly)",
+                  "Run discounts & limited offers",
+                  "Control access & features",
+                  "Manage subscriptions",
+                ].map((t) => (
+                  <li key={t} className="flex items-start gap-3">
+                    <span className="mt-1.5 inline-block h-2 w-2 rounded-full bg-purple-400" />
+                    <span>{t}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
 
-          <VideoBlock
-            title="Video #3 — Your rules"
-            subtitle="Promo codes · Pricing · Discounts · Access control"
-          />
+            <div className="lg:pt-2">
+              <VideoFrame
+                title="Video #3 — Your rules"
+                subtitle="Promo codes · Pricing · Discounts · Access control"
+                src="/partners-lp/rules.mp4"
+              />
+            </div>
+          </div>
         </div>
       </section>
 
@@ -422,7 +440,7 @@ export default async function PartnersLpPage() {
           </div>
 
           <div className="mt-8 flex flex-wrap gap-3">
-            <AnimatedPrimaryButton href="/signup">Request White-Label Access</AnimatedPrimaryButton>
+            <AnimatedPrimaryButton href="/signup">Get started</AnimatedPrimaryButton>
             <AnimatedSecondaryButton href="/signup">Book a Demo</AnimatedSecondaryButton>
           </div>
 
