@@ -115,6 +115,27 @@ function Card({ title, children, statusIcon }: { title: string; children: React.
 
 export default function DashboardClient() {
   const DEFAULT_TAGLINE = "Access to +50 Ecom tools for nothing";
+  
+  // Default FAQ from ecomefficiency.com
+  const defaultFaq = [
+    {
+      q: "Can I cancel my subscription at any time?",
+      a: "Yes, you have the flexibility to cancel your subscription at any time directly from your user area, and there's no obligation!",
+    },
+    {
+      q: "How can I get access to EcomEfficiency tools after I've registered?",
+      a: "Once you have registered, you will then be immediately invited to our discord server to access the community and tools logins.",
+    },
+    {
+      q: "I will only have access to the tools login?",
+      a: "No, you will be invited to our Discord server where you can chat with a community of private dropshippers, +20 free Shopify themes, a daily selection of the best YouTube videos on the market (100% value) and a bunch of other surprises!",
+    },
+    {
+      q: "What should I do if I have a problem with logins?",
+      a: "No worries, you just need to let us know by opening a ticket on our discord server to explain your problem to us, and we will help you resolve your problem.",
+    },
+  ];
+  
   const prettyNameFromSlug = React.useCallback((s: string) => {
     const clean = String(s || "")
       .trim()
