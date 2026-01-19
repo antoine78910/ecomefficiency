@@ -83,20 +83,24 @@ function VideoFrame({
   subtitle,
   src = "/demo.mp4",
   poster = "/ecomefficiency.png",
+  showHeader = true,
 }: {
   title: string;
   subtitle: string;
   src?: string;
   poster?: string;
+  showHeader?: boolean;
 }) {
   return (
     <div>
-      <div className="max-w-2xl">
-        <h3 className="text-2xl md:text-3xl font-bold text-white">{title}</h3>
-        <p className="mt-2 text-gray-400">{subtitle}</p>
-      </div>
+      {showHeader ? (
+        <div className="max-w-2xl">
+          <h3 className="text-2xl md:text-3xl font-bold text-white">{title}</h3>
+          <p className="mt-2 text-gray-400">{subtitle}</p>
+        </div>
+      ) : null}
 
-      <div className="mt-6 relative mx-auto w-full max-w-5xl aspect-video rounded-xl overflow-hidden border border-white/10 bg-black">
+      <div className={(showHeader ? "mt-6 " : "") + "relative mx-auto w-full max-w-5xl aspect-video rounded-xl overflow-hidden border border-white/10 bg-black"}>
         <video
           className="absolute inset-0 w-full h-full object-cover"
           src={src}
@@ -265,6 +269,7 @@ export default async function PartnersLpPage() {
                 title="Video #1 — Infra ownership"
                 subtitle="Stripe connection · Custom domain · Email sender · Data export"
                 src="/partners-lp/infra.mp4"
+                showHeader={false}
               />
             </div>
           </div>
@@ -281,6 +286,7 @@ export default async function PartnersLpPage() {
                 title="Video #2 — Personalisation"
                 subtitle="Colors · Title/subtitle · FAQ · Logo & favicon"
                 src="/partners-lp/personalise.mp4"
+                showHeader={false}
               />
             </div>
 
@@ -338,6 +344,7 @@ export default async function PartnersLpPage() {
                 title="Video #3 — Your rules"
                 subtitle="Promo codes · Pricing · Discounts · Access control"
                 src="/partners-lp/rules.mp4"
+                showHeader={false}
               />
             </div>
           </div>
