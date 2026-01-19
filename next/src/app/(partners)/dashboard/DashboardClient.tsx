@@ -1100,7 +1100,9 @@ export default function DashboardClient() {
       secondary: String(colors.secondary || d.secondary || ""),
       accent: String(colors.accent || d.accent || ""),
       background: String(colors.background || d.background || ""),
-      faq: Array.isArray((c as any)?.faq) ? ((c as any).faq as any[]).map((x) => ({ q: String(x?.q || ""), a: String(x?.a || "") })) : d.faq,
+      faq: Array.isArray((c as any)?.faq) && (c as any).faq.length > 0
+        ? ((c as any).faq as any[]).map((x) => ({ q: String(x?.q || ""), a: String(x?.a || "") }))
+        : defaultFaq,
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [
