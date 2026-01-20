@@ -210,9 +210,10 @@ export async function middleware(req: NextRequest) {
     }
     // Default entry point
     if (pathname === '/' || pathname === '') {
-      // Partners root should serve the partners landing page
-      const r = url.clone(); r.pathname = '/lp';
-      return NextResponse.redirect(r)
+      // Serve the partners landing page on root without changing URL
+      const r = url.clone();
+      r.pathname = '/lp';
+      return NextResponse.rewrite(r)
     }
     // Allow everything else to resolve normally (App Router routes handle auth/onboarding)
     return response
