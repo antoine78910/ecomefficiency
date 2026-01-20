@@ -23,20 +23,22 @@ type Partner = {
 };
 
 const partners: Partner[] = [
-  // Replace these placeholders with your real partners.
+  // Partner offers (edit freely).
   {
-    name: "Partner #1",
-    description: "Short description of what this partner does and why it matters to your audience.",
-    offer: "Exclusive offer: -20% for Ecom Efficiency members",
-    websiteUrl: "https://example.com",
-    logoSrc: "/ecomefficiency.png",
+    name: "Uproas",
+    description:
+      "Stop cycling burner accounts. Uproas gives you access to whitelisted agency ad accounts used by top media buyers to scale smoothly.\nReliable stability, high spend capacity, and direct support — built for serious advertisers.",
+    offer: "Use code ECOMEFF10 for an exclusive 10% discount",
+    websiteUrl: "https://www.uproas.io/?aff=ecomeff",
+    logoSrc: "/partners-logos/uproas.png",
   },
   {
-    name: "Partner #2",
-    description: "Another partner description. Keep it to 1–2 lines for best readability.",
-    offer: "Exclusive offer: free trial + bonus credits",
-    websiteUrl: "https://example.com",
-    logoSrc: "/ecomefficiency.png",
+    name: "8Lab Ecosystem",
+    description:
+      "The #1 French-speaking e-commerce ecosystem: academy + coaching, a strong community (+2200 users), sourcing/warehouse, and exclusive events.\nIdeal if you want real support, a proven path to scale, and a network that pushes you.",
+    offer: "Get -€100 off with code ECOMEFF when you join",
+    websiteUrl: "https://www.8lab-ecosystem.com/",
+    logoSrc: "/partners-logos/8lab.png",
   },
 ];
 
