@@ -142,6 +142,10 @@ export default async function PartnersLpPage() {
       q: "Can I use a custom domain and my own email sender?",
       a: "Yes — custom domain + sending emails from your own address are part of the setup.",
     },
+    {
+      q: "Can you build custom features or integrations if I need something specific?",
+      a: "Yes. If you need a custom integration or feature, you can submit a request in our dedicated “Custom requests” section. We’ll review it with you and, when it makes sense, build what you need so the SaaS matches your vision.",
+    },
   ];
 
   return (
@@ -430,7 +434,8 @@ export default async function PartnersLpPage() {
                 <h2 className="text-3xl md:text-5xl font-bold text-white">Who is this for?</h2>
                 <p className="mt-4 text-gray-300 text-base max-w-2xl">
                   This white-label SaaS is designed for creators, communities, and agencies who want to sell a real product under their
-                  brand — without building or supporting it.
+                  brand — without building or supporting it — and help their communities with an all-in-one solution that adds value
+                  without spending months building it.
                 </p>
               </div>
               <div>
