@@ -2,7 +2,7 @@ import Script from "next/script";
 
 export default function CrispScript() {
   return (
-    <Script id="crisp" strategy="lazyOnload">
+    <Script id="crisp" strategy="afterInteractive">
       {`(function(){
   try {
     var h=(window.location.hostname||"").toLowerCase().replace(/^www\\./,"");
