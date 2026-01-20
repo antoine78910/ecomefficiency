@@ -1,35 +1,25 @@
-"use client";
-
 import Script from "next/script";
-import React from "react";
-
-function shouldEnableCrisp(hostname: string) {
-  const h = (hostname || "").toLowerCase().replace(/:\d+$/, "");
-  const bare = h.replace(/^www\./, "");
-  // Enable only on main brand domains (avoid loading Crisp on custom domains).
-  return bare === "ecomefficiency.com" || bare.endsWith(".ecomefficiency.com") || bare.endsWith("localhost");
-}
 
 export default function CrispScript() {
-  const [enabled, setEnabled] = React.useState(false);
-
-  React.useEffect(() => {
-    try {
-      setEnabled(shouldEnableCrisp(window.location.hostname));
-    } catch {
-      setEnabled(false);
-    }
-  }, []);
-
-  if (!enabled) return null;
-
   return (
-    <>
-      <Script id="crisp-config" strategy="beforeInteractive">
-        {`window.$crisp=[];window.CRISP_WEBSITE_ID="69577169-0422-43d4-a553-a7d4776fde6f";`}
-      </Script>
-      <Script id="crisp-loader" strategy="afterInteractive" src="https://client.crisp.chat/l.js" />
-    </>
+    <Script id="crisp" strategy="lazyOnload">
+      {`(function(){
+  try {
+    var h=(window.location.hostname||"").toLowerCase().replace(/^www\\./,"");
+    var ok = (h==="ecomefficiency.com" || h==="localhost" || h==="127.0.0.1" || /\\.vercel\\.app$/.test(h));
+    if (!ok) return;
+  } catch (e) { return; }
+
+  window.$crisp = window.$crisp || [];
+  window.CRISP_WEBSITE_ID = "69577169-0422-43d4-a553-a7d4776fde6f";
+
+  var d=document;
+  var s=d.createElement("script");
+  s.src="https://client.crisp.chat/l.js";
+  s.async=1;
+  (d.head||d.getElementsByTagName("head")[0]).appendChild(s);
+})();`}
+    </Script>
   );
 }
 
