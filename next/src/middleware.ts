@@ -200,6 +200,12 @@ export async function middleware(req: NextRequest) {
     !(hostname === 'partners.localhost' || bareHostname.startsWith('partners.'));
 
   if (isCustomDomain) {
+    // Serve partner landing at "/" via rewrite (keeps URL stable, avoids redirects)
+    if (pathname === '/' || pathname === '') {
+      const r = url.clone();
+      r.pathname = `/domains/${bareHostname}`;
+      return NextResponse.rewrite(r, { request: { headers: req.headers } });
+    }
     if (pathname === '/signin' || pathname === '/signin/') {
       const r = url.clone();
       r.pathname = `/domains/${bareHostname}/signin`;
@@ -277,6 +283,12 @@ export async function middleware(req: NextRequest) {
 
   // app subdomain => serve dashboard content directly on root (no rewrite to /app), protect it
   if (hostname === 'app.localhost' || bareHostname.startsWith('app.')) {
+    // Serve the app at "/" via rewrite (keeps URL for auth hash flows, avoids redirects)
+    if (pathname === '/' || pathname === '') {
+      const r = url.clone();
+      r.pathname = '/app';
+      return NextResponse.rewrite(r, { request: { headers: req.headers } });
+    }
     // IMPORTANT: Allow unauthenticated access to root '/' so Supabase auth hash can be processed client-side.
     // Otherwise we lose the #access_token fragment on redirect and the user can't be auto-logged in after email verification.
     

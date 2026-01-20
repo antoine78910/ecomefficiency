@@ -2,7 +2,6 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
 import Script from "next/script";
-import { headers } from "next/headers";
 import DataFastScript from "@/components/DataFastScript";
 import SupabaseSessionGuard from "@/components/SupabaseSessionGuard";
 import CrossDomainLoginFlag from "@/components/CrossDomainLoginFlag";
@@ -42,51 +41,60 @@ export const metadata: Metadata = {
   },
 };
 
-function cleanHost(input: string) {
-  return String(input || "")
-    .trim()
-    .toLowerCase()
-    .split(":")[0]
-    .replace(/^www\./, "");
-}
-
-export default async function RootLayout({
+export default function RootLayout({
   children,
 }: Readonly<{
   children: React.ReactNode;
 }>) {
-  // Avoid loading noisy/brittle trackers on custom partner domains (prevents console errors like the Sonarly 502).
-  // Keep them on the core platform domains only (ecomefficiency.com + subdomains).
-  const h = await headers();
-  const host = cleanHost(h.get("x-forwarded-host") || h.get("host") || "");
-  const loadTrackers =
-    host === "ecomefficiency.com" ||
-    host.endsWith(".ecomefficiency.com") ||
-    host.endsWith("localhost") ||
-    host.endsWith(".vercel.app");
   return (
     <html lang="en" className="h-full" suppressHydrationWarning translate="no">
       <head>
         <meta name="google" content="notranslate" />
-        <Script id="yandex-metrika" strategy="afterInteractive">
-          {`(function(m,e,t,r,i,k,a){
+        <Script id="yandex-metrika" strategy="lazyOnload">
+          {`(function(){
+      try {
+        var h=(window.location.hostname||"").toLowerCase().replace(/^www\\./,"");
+        var ok = (h==="ecomefficiency.com" || /\\.ecomefficiency\\.com$/.test(h) || h==="localhost" || h==="127.0.0.1" || /\\.vercel\\.app$/.test(h));
+        if (!ok) return;
+      } catch (e) { return; }
+
+      (function(m,e,t,r,i,k,a){
         m[i]=m[i]||function(){(m[i].a=m[i].a||[]).push(arguments)};
         m[i].l=1*new Date();
         for (var j = 0; j < document.scripts.length; j++) {if (document.scripts[j].src === r) { return; }}
         k=e.createElement(t),a=e.getElementsByTagName(t)[0],k.async=1,k.src=r,a.parentNode.insertBefore(k,a)
     })(window, document,'script','https://mc.yandex.ru/metrika/tag.js?id=105104061', 'ym');
 
-    ym(105104061, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", accurateTrackBounce:true, trackLinks:true});`}
+    ym(105104061, 'init', {ssr:true, webvisor:true, clickmap:true, ecommerce:"dataLayer", accurateTrackBounce:true, trackLinks:true});
+    })();`}
         </Script>
         {/* FirstPromoter main tracking */}
-        <Script src="/fprmain.js" strategy="afterInteractive" />
-        <Script src="https://cdn.firstpromoter.com/fpr.js" strategy="afterInteractive" />
+        <Script id="firstpromoter" strategy="lazyOnload">
+          {`(function(){
+      try {
+        var h=(window.location.hostname||"").toLowerCase().replace(/^www\\./,"");
+        var ok = (h==="ecomefficiency.com" || /\\.ecomefficiency\\.com$/.test(h) || h==="localhost" || h==="127.0.0.1" || /\\.vercel\\.app$/.test(h));
+        if (!ok) return;
+      } catch (e) { return; }
+      var s1=document.createElement('script'); s1.src='/fprmain.js'; s1.async=1; document.head.appendChild(s1);
+      var s2=document.createElement('script'); s2.src='https://cdn.firstpromoter.com/fpr.js'; s2.async=1; document.head.appendChild(s2);
+    })();`}
+        </Script>
         {/* DataFast - conditionally loaded only on main domain to prevent 403 errors on subdomains */}
         <DataFastScript />
         {/* Sonarly - disable on custom domains to avoid breaking the app when the tracker returns 502 */}
-        {loadTrackers ? (
-          <Script id="sonarly" strategy="beforeInteractive">
-            {`var initOpts = {
+        <Script id="sonarly" strategy="lazyOnload">
+          {`(function(){
+  try {
+    var h=(window.location.hostname||"").toLowerCase().replace(/^www\\./,"");
+    var ok = (h==="ecomefficiency.com" || /\\.ecomefficiency\\.com$/.test(h) || h==="localhost" || h==="127.0.0.1" || /\\.vercel\\.app$/.test(h));
+    if (!ok) return;
+    // Avoid Best Practices warnings on marketing pages (Sonarly uses deprecated unload listeners)
+    var p=(window.location.pathname||"/");
+    if (p === "/" || p.startsWith("/pricing") || p.startsWith("/blog") || p.startsWith("/lp")) return;
+  } catch (e) { return; }
+
+  var initOpts = {
   projectKey: "ZE1R9a3lE3RjdngiFmDF",
   ingestPoint: "https://sonarly.dev/ingest"
 };
@@ -105,19 +113,25 @@ var startOpts = {};
   r.issue=function(k,p){r.push([6,k,p])};
   r.isActive=function(){return false};
   r.getSessionToken=function(){};
-})("https://sonarly.dev/static/tracker.js?v=1763957587150",1,0,initOpts,startOpts);`}
-          </Script>
-        ) : null}
+})("https://sonarly.dev/static/tracker.js?v=1763957587150",1,0,initOpts,startOpts);
+})();`}
+        </Script>
         {/* Microsoft Clarity - Load early for better tracking */}
-        {loadTrackers ? (
-          <Script id="clarity" strategy="beforeInteractive">
-            {`(function(c,l,a,r,i,t,y){
+        <Script id="clarity" strategy="lazyOnload">
+          {`(function(){
+      try {
+        var h=(window.location.hostname||"").toLowerCase().replace(/^www\\./,"");
+        var ok = (h==="ecomefficiency.com" || /\\.ecomefficiency\\.com$/.test(h) || h==="localhost" || h==="127.0.0.1" || /\\.vercel\\.app$/.test(h));
+        if (!ok) return;
+      } catch (e) { return; }
+
+      (function(c,l,a,r,i,t,y){
         c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
         t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
         y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
-    })(window, document, "clarity", "script", "u2gln16w3i");`}
-          </Script>
-        ) : null}
+    })(window, document, "clarity", "script", "u2gln16w3i");
+    })();`}
+        </Script>
       </head>
       <body className="min-h-screen bg-background text-foreground overflow-x-hidden" suppressHydrationWarning>
         <noscript>
@@ -125,7 +139,7 @@ var startOpts = {};
             <img src="https://mc.yandex.ru/watch/105104061" style={{position: 'absolute', left: '-9999px'}} alt="" />
           </div>
         </noscript>
-        <Script id="global-error-handler" strategy="beforeInteractive">
+        <Script id="global-error-handler" strategy="afterInteractive">
           {`(function() {
             // Global error handler to suppress common third-party script errors
             var originalConsoleError = console.error;

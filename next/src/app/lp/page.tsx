@@ -163,6 +163,15 @@ export default async function PartnersLpPage() {
             />
           </Link>
 
+          <div className="hidden md:flex items-center gap-6 text-sm text-gray-200">
+            <Link href="/pricing" className="hover:text-white transition-colors">
+              Pricing
+            </Link>
+            <Link href="/blog" className="hover:text-white transition-colors">
+              Blog
+            </Link>
+          </div>
+
           <div className="flex items-center gap-2">
             <Link
               href="/signin"
@@ -227,12 +236,7 @@ export default async function PartnersLpPage() {
 
             <div className="mt-8 flex flex-wrap gap-3" id="request">
               <AnimatedPrimaryButton href="/signup">Launch your SaaS</AnimatedPrimaryButton>
-              <a
-                href="#infrastructure"
-                className="inline-flex items-center justify-center h-12 px-6 rounded-xl text-sm font-medium border border-white/15 bg-white/5 hover:bg-white/10 text-gray-200"
-              >
-                See the Infrastructure
-              </a>
+              <AnimatedSecondaryButton href="/signup">Book a demo</AnimatedSecondaryButton>
             </div>
           </div>
         </div>
@@ -395,7 +399,7 @@ export default async function PartnersLpPage() {
         <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8">
           <div className="max-w-3xl">
             <h2 className="text-3xl md:text-5xl font-bold text-white">
-              You Could Be Earning — By Doing Almost Nothing.
+              You Could Be Earning, By Doing Almost Nothing.
             </h2>
             <p className="mt-4 text-gray-300">
               Plug your numbers. We split revenue 50/50. You keep the brand and the audience.
@@ -415,24 +419,55 @@ export default async function PartnersLpPage() {
       {/* SECTION 6 — WHO IS THIS FOR */}
       <section className="relative bg-black py-16 md:py-20">
         <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="max-w-3xl">
-            <h2 className="text-3xl md:text-5xl font-bold text-white">Who is this for?</h2>
-          </div>
-          <div className="mt-10 max-w-4xl">
-            <ul className="space-y-3 text-gray-200">
+          <div className="max-w-6xl mx-auto">
+            <div className="grid md:grid-cols-[1.2fr_.8fr] gap-8 md:gap-12 items-start">
+              <div>
+                <h2 className="text-3xl md:text-5xl font-bold text-white">Who is this for?</h2>
+                <p className="mt-4 text-gray-300 text-base max-w-2xl">
+                  This white-label SaaS is designed for creators, communities, and agencies who want to sell a real product under their
+                  brand — without building or supporting it.
+                </p>
+              </div>
+              <div>
+                <ul className="space-y-3 text-gray-100 text-sm">
+                  <li className="flex items-center gap-2">
+                    <span className="text-purple-400">✓</span> Launch fast, without a dev team
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-purple-400">✓</span> Monetize your audience with recurring revenue
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <span className="text-purple-400">✓</span> Your brand, your Stripe, your users
+                  </li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="mt-10 grid sm:grid-cols-2 lg:grid-cols-4 gap-4">
               {[
-                "Creators with an audience",
-                "Discord communities",
-                "Agencies",
-                "Educators / coaches",
-                "SaaS founders who don't want to build infra",
-              ].map((t) => (
-                <li key={t} className="flex items-start gap-3">
-                  <span className="mt-1.5 inline-block h-2 w-2 rounded-full bg-purple-400" />
-                  <span className="text-lg">{t}</span>
-                </li>
+                {
+                  title: "Creators / content businesses",
+                  body: "Turn your audience into subscribers with a SaaS you fully brand and sell.",
+                },
+                {
+                  title: "Discord & paid communities",
+                  body: "Add a high-value offer to your community and grow MRR without extra ops.",
+                },
+                {
+                  title: "Agencies",
+                  body: "Bundle your services with software and keep clients longer with recurring plans.",
+                },
+                {
+                  title: "Coaches & educators",
+                  body: "Sell a real tool alongside your training — your students get results, you get recurring revenue.",
+                },
+              ].map((c) => (
+                <div key={c.title} className="rounded-2xl border border-white/10 bg-[#0d0f14] p-4">
+                  <div className="text-white font-semibold mb-1 text-sm">{c.title}</div>
+                  <div className="text-xs text-gray-400">{c.body}</div>
+                </div>
               ))}
-            </ul>
+            </div>
           </div>
         </div>
       </section>
@@ -441,12 +476,14 @@ export default async function PartnersLpPage() {
       <section className="relative bg-black py-16 md:py-20">
         <div className="pointer-events-none absolute -bottom-16 left-1/2 -translate-x-1/2 h-80 w-[60rem] bg-gradient-to-t from-purple-600/20 to-transparent blur-3xl" />
         <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8">
-          <div className="max-w-3xl">
+          <div className="max-w-3xl mx-auto text-center">
             <h2 className="text-3xl md:text-5xl font-bold text-white">Launch Your SaaS This Week.</h2>
-            <p className="mt-4 text-gray-300">Request access or book a demo. You bring distribution — we bring the SaaS.</p>
+            <p className="mt-4 text-gray-300">
+              Book a demo or request access. You bring distribution — we bring the SaaS.
+            </p>
           </div>
 
-          <div className="mt-8 flex flex-wrap gap-3">
+          <div className="mt-8 flex flex-wrap gap-3 justify-center">
             <AnimatedPrimaryButton href="/signup">Get started</AnimatedPrimaryButton>
             <AnimatedSecondaryButton href="/signup">Book a Demo</AnimatedSecondaryButton>
           </div>
