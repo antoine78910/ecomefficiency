@@ -35,8 +35,8 @@ const partners: Partner[] = [
   {
     name: "8Lab Ecosystem",
     description:
-      "The #1 French-speaking e-commerce ecosystem: academy + coaching, a strong community (+2200 users), sourcing/warehouse, and exclusive events.\nIdeal if you want real support, a proven path to scale, and a network that pushes you.",
-    offer: "Get -€100 off with code ECOMEFF when you join",
+      "The French-speaking e-commerce ecosystem that combines training, coaching, an active community (over 2,500 members), sourcing & warehousing, and exclusive events—to support you every step of the way, scale your business, and build a real network.",
+    offer: "Get -€100 off with code ECOMEFF",
     websiteUrl: "https://www.8lab-ecosystem.com/",
     logoSrc: "/partners-logos/8lab.png",
   },
@@ -80,7 +80,11 @@ export default function Partners() {
                   <div className="mt-5">
                     <div className="text-white font-semibold text-lg">{p.name}</div>
                     <div className="mt-2 text-sm text-gray-200 leading-relaxed">{p.description}</div>
-                    <div className="mt-3 text-sm text-purple-300 font-medium">{p.offer}</div>
+                    <div className="mt-4">
+                      <div className="inline-flex items-center justify-center rounded-full px-4 py-2 bg-rose-200/15 border border-dotted border-rose-300/70 text-rose-100 text-sm font-semibold">
+                        {p.offer}
+                      </div>
+                    </div>
                   </div>
 
                   <div className="mt-6 pt-2 mt-auto">
