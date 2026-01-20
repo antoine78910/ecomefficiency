@@ -131,43 +131,45 @@ export default function Partners() {
 
           {/* Offers by our partners */}
           <div className="mt-14">
-            <h2 className="text-3xl md:text-4xl font-bold text-white">Offers by our partners</h2>
-            <p className="mt-3 text-gray-300">Take advantage of unique terms and discounts.</p>
+            <div className="text-center">
+              <h2 className="text-3xl md:text-5xl font-bold text-white">Offers by our partners</h2>
+              <p className="mt-3 text-gray-300 text-base md:text-lg">Take advantage of unique terms and discounts</p>
+            </div>
 
-            <div className="mt-8 space-y-4">
+            <div className="mt-10 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
               {partners.map((p) => (
                 <Card
                   key={p.name}
-                  className="bg-[#0d0e12] border border-white/10 rounded-2xl p-5 md:p-6"
+                  className="bg-[#0d0e12] border border-white/10 rounded-3xl p-6 flex flex-col shadow-[0_0_0_1px_rgba(255,255,255,0.04)]"
                 >
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-                    <div className="flex items-start gap-4 min-w-0">
-                      <div className="relative h-12 w-12 rounded-xl border border-white/10 bg-black/30 overflow-hidden flex-shrink-0">
-                        <Image
-                          src={p.logoSrc}
-                          alt={`${p.name} logo`}
-                          fill
-                          sizes="48px"
-                          className="object-contain p-2"
-                        />
-                      </div>
-
-                      <div className="min-w-0">
-                        <div className="text-white font-semibold">{p.name}</div>
-                        <div className="mt-1 text-sm text-gray-300 leading-relaxed">{p.description}</div>
-                        <div className="mt-3 text-sm text-white/95">
-                          <span className="font-semibold">Offer:</span> <span className="text-gray-200">{p.offer}</span>
-                        </div>
-                      </div>
+                  {/* Logo banner */}
+                  <div className="relative rounded-2xl border border-white/10 bg-white/95 p-4 h-24 flex items-center justify-center overflow-hidden">
+                    <div className="relative w-full h-full">
+                      <Image
+                        src={p.logoSrc}
+                        alt={`${p.name} logo`}
+                        fill
+                        sizes="(max-width: 768px) 80vw, 320px"
+                        className="object-contain"
+                      />
                     </div>
+                  </div>
 
-                    <div className="shrink-0">
-                      <a href={p.websiteUrl} target="_blank" rel="noreferrer noopener">
-                        <Button className="w-full md:w-auto cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_24px_rgba(149,65,224,0.45)] border border-[#9541e0] hover:brightness-110">
-                          Go to website
-                        </Button>
-                      </a>
-                    </div>
+                  <div className="mt-5">
+                    <div className="text-white font-semibold text-lg">{p.name}</div>
+                    <div className="mt-2 text-sm text-gray-200 leading-relaxed">{p.description}</div>
+                    <div className="mt-3 text-sm text-purple-300 font-medium">{p.offer}</div>
+                  </div>
+
+                  <div className="mt-6 pt-2 mt-auto">
+                    <a href={p.websiteUrl} target="_blank" rel="noreferrer noopener">
+                      <Button
+                        variant="outline"
+                        className="w-full h-11 rounded-xl border border-white/15 bg-white/5 text-white hover:bg-white/10"
+                      >
+                        Go to website
+                      </Button>
+                    </a>
                   </div>
                 </Card>
               ))}
