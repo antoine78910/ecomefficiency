@@ -171,6 +171,31 @@ export async function middleware(req: NextRequest) {
   // partners subdomain routes (white-label onboarding portal)
   // Note: we intentionally keep paths clean (/signup, /signin, /configuration) on partners.*
   if (hostname === 'partners.localhost' || bareHostname.startsWith('partners.')) {
+    // On partners.ecomefficiency.com we want a fully separate surface:
+    // only the partners portal + /lp should be accessible. Everything else should live on www.ecomefficiency.com.
+    const isPartnersProd =
+      bareHostname === 'partners.ecomefficiency.com' ||
+      (bareHostname.startsWith('partners.') && bareHostname.endsWith('.ecomefficiency.com'));
+    const isAllowedPartnersPath =
+      pathname === '/lp' ||
+      pathname.startsWith('/lp/') ||
+      pathname === '/signin' ||
+      pathname.startsWith('/signin/') ||
+      pathname === '/signup' ||
+      pathname.startsWith('/signup/') ||
+      pathname === '/dashboard' ||
+      pathname.startsWith('/dashboard/') ||
+      pathname === '/configuration' ||
+      pathname.startsWith('/configuration/');
+
+    if (isPartnersProd && !isAllowedPartnersPath) {
+      const target = new URL(req.nextUrl.toString());
+      target.protocol = 'https:';
+      target.hostname = 'www.ecomefficiency.com';
+      target.port = '';
+      return NextResponse.redirect(target);
+    }
+
     // partners portal should not expose /app (reserved for app.* and custom domains)
     if (pathname === '/app' || pathname.startsWith('/app/')) {
       const r = url.clone(); r.pathname = '/dashboard';
