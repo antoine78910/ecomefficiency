@@ -84,7 +84,7 @@ export async function POST(req: NextRequest) {
     let mappedSlug: string | null = null;
     try {
       const mapKey = `partner_domain:${host}`;
-      const { data: mapRow } = await supabaseAdmin.from("app_state").select("value").eq("key", mapKey).maybeSingle();
+      const { data: mapRow } = await supabaseAdmin.from("portal_state").select("value").eq("key", mapKey).maybeSingle();
       const mapping = parseMaybeJson((mapRow as any)?.value) as any;
       const s = String(mapping?.slug || "").trim().toLowerCase();
       mappedSlug = s || null;
@@ -104,7 +104,7 @@ export async function POST(req: NextRequest) {
         brevoListId = Number.isFinite(v) && v > 0 ? v : null;
       } else {
         const cfgKey = `partner_config:${tenantSlug}`;
-        const { data: cfgRow } = await supabaseAdmin.from("app_state").select("value").eq("key", cfgKey).maybeSingle();
+        const { data: cfgRow } = await supabaseAdmin.from("portal_state").select("value").eq("key", cfgKey).maybeSingle();
         const cfg = (parseMaybeJson((cfgRow as any)?.value) as any) || {};
         const v = Number(cfg?.brevoListId ?? cfg?.brevo_list_id ?? "");
         brevoListId = Number.isFinite(v) && v > 0 ? v : null;

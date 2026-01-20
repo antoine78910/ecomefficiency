@@ -44,7 +44,7 @@ function cleanDomainName(input: string) {
 
 async function readConfig(slug: string) {
   const key = `partner_config:${slug}`;
-  const { data, error } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
+  const { data, error } = await supabaseAdmin.from("portal_state").select("value").eq("key", key).maybeSingle();
   if (error) return { ok: false as const, error, config: null as any };
   const config = parseMaybeJson((data as any)?.value) || {};
   return { ok: true as const, config };
@@ -66,7 +66,7 @@ async function upsertConfig(slug: string, patch: any) {
     const row: any = withUpdatedAt
       ? { key, value: stringifyValue ? JSON.stringify(merged) : merged, updated_at: new Date().toISOString() }
       : { key, value: stringifyValue ? JSON.stringify(merged) : merged };
-    const { error } = await supabaseAdmin.from("app_state").upsert(row, { onConflict: "key" as any });
+    const { error } = await supabaseAdmin.from("portal_state").upsert(row, { onConflict: "key" as any });
     return error;
   };
 

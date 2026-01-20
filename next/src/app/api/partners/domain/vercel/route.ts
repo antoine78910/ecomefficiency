@@ -41,7 +41,7 @@ function parseMaybeJson<T = any>(value: any): T | null {
 async function readPartnerConfig(slug: string): Promise<any | null> {
   if (!supabaseAdmin) return null;
   const key = `partner_config:${slug}`;
-  const { data } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
+  const { data } = await supabaseAdmin.from("portal_state").select("value").eq("key", key).maybeSingle();
   return parseMaybeJson((data as any)?.value) || null;
 }
 
@@ -50,7 +50,7 @@ async function upsertPartnerConfig(slug: string, patch: any) {
   const key = `partner_config:${slug}`;
   const existing = await readPartnerConfig(slug);
   const merged = { ...(existing || {}), ...(patch || {}), slug };
-  await supabaseAdmin.from("app_state").upsert({ key, value: merged, updated_at: new Date().toISOString() } as any, { onConflict: "key" as any });
+  await supabaseAdmin.from("portal_state").upsert({ key, value: merged, updated_at: new Date().toISOString() } as any, { onConflict: "key" as any });
 }
 
 /**

@@ -35,13 +35,13 @@ export async function readPartnerForDomain(domainParam: string): Promise<{
 
   try {
     const mapKey = `partner_domain:${domain}`;
-    const { data: mapRow } = await supabaseAdmin.from("app_state").select("value").eq("key", mapKey).maybeSingle();
+    const { data: mapRow } = await supabaseAdmin.from("portal_state").select("value").eq("key", mapKey).maybeSingle();
     const mapping = parseMaybeJson((mapRow as any)?.value) as any;
     const slug = mapping?.slug ? String(mapping.slug) : "";
     if (!slug) return { domain };
 
     const cfgKey = `partner_config:${slug}`;
-    const { data: cfgRow } = await supabaseAdmin.from("app_state").select("value").eq("key", cfgKey).maybeSingle();
+    const { data: cfgRow } = await supabaseAdmin.from("portal_state").select("value").eq("key", cfgKey).maybeSingle();
     const cfg = parseMaybeJson((cfgRow as any)?.value) || {};
     return { domain, slug, cfg };
   } catch {

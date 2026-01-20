@@ -50,7 +50,7 @@ async function resolvePartnerFromHost(req: NextRequest): Promise<{ slug: string;
 
     if (!supabaseAdmin) return { slug: '', mapped: false, host }
     const mapKey = `partner_domain:${host}`
-    const { data, error } = await supabaseAdmin.from('app_state').select('value').eq('key', mapKey).maybeSingle()
+    const { data, error } = await supabaseAdmin.from('portal_state').select('value').eq('key', mapKey).maybeSingle()
     if (error) {
       console.warn('[credentials][white-label] partner_domain mapping lookup error', { host, mapKey, message: error.message })
       return { slug: '', mapped: false, host }
@@ -144,7 +144,7 @@ export async function GET(req: NextRequest) {
       if (partnerSlug && supabaseAdmin) {
         try {
           const key = `partner_config:${partnerSlug}`
-          const { data } = await supabaseAdmin.from('app_state').select('value').eq('key', key).maybeSingle()
+          const { data } = await supabaseAdmin.from('portal_state').select('value').eq('key', key).maybeSingle()
           const cfg = parseMaybeJson((data as any)?.value) || {}
           const connectedAccountId = String((cfg as any)?.connectedAccountId || '').trim()
           if (connectedAccountId) stripeAccount = connectedAccountId
@@ -674,7 +674,7 @@ export async function GET(req: NextRequest) {
     if (partnerSlug && supabaseAdmin) {
       const key = `partner_credentials:${partnerSlug}`
       console.log('[credentials][white-label] Loading from key:', key)
-      const { data, error } = await supabaseAdmin.from('app_state').select('value').eq('key', key).maybeSingle()
+      const { data, error } = await supabaseAdmin.from('portal_state').select('value').eq('key', key).maybeSingle()
       if (error) {
         console.warn('[credentials][white-label] Error loading partner credentials:', error)
       }

@@ -47,7 +47,7 @@ function cleanDomain(input: string) {
 
 async function readConfig(slug: string) {
   const key = `partner_config:${slug}`;
-  const { data, error } = await supabaseAdmin.from("app_state").select("key,value").eq("key", key).maybeSingle();
+  const { data, error } = await supabaseAdmin.from("portal_state").select("key,value").eq("key", key).maybeSingle();
   if (error) return { ok: false as const, error, config: null };
   const config = parseMaybeJson((data as any)?.value) || null;
   return { ok: true as const, config };
@@ -149,7 +149,7 @@ export async function PUT(req: NextRequest) {
       const row: any = withUpdatedAt
         ? { key, value: stringifyValue ? JSON.stringify(merged) : merged, updated_at: new Date().toISOString() }
         : { key, value: stringifyValue ? JSON.stringify(merged) : merged };
-      const { error } = await supabaseAdmin.from("app_state").upsert(row, { onConflict: "key" as any });
+      const { error } = await supabaseAdmin.from("portal_state").upsert(row, { onConflict: "key" as any });
       return error;
     };
 
@@ -179,7 +179,7 @@ export async function PUT(req: NextRequest) {
           const row: any = withUpdatedAt
             ? { key: domainKey, value: stringifyValue ? JSON.stringify(v) : v, updated_at: new Date().toISOString() }
             : { key: domainKey, value: stringifyValue ? JSON.stringify(v) : v };
-          const { error } = await supabaseAdmin.from("app_state").upsert(row, { onConflict: "key" as any });
+          const { error } = await supabaseAdmin.from("portal_state").upsert(row, { onConflict: "key" as any });
           return error;
         };
         let derr: any = await tryUpsertDomain(true, false);

@@ -73,7 +73,7 @@ export async function DELETE(req: Request) {
     if (!id) return NextResponse.json({ ok: false, error: "missing_id" }, { status: 400 });
 
     const key = `partner_requests:${slug}`;
-    const { data } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
+    const { data } = await supabaseAdmin.from("portal_state").select("value").eq("key", key).maybeSingle();
     const raw = parseMaybeJson((data as any)?.value);
     const current = Array.isArray(raw) ? (raw as any[]) : [];
     const next = current.filter((r) => r?.id !== id).slice(0, 200);
@@ -88,7 +88,7 @@ export async function DELETE(req: Request) {
       const row: any = withUpdatedAt
         ? { key, value: stringifyValue ? JSON.stringify(next) : next, updated_at: new Date().toISOString() }
         : { key, value: stringifyValue ? JSON.stringify(next) : next };
-      const { error } = await supabaseAdmin.from("app_state").upsert(row, { onConflict: "key" as any });
+      const { error } = await supabaseAdmin.from("portal_state").upsert(row, { onConflict: "key" as any });
       return error;
     };
 

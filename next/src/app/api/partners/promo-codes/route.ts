@@ -54,7 +54,7 @@ export type StoredPromo = {
 async function loadConnectedAccountId(slug: string): Promise<string> {
   if (!supabaseAdmin) return "";
   const key = `partner_config:${slug}`;
-  const { data } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
+  const { data } = await supabaseAdmin.from("portal_state").select("value").eq("key", key).maybeSingle();
   const cfg = parseMaybeJson((data as any)?.value) as any;
   return String(cfg?.connectedAccountId || "");
 }
@@ -62,7 +62,7 @@ async function loadConnectedAccountId(slug: string): Promise<string> {
 async function loadPartnerConfig(slug: string): Promise<any> {
   if (!supabaseAdmin) return {};
   const key = `partner_config:${slug}`;
-  const { data } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
+  const { data } = await supabaseAdmin.from("portal_state").select("value").eq("key", key).maybeSingle();
   return (parseMaybeJson((data as any)?.value) as any) || {};
 }
 
@@ -82,7 +82,7 @@ async function upsertPartnerConfig(slug: string, patch: Record<string, any>) {
     const row: any = withUpdatedAt
       ? { key, value: stringifyValue ? JSON.stringify(next) : next, updated_at: new Date().toISOString() }
       : { key, value: stringifyValue ? JSON.stringify(next) : next };
-    const { error } = await supabaseAdmin.from("app_state").upsert(row, { onConflict: "key" as any });
+    const { error } = await supabaseAdmin.from("portal_state").upsert(row, { onConflict: "key" as any });
     return error;
   };
 
@@ -127,7 +127,7 @@ async function ensurePartnerStripeProducts(stripe: Stripe, slug: string, connect
 async function readList(slug: string): Promise<StoredPromo[]> {
   if (!supabaseAdmin) return [];
   const key = `partner_promo_codes:${slug}`;
-  const { data } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
+  const { data } = await supabaseAdmin.from("portal_state").select("value").eq("key", key).maybeSingle();
   const raw = parseMaybeJson((data as any)?.value);
   return Array.isArray(raw) ? (raw as StoredPromo[]) : [];
 }
@@ -147,7 +147,7 @@ async function writeList(slug: string, list: StoredPromo[]) {
     const row: any = withUpdatedAt
       ? { key, value: stringifyValue ? JSON.stringify(next) : next, updated_at: new Date().toISOString() }
       : { key, value: stringifyValue ? JSON.stringify(next) : next };
-    const { error } = await supabaseAdmin.from("app_state").upsert(row, { onConflict: "key" as any });
+    const { error } = await supabaseAdmin.from("portal_state").upsert(row, { onConflict: "key" as any });
     return error;
   };
 

@@ -64,7 +64,7 @@ export async function GET(req: NextRequest) {
     let connectedAccountId = accountParam;
     if (!connectedAccountId && slug && supabaseAdmin) {
       const key = `partner_config:${slug}`;
-      const { data, error } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
+      const { data, error } = await supabaseAdmin.from("portal_state").select("value").eq("key", key).maybeSingle();
       if (error) return NextResponse.json({ ok: false, error: "db_error", detail: error.message }, { status: 500 });
       const cfg = parseMaybeJson((data as any)?.value) || {};
       connectedAccountId = String((cfg as any)?.connectedAccountId || "");

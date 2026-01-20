@@ -55,7 +55,7 @@ async function readPartnerCreds(slug: string) {
   if (!supabaseAdmin) return {};
   const key = `partner_credentials:${slug}`;
   console.log('[admin][partners][credentials] Reading from DB with key:', key);
-  const { data, error } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
+  const { data, error } = await supabaseAdmin.from("portal_state").select("value").eq("key", key).maybeSingle();
   if (error) {
     console.warn('[admin][partners][credentials] Error reading from DB:', error);
   }
@@ -68,7 +68,7 @@ async function writePartnerCreds(slug: string, value: any) {
   const key = `partner_credentials:${slug}`;
   console.log('[admin][partners][credentials] Writing to DB with key:', key);
   const { error } = await supabaseAdmin
-    .from("app_state")
+    .from("portal_state")
     .upsert({ key, value, updated_at: new Date().toISOString() }, { onConflict: "key" as any });
   if (error) {
     console.error('[admin][partners][credentials] Error writing to DB:', error);

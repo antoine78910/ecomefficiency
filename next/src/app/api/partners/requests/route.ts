@@ -44,7 +44,7 @@ async function canMutateRequests(slug: string, requesterEmail: string) {
   try {
     if (!supabaseAdmin) return false;
     const cfgKey = `partner_config:${slug}`;
-    const { data } = await supabaseAdmin.from("app_state").select("value").eq("key", cfgKey).maybeSingle();
+    const { data } = await supabaseAdmin.from("portal_state").select("value").eq("key", cfgKey).maybeSingle();
     const cfg = parseMaybeJson((data as any)?.value) as any;
     const adminEmail = String(cfg?.adminEmail || "").trim().toLowerCase();
     if (!adminEmail) return false;
@@ -109,7 +109,7 @@ export async function GET(req: NextRequest) {
     if (!slug) return NextResponse.json({ ok: false, error: "missing_slug" }, { status: 400 });
 
     const key = `partner_requests:${slug}`;
-    const { data, error } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
+    const { data, error } = await supabaseAdmin.from("portal_state").select("value").eq("key", key).maybeSingle();
     if (error) return NextResponse.json({ ok: false, error: "db_error", detail: error.message }, { status: 500 });
 
     const raw = parseMaybeJson((data as any)?.value);
@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
     if (!message) return NextResponse.json({ ok: false, error: "missing_message" }, { status: 400 });
 
     const key = `partner_requests:${slug}`;
-    const { data } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
+    const { data } = await supabaseAdmin.from("portal_state").select("value").eq("key", key).maybeSingle();
     const raw = parseMaybeJson((data as any)?.value);
     const current = Array.isArray(raw) ? (raw as StoredRequest[]) : [];
 
@@ -155,7 +155,7 @@ export async function POST(req: NextRequest) {
       const row: any = withUpdatedAt
         ? { key, value: stringifyValue ? JSON.stringify(next) : next, updated_at: new Date().toISOString() }
         : { key, value: stringifyValue ? JSON.stringify(next) : next };
-      const { error } = await supabaseAdmin.from("app_state").upsert(row, { onConflict: "key" as any });
+      const { error } = await supabaseAdmin.from("portal_state").upsert(row, { onConflict: "key" as any });
       return error;
     };
 
@@ -201,7 +201,7 @@ export async function DELETE(req: NextRequest) {
     if (!allowed) return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
 
     const key = `partner_requests:${slug}`;
-    const { data } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
+    const { data } = await supabaseAdmin.from("portal_state").select("value").eq("key", key).maybeSingle();
     const raw = parseMaybeJson((data as any)?.value);
     const current = Array.isArray(raw) ? (raw as StoredRequest[]) : [];
     const next = current.filter((r) => r?.id !== id).slice(0, 200);
@@ -216,7 +216,7 @@ export async function DELETE(req: NextRequest) {
       const row: any = withUpdatedAt
         ? { key, value: stringifyValue ? JSON.stringify(next) : next, updated_at: new Date().toISOString() }
         : { key, value: stringifyValue ? JSON.stringify(next) : next };
-      const { error } = await supabaseAdmin.from("app_state").upsert(row, { onConflict: "key" as any });
+      const { error } = await supabaseAdmin.from("portal_state").upsert(row, { onConflict: "key" as any });
       return error;
     };
 

@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
     for (let page = 0; page < 10; page++) {
       const to = from + pageSize - 1;
       const { data, error } = await supabaseAdmin
-        .from("app_state")
+        .from("portal_state")
         .select("key,value")
         .like("key", "partner_config:%")
         .range(from, to);

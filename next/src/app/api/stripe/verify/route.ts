@@ -30,7 +30,7 @@ function cleanSlug(input: string) {
 async function readPartnerConfig(slug: string) {
   if (!supabaseAdmin) return null;
   const key = `partner_config:${slug}`;
-  const { data } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
+  const { data } = await supabaseAdmin.from("portal_state").select("value").eq("key", key).maybeSingle();
   return parseMaybeJson((data as any)?.value) || null;
 }
 
@@ -47,7 +47,7 @@ async function recordPartnerPayment(input: {
     if (!slug || !supabaseAdmin) return;
 
     const key = `partner_stats:${slug}`;
-    const { data } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
+    const { data } = await supabaseAdmin.from("portal_state").select("value").eq("key", key).maybeSingle();
     const current = parseMaybeJson((data as any)?.value) || {};
 
     const payments = Number(current?.payments || 0) || 0;
@@ -75,7 +75,7 @@ async function recordPartnerPayment(input: {
       lastUpdated: new Date().toISOString(),
     };
 
-    await supabaseAdmin.from("app_state").upsert({ key, value: next, updated_at: new Date().toISOString() }, { onConflict: "key" as any });
+    await supabaseAdmin.from("portal_state").upsert({ key, value: next, updated_at: new Date().toISOString() }, { onConflict: "key" as any });
   } catch {}
 }
 

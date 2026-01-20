@@ -60,7 +60,7 @@ export async function GET() {
     if (!supabaseAdmin) return NextResponse.json({ ok: false, error: "supabase_admin_missing" }, { status: 500 });
 
     const { data: cfgRows, error: cfgErr } = await supabaseAdmin
-      .from("app_state")
+      .from("portal_state")
       .select("key,value")
       .like("key", "partner_config:%");
 
@@ -80,7 +80,7 @@ export async function GET() {
     // Stats
     const statKeys = slugs.map((s: string) => `partner_stats:${s}`);
     const { data: statRows } = statKeys.length
-      ? await supabaseAdmin.from("app_state").select("key,value").in("key", statKeys)
+      ? await supabaseAdmin.from("portal_state").select("key,value").in("key", statKeys)
       : ({ data: [] } as any);
 
     const statsBySlug = new Map<string, any>();
@@ -94,7 +94,7 @@ export async function GET() {
     // Requests
     const reqKeys = slugs.map((s: string) => `partner_requests:${s}`);
     const { data: reqRows } = reqKeys.length
-      ? await supabaseAdmin.from("app_state").select("key,value").in("key", reqKeys)
+      ? await supabaseAdmin.from("portal_state").select("key,value").in("key", reqKeys)
       : ({ data: [] } as any);
 
     const requestsBySlug = new Map<string, any[]>();

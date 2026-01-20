@@ -24,7 +24,7 @@ async function readPublicConfig(slug: string) {
   if (!supabaseAdmin) return { slug: safeSlug };
   try {
     const key = `partner_config:${safeSlug}`;
-    const { data } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
+    const { data } = await supabaseAdmin.from("portal_state").select("value").eq("key", key).maybeSingle();
     const raw = (data as any)?.value;
     const cfg = (() => {
       if (!raw) return {};

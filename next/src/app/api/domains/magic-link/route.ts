@@ -57,7 +57,7 @@ async function upsertAppState(key: string, value: any) {
     const row: any = withUpdatedAt
       ? { key, value: stringifyValue ? JSON.stringify(value) : value, updated_at: new Date().toISOString() }
       : { key, value: stringifyValue ? JSON.stringify(value) : value };
-    const { error } = await supabaseAdmin.from("app_state").upsert(row, { onConflict: "key" as any });
+    const { error } = await supabaseAdmin.from("portal_state").upsert(row, { onConflict: "key" as any });
     return error;
   };
 
@@ -139,7 +139,7 @@ export async function POST(req: NextRequest) {
 
     // Resolve partner slug by custom domain mapping
     const mapKey = `partner_domain:${host}`;
-    const { data: mapRow } = await supabaseAdmin.from("app_state").select("value").eq("key", mapKey).maybeSingle();
+    const { data: mapRow } = await supabaseAdmin.from("portal_state").select("value").eq("key", mapKey).maybeSingle();
     const mapping = parseMaybeJson((mapRow as any)?.value) as any;
     const slug = String(mapping?.slug || "").trim().toLowerCase();
     if (!slug) {
@@ -149,7 +149,7 @@ export async function POST(req: NextRequest) {
 
     // Read partner config for sender branding
     const cfgKey = `partner_config:${slug}`;
-    const { data: cfgRow } = await supabaseAdmin.from("app_state").select("value").eq("key", cfgKey).maybeSingle();
+    const { data: cfgRow } = await supabaseAdmin.from("portal_state").select("value").eq("key", cfgKey).maybeSingle();
     const cfg = (parseMaybeJson((cfgRow as any)?.value) as any) || {};
     const saasName = String(cfg?.saasName || slug);
     const customDomain = cleanDomain(cfg?.customDomain || host) || host;
@@ -193,7 +193,7 @@ export async function POST(req: NextRequest) {
     // This powers the Data tab which reads app_state: partner_stats:<slug>.
     try {
       const statsKey = `partner_stats:${slug}`;
-      const { data: statsRow } = await supabaseAdmin.from("app_state").select("value").eq("key", statsKey).maybeSingle();
+      const { data: statsRow } = await supabaseAdmin.from("portal_state").select("value").eq("key", statsKey).maybeSingle();
       const rawStats = parseMaybeJson((statsRow as any)?.value) as any;
       const stats = rawStats && typeof rawStats === "object" ? rawStats : {};
       const nowIso = new Date().toISOString();

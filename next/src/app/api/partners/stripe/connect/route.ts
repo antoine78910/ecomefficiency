@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
     try {
       if (supabaseAdmin) {
         const key = `partner_config:${slug}`;
-        const { data } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
+        const { data } = await supabaseAdmin.from("portal_state").select("value").eq("key", key).maybeSingle();
         const current = parseMaybeJson((data as any)?.value) || {};
         existingAccountId = String((current as any)?.connectedAccountId || "");
       }
@@ -82,7 +82,7 @@ export async function POST(req: NextRequest) {
     } else {
       try {
         const key = `partner_config:${slug}`;
-        const { data } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
+        const { data } = await supabaseAdmin.from("portal_state").select("value").eq("key", key).maybeSingle();
         const current = parseMaybeJson((data as any)?.value) || {};
         const merged = { ...(current || {}), slug, connectedAccountId: connected.id };
 
@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
           const row: any = withUpdatedAt
             ? { key, value: stringifyValue ? JSON.stringify(merged) : merged, updated_at: new Date().toISOString() }
             : { key, value: stringifyValue ? JSON.stringify(merged) : merged };
-          const { error } = await supabaseAdmin.from("app_state").upsert(row, { onConflict: "key" as any });
+          const { error } = await supabaseAdmin.from("portal_state").upsert(row, { onConflict: "key" as any });
           return error;
         };
 

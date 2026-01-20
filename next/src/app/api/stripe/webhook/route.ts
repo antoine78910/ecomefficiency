@@ -1,4 +1,4 @@
-﻿import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { trackBrevoEvent } from "@/lib/brevo";
 import { supabaseAdmin } from "@/integrations/supabase/server";
@@ -33,7 +33,7 @@ async function recordPartnerPayment(input: {
     if (!slug || !supabaseAdmin) return;
 
     const key = `partner_stats:${slug}`;
-    const { data } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
+    const { data } = await supabaseAdmin.from("portal_state").select("value").eq("key", key).maybeSingle();
     const current = parseMaybeJson((data as any)?.value) || {};
 
     const payments = Number(current?.payments || 0) || 0;
@@ -68,7 +68,7 @@ async function recordPartnerPayment(input: {
     };
 
     await supabaseAdmin
-      .from("app_state")
+      .from("portal_state")
       .upsert({ key, value: next, updated_at: new Date().toISOString() }, { onConflict: "key" as any });
   } catch (e) {
     // never break webhook delivery

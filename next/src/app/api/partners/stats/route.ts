@@ -36,7 +36,7 @@ function parseMaybeJson<T = any>(value: any): T | null {
 
 async function readConfig(slug: string) {
   const key = `partner_config:${slug}`;
-  const { data } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
+  const { data } = await supabaseAdmin.from("portal_state").select("value").eq("key", key).maybeSingle();
   return parseMaybeJson((data as any)?.value) || {};
 }
 
@@ -69,7 +69,7 @@ export async function GET(req: NextRequest) {
     if (!allowed) return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
 
     const key = `partner_stats:${slug}`;
-    const { data } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
+    const { data } = await supabaseAdmin.from("portal_state").select("value").eq("key", key).maybeSingle();
     const val = (data as any)?.value;
 
     const stats = (val && typeof val === "object") ? val : { signups: 0, payments: 0, revenue: 0, recentSignups: [], recentPayments: [] };

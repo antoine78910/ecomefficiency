@@ -33,7 +33,7 @@ function cleanSlug(input: string) {
 
 async function readConfig(slug: string) {
   const key = `partner_config:${slug}`;
-  const { data, error } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
+  const { data, error } = await supabaseAdmin.from("portal_state").select("value").eq("key", key).maybeSingle();
   if (error) return { ok: false as const, error, config: null as any };
   const config = parseMaybeJson((data as any)?.value) || {};
   return { ok: true as const, config };
@@ -55,7 +55,7 @@ async function canRead(slug: string, requesterEmail: string) {
 
 async function readPartnerStats(slug: string) {
   const key = `partner_stats:${slug}`;
-  const { data } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
+  const { data } = await supabaseAdmin.from("portal_state").select("value").eq("key", key).maybeSingle();
   const val = (data as any)?.value;
   return val && typeof val === "object" ? val : {};
 }

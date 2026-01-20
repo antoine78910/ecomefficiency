@@ -33,12 +33,12 @@ async function resolveSaasNameForHost(): Promise<string> {
     if (isKnown) return "Ecom Efficiency";
     if (!supabaseAdmin) return "Tools";
     const key = `partner_domain:${bareHost}`;
-    const { data } = await supabaseAdmin.from("app_state").select("value").eq("key", key).maybeSingle();
+    const { data } = await supabaseAdmin.from("portal_state").select("value").eq("key", key).maybeSingle();
     const mapping = parseMaybeJson((data as any)?.value) as any;
     const slug = mapping?.slug as string | undefined;
     if (!slug) return "Tools";
     const cfgKey = `partner_config:${slug}`;
-    const { data: cfgRow } = await supabaseAdmin.from("app_state").select("value").eq("key", cfgKey).maybeSingle();
+    const { data: cfgRow } = await supabaseAdmin.from("portal_state").select("value").eq("key", cfgKey).maybeSingle();
     const cfg = parseMaybeJson((cfgRow as any)?.value) || {};
     return String((cfg as any)?.saasName || slug || "Tools");
   } catch {

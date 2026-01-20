@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
 
     // Prevent accidental overwrite if slug already exists
     try {
-      const { data } = await supabaseAdmin.from("app_state").select("key,value").eq("key", key).maybeSingle();
+      const { data } = await supabaseAdmin.from("portal_state").select("key,value").eq("key", key).maybeSingle();
       if (data?.key) {
         return NextResponse.json({ ok: false, error: "slug_taken" }, { status: 409 });
       }
@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
         const row: any = withUpdatedAt
           ? { key, value: payload, updated_at: new Date().toISOString() }
           : { key, value: payload };
-        const { error } = await supabaseAdmin.from("app_state").upsert(row, { onConflict: "key" as any });
+        const { error } = await supabaseAdmin.from("portal_state").upsert(row, { onConflict: "key" as any });
         return error;
       } catch (e: any) {
         return { message: e?.message || String(e) };
