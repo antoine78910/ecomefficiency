@@ -136,7 +136,7 @@ export default async function PartnersLpPage() {
     },
     {
       q: "How do payments work?",
-      a: "You connect your own Stripe account. Revenue is split 50/50 with us — no setup fees, no upfront costs.",
+      a: "You connect your own Stripe account. Revenue is split 50/50 with us with a 50% fees on every payment you receive on your stripe, no setup fees, no upfront costs.",
     },
     {
       q: "Can I use a custom domain and my own email sender?",
@@ -162,6 +162,28 @@ export default async function PartnersLpPage() {
               priority
             />
           </Link>
+
+          <div className="flex items-center gap-2">
+            <Link
+              href="/signin"
+              className="hidden sm:inline-flex items-center justify-center h-10 px-4 rounded-xl text-sm font-medium border border-white/15 bg-white/5 hover:bg-white/10 text-gray-200"
+            >
+              Sign in
+            </Link>
+            <a
+              href="#request"
+              className="cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_24px_rgba(149,65,224,0.55)] px-4 py-2 rounded-xl border border-[#9541e0] text-white font-medium hover:brightness-110 group overflow-hidden inline-flex items-center justify-center h-10 text-sm"
+            >
+              <div className="relative overflow-hidden w-full text-center">
+                <span className="inline-block transition-transform group-hover:-translate-y-7 duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] whitespace-nowrap">
+                  Get started
+                </span>
+                <span className="absolute left-1/2 -translate-x-1/2 top-7 group-hover:top-0 transition-all duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] whitespace-nowrap">
+                  Get started
+                </span>
+              </div>
+            </a>
+          </div>
         </div>
       </nav>
 
