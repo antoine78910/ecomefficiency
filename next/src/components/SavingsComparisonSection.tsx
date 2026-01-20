@@ -87,7 +87,7 @@ const SavingsComparisonSection = () => {
   }, []);
 
   const retail = tools.reduce((sum, t) => sum + (typeof t.price === 'number' ? t.price : 0), 0);
-  const ecomMonthly = 29.99; // baseline offer to communicate savings
+  const ecomMonthly = 9.99; // baseline offer to communicate savings
   const savings = retail - ecomMonthly;
   const [dateStr, setDateStr] = React.useState<string>("");
   React.useEffect(() => {
