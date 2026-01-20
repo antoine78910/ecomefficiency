@@ -46,7 +46,7 @@ const tools: SavingsTool[] = [
   { name: 'Semrush', price: 399 },
   { name: 'Similarweb', price: 199 },
   { name: 'Higgsfield', price: 250 },
-  { name: 'Vmake' }, // price not shown to avoid guessing
+  { name: 'Vmake', price: 9.99 },
   { name: '+30 other SEO tools', price: 1000 },
 ];
 
