@@ -4,6 +4,7 @@ import { useEffect } from 'react'
 import AppTopNav from "@/components/AppTopNav";
 import ActivityTracker from "@/components/ActivityTracker";
 import CrossDomainLoginFlag from "@/components/CrossDomainLoginFlag";
+import EnsureTenantMembership from "@/components/EnsureTenantMembership";
 
 export default function AppSectionLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -43,6 +44,7 @@ export default function AppSectionLayout({ children }: { children: React.ReactNo
       {/* Tracker d'activité en arrière-plan */}
       <ActivityTracker />
       <CrossDomainLoginFlag />
+      <EnsureTenantMembership />
       
       <main className="flex-1 flex flex-col min-h-screen">
         <AppTopNav />

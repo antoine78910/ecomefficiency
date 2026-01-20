@@ -56,6 +56,9 @@ function useAuthCallbackRedirect(targetPath: string) {
             url.searchParams.delete("type");
             history.replaceState(null, "", url.pathname + (url.search ? url.search : ""));
           } catch {}
+          try {
+            await fetch("/api/tenant/ensure", { method: "POST" });
+          } catch {}
           if (!cancelled) window.location.href = targetPath;
           return;
         }
@@ -70,6 +73,9 @@ function useAuthCallbackRedirect(targetPath: string) {
           try {
             history.replaceState(null, "", window.location.pathname + window.location.search);
           } catch {}
+          try {
+            await fetch("/api/tenant/ensure", { method: "POST" });
+          } catch {}
           if (!cancelled) window.location.href = targetPath;
           return;
         }
@@ -81,6 +87,9 @@ function useAuthCallbackRedirect(targetPath: string) {
           try {
             history.replaceState(null, "", window.location.pathname);
           } catch {}
+          try {
+            await fetch("/api/tenant/ensure", { method: "POST" });
+          } catch {}
           if (!cancelled) window.location.href = targetPath;
           return;
         }
@@ -89,6 +98,9 @@ function useAuthCallbackRedirect(targetPath: string) {
         try {
           const { data } = await supabase.auth.getUser();
           if (data?.user && !cancelled) {
+            try {
+              await fetch("/api/tenant/ensure", { method: "POST" });
+            } catch {}
             window.location.href = targetPath;
             return;
           }
