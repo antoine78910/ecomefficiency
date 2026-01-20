@@ -81,7 +81,7 @@ export default function Partners() {
                     <div className="text-white font-semibold text-lg">{p.name}</div>
                     <div className="mt-2 text-sm text-gray-200 leading-relaxed">{p.description}</div>
                     <div className="mt-4">
-                      <div className="inline-flex items-center justify-center rounded-full px-4 py-2 bg-rose-200/15 border border-dotted border-rose-300/70 text-rose-100 text-sm font-semibold">
+                      <div className="inline-flex items-center justify-center rounded-xl px-4 py-2 bg-purple-500/15 border border-dashed border-purple-300/70 text-purple-100 text-sm font-semibold">
                         {p.offer}
                       </div>
                     </div>
