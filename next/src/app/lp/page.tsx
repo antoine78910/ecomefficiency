@@ -162,7 +162,7 @@ export default async function PartnersLpPage() {
               alt="Ecom Efficiency"
               width={160}
               height={64}
-              className="h-12 w-auto mix-blend-screen"
+              className="h-14 w-auto object-contain mix-blend-screen"
               priority
             />
           </Link>
