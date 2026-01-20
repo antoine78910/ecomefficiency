@@ -174,8 +174,8 @@ export default async function PartnersLpPage() {
             >
               Sign in
             </Link>
-            <a
-              href="#request"
+            <Link
+              href="/signup"
               className="cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_24px_rgba(149,65,224,0.55)] px-4 py-2 rounded-xl border border-[#9541e0] text-white font-medium hover:brightness-110 group overflow-hidden inline-flex items-center justify-center h-10 text-sm"
             >
               <div className="relative overflow-hidden w-full text-center">
@@ -186,7 +186,7 @@ export default async function PartnersLpPage() {
                   Get started
                 </span>
               </div>
-            </a>
+            </Link>
           </div>
         </div>
       </nav>
