@@ -106,7 +106,7 @@ const Footer = () => {
         {/* Bottom Bar */}
         <div className="border-t border-white/10 pt-8 flex flex-col md:flex-row justify-between items-center">
           <p className="text-gray-400 text-sm">
-            © 2025 EcomEfficiency. All rights reserved.
+            © 2026 EcomEfficiency. All rights reserved.
           </p>
         </div>
       </div>

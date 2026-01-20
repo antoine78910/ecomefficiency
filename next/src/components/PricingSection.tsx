@@ -51,7 +51,7 @@ type Currency = 'USD' | 'EUR';
       "Custom domain",
       "Your Stripe account",
     ],
-    cta: "Know more",
+    cta: "Get started",
     highlight: false,
     isCustom: true,
   },
@@ -91,11 +91,7 @@ const PricingSection = () => {
     // Community plan shows message
     if (planName.toLowerCase().includes('community')) {
       try { postGoal('pricing_cta_click', { plan: 'community' }); } catch {}
-      toast({ 
-        title: 'Contact us for more details',
-        description: 'You can send us a message at admin@ecomefficiency.com to learn more and get more details about the Community Plan.',
-        duration: 6000,
-      });
+      window.location.href = 'https://partners.ecomefficiency.com/';
       return;
     }
 

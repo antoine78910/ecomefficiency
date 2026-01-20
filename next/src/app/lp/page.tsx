@@ -370,7 +370,7 @@ export default async function PartnersLpPage() {
           <div className="max-w-3xl">
             <h2 className="text-3xl md:text-5xl font-bold text-white">We Only Win If You Win.</h2>
             <p className="mt-4 text-gray-300">
-              We take <span className="text-white font-semibold">50% of revenue</span>.
+              <span className="text-white font-semibold">50%</span> revenue share.
               <br />
               No setup fees. No upfront costs. No hidden charges.
             </p>
@@ -434,7 +434,7 @@ export default async function PartnersLpPage() {
                 <h2 className="text-3xl md:text-5xl font-bold text-white">Who is this for?</h2>
                 <p className="mt-4 text-gray-300 text-base max-w-2xl">
                   This white-label SaaS is designed for creators, communities, and agencies who want to sell a real product under their
-                  brand — without building or supporting it — and help their communities with an all-in-one solution that adds value
+                  brand, without building or supporting it, and help their communities with an all-in-one solution that adds value
                   without spending months building it.
                 </p>
               </div>

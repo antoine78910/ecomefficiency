@@ -208,8 +208,8 @@ export async function middleware(req: NextRequest) {
     }
     // Default entry point
     if (pathname === '/' || pathname === '') {
-      // Keep the onboarding flow on the root (signin -> onboarding -> dashboard)
-      const r = url.clone(); r.pathname = hasAuth ? '/dashboard' : '/signin';
+      // Partners root should serve the partners landing page
+      const r = url.clone(); r.pathname = '/lp';
       return NextResponse.redirect(r)
     }
     // Allow everything else to resolve normally (App Router routes handle auth/onboarding)
