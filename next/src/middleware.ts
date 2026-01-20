@@ -177,6 +177,8 @@ export async function middleware(req: NextRequest) {
       bareHostname === 'partners.ecomefficiency.com' ||
       (bareHostname.startsWith('partners.') && bareHostname.endsWith('.ecomefficiency.com'));
     const isAllowedPartnersPath =
+      pathname === '/' ||
+      pathname === '' ||
       pathname === '/lp' ||
       pathname.startsWith('/lp/') ||
       pathname === '/signin' ||
