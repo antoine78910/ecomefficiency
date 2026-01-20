@@ -82,9 +82,33 @@ export default function PartnersSignUpPage() {
         const msg = String(error.message || "Unexpected error");
         const raw = msg.toLowerCase();
         const already = /already\s*(registered|exists)/i.test(raw) || /duplicate/i.test(raw);
+        if (already) {
+          // Existing user: try to sign them in with the password they entered,
+          // then send them to onboarding (configuration).
+          try {
+            const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
+            if (!signInErr && signInData?.user) {
+              toast({ title: "Welcome back", description: "You’re signed in. Continuing to onboarding…" });
+              window.location.href = "/configuration";
+              return;
+            }
+          } catch {}
+
+          toast({
+            title: "Account already exists",
+            description: "This email is already registered. Please sign in instead.",
+            variant: "destructive",
+          });
+          try {
+            window.location.href = `/signin?email=${encodeURIComponent(email)}`;
+          } catch {}
+          setPending(false);
+          return;
+        }
+
         toast({
-          title: already ? "Account already exists" : "Sign up error",
-          description: already ? "This email is already registered. Please sign in instead." : msg,
+          title: "Sign up error",
+          description: msg,
           variant: "destructive",
         });
         setPending(false);
@@ -94,11 +118,24 @@ export default function PartnersSignUpPage() {
       // Some Supabase setups return user.identities:[] when email exists
       const identities = (data as any)?.user?.identities as any[] | undefined;
       if (Array.isArray(identities) && identities.length === 0) {
+        // Treat as "already exists": try sign-in with provided password.
+        try {
+          const { data: signInData, error: signInErr } = await supabase.auth.signInWithPassword({ email, password });
+          if (!signInErr && signInData?.user) {
+            toast({ title: "Welcome back", description: "You’re signed in. Continuing to onboarding…" });
+            window.location.href = "/configuration";
+            return;
+          }
+        } catch {}
+
         toast({
           title: "Account already exists",
           description: "This email is already registered. Please sign in instead.",
           variant: "destructive",
         });
+        try {
+          window.location.href = `/signin?email=${encodeURIComponent(email)}`;
+        } catch {}
         setPending(false);
         return;
       }

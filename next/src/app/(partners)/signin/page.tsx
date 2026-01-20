@@ -130,6 +130,15 @@ export default function PartnersSignInPage() {
   const isValidEmail = (value: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
   const canSubmit = isValidEmail(email) && password.trim().length >= 6 && !pending;
 
+  // Prefill email when redirected from /signup?email=...
+  React.useEffect(() => {
+    try {
+      const url = new URL(window.location.href);
+      const e = String(url.searchParams.get("email") || "").trim();
+      if (e) setEmail(e);
+    } catch {}
+  }, []);
+
   // Bottom gradient component for Google button (same as legacy /sign-in)
   const BottomGradient = () => (
     <>
