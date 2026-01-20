@@ -1,4 +1,4 @@
-﻿
+
 "use client";
 import React from 'react';
 import { Button } from "@/components/ui/button";
@@ -55,6 +55,7 @@ const NewNavbar = () => {
             >
               Pricing
             </button>
+            <Link href="/blog" className="text-gray-400 hover:text-white transition-colors">Blog</Link>
           </div>
 
           {/* Buttons */}
@@ -115,6 +116,7 @@ const NewNavbar = () => {
             <Link href="/tools" className="block px-4 py-3 text-base text-white hover:bg-white/10">Tools</Link>
             <Link href="/affiliate" className="block px-4 py-3 text-base text-white hover:bg-white/10">Affiliate</Link>
             <button onClick={handlePricingClick} className="w-full text-left px-4 py-3 text-base text-white hover:bg-white/10 cursor-pointer">Pricing</button>
+            <Link href="/blog" className="block px-4 py-3 text-base text-white hover:bg-white/10">Blog</Link>
             <button onClick={handleDiscordClick} className="w-full text-left px-4 py-3 text-base text-white hover:bg-white/10 cursor-pointer">Join Community</button>
             <Link href="/sign-in" className="block px-4 py-3 text-base text-white hover:bg-white/10">Sign In</Link>
           </div>

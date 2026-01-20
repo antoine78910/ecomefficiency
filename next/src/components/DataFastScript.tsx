@@ -4,23 +4,27 @@ import Script from "next/script";
 import { useEffect, useState } from "react";
 
 /**
- * Conditionally loads DataFast tracking script only on the main domain
- * Prevents 403 errors on subdomains like tools.ecomefficiency.com
+ * Conditionally loads DataFast tracking script on selected domains/subdomains.
+ * We intentionally avoid loading it on some subdomains (e.g. tools.*) and on custom white-label domains
+ * to prevent 403 errors and unwanted cross-domain tracking.
  */
 export default function DataFastScript() {
   const [shouldLoad, setShouldLoad] = useState(false);
 
   useEffect(() => {
-    // Only load DataFast on the main domain, not subdomains
     if (typeof window !== "undefined") {
-      const hostname = window.location.hostname;
-      // Load only on exact match or localhost (for development)
-      const isMainDomain = 
-        hostname === "ecomefficiency.com" || 
-        hostname === "www.ecomefficiency.com" ||
-        hostname === "localhost" ||
-        hostname === "127.0.0.1";
-      setShouldLoad(isMainDomain);
+      const hostname = (window.location.hostname || "").toLowerCase().replace(/:\d+$/, "");
+      const bare = hostname.replace(/^www\./, "");
+
+      // Track the main marketing site + the app + the partners portal.
+      // Do NOT track tools.* (historically returns 403) and do NOT track custom white-label domains.
+      const isProdRoot = bare === "ecomefficiency.com";
+      const isAppSubdomain = bare === "app.ecomefficiency.com";
+      const isPartnersSubdomain = bare === "partners.ecomefficiency.com";
+      const isLocal = bare === "localhost" || bare === "127.0.0.1";
+
+      const isTrackableDomain = isProdRoot || isAppSubdomain || isPartnersSubdomain || isLocal;
+      setShouldLoad(isTrackableDomain);
 
       // Suppress DataFast console errors
       // Always suppress HTTP 0 errors (network failures) on all domains
@@ -38,7 +42,7 @@ export default function DataFastScript() {
             return; // Suppress network failure errors silently
           }
           // On subdomains, also suppress 403 errors
-          if (!isMainDomain && (message.includes('403') || message.includes('HTTP 403'))) {
+          if (!isTrackableDomain && (message.includes('403') || message.includes('HTTP 403'))) {
             return; // Suppress 403 errors on subdomains
           }
           }
