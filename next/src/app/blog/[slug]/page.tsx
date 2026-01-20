@@ -1,82 +1,102 @@
-"use client";
-import React from 'react';
-import { useParams } from 'next/navigation';
-import Link from 'next/link';
-import Image from 'next/image';
-import Footer from '@/components/Footer';
-import NewNavbar from '@/components/NewNavbar';
-import { ArrowLeft, Clock, Calendar, User } from 'lucide-react';
-import ReactMarkdown from 'react-markdown';
-import { supabase } from '@/integrations/supabase/client';
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
 
-export default function BlogPostPage() {
-  const params = useParams();
-  const slug = params?.slug as string;
-  
-  const [post, setPost] = React.useState<any | null>(null);
-  const [loading, setLoading] = React.useState(true);
-  const [notFound, setNotFound] = React.useState(false);
+import Footer from "@/components/Footer";
+import NewNavbar from "@/components/NewNavbar";
+import { ArrowLeft, Clock, Calendar, User } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import { supabaseAdmin } from "@/integrations/supabase/server";
 
-  React.useEffect(() => {
-    if (!slug) return;
-    
-    (async () => {
-      try {
-        const { data, error } = await (supabase as any)
-          .from('blog_posts')
-          .select('*')
-          .eq('slug', slug)
-          .single();
+export const revalidate = 3600;
 
-        if (error || !data) {
-          console.error('[BlogPost] Error fetching post:', error);
-          setNotFound(true);
-        } else {
-          setPost(data);
-        }
-      } catch (e) {
-        console.error('[BlogPost] Failed to load post:', e);
-        setNotFound(true);
-      } finally {
-        setLoading(false);
-      }
-    })();
-  }, [slug]);
+type BlogPost = {
+  id: string;
+  slug: string;
+  title: string;
+  excerpt: string | null;
+  content_markdown: string | null;
+  content_html: string | null;
+  cover_image: string | null;
+  author: string | null;
+  category: string | null;
+  tags: string[] | null;
+  published_at: string | null;
+  read_time: string | null;
+};
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-black flex items-center justify-center">
-        <div className="text-center">
-          <div className="h-10 w-10 rounded-full border-2 border-white/30 border-t-white animate-spin mx-auto mb-4" />
-          <p className="text-gray-400">Loading article...</p>
-        </div>
-      </div>
-    );
+async function getPostBySlug(slug: string): Promise<BlogPost | null> {
+  if (!supabaseAdmin) return null;
+  const { data } = await supabaseAdmin.from("blog_posts").select("*").eq("slug", slug).maybeSingle();
+  return (data as BlogPost) || null;
+}
+
+function toMetaDescription(post: BlogPost): string {
+  const d = (post.excerpt || "").trim();
+  if (d) return d.slice(0, 160);
+  const fallback = "Read the latest e-commerce tactics, tool breakdowns, and actionable strategies from Ecom Efficiency.";
+  return fallback;
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const post = await getPostBySlug(slug);
+  if (!post) {
+    return {
+      title: "Article not found | Ecom Efficiency",
+      description: "This article does not exist.",
+      robots: { index: false, follow: false },
+    };
   }
 
-  if (notFound || !post) {
-    return (
-      <div className="min-h-screen bg-black">
-        <NewNavbar />
-        <div className="flex items-center justify-center min-h-[60vh]">
-          <div className="text-center">
-            <h1 className="text-4xl font-bold text-white mb-4">Article Not Found</h1>
-            <p className="text-gray-400 mb-8">The article you're looking for doesn't exist.</p>
-            <Link href="/blog" className="inline-block px-6 py-3 bg-purple-600 hover:bg-purple-700 text-white rounded-lg transition-colors">
-              ← Back to Blog
-            </Link>
-          </div>
-        </div>
-        <Footer />
-      </div>
-    );
-  }
+  const description = toMetaDescription(post);
+  const cover = post.cover_image || "/header_ee.png?v=8";
+
+  return {
+    title: `${post.title} | Ecom Efficiency`,
+    description,
+    alternates: { canonical: `/blog/${post.slug}` },
+    openGraph: {
+      type: "article",
+      url: `/blog/${post.slug}`,
+      title: post.title,
+      description,
+      images: [{ url: cover }],
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: post.title,
+      description,
+      images: [cover],
+    },
+  };
+}
+
+export default async function BlogPostPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const post = await getPostBySlug(slug);
+  if (!post) notFound();
+
+  const publishedIso = post.published_at ? new Date(post.published_at).toISOString() : undefined;
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Article",
+    headline: post.title,
+    datePublished: publishedIso,
+    dateModified: publishedIso,
+    author: { "@type": "Organization", name: post.author || "Ecom Efficiency Team" },
+    publisher: { "@type": "Organization", name: "Ecom Efficiency", logo: { "@type": "ImageObject", url: "https://ecomefficiency.com/ecomefficiency.png" } },
+    mainEntityOfPage: { "@type": "WebPage", "@id": `https://ecomefficiency.com/blog/${post.slug}` },
+    image: post.cover_image ? [post.cover_image] : undefined,
+    description: toMetaDescription(post),
+  };
 
   return (
     <div className="min-h-screen bg-black">
       <NewNavbar />
-      
+
       <article className="max-w-4xl mx-auto px-6 py-12">
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
         {/* Back button */}
         <Link 
           href="/blog" 
@@ -89,10 +109,12 @@ export default function BlogPostPage() {
         {/* Article header */}
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-4">
-            <span className="text-sm px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
-              {post.category}
-            </span>
-            <span className="text-sm text-gray-500">{post.read_time}</span>
+            {post.category ? (
+              <span className="text-sm px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
+                {post.category}
+              </span>
+            ) : null}
+            {post.read_time ? <span className="text-sm text-gray-500">{post.read_time}</span> : null}
           </div>
           
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-6">
@@ -102,15 +124,19 @@ export default function BlogPostPage() {
           <div className="flex items-center gap-6 text-sm text-gray-400">
             <div className="flex items-center gap-2">
               <User className="w-4 h-4" />
-              <span>{post.author}</span>
+              <span>{post.author || "Ecom Efficiency Team"}</span>
             </div>
             <div className="flex items-center gap-2">
               <Calendar className="w-4 h-4" />
-              <span>{new Date(post.published_at).toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' })}</span>
+              <span>
+                {post.published_at
+                  ? new Date(post.published_at).toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+                  : ""}
+              </span>
             </div>
             <div className="flex items-center gap-2">
               <Clock className="w-4 h-4" />
-              <span>{post.read_time}</span>
+              <span>{post.read_time || ""}</span>
             </div>
           </div>
         </div>

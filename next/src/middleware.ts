@@ -161,9 +161,9 @@ export async function middleware(req: NextRequest) {
       const r = url.clone(); r.pathname = '/protools';
       return NextResponse.rewrite(r)
     }
-    // default legacy to /tools (keep root only)
-    if (pathname === '/' || pathname === '') {
-      const r = url.clone(); r.pathname = '/tools';
+    // Serve dedicated tools subdomain landing (keep root only)
+    if (pathname === '/' || pathname === '' || pathname === '/tools' || pathname === '/tools/') {
+      const r = url.clone(); r.pathname = '/tools-subdomain';
       return NextResponse.rewrite(r)
     }
   }

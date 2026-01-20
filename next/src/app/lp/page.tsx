@@ -488,7 +488,7 @@ export default async function PartnersLpPage() {
             <AnimatedSecondaryButton href="/signup">Book a Demo</AnimatedSecondaryButton>
           </div>
 
-          <div className="mt-14 max-w-4xl mx-auto">
+          <div className="mt-20 max-w-4xl mx-auto">
             <h3 className="text-2xl font-bold text-center text-white">
               FAQ <span className="gradient-text">white-label</span>
             </h3>
