@@ -1,23 +1,35 @@
-import type { Metadata } from "next";
 import Link from "next/link";
 import Image from "next/image";
+import type { Metadata } from "next";
 
 import Footer from "@/components/Footer";
 import NewNavbar from "@/components/NewNavbar";
 import { supabaseAdmin } from "@/integrations/supabase/server";
 
-export const metadata: Metadata = {
-  title: "Blog | Ecom Efficiency",
-  description: "E-commerce growth tactics, tool breakdowns, and actionable strategies from Ecom Efficiency.",
-  alternates: { canonical: "/blog" },
-  openGraph: {
+export async function generateMetadata({
+  searchParams,
+}: {
+  searchParams: Promise<{ q?: string }>;
+}): Promise<Metadata> {
+  const { q } = await searchParams;
+  const query = (q || "").trim();
+  const hasSearch = Boolean(query);
+
+  return {
     title: "Blog | Ecom Efficiency",
     description: "E-commerce growth tactics, tool breakdowns, and actionable strategies from Ecom Efficiency.",
-    url: "/blog",
-    type: "website",
-    images: [{ url: "/header_ee.png?v=8", width: 1200, height: 630, alt: "Ecom Efficiency Blog" }],
-  },
-};
+    alternates: { canonical: "/blog" },
+    // Internal search pages should not be indexed (prevents duplicate/thin variants like /blog?q=...)
+    robots: hasSearch ? { index: false, follow: true } : undefined,
+    openGraph: {
+      title: "Blog | Ecom Efficiency",
+      description: "E-commerce growth tactics, tool breakdowns, and actionable strategies from Ecom Efficiency.",
+      url: "/blog",
+      type: "website",
+      images: [{ url: "/header_ee.png?v=8", width: 1200, height: 630, alt: "Ecom Efficiency Blog" }],
+    },
+  };
+}
 
 export const revalidate = 3600;
 

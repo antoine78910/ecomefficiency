@@ -6,17 +6,23 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 
 export async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname
+  const userAgent = req.headers.get('user-agent') || ''
+  // Allow search engine crawlers (prevents accidental de-indexing via 503 security blocks)
+  const isSearchBot =
+    /googlebot|google-inspectiontool|bingbot|duckduckbot|baiduspider|yandexbot|slurp|facebookexternalhit|twitterbot|linkedinbot/i.test(
+      userAgent
+    )
   
   // 🔒 SÉCURITÉ : Vérification des blocages IP et pays
   // Skip security check for admin routes and static assets
   if (!pathname.startsWith('/admin') && 
       !pathname.startsWith('/_next') && 
       !pathname.startsWith('/api/admin') &&
-      !pathname.includes('.')) {
+      !pathname.includes('.') &&
+      !isSearchBot) {
     
     try {
       const clientIP = getClientIP(req)
-      const userAgent = req.headers.get('user-agent') || ''
       
       const securityCheck = await performSecurityCheck(
         clientIP, 
@@ -66,6 +72,8 @@ export async function middleware(req: NextRequest) {
             headers: {
               'Content-Type': 'text/html; charset=utf-8',
               'Cache-Control': 'no-cache, no-store, must-revalidate',
+              // Ensure temporary block pages never get indexed
+              'X-Robots-Tag': 'noindex, nofollow',
               'X-Security-Block': 'true',
               'X-Block-Reason': securityCheck.reason || 'unknown'
             }
@@ -112,6 +120,36 @@ export async function middleware(req: NextRequest) {
   const hostHeader = (req.headers.get('host') || '')
   const hostname = hostHeader.toLowerCase().split(':')[0]
   const bareHostname = hostname.replace(/^www\./, '')
+
+  // Canonicalize host to avoid duplicate indexing (www vs non-www)
+  // Primary host: https://ecomefficiency.com
+  if (hostname === 'www.ecomefficiency.com') {
+    const target = new URL(req.nextUrl.toString())
+    target.protocol = 'https:'
+    target.hostname = 'ecomefficiency.com'
+    target.port = ''
+    return NextResponse.redirect(target, 308)
+  }
+
+  // Keep marketing content (/blog, /articles) on the main domain only
+  // This prevents duplicate indexing across subdomains like app.* and tools.*
+  const isAppSubdomain = hostname === 'app.localhost' || bareHostname.startsWith('app.')
+  const isToolsSubdomain = hostname === 'tools.localhost' || bareHostname.startsWith('tools.')
+  const isPartnersSubdomain = hostname === 'partners.localhost' || bareHostname.startsWith('partners.')
+  const isMarketingPath =
+    pathname === '/blog' ||
+    pathname.startsWith('/blog/') ||
+    pathname === '/articles' ||
+    pathname.startsWith('/articles/')
+
+  if ((isAppSubdomain || isToolsSubdomain || isPartnersSubdomain) && isMarketingPath) {
+    const target = new URL(req.nextUrl.toString())
+    target.protocol = 'https:'
+    target.hostname = 'ecomefficiency.com'
+    target.port = ''
+    return NextResponse.redirect(target, 308)
+  }
+
   const isKnownDomain =
     bareHostname === 'ecomefficiency.com' ||
     bareHostname.endsWith('.ecomefficiency.com') ||
@@ -193,7 +231,7 @@ export async function middleware(req: NextRequest) {
     if (isPartnersProd && !isAllowedPartnersPath) {
       const target = new URL(req.nextUrl.toString());
       target.protocol = 'https:';
-      target.hostname = 'www.ecomefficiency.com';
+      target.hostname = 'ecomefficiency.com';
       target.port = '';
       return NextResponse.redirect(target);
     }
