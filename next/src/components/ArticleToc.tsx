@@ -66,6 +66,7 @@ export default function ArticleToc({
               key={item.id}
               href={`#${item.id}`}
               onClick={() => setActiveId(item.id)}
+              title={item.label}
               className={cx(
                 "block text-sm transition-colors",
                 linkClassName || "text-gray-400 hover:text-white",

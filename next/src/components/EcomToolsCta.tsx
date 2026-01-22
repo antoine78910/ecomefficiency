@@ -34,20 +34,24 @@ export default function EcomToolsCta({ compact }: { compact?: boolean }) {
               className="relative w-10 h-10 rounded-full overflow-hidden border border-white/15 bg-black ring-2 ring-black"
               title={l.alt}
             >
-              <Image src={l.src} alt={l.alt} fill sizes="40px" className="object-cover" />
+              <Image src={l.src} alt={l.alt} fill sizes="40px" loading="lazy" className="object-cover" />
             </div>
           ))}
         </div>
       </div>
 
       <div className={compact ? "mt-4 flex gap-2" : "mt-5 flex gap-3"}>
-        <Link href="/sign-up" className="flex-1">
-          <button className="w-full cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_32px_0_rgba(149,65,224,0.55)] px-5 py-3 rounded-xl border border-[#9541e0]/60 text-white font-medium">
+        <Link href="/sign-up" title="Get access to 50+ ecom tools" className="flex-1">
+          <button
+            title="Get access to 50+ ecom tools"
+            className="w-full cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_32px_0_rgba(149,65,224,0.55)] px-5 py-3 rounded-xl border border-[#9541e0]/60 text-white font-medium"
+          >
             Get access
           </button>
         </Link>
         <Link
           href="/pricing"
+          title="View pricing"
           className="inline-flex items-center justify-center px-4 rounded-xl border border-white/15 text-white/90 hover:text-white hover:border-white/25 transition-colors"
         >
           Pricing

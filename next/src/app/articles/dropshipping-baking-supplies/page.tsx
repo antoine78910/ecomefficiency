@@ -9,14 +9,14 @@ import NewNavbar from "@/components/NewNavbar";
 export const metadata: Metadata = {
   title: "Dropshipping baking supplies : produits, fournisseurs, marges & SEO | Ecom Efficiency",
   description:
-    "Guide complet pour lancer une boutique de baking supplies en dropshipping : choix des produits, conformité food-contact, sourcing fournisseurs, packaging, pricing, SEO, acquisition et FAQ.",
+    "Dropshipping baking supplies : guide complet pour lancer une boutique rentable (produits, fournisseurs, conformité food-contact, packaging, pricing, SEO, acquisition et FAQ).",
   alternates: { canonical: "/articles/dropshipping-baking-supplies" },
   openGraph: {
     type: "article",
     url: "/articles/dropshipping-baking-supplies",
     title: "Dropshipping baking supplies : produits, fournisseurs, marges & SEO",
     description:
-      "Un playbook actionnable pour vendre des accessoires et ingrédients de pâtisserie en dropshipping : sélection produit, sourcing, qualité, pricing, SEO et croissance.",
+      "Dropshipping baking supplies : un playbook actionnable pour vendre des accessoires et ingrédients de pâtisserie (sourcing, qualité, pricing, SEO et croissance).",
     images: [{ url: "/header_ee.png?v=8", width: 1200, height: 630, alt: "Dropshipping baking supplies" }],
   },
 };
@@ -69,7 +69,11 @@ export default function DropshippingBakingSuppliesArticlePage() {
       <article className="max-w-6xl mx-auto px-6 py-12">
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
-        <Link href="/articles" className="inline-flex items-center gap-2 text-gray-400 hover:text-white mb-8 transition-colors">
+        <Link
+          href="/articles"
+          title="Back to all articles"
+          className="inline-flex items-center gap-2 text-gray-400 hover:text-white mb-8 transition-colors"
+        >
           <span className="text-sm">← Retour aux articles</span>
         </Link>
 
@@ -84,12 +88,12 @@ export default function DropshippingBakingSuppliesArticlePage() {
           </div>
 
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
-            Dropshipping de <span className="gradient-text">baking supplies</span> : produits, fournisseurs, marges & SEO
+            <span className="gradient-text">Dropshipping baking supplies</span> : produits, fournisseurs, marges & SEO
           </h1>
           <p className="text-gray-300 text-lg leading-relaxed">
-            La pâtisserie “maison” explose (batch cooking, meal prep, TikTok recipes, cakes design) et les{" "}
-            <strong>accessoires de pâtisserie</strong> sont parfaits pour une stratégie e-commerce orientée contenu :
-            démonstrations courtes, avant/après, UGC, et intention d’achat forte.
+            <strong>Dropshipping baking supplies</strong> : la pâtisserie “maison” explose (batch cooking, meal prep, TikTok recipes,
+            cake design) et les <strong>accessoires de pâtisserie</strong> sont parfaits pour une stratégie e-commerce orientée contenu
+            (démonstrations courtes, avant/après, UGC, et intention d’achat forte).
           </p>
           <p className="text-gray-300 text-lg leading-relaxed mt-4">
             Dans ce guide, je te donne un playbook clair pour lancer une boutique de baking supplies en dropshipping — en
