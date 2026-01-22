@@ -1,14 +1,31 @@
 import Image from "next/image";
 import Link from "next/link";
 
-const LOGOS = [
+export type CtaLogo = {
+  src: string;
+  alt: string;
+  title?: string;
+};
+
+const DEFAULT_LOGOS: CtaLogo[] = [
   { src: "/tools-logos/semrush.png", alt: "Semrush" },
   { src: "/tools-logos/pipiads.png", alt: "Pipiads" },
   { src: "/tools-logos/chatgpt.png", alt: "ChatGPT" },
   { src: "/tools-logos/canva.png", alt: "Canva" },
 ] as const;
 
-export default function EcomToolsCta({ compact }: { compact?: boolean }) {
+export default function EcomToolsCta({
+  compact,
+  logos = DEFAULT_LOGOS,
+  totalTools = 50,
+}: {
+  compact?: boolean;
+  logos?: CtaLogo[];
+  totalTools?: number;
+}) {
+  const shownLogos = logos.slice(0, 4);
+  const remaining = Math.max(0, totalTools - shownLogos.length);
+
   return (
     <div
       className={[
@@ -27,34 +44,55 @@ export default function EcomToolsCta({ compact }: { compact?: boolean }) {
           </p>
         </div>
 
-        <div className="flex -space-x-3 shrink-0">
-          {LOGOS.map((l) => (
+        <div className="shrink-0">
+          <div className="flex -space-x-3 justify-end">
+            {shownLogos.map((l) => (
             <div
               key={l.src}
               className="relative w-10 h-10 rounded-full overflow-hidden border border-white/15 bg-black ring-2 ring-black"
-              title={l.alt}
+              title={l.title || l.alt}
             >
               <Image src={l.src} alt={l.alt} fill sizes="40px" loading="lazy" className="object-cover" />
             </div>
           ))}
+            {remaining > 0 ? (
+              <div
+                className="relative w-10 h-10 rounded-full overflow-hidden border border-white/15 bg-black ring-2 ring-black flex items-center justify-center"
+                title={`${remaining} more tools`}
+                aria-label={`${remaining} more tools`}
+              >
+                <span className="text-[11px] font-semibold text-white/90">+{remaining}</span>
+              </div>
+            ) : null}
+          </div>
+          {remaining > 0 ? (
+            <div className="mt-2 flex items-center justify-end gap-2">
+              <div className="flex items-center gap-1" aria-hidden="true">
+                <span className="w-1 h-1 rounded-full bg-white/30" />
+                <span className="w-1 h-1 rounded-full bg-white/30" />
+                <span className="w-1 h-1 rounded-full bg-white/30" />
+              </div>
+              <span className="text-[11px] text-gray-400">and more</span>
+            </div>
+          ) : null}
         </div>
       </div>
 
-      <div className={compact ? "mt-4 flex gap-2" : "mt-5 flex gap-3"}>
+      <div className={compact ? "mt-4" : "mt-5"}>
         <Link href="/sign-up" title="Get access to 50+ ecom tools" className="flex-1">
           <button
-            title="Get access to 50+ ecom tools"
-            className="w-full cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_32px_0_rgba(149,65,224,0.55)] px-5 py-3 rounded-xl border border-[#9541e0]/60 text-white font-medium"
+            title="Try it now"
+            className="w-full cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_32px_0_rgba(149,65,224,0.55)] px-5 py-3 rounded-xl border border-[#9541e0]/60 text-white font-medium group overflow-hidden hover:brightness-110 hover:shadow-[0_8px_40px_rgba(149,65,224,0.55)] transition-all duration-300"
           >
-            Get access
+            <span className="relative overflow-hidden w-full text-center block">
+              <span className="inline-block transition-transform group-hover:-translate-y-7 duration-[900ms] ease-[cubic-bezier(0.19,1,0.22,1)]">
+                Try it now
+              </span>
+              <span className="absolute left-1/2 -translate-x-1/2 top-7 group-hover:top-0 transition-all duration-[900ms] ease-[cubic-bezier(0.19,1,0.22,1)]">
+                Try it now
+              </span>
+            </span>
           </button>
-        </Link>
-        <Link
-          href="/pricing"
-          title="View pricing"
-          className="inline-flex items-center justify-center px-4 rounded-xl border border-white/15 text-white/90 hover:text-white hover:border-white/25 transition-colors"
-        >
-          Pricing
         </Link>
       </div>
     </div>
