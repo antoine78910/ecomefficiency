@@ -27,8 +27,8 @@ const partners: Partner[] = [
   {
     name: "Uproas",
     description:
-      "Stop cycling burner accounts. Uproas gives you access to whitelisted agency ad accounts used by top media buyers to scale smoothly.\nReliable stability, high spend capacity, and direct support — built for serious advertisers.",
-    offer: "Use code ECOMEFF10 for an exclusive 10% discount",
+      "Stop cycling burner accounts. Uproas gives you access to whitelisted agency ad accounts used by top media buyers to scale smoothly.\nReliable stability, high spend capacity, and direct support.",
+    offer: "Get 10% off with code ECOMEFF10",
     websiteUrl: "https://www.uproas.io/?aff=ecomeff",
     logoSrc: "/partners-logos/uproas.png",
   },
