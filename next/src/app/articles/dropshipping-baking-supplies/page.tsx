@@ -56,9 +56,9 @@ export default function DropshippingBakingSuppliesArticlePage() {
     publisher: {
       "@type": "Organization",
       name: "Ecom Efficiency",
-      logo: { "@type": "ImageObject", url: "https://ecomefficiency.com/ecomefficiency.png" },
+      logo: { "@type": "ImageObject", url: "https://www.ecomefficiency.com/ecomefficiency.png" },
     },
-    mainEntityOfPage: { "@type": "WebPage", "@id": "https://ecomefficiency.com/articles/dropshipping-baking-supplies" },
+    mainEntityOfPage: { "@type": "WebPage", "@id": "https://www.ecomefficiency.com/articles/dropshipping-baking-supplies" },
     description: metadata.description,
   };
 

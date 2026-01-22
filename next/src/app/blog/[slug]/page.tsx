@@ -85,8 +85,8 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     datePublished: publishedIso,
     dateModified: publishedIso,
     author: { "@type": "Organization", name: post.author || "Ecom Efficiency Team" },
-    publisher: { "@type": "Organization", name: "Ecom Efficiency", logo: { "@type": "ImageObject", url: "https://ecomefficiency.com/ecomefficiency.png" } },
-    mainEntityOfPage: { "@type": "WebPage", "@id": `https://ecomefficiency.com/blog/${post.slug}` },
+    publisher: { "@type": "Organization", name: "Ecom Efficiency", logo: { "@type": "ImageObject", url: "https://www.ecomefficiency.com/ecomefficiency.png" } },
+    mainEntityOfPage: { "@type": "WebPage", "@id": `https://www.ecomefficiency.com/blog/${post.slug}` },
     image: post.cover_image ? [post.cover_image] : undefined,
     description: toMetaDescription(post),
   };
