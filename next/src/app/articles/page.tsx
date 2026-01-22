@@ -6,11 +6,11 @@ import NewNavbar from "@/components/NewNavbar";
 
 export const metadata: Metadata = {
   title: "Articles | Ecom Efficiency",
-  description: "Guides SEO et playbooks e-commerce par Ecom Efficiency.",
+  description: "SEO guides and e-commerce playbooks from Ecom Efficiency.",
   alternates: { canonical: "/articles" },
   openGraph: {
     title: "Articles | Ecom Efficiency",
-    description: "Guides SEO et playbooks e-commerce par Ecom Efficiency.",
+    description: "SEO guides and e-commerce playbooks from Ecom Efficiency.",
     url: "/articles",
     type: "website",
     images: [{ url: "/header_ee.png?v=8", width: 1200, height: 630, alt: "Ecom Efficiency Articles" }],
@@ -20,9 +20,9 @@ export const metadata: Metadata = {
 const articles = [
   {
     slug: "dropshipping-baking-supplies",
-    title: "Dropshipping de baking supplies : le guide complet (produits, fournisseurs, marges, SEO)",
+    title: "Dropshipping baking supplies: the complete guide (products, suppliers, margins & SEO)",
     excerpt:
-      "Un playbook actionnable pour vendre des accessoires et ingrédients de pâtisserie en dropshipping : sélection produit, conformité food-contact, sourcing, branding, pricing, SEO et acquisition.",
+      "An actionable playbook to sell baking tools and supplies via dropshipping: product selection, food-contact compliance, sourcing, branding, pricing, SEO, and acquisition.",
     readTime: "25 min",
     category: "Dropshipping",
   },
@@ -39,7 +39,7 @@ export default function ArticlesIndexPage() {
             Ecom Efficiency <span className="gradient-text">Articles</span>
           </h1>
           <p className="text-xl text-gray-400 max-w-2xl mx-auto">
-            Des guides concrets pour trouver des produits, lancer des offres, et scaler proprement.
+            Practical guides to find products, launch offers, and scale profitably.
           </p>
         </div>
       </section>
@@ -51,6 +51,7 @@ export default function ArticlesIndexPage() {
               <Link
                 key={a.slug}
                 href={`/articles/${a.slug}`}
+                title={a.title}
                 className="group bg-gray-900 border border-white/10 rounded-2xl overflow-hidden hover:border-purple-500/30 transition-all hover:scale-[1.02]"
               >
                 <div className="p-5">
