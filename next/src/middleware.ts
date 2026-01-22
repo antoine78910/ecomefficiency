@@ -121,15 +121,10 @@ export async function middleware(req: NextRequest) {
   const hostname = hostHeader.toLowerCase().split(':')[0]
   const bareHostname = hostname.replace(/^www\./, '')
 
-  // Canonicalize host to avoid duplicate indexing (www vs non-www)
-  // Primary host: https://ecomefficiency.com
-  if (hostname === 'www.ecomefficiency.com') {
-    const target = new URL(req.nextUrl.toString())
-    target.protocol = 'https:'
-    target.hostname = 'ecomefficiency.com'
-    target.port = ''
-    return NextResponse.redirect(target, 308)
-  }
+  // NOTE: Do NOT force www↔non-www redirects here.
+  // Host canonicalization should be handled by your DNS/Vercel domain settings.
+  // Forcing it here can create infinite redirect loops if the platform already redirects the other way.
+  const MARKETING_HOST = 'www.ecomefficiency.com'
 
   // Keep marketing content (/blog, /articles) on the main domain only
   // This prevents duplicate indexing across subdomains like app.* and tools.*
@@ -145,7 +140,7 @@ export async function middleware(req: NextRequest) {
   if ((isAppSubdomain || isToolsSubdomain || isPartnersSubdomain) && isMarketingPath) {
     const target = new URL(req.nextUrl.toString())
     target.protocol = 'https:'
-    target.hostname = 'ecomefficiency.com'
+    target.hostname = MARKETING_HOST
     target.port = ''
     return NextResponse.redirect(target, 308)
   }
@@ -231,7 +226,7 @@ export async function middleware(req: NextRequest) {
     if (isPartnersProd && !isAllowedPartnersPath) {
       const target = new URL(req.nextUrl.toString());
       target.protocol = 'https:';
-      target.hostname = 'ecomefficiency.com';
+      target.hostname = MARKETING_HOST;
       target.port = '';
       return NextResponse.redirect(target);
     }
