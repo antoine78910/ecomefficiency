@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import ArticleToc, { type TocItem } from "../../../components/ArticleToc";
+import EcomToolsCta from "@/components/EcomToolsCta";
 
 import Footer from "@/components/Footer";
 import NewNavbar from "@/components/NewNavbar";
@@ -18,8 +20,6 @@ export const metadata: Metadata = {
     images: [{ url: "/header_ee.png?v=8", width: 1200, height: 630, alt: "Dropshipping baking supplies" }],
   },
 };
-
-type TocItem = { id: string; label: string };
 
 const toc: TocItem[] = [
   { id: "what-is-baking-supplies-dropshipping", label: "Qu’est-ce que le dropshipping de baking supplies ?" },
@@ -73,8 +73,8 @@ export default function DropshippingBakingSuppliesArticlePage() {
           <span className="text-sm">← Retour aux articles</span>
         </Link>
 
-        <header className="max-w-3xl">
-          <div className="flex items-center gap-3 mb-4">
+        <header className="max-w-3xl mx-auto text-center">
+          <div className="flex items-center justify-center flex-wrap gap-3 mb-4">
             <span className="text-xs px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
               Dropshipping
             </span>
@@ -99,51 +99,17 @@ export default function DropshippingBakingSuppliesArticlePage() {
 
         {/* Mobile TOC */}
         <div className="lg:hidden mt-8 p-4 rounded-2xl bg-gray-900 border border-white/10">
-          <p className="text-xs tracking-widest text-gray-400 mb-3">ON THIS PAGE</p>
-          <div className="flex flex-col gap-2">
-            {toc.map((item) => (
-              <a
-                key={item.id}
-                href={`#${item.id}`}
-                className="text-sm text-gray-300 hover:text-white transition-colors"
-              >
-                {item.label}
-              </a>
-            ))}
-          </div>
+          <ArticleToc
+            items={toc}
+            heading="ON THIS PAGE"
+            linkClassName="px-3 py-2 rounded-lg border border-transparent text-gray-300 hover:text-white hover:bg-white/5"
+            activeLinkClassName="text-white font-semibold bg-white/5 border-white/10"
+          />
         </div>
 
-        <div className="mt-10 grid gap-10 lg:grid-cols-[260px_minmax(0,1fr)]">
-          {/* Left nav */}
-          <aside className="hidden lg:block">
-            <div className="sticky top-24">
-              <p className="text-xs tracking-widest text-gray-400 mb-3">ON THIS PAGE</p>
-              <nav className="space-y-2">
-                {toc.map((item) => (
-                  <a
-                    key={item.id}
-                    href={`#${item.id}`}
-                    className="block text-sm text-gray-400 hover:text-white transition-colors"
-                  >
-                    {item.label}
-                  </a>
-                ))}
-              </nav>
-
-              <div className="mt-8 p-4 rounded-xl bg-gray-900 border border-white/10">
-                <p className="text-sm font-semibold text-white mb-2">Objectif du playbook</p>
-                <ul className="text-sm text-gray-300 space-y-1 list-disc list-inside">
-                  <li>Choisir des produits “winner” non-commodités</li>
-                  <li>Mettre une offre claire (bundles + upsells)</li>
-                  <li>Sécuriser qualité + conformité</li>
-                  <li>Construire une base SEO qui convertit</li>
-                </ul>
-              </div>
-            </div>
-          </aside>
-
+        <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
           {/* Content */}
-          <div className="min-w-0">
+          <div className="min-w-0 max-w-3xl mx-auto lg:mx-0">
             <SectionTitle id="what-is-baking-supplies-dropshipping">What is baking supplies dropshipping?</SectionTitle>
             <p className="text-gray-300 leading-relaxed mb-4">
               Le <strong>dropshipping de baking supplies</strong>, c’est vendre des accessoires (moules, poches à douille,
@@ -578,33 +544,8 @@ export default function DropshippingBakingSuppliesArticlePage() {
             </div>
 
             {/* CTA */}
-            <div className="mt-14 p-6 rounded-2xl bg-gradient-to-b from-purple-500/15 to-transparent border border-purple-500/25">
-              <p className="text-white font-bold text-xl mb-2">Envie d’aller plus vite ?</p>
-              <p className="text-gray-300 leading-relaxed mb-5">
-                Avec <strong>Ecom Efficiency</strong>, tu accèdes à une sélection d’outils (SEO, spy, créas, IA) pour
-                accélérer ta recherche produit, analyser tes concurrents et produire du contenu qui convertit — sans payer
-                le prix fort.
-              </p>
-              <div className="flex flex-wrap gap-3">
-                <Link href="/sign-up">
-                  <button className="cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_32px_0_rgba(149,65,224,0.70)] px-6 py-3 rounded-xl border-[1px] border-[#9541e0] text-white font-medium group h-[48px] min-w-[160px]">
-                    <div className="relative overflow-hidden w-full text-center">
-                      <p className="transition-transform group-hover:-translate-y-7 duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] whitespace-nowrap">
-                        Découvrir Ecom Efficiency
-                      </p>
-                      <p className="absolute left-1/2 -translate-x-1/2 top-7 group-hover:top-0 transition-all duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] whitespace-nowrap">
-                        Découvrir Ecom Efficiency
-                      </p>
-                    </div>
-                  </button>
-                </Link>
-                <Link
-                  href="/pricing"
-                  className="h-[48px] inline-flex items-center px-5 rounded-xl border border-white/15 text-white/90 hover:text-white hover:border-white/25 transition-colors"
-                >
-                  Voir les offres
-                </Link>
-              </div>
+            <div className="mt-14">
+              <EcomToolsCta />
             </div>
 
             <SectionTitle id="references">Références</SectionTitle>
@@ -623,6 +564,35 @@ export default function DropshippingBakingSuppliesArticlePage() {
               </li>
             </ul>
           </div>
+
+          {/* Right nav */}
+          <aside className="hidden lg:block">
+            <div className="sticky top-24 h-[calc(100vh-6rem)] flex flex-col">
+              <div className="overflow-auto pr-2 pb-6">
+                <ArticleToc
+                  items={toc}
+                  heading="ON THIS PAGE"
+                  linkClassName="px-3 py-2 rounded-lg border border-transparent text-gray-400 hover:text-white hover:bg-white/5"
+                  activeLinkClassName="text-white font-semibold bg-white/5 border-white/10"
+                />
+
+                <div className="mt-6 p-4 rounded-xl bg-gray-900 border border-white/10">
+                  <p className="text-sm font-semibold text-white mb-2">Objectif du playbook</p>
+                  <ul className="text-sm text-gray-300 space-y-1 list-disc list-inside">
+                    <li>Choisir des produits “winner” non-commodités</li>
+                    <li>Mettre une offre claire (bundles + upsells)</li>
+                    <li>Sécuriser qualité + conformité</li>
+                    <li>Construire une base SEO qui convertit</li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Keep the CTA visible (space below TOC) */}
+              <div className="pt-4 border-t border-white/10">
+                <EcomToolsCta compact />
+              </div>
+            </div>
+          </aside>
         </div>
       </article>
 
