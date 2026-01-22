@@ -100,12 +100,14 @@ const Footer = () => {
           <div className="pl-1">
             <h3 className="text-white font-semibold text-xs md:text-sm mb-2 md:mb-3">Quick Links</h3>
             <ul className="space-y-1.5">
-              <li><a href="/" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Home</a></li>
+              <li><a href="/" title="Home" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Home</a></li>
               {!isHomePage && (
-                <li><a href="/tools" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">All Tools</a></li>
+                <li><a href="/tools" title="All tools" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">All Tools</a></li>
               )}
-              <li><a href="/pricing" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Pricing</a></li>
-              <li><a href="/affiliate" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Affiliate</a></li>
+              <li><a href="/pricing" title="Pricing" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Pricing</a></li>
+              <li><a href="/blog" title="Blog" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Blog</a></li>
+              <li><a href="/articles" title="Articles" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Articles</a></li>
+              <li><a href="/affiliate" title="Affiliate" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Affiliate</a></li>
             </ul>
           </div>
 
@@ -115,11 +117,11 @@ const Footer = () => {
             <ul className="space-y-1.5">
               <li className="flex flex-wrap items-baseline gap-1">
                 <span className="text-gray-400 text-xs md:text-sm">Email:</span>
-                <a href="mailto:support@ecomefficiency.com" className="text-gray-200 hover:text-white transition-colors text-xs md:text-sm break-all">support@ecomefficiency.com</a>
+                <a href="mailto:support@ecomefficiency.com" title="Email support" className="text-gray-200 hover:text-white transition-colors text-xs md:text-sm break-all">support@ecomefficiency.com</a>
               </li>
-              <li><a href="/privacy" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Privacy Policy</a></li>
-              <li><a href="/terms" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Terms of Service</a></li>
-              <li><a href="/terms-of-sale" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Terms of Sale</a></li>
+              <li><a href="/privacy" title="Privacy policy" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Privacy Policy</a></li>
+              <li><a href="/terms" title="Terms of service" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Terms of Service</a></li>
+              <li><a href="/terms-of-sale" title="Terms of sale" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Terms of Sale</a></li>
             </ul>
           </div>
         </div>

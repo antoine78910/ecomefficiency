@@ -1,7 +1,8 @@
 import type { MetadataRoute } from "next";
 import { supabaseAdmin } from "@/integrations/supabase/server";
 
-const BASE_URL = "https://ecomefficiency.com";
+// Use the primary public host so Google Search Console can attribute discovery.
+const BASE_URL = "https://www.ecomefficiency.com";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticRoutes: MetadataRoute.Sitemap = [

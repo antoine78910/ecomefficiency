@@ -7,7 +7,6 @@ import Image from "next/image";
 
 const NewNavbar = () => {
   const [menuOpen, setMenuOpen] = React.useState(false);
-  const handlePricingClick = () => { window.location.href = '/pricing'; };
 
   const handleDiscordClick = () => {
     // Open Discord community link
@@ -47,16 +46,12 @@ const NewNavbar = () => {
 
           {/* Navigation Links */}
           <div className="hidden md:flex items-center justify-center space-x-8">
-            <Link href="/tools" className="text-gray-400 hover:text-white transition-colors">Tools</Link>
-            <Link href="/affiliate" className="text-gray-400 hover:text-white transition-colors">Affiliate</Link>
-            <button 
-              onClick={handlePricingClick}
-              className="text-gray-400 hover:text-white transition-colors bg-transparent border-none cursor-pointer"
-            >
-              Pricing
-            </button>
-            <Link href="/blog" className="text-gray-400 hover:text-white transition-colors">Blog</Link>
-            <Link href="/partners" className="text-gray-400 hover:text-white transition-colors">Partners</Link>
+            <Link href="/tools" title="Tools" className="text-gray-400 hover:text-white transition-colors">Tools</Link>
+            <Link href="/affiliate" title="Affiliate" className="text-gray-400 hover:text-white transition-colors">Affiliate</Link>
+            <Link href="/pricing" title="Pricing" className="text-gray-400 hover:text-white transition-colors">Pricing</Link>
+            <Link href="/blog" title="Blog" className="text-gray-400 hover:text-white transition-colors">Blog</Link>
+            <Link href="/articles" title="Articles" className="text-gray-400 hover:text-white transition-colors">Articles</Link>
+            <Link href="/partners" title="Partners" className="text-gray-400 hover:text-white transition-colors">Partners</Link>
           </div>
 
           {/* Buttons */}
@@ -79,7 +74,7 @@ const NewNavbar = () => {
               </div>
             </button>
 
-            <Link href="/sign-in" className="hidden md:flex">
+            <Link href="/sign-in" title="Sign in" className="hidden md:flex">
               <Button 
                 variant="outline" 
                 className="border-white/20 text-white hover:bg-white/10"
@@ -87,7 +82,7 @@ const NewNavbar = () => {
                 Sign In
               </Button>
             </Link>
-            <Link href="/sign-up">
+            <Link href="/sign-up" title="Get started">
               <Button className="cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_24px_rgba(149,65,224,0.55)] px-5 py-2 rounded-xl border border-[#9541e0] text-white font-medium md:px-6 md:py-2 md:text-base hover:brightness-110 group overflow-hidden">
                 <div className="relative overflow-hidden w-full text-center">
                   <span className="inline-block transition-transform group-hover:-translate-y-7 duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)]">
@@ -114,13 +109,14 @@ const NewNavbar = () => {
 
         {menuOpen && (
           <div className="md:hidden absolute right-0 top-14 w-56 bg-[#0d0e12] border border-white/10 rounded-lg shadow-xl z-[60]">
-            <Link href="/tools" className="block px-4 py-3 text-base text-white hover:bg-white/10">Tools</Link>
-            <Link href="/affiliate" className="block px-4 py-3 text-base text-white hover:bg-white/10">Affiliate</Link>
-            <button onClick={handlePricingClick} className="w-full text-left px-4 py-3 text-base text-white hover:bg-white/10 cursor-pointer">Pricing</button>
-            <Link href="/blog" className="block px-4 py-3 text-base text-white hover:bg-white/10">Blog</Link>
-            <Link href="/partners" className="block px-4 py-3 text-base text-white hover:bg-white/10">Partners</Link>
+            <Link href="/tools" title="Tools" className="block px-4 py-3 text-base text-white hover:bg-white/10">Tools</Link>
+            <Link href="/affiliate" title="Affiliate" className="block px-4 py-3 text-base text-white hover:bg-white/10">Affiliate</Link>
+            <Link href="/pricing" title="Pricing" className="block px-4 py-3 text-base text-white hover:bg-white/10">Pricing</Link>
+            <Link href="/blog" title="Blog" className="block px-4 py-3 text-base text-white hover:bg-white/10">Blog</Link>
+            <Link href="/articles" title="Articles" className="block px-4 py-3 text-base text-white hover:bg-white/10">Articles</Link>
+            <Link href="/partners" title="Partners" className="block px-4 py-3 text-base text-white hover:bg-white/10">Partners</Link>
             <button onClick={handleDiscordClick} className="w-full text-left px-4 py-3 text-base text-white hover:bg-white/10 cursor-pointer">Join Community</button>
-            <Link href="/sign-in" className="block px-4 py-3 text-base text-white hover:bg-white/10">Sign In</Link>
+            <Link href="/sign-in" title="Sign in" className="block px-4 py-3 text-base text-white hover:bg-white/10">Sign In</Link>
           </div>
         )}
       </div>

@@ -6,7 +6,7 @@ export default function robots(): MetadataRoute.Robots {
       userAgent: "*",
       allow: "/",
     },
-    sitemap: "https://ecomefficiency.com/sitemap.xml",
+    sitemap: "https://www.ecomefficiency.com/sitemap.xml",
   };
 }
 

@@ -9,12 +9,12 @@ import CrispScript from "@/components/CrispScript";
 // import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://ecomefficiency.com"),
+  metadataBase: new URL("https://www.ecomefficiency.com"),
   title: "Ecom Efficiency",
   description: "#1 groupbuy for ecommerce and online business - Save $4000+ every month",
   openGraph: {
     type: "website",
-    url: "https://ecomefficiency.com/",
+    url: "https://www.ecomefficiency.com/",
     title: "Access +50 SEO / SPY / AI tools",
     description: "Save $4000+ every month — #1 groupbuy for ecommerce and online business",
     siteName: "Ecom Efficiency",
