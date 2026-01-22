@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import ArticleToc, { type TocItem } from "../../../components/ArticleToc";
-import EcomToolsCta from "@/components/EcomToolsCta";
+import EcomToolsCta, { type CtaLogo } from "@/components/EcomToolsCta";
 
 import Footer from "@/components/Footer";
 import NewNavbar from "@/components/NewNavbar";
@@ -34,6 +34,14 @@ const toc: TocItem[] = [
   { id: "ops-cs", label: "Ops & customer support: CS, UGC, repeat purchases" },
   { id: "faq", label: "FAQ" },
   { id: "references", label: "References" },
+];
+
+// CTA logos (edit this list anytime)
+const CTA_LOGOS: CtaLogo[] = [
+  { src: "/tools-logos/semrush.png", alt: "Semrush", title: "Semrush" },
+  { src: "/tools-logos/pipiads.png", alt: "Pipiads", title: "Pipiads" },
+  { src: "/tools-logos/chatgpt.png", alt: "ChatGPT", title: "ChatGPT" },
+  { src: "/tools-logos/canva.png", alt: "Canva", title: "Canva" },
 ];
 
 function SectionTitle({ id, children }: { id: string; children: React.ReactNode }) {
@@ -104,8 +112,8 @@ export default function DropshippingBakingSuppliesArticlePage() {
           <ArticleToc
             items={toc}
             heading="ON THIS PAGE"
-            linkClassName="px-3 py-2 rounded-lg border border-transparent text-gray-300 hover:text-white hover:bg-white/5"
-            activeLinkClassName="text-white font-semibold bg-white/5 border-white/10"
+            linkClassName="px-3 py-2 rounded-lg border border-transparent border-l-2 text-gray-300 hover:text-white hover:bg-white/5"
+            activeLinkClassName="text-white font-semibold bg-white/5 border-white/10 border-l-purple-400"
           />
         </div>
 
@@ -528,7 +536,7 @@ export default function DropshippingBakingSuppliesArticlePage() {
 
             {/* CTA */}
             <div className="mt-14">
-              <EcomToolsCta />
+              <EcomToolsCta logos={CTA_LOGOS} totalTools={50} />
             </div>
 
             <SectionTitle id="references">References</SectionTitle>
@@ -560,27 +568,29 @@ export default function DropshippingBakingSuppliesArticlePage() {
           <aside className="hidden lg:block">
             <div className="sticky top-24 h-[calc(100vh-6rem)] flex flex-col">
               <div className="overflow-auto pr-2 pb-6">
-                <ArticleToc
-                  items={toc}
-                  heading="ON THIS PAGE"
-                  linkClassName="px-3 py-2 rounded-lg border border-transparent text-gray-400 hover:text-white hover:bg-white/5"
-                  activeLinkClassName="text-white font-semibold bg-white/5 border-white/10"
-                />
+                <div className="rounded-2xl bg-gray-900/60 border border-white/10 p-4">
+                  <ArticleToc
+                    items={toc}
+                    heading="ON THIS PAGE"
+                    linkClassName="px-3 py-2 rounded-lg border border-transparent border-l-2 text-gray-300 hover:text-white hover:bg-white/5"
+                    activeLinkClassName="text-white font-semibold bg-white/5 border-white/10 border-l-purple-400"
+                  />
 
-                <div className="mt-6 p-4 rounded-xl bg-gray-900 border border-white/10">
-                  <p className="text-sm font-semibold text-white mb-2">Playbook goals</p>
-                  <ul className="text-sm text-gray-300 space-y-1 list-disc list-inside">
-                    <li>Pick “winner” products that aren’t pure commodities</li>
-                    <li>Build a clear offer (bundles + upsells)</li>
-                    <li>Secure quality + compliance</li>
-                    <li>Build an SEO foundation that converts</li>
-                  </ul>
+                  <div className="mt-6 p-4 rounded-xl bg-black/20 border border-white/10">
+                    <p className="text-sm font-semibold text-white mb-2">Playbook goals</p>
+                    <ul className="text-sm text-gray-300 space-y-1 list-disc list-inside">
+                      <li>Pick “winner” products that aren’t pure commodities</li>
+                      <li>Build a clear offer (bundles + upsells)</li>
+                      <li>Secure quality + compliance</li>
+                      <li>Build an SEO foundation that converts</li>
+                    </ul>
+                  </div>
                 </div>
               </div>
 
               {/* Keep the CTA visible (space below TOC) */}
               <div className="pt-4 border-t border-white/10">
-                <EcomToolsCta compact />
+                <EcomToolsCta compact logos={CTA_LOGOS} totalTools={50} />
               </div>
             </div>
           </aside>
