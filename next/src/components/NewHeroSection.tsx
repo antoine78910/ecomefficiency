@@ -3,14 +3,13 @@
 import React, { useEffect, useRef } from 'react';
 import { Check, ArrowRight } from "lucide-react";
 import Link from "next/link";
-import gsap from 'gsap';
 
 const NewHeroSection = () => {
   
 
   const wordTrackRef = useRef<HTMLDivElement | null>(null);
   const wordWrapperRef = useRef<HTMLSpanElement | null>(null);
-  const tlRef = useRef<gsap.core.Timeline | null>(null);
+  const tlRef = useRef<any>(null);
 
   useEffect(() => {
     const track = wordTrackRef.current;
@@ -60,6 +59,10 @@ const NewHeroSection = () => {
         }
 
         try {
+          // GSAP is loaded dynamically below (reduces main bundle / TBT)
+          if (!(window as any).__ee_gsap) return;
+          const gsap = (window as any).__ee_gsap;
+
           gsap.set(track, { y: 0, willChange: 'transform' });
 
           // Cleanup old timeline if exists
@@ -100,6 +103,20 @@ const NewHeroSection = () => {
     let rafId1: number;
     let rafId2: number;
     
+    let cancelled = false;
+    // Load GSAP only on the client and only when needed (cuts initial JS work)
+    (async () => {
+      try {
+        const mod: any = await import('gsap');
+        if (cancelled) return;
+        (window as any).__ee_gsap = mod?.default ?? mod;
+        // Try building as soon as GSAP is ready
+        try { build(); } catch {}
+      } catch (e) {
+        // If GSAP fails to load, we silently skip the animation
+      }
+    })();
+
     try {
       rafId1 = requestAnimationFrame(() => {
         try {
@@ -127,6 +144,7 @@ const NewHeroSection = () => {
     }
 
     return () => {
+      cancelled = true;
       try {
         window.removeEventListener('resize', onResize);
       } catch {}

@@ -1,8 +1,4 @@
-'use client';
-
-import React from 'react';
-
-const VideoSection = () => {
+export default function VideoSection() {
   return (
     <section className="relative bg-black -mt-px">
       {/* Violet bridge gradient, lifted into header; combines radial + linear for smooth blend */}
@@ -13,22 +9,19 @@ const VideoSection = () => {
 
       <div className="max-w-7xl mx-auto px-6 lg:px-8 py-16">
         <div className="relative mx-auto w-full max-w-5xl aspect-video rounded-xl overflow-hidden border border-white/10 bg-black">
+          {/* Avoid downloading the 3MB video on initial load */}
           <video
             className="absolute inset-0 w-full h-full object-cover"
-            src="/demo.mp4"
             poster="/ecomefficiency.png"
-            loop
             playsInline
-            muted
-            autoPlay
-            preload="auto"
-            controls={false}
-          />
-          {/* Overlay intentionally removed as requested */}
+            preload="none"
+            controls
+            title="Ecom Efficiency demo"
+          >
+            <source src="/demo.mp4" type="video/mp4" />
+          </video>
         </div>
       </div>
     </section>
   );
-};
-
-export default VideoSection;
+}
