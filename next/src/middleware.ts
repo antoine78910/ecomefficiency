@@ -7,9 +7,9 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr'
 export async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname
   const userAgent = req.headers.get('user-agent') || ''
-  // Allow search engine crawlers (prevents accidental de-indexing via 503 security blocks)
+  // Allow search engines + key AI crawlers (prevents accidental de-indexing via 503 security blocks)
   const isSearchBot =
-    /googlebot|google-inspectiontool|bingbot|duckduckbot|baiduspider|yandexbot|slurp|facebookexternalhit|twitterbot|linkedinbot/i.test(
+    /googlebot|google-inspectiontool|bingbot|duckduckbot|baiduspider|yandexbot|slurp|facebookexternalhit|twitterbot|linkedinbot|gptbot|chatgpt-user/i.test(
       userAgent
     )
   

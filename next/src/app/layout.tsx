@@ -46,10 +46,26 @@ export default function RootLayout({
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const organizationJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Organization",
+    name: "Ecom Efficiency",
+    description: "#1 groupbuy for ecommerce and online business - Save $4000+ every month",
+    url: "https://www.ecomefficiency.com",
+    logo: "https://www.ecomefficiency.com/ecomefficiency.png",
+    sameAs: [
+      "https://x.com/EcomEfficiency",
+      "https://www.instagram.com/ecom.efficiency/",
+      "https://www.tiktok.com/@ecom.efficiency",
+      "https://discord.com/invite/bKg7J625Sm",
+    ],
+  };
+
   return (
     <html lang="en" className="h-full" suppressHydrationWarning translate="no">
       <head>
         <meta name="google" content="notranslate" />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }} />
         <Script id="yandex-metrika" strategy="lazyOnload">
           {`(function(){
       try {
