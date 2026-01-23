@@ -3,7 +3,7 @@ import HomeClientBoot from "@/components/HomeClientBoot";
 import HomeClientSections from "@/components/HomeClientSections";
 import NewHeroSection from "@/components/NewHeroSection";
 import NewNavbar from "@/components/NewNavbar";
-import PricingTeaser from "@/components/PricingTeaser";
+import PricingSection from "@/components/PricingSection";
 import VideoSection from "@/components/VideoSection";
 import FaqSection from "@/components/FaqSection";
 import JoinMembersSection from "@/components/JoinMembersSection";
@@ -56,7 +56,7 @@ export default function Home() {
       <NewHeroSection />
       <VideoSection />
       <HomeClientSections />
-      <PricingTeaser />
+      <PricingSection />
       <FaqSection />
       <JoinMembersSection />
       <Footer />
