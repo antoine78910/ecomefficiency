@@ -83,7 +83,7 @@ function VideoFrame({
   title,
   subtitle,
   src = "/demo.mp4",
-  poster = "/ecomefficiency.png",
+  poster,
   showHeader = true,
 }: {
   title: string;
