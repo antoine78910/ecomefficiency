@@ -1,18 +1,12 @@
-import dynamic from "next/dynamic";
-
 import Footer from "@/components/Footer";
+import HomeClientBoot from "@/components/HomeClientBoot";
+import HomeClientSections from "@/components/HomeClientSections";
 import NewHeroSection from "@/components/NewHeroSection";
 import NewNavbar from "@/components/NewNavbar";
 import PricingTeaser from "@/components/PricingTeaser";
 import VideoSection from "@/components/VideoSection";
 import FaqSection from "@/components/FaqSection";
 import JoinMembersSection from "@/components/JoinMembersSection";
-
-// Defer non-critical client logic to reduce initial JS + TBT
-const AutoRedirectToApp = dynamic(() => import("@/components/AutoRedirectToApp"), { ssr: false });
-const AuthHashRedirector = dynamic(() => import("@/components/AuthHashRedirector"), { ssr: false });
-const ToolsScrollingSection = dynamic(() => import("@/components/ToolsScrollingSection"), { ssr: false });
-const SavingsComparisonSection = dynamic(() => import("@/components/SavingsComparisonSection"), { ssr: false });
 
 export default function Home() {
   const faqJsonLd = {
@@ -57,13 +51,11 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-black">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
-      <AutoRedirectToApp />
-      <AuthHashRedirector />
+      <HomeClientBoot />
       <NewNavbar />
       <NewHeroSection />
       <VideoSection />
-      <ToolsScrollingSection />
-      <SavingsComparisonSection />
+      <HomeClientSections />
       <PricingTeaser />
       <FaqSection />
       <JoinMembersSection />
