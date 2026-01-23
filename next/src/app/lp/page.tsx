@@ -6,6 +6,7 @@ import { redirect } from "next/navigation";
 
 import Footer from "@/components/Footer";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import PlayButtonVideo from "@/components/PlayButtonVideo";
 import RevenueSimulator from "./RevenueSimulator";
 import AutoRedirectToApp from "./AutoRedirectToApp";
 
@@ -101,17 +102,7 @@ function VideoFrame({
       ) : null}
 
       <div className={(showHeader ? "mt-6 " : "") + "relative mx-auto w-full max-w-5xl aspect-video rounded-xl overflow-hidden border border-white/10 bg-black"}>
-        <video
-          className="absolute inset-0 w-full h-full object-cover"
-          src={src}
-          poster={poster}
-          loop
-          playsInline
-          muted
-          autoPlay
-          preload="auto"
-          controls={false}
-        />
+        <PlayButtonVideo src={src} poster={poster} title={title} />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
       </div>
     </div>
