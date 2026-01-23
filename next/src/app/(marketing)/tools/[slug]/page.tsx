@@ -1,0 +1,172 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { notFound } from "next/navigation";
+
+import Footer from "@/components/Footer";
+import NewNavbar from "@/components/NewNavbar";
+import { toolsCatalog } from "@/data/toolsCatalog";
+
+export const dynamic = "force-static";
+export const revalidate = 86400; // 1 day
+
+function getTool(slug: string) {
+  return toolsCatalog.find((t) => t.slug === slug) || null;
+}
+
+export async function generateStaticParams() {
+  return toolsCatalog.map((t) => ({ slug: t.slug }));
+}
+
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params;
+  const tool = getTool(slug);
+  if (!tool) {
+    return { title: "Tool not found | Ecom Efficiency", robots: { index: false, follow: false } };
+  }
+
+  const title = `${tool.name}: what it does, best use cases & workflows | Ecom Efficiency`;
+  const description = `${tool.name}: ${tool.shortDescription}`;
+
+  return {
+    title,
+    description,
+    alternates: { canonical: `/tools/${tool.slug}` },
+    openGraph: {
+      type: "article",
+      url: `/tools/${tool.slug}`,
+      title,
+      description,
+      images: [{ url: "/header_ee.png?v=8", width: 1200, height: 630, alt: tool.name }],
+    },
+  };
+}
+
+export default async function ToolPage({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
+  const tool = getTool(slug);
+  if (!tool) notFound();
+
+  const related = toolsCatalog
+    .filter((t) => t.category === tool.category && t.slug !== tool.slug)
+    .slice(0, 6);
+
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: tool.name,
+    description: tool.shortDescription,
+    applicationCategory: tool.category,
+    operatingSystem: "Web",
+    url: `https://www.ecomefficiency.com/tools/${tool.slug}`,
+    creator: { "@type": "Organization", name: "Ecom Efficiency" },
+  };
+
+  return (
+    <div className="min-h-screen bg-black">
+      <NewNavbar />
+
+      <article className="max-w-5xl mx-auto px-6 py-12">
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+
+        <div className="mb-8">
+          <Link href="/tools" className="text-sm text-gray-400 hover:text-white" title="Back to tools">
+            ← Back to tools
+          </Link>
+
+          <h1 className="mt-5 text-4xl md:text-5xl font-bold text-white">{tool.name}</h1>
+          <p className="mt-4 text-lg text-gray-300">
+            <strong>{tool.name}</strong> is {tool.shortDescription}
+          </p>
+
+          <div className="mt-5 flex flex-wrap gap-2">
+            <span className="text-xs px-2 py-1 rounded-full bg-white/5 border border-white/10 text-gray-200">
+              Category: {tool.category}
+            </span>
+            {tool.bestFor.slice(0, 4).map((b) => (
+              <span key={b} className="text-xs px-2 py-1 rounded-full bg-purple-500/15 border border-purple-500/20 text-purple-200">
+                for {b}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <section className="rounded-2xl border border-white/10 bg-gray-900/40 p-6">
+          <h2 className="text-2xl font-bold text-white mb-3">What this tool is for</h2>
+          <p className="text-gray-300">
+            This page explains what <strong>{tool.name}</strong> is used for, the most common workflows, and practical use cases.
+            If you want access to this tool alongside 45+ others in one platform, check our pricing.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-3">
+            <Link
+              href="/pricing"
+              title="Pricing for Ecom Efficiency"
+              className="inline-flex items-center justify-center h-11 px-5 rounded-xl bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] border border-[#9541e0] text-white font-medium hover:brightness-110"
+            >
+              See pricing
+            </Link>
+            <Link
+              href="/sign-up"
+              title="Try Ecom Efficiency now"
+              className="inline-flex items-center justify-center h-11 px-5 rounded-xl bg-white/10 border border-white/15 text-white font-medium hover:bg-white/15"
+            >
+              Try it now
+            </Link>
+          </div>
+        </section>
+
+        <section className="mt-10">
+          <h2 className="text-2xl font-bold text-white mb-3">Practical use cases</h2>
+          <ul className="list-disc list-inside space-y-2 text-gray-300">
+            {tool.practicalUseCases.map((u) => (
+              <li key={u}>{u}</li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="mt-10">
+          <h2 className="text-2xl font-bold text-white mb-3">Best for</h2>
+          <div className="grid sm:grid-cols-2 gap-3">
+            {tool.bestFor.map((b) => (
+              <div key={b} className="rounded-xl border border-white/10 bg-black/30 p-4 text-gray-200">
+                {b}
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {tool.notes?.length ? (
+          <section className="mt-10">
+            <h2 className="text-2xl font-bold text-white mb-3">Notes</h2>
+            <ul className="list-disc list-inside space-y-2 text-gray-300">
+              {tool.notes.map((n) => (
+                <li key={n}>{n}</li>
+              ))}
+            </ul>
+          </section>
+        ) : null}
+
+        {related.length ? (
+          <section className="mt-12">
+            <h2 className="text-2xl font-bold text-white mb-4">Related tools</h2>
+            <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {related.map((r) => (
+                <Link
+                  key={r.slug}
+                  href={`/tools/${r.slug}`}
+                  title={`${r.name} tool page`}
+                  className="rounded-2xl border border-white/10 bg-gray-900/30 p-4 hover:border-purple-500/30 transition-colors"
+                >
+                  <div className="text-white font-semibold">{r.name}</div>
+                  <div className="text-sm text-gray-400 mt-1">{r.shortDescription}</div>
+                </Link>
+              ))}
+            </div>
+          </section>
+        ) : null}
+      </article>
+
+      <Footer />
+    </div>
+  );
+}
+

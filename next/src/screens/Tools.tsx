@@ -8,6 +8,7 @@ import JoinMembersSection from "@/components/JoinMembersSection";
 import Footer from "@/components/Footer";
 import NewNavbar from "@/components/NewNavbar";
 import { carouselTools } from "@/data/carouselTools";
+import { resolveToolSlug } from "@/data/toolsCatalog";
 import ToolImage from "@/components/ToolImage";
 import { useRouter, usePathname } from "next/navigation";
 
@@ -228,21 +229,36 @@ const Tools = () => {
                     </Card>
                 </div>
                 ) : (
-                  <Card
-                    className={`relative p-3 md:p-4 bg-gray-900 border border-white/10 rounded-2xl cursor-default`}
-                  >
-                    {isProOnly(tool.name) && (
-                      <span className="absolute -top-2 -left-2 text-[10px] px-2 py-0.5 rounded-full bg-[linear-gradient(135deg,#ffd70055,#ffcc00)] text-white border border-[#ffcc00]/30 shadow-[0_0_12px_rgba(255,215,0,0.45)]">
-                        Pro only
-                      </span>
-                    )}
-                    {renderPrice(tool.name)}
-                    <div className="w-full h-28 md:h-40 rounded-xl overflow-hidden mb-3 md:mb-4">
-                      <ToolImage toolName={tool.name} icon={tool.icon} />
-                </div>
-                    <h3 className="text-white font-semibold text-sm md:text-base mb-1">{tool.name}</h3>
-                    <p className="text-gray-400 text-xs md:text-sm leading-relaxed">{tool.description}</p>
-              </Card>
+                  (() => {
+                    const slug = resolveToolSlug(tool.name)
+                    const href = slug ? `/tools/${slug}` : null
+                    const card = (
+                      <Card
+                        className={`relative p-3 md:p-4 bg-gray-900 border border-white/10 rounded-2xl ${
+                          href ? "cursor-pointer hover:border-white/20 transition-all duration-300 hover:scale-105 group" : "cursor-default"
+                        }`}
+                      >
+                        {isProOnly(tool.name) && (
+                          <span className="absolute -top-2 -left-2 text-[10px] px-2 py-0.5 rounded-full bg-[linear-gradient(135deg,#ffd70055,#ffcc00)] text-white border border-[#ffcc00]/30 shadow-[0_0_12px_rgba(255,215,0,0.45)]">
+                            Pro only
+                          </span>
+                        )}
+                        {renderPrice(tool.name)}
+                        <div className="w-full h-28 md:h-40 rounded-xl overflow-hidden mb-3 md:mb-4">
+                          <ToolImage toolName={tool.name} icon={tool.icon} />
+                        </div>
+                        <h3 className="text-white font-semibold text-sm md:text-base mb-1">{tool.name}</h3>
+                        <p className="text-gray-400 text-xs md:text-sm leading-relaxed">{tool.description}</p>
+                      </Card>
+                    )
+                    return href ? (
+                      <Link href={href} title={`${tool.name} tool page`} className="block">
+                        {card}
+                      </Link>
+                    ) : (
+                      card
+                    )
+                  })()
                 )}
               </div>
             ))}
@@ -325,10 +341,23 @@ const Tools = () => {
                     { n: 'Majestic', d: 'Backlink index with TF/CF metrics.' },
                     { n: 'Screaming Frog', d: 'Site crawler for technical SEO.' },
                   ].map(t => (
-                    <div key={t.n} className="rounded-lg border border-white/10 p-3 bg-black/30">
-                      <div className="text-white font-medium text-sm">{t.n}</div>
-                      <div className="text-gray-400 text-xs">{t.d}</div>
-                    </div>
+                    (() => {
+                      const slug = resolveToolSlug(t.n)
+                      const href = slug ? `/tools/${slug}` : null
+                      const inner = (
+                        <div className="rounded-lg border border-white/10 p-3 bg-black/30">
+                          <div className="text-white font-medium text-sm">{t.n}</div>
+                          <div className="text-gray-400 text-xs">{t.d}</div>
+                        </div>
+                      )
+                      return href ? (
+                        <Link key={t.n} href={href} title={`${t.n} tool page`} className="block hover:brightness-110 transition">
+                          {inner}
+                        </Link>
+                      ) : (
+                        <div key={t.n}>{inner}</div>
+                      )
+                    })()
                   ))}
                 </div>
                 {/* Removed external link per request */}
