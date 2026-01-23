@@ -50,7 +50,6 @@ const NewNavbar = () => {
             <Link href="/affiliate" title="Affiliate" className="text-gray-400 hover:text-white transition-colors">Affiliate</Link>
             <Link href="/pricing" title="Pricing" className="text-gray-400 hover:text-white transition-colors">Pricing</Link>
             <Link href="/blog" title="Blog" className="text-gray-400 hover:text-white transition-colors">Blog</Link>
-            <Link href="/articles" title="Articles" className="text-gray-400 hover:text-white transition-colors">Articles</Link>
             <Link href="/partners" title="Partners" className="text-gray-400 hover:text-white transition-colors">Partners</Link>
           </div>
 
@@ -113,7 +112,6 @@ const NewNavbar = () => {
             <Link href="/affiliate" title="Affiliate" className="block px-4 py-3 text-base text-white hover:bg-white/10">Affiliate</Link>
             <Link href="/pricing" title="Pricing" className="block px-4 py-3 text-base text-white hover:bg-white/10">Pricing</Link>
             <Link href="/blog" title="Blog" className="block px-4 py-3 text-base text-white hover:bg-white/10">Blog</Link>
-            <Link href="/articles" title="Articles" className="block px-4 py-3 text-base text-white hover:bg-white/10">Articles</Link>
             <Link href="/partners" title="Partners" className="block px-4 py-3 text-base text-white hover:bg-white/10">Partners</Link>
             <button onClick={handleDiscordClick} className="w-full text-left px-4 py-3 text-base text-white hover:bg-white/10 cursor-pointer">Join Community</button>
             <Link href="/sign-in" title="Sign in" className="block px-4 py-3 text-base text-white hover:bg-white/10">Sign In</Link>
