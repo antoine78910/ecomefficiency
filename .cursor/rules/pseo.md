@@ -17,6 +17,82 @@ These rules define how to create **scalable, indexable landing pages** (programm
 - Always set `alternates.canonical` as a **path** (e.g. `/blog/<slug>`), relying on `metadataBase`.
 - Ensure non‑www does not stay indexable (redirect to www).
 
+## URL structures (pSEO logic) — non‑negotiable
+
+### Core principle
+
+**URLs describe content for humans first, engines second.**
+Target keywords do **not** need to exactly match the URL.
+
+At scale, URLs must:
+
+- communicate intent
+- remain readable
+- follow a predictable hierarchy
+- scale without refactoring
+
+### Keywords ≠ URLs (critical distinction)
+
+- **Keywords** are query language.
+- **URLs** are information architecture.
+
+Exact match is optional. **Clarity is mandatory.**
+
+### URL structure best practices (mandatory)
+
+1. **Clean & readable**
+   - lowercase only
+   - hyphens `-` between words
+   - no spaces/underscores/special chars
+   - remove stop words when possible
+   - remove promotional fluff
+
+2. **Logical hierarchy**
+
+Prefer a consistent hierarchy:
+
+- `/category/subcategory/specific-page/`
+
+Rules:
+
+- consistent site‑wide
+- scales linearly
+- predictable patterns
+
+3. **Include key identifiers only**
+
+Encode only:
+
+- main category
+- defining attribute
+- location (if relevant)
+- specific entity (optional)
+
+No extra adjectives.
+
+4. **URL length**
+
+- ideal: **< 60 characters**
+- keep only essential words
+
+### Common pSEO URL templates
+
+- **Location based**: `/{location}/{category}/{attribute}/`
+  - example: `/new-york/restaurants/italian/`
+- **Comparisons**: `/compare/{product1}-vs-{product2}/`
+  - example: `/compare/semrush-vs-similarweb/`
+- **How‑to**: `/how-to/{action}/{subject}/`
+  - example: `/how-to/choose/seo-tools/`
+- **Price modifiers**: `/{category}/under-{price}/`
+  - example: `/seo-tools/under-30/`
+
+### URL mistakes to avoid
+
+- keyword stuffing in URL
+- query params for core page types (filters/search/pagination)
+- file extensions (`.php`, `.html`)
+- opaque IDs (e.g. `?id=123`)
+
 ## pSEO page generation strategy
 
 ### Supported pSEO patterns
@@ -87,6 +163,29 @@ If GSC says “No referring sitemap detected” / “No referring page detected�
 - For paginated lists:
   - Canonicalize to the main listing page (or use self‑canonical + consistent internal linking), but don’t produce duplicate thin pages.
 
+## Technical URL implementation rules (server‑side)
+
+### URL rewriting / normalization
+
+- enforce clean URLs server‑side
+- normalize trailing slashes consistently
+- avoid indexable param variants (tracking params, filters, PPC tags)
+
+### Redirects
+
+- use **301** for permanent redirects
+- handle variations (www/non‑www, http/https, legacy paths)
+- avoid redirect chains
+
+### Canonicals (reminder)
+
+- canonical must match the final clean URL
+- prevent duplication from:
+  - tracking params
+  - filters
+  - pagination
+  - PPC tags
+
 ## Performance rules (pSEO scale)
 
 pSEO multiplies pages, so performance must be consistent:
@@ -99,8 +198,12 @@ pSEO multiplies pages, so performance must be consistent:
 
 ## Implementation checklist (for any new pSEO route)
 
+- URL is:
+  - clean (lowercase, hyphens, no params)
+  - readable and intent‑driven (no stuffing)
+  - hierarchical and scalable
 - Route created under `next/src/app/...`
-- Keyword included in: URL + title + meta description + H1 + first sentence
+- Keyword included in: title + meta description + H1 + first sentence (URL does not require exact match)
 - Canonical path set (`alternates.canonical`)
 - JSON‑LD added (Article/FAQ/Product etc.)
 - Internal links added (hub + related)
@@ -108,3 +211,82 @@ pSEO multiplies pages, so performance must be consistent:
 - `robots.ts` still allows indexing
 - Build passes: `next` → `npm run build`
 
+## Advanced pSEO techniques (safe use)
+
+### Dynamic content (controlled)
+
+Dynamic ≠ random.
+
+Allowed personalization (only if server‑side and factual):
+
+- location
+- date/year
+- data freshness
+- user segment
+
+Do not:
+
+- change the core meaning
+- hide critical content behind JS only
+- generate infinite combinations
+
+### PPC × pSEO synergy
+
+Use PPC to:
+
+- identify high‑converting modifiers
+- validate intent
+- feed pSEO templates
+
+Use pSEO to:
+
+- improve PPC Quality Score
+- reduce CPC
+- scale high‑intent landing pages
+
+### Content freshness at scale
+
+Approved freshness levers:
+
+- update datasets
+- refresh dates where relevant
+- add new modifiers
+- update comparisons
+
+Never fake freshness.
+
+### AI for uniqueness (assistant, not publisher)
+
+AI may be used to:
+
+- vary intros/outros
+- rephrase sections
+- generate unique metas
+- avoid template repetition
+
+Rules:
+
+- semantic meaning must remain
+- factual accuracy mandatory
+- human review required
+- brand voice consistency
+
+## Final URL & page contract (summary)
+
+Every programmatic page MUST satisfy:
+
+- **URL**: clean, readable, hierarchical, canonicalized, scalable
+- **Page**: unique title, unique meta description, one H1, logical H2/H3, correct canonical, indexable, internally linked
+
+## Updated Cursor master directive
+
+Act strictly as the **Programmatic SEO Agent**.
+For every generated URL and page:
+
+- prioritize **user intent** over keyword match
+- enforce **clean, hierarchical URLs**
+- validate **canonical correctness**
+- avoid keyword stuffing
+- ensure scalability
+
+Reject any output that violates these rules.
