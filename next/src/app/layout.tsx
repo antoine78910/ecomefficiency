@@ -148,6 +148,27 @@ var startOpts = {};
     })(window, document, "clarity", "script", "u2gln16w3i");
     })();`}
         </Script>
+        {/* Plausible - privacy-friendly analytics */}
+        <Script id="plausible" strategy="lazyOnload">
+          {`(function(){
+      try {
+        var h=(window.location.hostname||"").toLowerCase().replace(/^www\\./,"");
+        var ok = (h==="ecomefficiency.com" || /\\.ecomefficiency\\.com$/.test(h) || h==="localhost" || h==="127.0.0.1" || /\\.vercel\\.app$/.test(h));
+        if (!ok) return;
+      } catch (e) { return; }
+
+      // Load Plausible script async
+      var s=document.createElement('script');
+      s.async=1;
+      s.src='https://plausible.io/js/pa-K-3o43oROMgByUcilcG7u.js';
+      document.head.appendChild(s);
+
+      // Plausible init snippet
+      window.plausible=window.plausible||function(){(plausible.q=plausible.q||[]).push(arguments)};
+      plausible.init=plausible.init||function(i){plausible.o=i||{}};
+      plausible.init();
+    })();`}
+        </Script>
       </head>
       <body className="min-h-screen bg-background text-foreground overflow-x-hidden" suppressHydrationWarning>
         <noscript>
