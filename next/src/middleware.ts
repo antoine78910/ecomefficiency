@@ -126,6 +126,17 @@ export async function middleware(req: NextRequest) {
   // Forcing it here can create infinite redirect loops if the platform already redirects the other way.
   const MARKETING_HOST = 'www.ecomefficiency.com'
 
+  // One-way canonicalization: ecomefficiency.com -> www.ecomefficiency.com
+  // This prevents duplicate URLs from being crawled/indexed as "Alternate page with canonical".
+  // (We intentionally do NOT redirect www -> non-www to avoid redirect loops with platform rules.)
+  if (hostname === 'ecomefficiency.com' && (req.method === 'GET' || req.method === 'HEAD')) {
+    const target = new URL(req.nextUrl.toString())
+    target.protocol = 'https:'
+    target.hostname = MARKETING_HOST
+    target.port = ''
+    return NextResponse.redirect(target, 308)
+  }
+
   // Keep marketing content (/blog, /articles) on the main domain only
   // This prevents duplicate indexing across subdomains like app.* and tools.*
   const isAppSubdomain = hostname === 'app.localhost' || bareHostname.startsWith('app.')
