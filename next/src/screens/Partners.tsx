@@ -33,6 +33,14 @@ const partners: Partner[] = [
     logoSrc: "/partners-logos/uproas.png",
   },
   {
+    name: "Verified Supplier (UsaDrop)",
+    description:
+      "A reliable private supplier for serious dropshippers. Fast fulfillment, no MOQ, dedicated 1-on-1 agent, and up to 70% cost coverage on CNY orders. Built for testing and scaling without friction.",
+    offer: "Up to 70% cost coverage on CNY orders",
+    websiteUrl: "https://app.usadrop.com/u?d=MjU3OTgy",
+    logoSrc: "/partners-logos/usadrop.png",
+  },
+  {
     name: "8Lab Ecosystem",
     description:
       "The French-speaking e-commerce ecosystem that combines training, coaching, an active community (over 2,500 members), sourcing & warehousing, and exclusive events—to support you every step of the way, scale your business, and build a real network.",
