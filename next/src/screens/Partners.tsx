@@ -33,20 +33,20 @@ const partners: Partner[] = [
     logoSrc: "/partners-logos/uproas.png",
   },
   {
+    name: "8Lab Ecosystem",
+    description:
+      "The French-speaking e-commerce ecosystem that combines training, coaching, an active community (over 2,500 members), sourcing & warehousing, and exclusive events.",
+    offer: "Get -€100 off with code ECOMEFF",
+    websiteUrl: "https://www.8lab-ecosystem.com/",
+    logoSrc: "/partners-logos/8lab.png",
+  },
+  {
     name: "Verified Supplier (UsaDrop)",
     description:
       "A reliable private supplier for serious dropshippers. Fast fulfillment, no MOQ, dedicated 1-on-1 agent, and up to 70% cost coverage on CNY orders. Built for testing and scaling without friction.",
     offer: "Up to 70% cost coverage on CNY orders",
     websiteUrl: "https://app.usadrop.com/u?d=MjU3OTgy",
     logoSrc: "/partners-logos/usadrop.png",
-  },
-  {
-    name: "8Lab Ecosystem",
-    description:
-      "The French-speaking e-commerce ecosystem that combines training, coaching, an active community (over 2,500 members), sourcing & warehousing, and exclusive events—to support you every step of the way, scale your business, and build a real network.",
-    offer: "Get -€100 off with code ECOMEFF",
-    websiteUrl: "https://www.8lab-ecosystem.com/",
-    logoSrc: "/partners-logos/8lab.png",
   },
 ];
 
@@ -74,7 +74,7 @@ export default function Partners() {
                 >
                   {/* Logo banner */}
                   <div className="relative rounded-2xl border border-white/10 bg-black/50 p-4 h-24 flex items-center justify-center overflow-hidden">
-                    <div className="relative w-full h-full">
+                    <div className={`relative w-full h-full ${p.name === "Verified Supplier (UsaDrop)" ? "scale-125" : ""}`}>
                       <Image
                         src={p.logoSrc}
                         alt={`${p.name} logo`}
