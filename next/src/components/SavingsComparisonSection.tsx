@@ -87,7 +87,7 @@ const SavingsComparisonSection = () => {
   }, []);
 
   const retail = tools.reduce((sum, t) => sum + (typeof t.price === 'number' ? t.price : 0), 0);
-  const ecomMonthly = 9.99; // baseline offer to communicate savings
+  const ecomMonthly = 29.99; // current offer price
   const savings = retail - ecomMonthly;
   const [dateStr, setDateStr] = React.useState<string>("");
   React.useEffect(() => {
@@ -194,7 +194,9 @@ const SavingsComparisonSection = () => {
             </div>
             <div className="mt-3 flex items-center justify-between text-base font-semibold font-mono">
               <span className="text-gray-200">YOU PAY:</span>
-              <span className="text-green-400 text-2xl">{formatPrice(ecomMonthly, currency)}/mo</span>
+              <span className="text-green-400 text-2xl tabular-nums whitespace-nowrap text-right min-w-[10ch]">
+                {formatPrice(ecomMonthly, currency)}/mo
+              </span>
             </div>
             <div className="text-center text-green-400 text-xs mt-2 font-mono">YOU SAVED {formatPrice(savings, currency)}!</div>
             <div className="border-t border-dashed border-white/20 my-3" />
