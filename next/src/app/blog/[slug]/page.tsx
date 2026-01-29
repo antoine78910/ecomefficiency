@@ -38,6 +38,56 @@ function toMetaDescription(post: BlogPost): string {
   return fallback;
 }
 
+type DetectedVideo = {
+  provider: "youtube";
+  id: string;
+  embedUrl: string;
+  watchUrl: string;
+  thumbnailUrl: string;
+};
+
+function extractPrimaryVideoFromHtml(html: string | null | undefined): DetectedVideo | null {
+  const s = String(html || "");
+  if (!s) return null;
+
+  // Detect common YouTube embed formats: https://www.youtube.com/embed/<id> (+ query params)
+  const re = /(?:https?:)?\/\/(?:www\.)?(?:youtube(?:-nocookie)?\.com)\/embed\/([a-zA-Z0-9_-]{6,})/i;
+  const m = s.match(re);
+  const id = m?.[1] ? String(m[1]).trim() : "";
+  if (!id) return null;
+
+  return {
+    provider: "youtube",
+    id,
+    embedUrl: `https://www.youtube.com/embed/${id}`,
+    watchUrl: `https://www.youtube.com/watch?v=${id}`,
+    thumbnailUrl: `https://i.ytimg.com/vi/${id}/maxresdefault.jpg`,
+  };
+}
+
+function stripFirstYouTubeEmbed(html: string, video: DetectedVideo): string {
+  // Try to remove the first iframe that embeds this video to avoid duplicating the player.
+  // We keep it conservative: if we can't match reliably, return original HTML.
+  try {
+    const id = video.id.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const iframeRe = new RegExp(
+      `<iframe[^>]*?(?:src=|data-src=)[\"'][^\"']*(?:youtube(?:-nocookie)?\\\\.com)\\\\/embed\\\\/${id}[^\"']*[\"'][^>]*?>\\\\s*<\\\\/iframe>`,
+      "i"
+    );
+    const next = html.replace(iframeRe, "");
+    if (next !== html) return next;
+
+    // Some editors self-close iframes (rare)
+    const iframeSelfCloseRe = new RegExp(
+      `<iframe[^>]*?(?:src=|data-src=)[\"'][^\"']*(?:youtube(?:-nocookie)?\\\\.com)\\\\/embed\\\\/${id}[^\"']*[\"'][^>]*?\\\\/>`,
+      "i"
+    );
+    return html.replace(iframeSelfCloseRe, "");
+  } catch {
+    return html;
+  }
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const post = await getPostBySlug(slug);
@@ -78,6 +128,10 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   if (!post) notFound();
 
   const publishedIso = post.published_at ? new Date(post.published_at).toISOString() : undefined;
+  const description = toMetaDescription(post);
+  const primaryVideo = extractPrimaryVideoFromHtml(post.content_html);
+  const contentHtml = post.content_html && primaryVideo ? stripFirstYouTubeEmbed(post.content_html, primaryVideo) : post.content_html;
+
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "Article",
@@ -85,11 +139,26 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     datePublished: publishedIso,
     dateModified: publishedIso,
     author: { "@type": "Organization", name: post.author || "Ecom Efficiency Team" },
-    publisher: { "@type": "Organization", name: "Ecom Efficiency", logo: { "@type": "ImageObject", url: "https://www.ecomefficiency.com/ecomefficiency.png" } },
-    mainEntityOfPage: { "@type": "WebPage", "@id": `https://www.ecomefficiency.com/blog/${post.slug}` },
+    publisher: { "@type": "Organization", name: "Ecom Efficiency", logo: { "@type": "ImageObject", url: "https://ecomefficiency.com/ecomefficiency.png" } },
+    mainEntityOfPage: { "@type": "WebPage", "@id": `https://ecomefficiency.com/blog/${post.slug}` },
     image: post.cover_image ? [post.cover_image] : undefined,
-    description: toMetaDescription(post),
+    description,
   };
+
+  const videoJsonLd =
+    primaryVideo && publishedIso
+      ? {
+          "@context": "https://schema.org",
+          "@type": "VideoObject",
+          name: post.title,
+          description,
+          thumbnailUrl: [primaryVideo.thumbnailUrl],
+          uploadDate: publishedIso,
+          embedUrl: primaryVideo.embedUrl,
+          contentUrl: primaryVideo.watchUrl,
+          publisher: { "@type": "Organization", name: "Ecom Efficiency" },
+        }
+      : null;
 
   return (
     <div className="min-h-screen bg-black">
@@ -97,6 +166,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
       <article className="max-w-4xl mx-auto px-6 py-12">
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+        {videoJsonLd ? <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(videoJsonLd) }} /> : null}
         {/* Back button */}
         <Link 
           href="/blog" 
@@ -141,11 +211,30 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           </div>
         </div>
 
+        {/* Primary video player (helps Google classify page as a playback page) */}
+        {primaryVideo ? (
+          <section className="mb-10">
+            <div className="relative mx-auto w-full aspect-video rounded-2xl overflow-hidden border border-white/10 bg-black">
+              <iframe
+                className="absolute inset-0 w-full h-full"
+                src={`${primaryVideo.embedUrl}?rel=0&modestbranding=1`}
+                title={post.title}
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                referrerPolicy="strict-origin-when-cross-origin"
+                allowFullScreen
+              />
+            </div>
+            <div className="mt-3 text-xs text-gray-500">
+              Video: <a className="underline hover:text-gray-300" href={primaryVideo.watchUrl} target="_blank" rel="noreferrer noopener">{primaryVideo.watchUrl}</a>
+            </div>
+          </section>
+        ) : null}
+
         {/* Article Content - Render HTML from Outrank */}
         <div className="blog-content">
-          {post.content_html ? (
+          {contentHtml ? (
             <div 
-              dangerouslySetInnerHTML={{ __html: post.content_html }}
+              dangerouslySetInnerHTML={{ __html: contentHtml }}
               className="outrank-content"
             />
           ) : post.content_markdown ? (
@@ -259,6 +348,20 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
             border-radius: 0.75rem;
             margin: 1.5rem 0;
             border: 1px solid rgba(255, 255, 255, 0.1);
+          }
+
+          /* Make embedded videos large + playable (YouTube/Vimeo iframes) */
+          .outrank-content iframe[src*="youtube.com/embed"],
+          .outrank-content iframe[src*="youtube-nocookie.com/embed"],
+          .outrank-content iframe[src*="player.vimeo.com/video"] {
+            display: block;
+            width: 100%;
+            max-width: 100%;
+            aspect-ratio: 16 / 9;
+            height: auto;
+            border: 0;
+            border-radius: 0.75rem;
+            margin: 1.5rem 0;
           }
           
           .outrank-content blockquote {
