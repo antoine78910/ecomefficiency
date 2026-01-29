@@ -9,12 +9,12 @@ import CrispScript from "@/components/CrispScript";
 // import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.ecomefficiency.com"),
+  metadataBase: new URL("https://ecomefficiency.com"),
   title: "Ecom Efficiency",
   description: "#1 groupbuy for ecommerce and online business - Save $4000+ every month",
   openGraph: {
     type: "website",
-    url: "https://www.ecomefficiency.com/",
+    url: "https://ecomefficiency.com/",
     title: "Access +50 SEO / SPY / AI tools",
     description: "Save $4000+ every month — #1 groupbuy for ecommerce and online business",
     siteName: "Ecom Efficiency",
@@ -51,8 +51,8 @@ export default function RootLayout({
     "@type": "Organization",
     name: "Ecom Efficiency",
     description: "#1 groupbuy for ecommerce and online business - Save $4000+ every month",
-    url: "https://www.ecomefficiency.com",
-    logo: "https://www.ecomefficiency.com/ecomefficiency.png",
+    url: "https://ecomefficiency.com",
+    logo: "https://ecomefficiency.com/ecomefficiency.png",
     sameAs: [
       "https://x.com/EcomEfficiency",
       "https://www.instagram.com/ecom.efficiency/",

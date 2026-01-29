@@ -9,7 +9,7 @@ export async function middleware(req: NextRequest) {
   const userAgent = req.headers.get('user-agent') || ''
   // Allow search engines + key AI crawlers (prevents accidental de-indexing via 503 security blocks)
   const isSearchBot =
-    /googlebot|google-inspectiontool|bingbot|duckduckbot|baiduspider|yandexbot|slurp|facebookexternalhit|twitterbot|linkedinbot|gptbot|chatgpt-user/i.test(
+    /googlebot|google-inspectiontool|googleother|google-extended|adsbot-google|mediapartners-google|storebot-google|apis-google|feedfetcher-google|bingbot|duckduckbot|baiduspider|yandexbot|slurp|facebookexternalhit|twitterbot|linkedinbot|gptbot|chatgpt-user/i.test(
       userAgent
     )
   
@@ -121,21 +121,9 @@ export async function middleware(req: NextRequest) {
   const hostname = hostHeader.toLowerCase().split(':')[0]
   const bareHostname = hostname.replace(/^www\./, '')
 
-  // NOTE: Do NOT force www↔non-www redirects here.
-  // Host canonicalization should be handled by your DNS/Vercel domain settings.
-  // Forcing it here can create infinite redirect loops if the platform already redirects the other way.
-  const MARKETING_HOST = 'www.ecomefficiency.com'
-
-  // One-way canonicalization: ecomefficiency.com -> www.ecomefficiency.com
-  // This prevents duplicate URLs from being crawled/indexed as "Alternate page with canonical".
-  // (We intentionally do NOT redirect www -> non-www to avoid redirect loops with platform rules.)
-  if (hostname === 'ecomefficiency.com' && (req.method === 'GET' || req.method === 'HEAD')) {
-    const target = new URL(req.nextUrl.toString())
-    target.protocol = 'https:'
-    target.hostname = MARKETING_HOST
-    target.port = ''
-    return NextResponse.redirect(target, 308)
-  }
+  // Marketing host should be canonicalized at the platform layer (Vercel/DNS),
+  // not in middleware (prevents redirect loops showing up as "redirect errors" in Search Console).
+  const MARKETING_HOST = 'ecomefficiency.com'
 
   // Keep marketing content (/blog, /articles) on the main domain only
   // This prevents duplicate indexing across subdomains like app.* and tools.*
@@ -386,6 +374,47 @@ export async function middleware(req: NextRequest) {
   }
 
   // Do not auto-redirect signed-in users from main domain to app.*; stay on landing or current page
+  // Ensure private/auth-heavy pages are never indexed (even if discovered via external links).
+  // Note: /api/* is excluded from middleware matcher, so we cover only page routes here.
+  const isPrivatePath =
+    pathname === '/app' ||
+    pathname.startsWith('/app/') ||
+    pathname === '/dashboard' ||
+    pathname.startsWith('/dashboard/') ||
+    pathname === '/admin' ||
+    pathname.startsWith('/admin/') ||
+    pathname === '/account' ||
+    pathname.startsWith('/account/') ||
+    pathname === '/subscription' ||
+    pathname.startsWith('/subscription/') ||
+    pathname === '/checkout' ||
+    pathname.startsWith('/checkout/') ||
+    pathname === '/create-customer-portal-session' ||
+    pathname.startsWith('/create-customer-portal-session/') ||
+    pathname === '/signin' ||
+    pathname.startsWith('/signin/') ||
+    pathname === '/signup' ||
+    pathname.startsWith('/signup/') ||
+    pathname === '/sign-in' ||
+    pathname.startsWith('/sign-in/') ||
+    pathname === '/sign-up' ||
+    pathname.startsWith('/sign-up/') ||
+    pathname === '/forgot-password' ||
+    pathname.startsWith('/forgot-password/') ||
+    pathname === '/reset-password' ||
+    pathname.startsWith('/reset-password/') ||
+    pathname === '/verify-email' ||
+    pathname.startsWith('/verify-email/') ||
+    pathname === '/classic-login' ||
+    pathname.startsWith('/classic-login/') ||
+    pathname === '/domains' ||
+    pathname.startsWith('/domains/') ||
+    pathname === '/proxy' ||
+    pathname.startsWith('/proxy/');
+
+  if (isPrivatePath) {
+    response.headers.set('X-Robots-Tag', 'noindex, nofollow');
+  }
 
   return response
 }

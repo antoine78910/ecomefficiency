@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/integrations/supabase/server";
 import { toolsCatalog } from "@/data/toolsCatalog";
 
 // Use the primary public host so Google Search Console can attribute discovery.
-const BASE_URL = "https://www.ecomefficiency.com";
+const BASE_URL = "https://ecomefficiency.com";
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const toolRoutes: MetadataRoute.Sitemap = toolsCatalog.map((t) => ({
