@@ -1,29 +1,8 @@
-
-"use client";
-import React from 'react';
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import Image from "next/image";
 
 const NewNavbar = () => {
-  const [menuOpen, setMenuOpen] = React.useState(false);
-
-  const handleDiscordClick = () => {
-    // Open Discord community link
-    window.open('https://discord.gg/bKg7J625Sm', '_blank');
-  };
-
-  const handleFaqClick = () => {
-    if (window.location.pathname === '/') {
-      const faqSection = document.getElementById('faq');
-      if (faqSection) {
-        faqSection.scrollIntoView({ behavior: 'smooth' });
-      }
-    } else {
-      window.location.href = '/#faq';
-    }
-  };
-
   return (
     <nav className="bg-black/90 backdrop-blur-sm border-b border-white/10 sticky top-0 z-50">
       <div className="w-full mx-auto px-0 relative">
@@ -35,6 +14,7 @@ const NewNavbar = () => {
                 <Image 
                   src="/ecomefficiency.png" 
                   alt="Ecom Efficiency Logo" 
+                  title="Ecom Efficiency Logo"
                   width={160}
                   height={64}
                   className="h-14 w-auto object-contain mix-blend-screen cursor-pointer"
@@ -46,18 +26,20 @@ const NewNavbar = () => {
 
           {/* Navigation Links */}
           <div className="hidden md:flex items-center justify-center space-x-8">
-            <Link href="/tools" title="Tools" className="text-gray-400 hover:text-white transition-colors">Tools</Link>
-            <Link href="/affiliate" title="Affiliate" className="text-gray-400 hover:text-white transition-colors">Affiliate</Link>
-            <Link href="/pricing" title="Pricing" className="text-gray-400 hover:text-white transition-colors">Pricing</Link>
-            <Link href="/blog" title="Blog" className="text-gray-400 hover:text-white transition-colors">Blog</Link>
-            <Link href="/partners" title="Partners" className="text-gray-400 hover:text-white transition-colors">Partners</Link>
+            <Link prefetch={false} href="/tools" title="Tools" className="text-gray-400 hover:text-white transition-colors">Tools</Link>
+            <Link prefetch={false} href="/affiliate" title="Affiliate" className="text-gray-400 hover:text-white transition-colors">Affiliate</Link>
+            <Link prefetch={false} href="/pricing" title="Pricing" className="text-gray-400 hover:text-white transition-colors">Pricing</Link>
+            <Link prefetch={false} href="/blog" title="Blog" className="text-gray-400 hover:text-white transition-colors">Blog</Link>
+            <Link prefetch={false} href="/partners" title="Partners" className="text-gray-400 hover:text-white transition-colors">Partners</Link>
           </div>
 
           {/* Buttons */}
           <div className="flex items-center justify-end gap-2 md:gap-3 pr-0">
             {/* Discord Community Button - desktop only */}
-            <button 
-              onClick={handleDiscordClick}
+            <a
+              href="https://discord.gg/bKg7J625Sm"
+              target="_blank"
+              rel="noreferrer noopener"
               className="hidden md:inline-flex group relative px-4 py-2 rounded-xl backdrop-blur-xl border border-indigo-500/30 bg-gradient-to-br from-indigo-900/40 via-black-900/60 to-black/80 shadow-lg hover:shadow-indigo-500/30 hover:shadow-xl hover:scale-[1.02] active:scale-95 transition-all duration-300 ease-out cursor-pointer hover:border-indigo-400/60 overflow-hidden whitespace-nowrap shrink-0"
             >
               <div className="absolute inset-0 bg-gradient-to-r from-transparent via-indigo-400/20 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-700 ease-out" />
@@ -71,9 +53,9 @@ const NewNavbar = () => {
                   Join Community
                 </span>
               </div>
-            </button>
+            </a>
 
-            <Link href="/sign-in" title="Sign in" className="hidden md:flex">
+            <Link prefetch={false} href="/sign-in" title="Sign in" className="hidden md:flex">
               <Button 
                 variant="outline" 
                 className="border-white/20 text-white hover:bg-white/10"
@@ -81,7 +63,7 @@ const NewNavbar = () => {
                 Sign In
               </Button>
             </Link>
-            <Link href="/sign-up" title="Get started">
+            <Link prefetch={false} href="/sign-up" title="Get started">
               <Button className="cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_24px_rgba(149,65,224,0.55)] px-5 py-2 rounded-xl border border-[#9541e0] text-white font-medium md:px-6 md:py-2 md:text-base hover:brightness-110 group overflow-hidden">
                 <div className="relative overflow-hidden w-full text-center">
                   <span className="inline-block transition-transform group-hover:-translate-y-7 duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)]">
@@ -94,29 +76,46 @@ const NewNavbar = () => {
               </Button>
             </Link>
 
-            <button
-              className="md:hidden p-2 rounded-md border border-white/15 text-white/90 hover:bg-white/10"
-              aria-label="Open menu"
-              onClick={() => setMenuOpen(v => !v)}
-            >
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M4 6H20M4 12H20M4 18H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round"/>
-              </svg>
-            </button>
+            <details className="md:hidden relative">
+              <summary
+                className="list-none p-2 rounded-md border border-white/15 text-white/90 hover:bg-white/10 cursor-pointer"
+                aria-label="Open menu"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M4 6H20M4 12H20M4 18H20" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+                </svg>
+              </summary>
+              <div className="absolute right-0 top-12 w-56 bg-[#0d0e12] border border-white/10 rounded-lg shadow-xl z-[60]">
+                <Link prefetch={false} href="/tools" title="Tools" className="block px-4 py-3 text-base text-white hover:bg-white/10">
+                  Tools
+                </Link>
+                <Link prefetch={false} href="/affiliate" title="Affiliate" className="block px-4 py-3 text-base text-white hover:bg-white/10">
+                  Affiliate
+                </Link>
+                <Link prefetch={false} href="/pricing" title="Pricing" className="block px-4 py-3 text-base text-white hover:bg-white/10">
+                  Pricing
+                </Link>
+                <Link prefetch={false} href="/blog" title="Blog" className="block px-4 py-3 text-base text-white hover:bg-white/10">
+                  Blog
+                </Link>
+                <Link prefetch={false} href="/partners" title="Partners" className="block px-4 py-3 text-base text-white hover:bg-white/10">
+                  Partners
+                </Link>
+                <a
+                  href="https://discord.gg/bKg7J625Sm"
+                  target="_blank"
+                  rel="noreferrer noopener"
+                  className="block px-4 py-3 text-base text-white hover:bg-white/10"
+                >
+                  Join Community
+                </a>
+                <Link prefetch={false} href="/sign-in" title="Sign in" className="block px-4 py-3 text-base text-white hover:bg-white/10">
+                  Sign In
+                </Link>
+              </div>
+            </details>
           </div>
         </div>
-
-        {menuOpen && (
-          <div className="md:hidden absolute right-0 top-14 w-56 bg-[#0d0e12] border border-white/10 rounded-lg shadow-xl z-[60]">
-            <Link href="/tools" title="Tools" className="block px-4 py-3 text-base text-white hover:bg-white/10">Tools</Link>
-            <Link href="/affiliate" title="Affiliate" className="block px-4 py-3 text-base text-white hover:bg-white/10">Affiliate</Link>
-            <Link href="/pricing" title="Pricing" className="block px-4 py-3 text-base text-white hover:bg-white/10">Pricing</Link>
-            <Link href="/blog" title="Blog" className="block px-4 py-3 text-base text-white hover:bg-white/10">Blog</Link>
-            <Link href="/partners" title="Partners" className="block px-4 py-3 text-base text-white hover:bg-white/10">Partners</Link>
-            <button onClick={handleDiscordClick} className="w-full text-left px-4 py-3 text-base text-white hover:bg-white/10 cursor-pointer">Join Community</button>
-            <Link href="/sign-in" title="Sign in" className="block px-4 py-3 text-base text-white hover:bg-white/10">Sign In</Link>
-          </div>
-        )}
       </div>
     </nav>
   );

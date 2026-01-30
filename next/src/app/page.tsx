@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import Footer from "@/components/Footer";
-import HomeClientBoot from "@/components/HomeClientBoot";
-import HomeClientSections from "@/components/HomeClientSections";
+import ToolsScrollingSection from "@/components/ToolsScrollingSection";
+import SavingsComparisonSection from "@/components/SavingsComparisonSection";
+import HomePricingSection from "@/components/HomePricingSection";
 import NewHeroSection from "@/components/NewHeroSection";
 import NewNavbar from "@/components/NewNavbar";
-import PricingSection from "@/components/PricingSection";
 import VideoSection from "@/components/VideoSection";
 import FaqSection from "@/components/FaqSection";
 import JoinMembersSection from "@/components/JoinMembersSection";
@@ -74,12 +74,12 @@ export default function Home() {
   return (
     <div className="min-h-screen bg-black">
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
-      <HomeClientBoot />
       <NewNavbar />
       <NewHeroSection />
       <VideoSection />
-      <HomeClientSections />
-      <PricingSection />
+      <ToolsScrollingSection />
+      <SavingsComparisonSection />
+      <HomePricingSection />
       <FaqSection />
       <JoinMembersSection />
       <Footer />

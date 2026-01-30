@@ -55,11 +55,17 @@ export default function PartnerNavbar({
               >
                 {logoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element
-                  <img src={logoUrl} alt={`${title} Logo`} className="h-12 md:h-14 w-auto object-contain cursor-pointer" />
+                  <img
+                    src={logoUrl}
+                    alt={`${title} Logo`}
+                    title={`${title} Logo`}
+                    className="h-12 md:h-14 w-auto object-contain cursor-pointer"
+                  />
                 ) : (
                   <Image
                     src="/ecomefficiency.png"
                     alt="Ecom Efficiency Logo"
+                    title="Ecom Efficiency Logo"
                     width={160}
                     height={64}
                     className="h-14 w-auto object-contain mix-blend-screen cursor-pointer"

@@ -5,6 +5,10 @@ import AppTopNav from "@/components/AppTopNav";
 import ActivityTracker from "@/components/ActivityTracker";
 import CrossDomainLoginFlag from "@/components/CrossDomainLoginFlag";
 import EnsureTenantMembership from "@/components/EnsureTenantMembership";
+import { Providers } from "../providers";
+import SupabaseSessionGuard from "@/components/SupabaseSessionGuard";
+import CrispScript from "@/components/CrispScript";
+import DataFastScript from "@/components/DataFastScript";
 
 export default function AppSectionLayout({ children }: { children: React.ReactNode }) {
   useEffect(() => {
@@ -40,17 +44,22 @@ export default function AppSectionLayout({ children }: { children: React.ReactNo
   }, [])
 
   return (
-    <div className="theme-app min-h-screen bg-black text-white flex">
-      {/* Tracker d'activité en arrière-plan */}
-      <ActivityTracker />
-      <CrossDomainLoginFlag />
-      <EnsureTenantMembership />
-      
-      <main className="flex-1 flex flex-col min-h-screen">
-        <AppTopNav />
-        <div className="flex-1">{children}</div>
-      </main>
-    </div>
+    <Providers>
+      <SupabaseSessionGuard />
+      <DataFastScript />
+      <CrispScript />
+      <div className="theme-app min-h-screen bg-black text-white flex">
+        {/* Tracker d'activité en arrière-plan */}
+        <ActivityTracker />
+        <CrossDomainLoginFlag />
+        <EnsureTenantMembership />
+
+        <main className="flex-1 flex flex-col min-h-screen">
+          <AppTopNav />
+          <div className="flex-1">{children}</div>
+        </main>
+      </div>
+    </Providers>
   );
 }
 

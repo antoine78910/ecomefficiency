@@ -5,6 +5,34 @@ import { toolsCatalog } from "@/data/toolsCatalog";
 // Use the primary public host so Google Search Console can attribute discovery.
 const BASE_URL = "https://www.ecomefficiency.com";
 
+// Pages that should NOT be discoverable via sitemap (no SEO value / private/legal).
+const SITEMAP_EXCLUDE_PATHS = new Set<string>([
+  "/sign-in",
+  "/sign-up",
+  "/signin",
+  "/forgot-password",
+  "/privacy",
+  "/terms",
+  "/terms-of-sale",
+]);
+
+function normalizePathname(pathname: string) {
+  const p = String(pathname || "").trim();
+  if (!p) return "/";
+  if (p === "/") return "/";
+  return p.endsWith("/") ? p.slice(0, -1) : p;
+}
+
+function shouldIncludeUrl(url: string) {
+  try {
+    const u = new URL(url);
+    const p = normalizePathname(u.pathname);
+    return !SITEMAP_EXCLUDE_PATHS.has(p);
+  } catch {
+    return true;
+  }
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const toolRoutes: MetadataRoute.Sitemap = toolsCatalog.map((t) => ({
     url: `${BASE_URL}/tools/${t.slug}`,
@@ -21,7 +49,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE_URL}/articles/dropshipping-baking-supplies`, changeFrequency: "monthly", priority: 0.7 },
   ];
 
-  if (!supabaseAdmin) return [...staticRoutes, ...toolRoutes];
+  if (!supabaseAdmin) return [...staticRoutes, ...toolRoutes].filter((u) => shouldIncludeUrl(u.url));
 
   try {
     const { data } = await supabaseAdmin.from("blog_posts").select("slug, published_at").order("published_at", { ascending: false });
@@ -36,9 +64,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         priority: 0.7,
       }));
 
-    return [...staticRoutes, ...toolRoutes, ...blogRoutes];
+    return [...staticRoutes, ...toolRoutes, ...blogRoutes].filter((u) => shouldIncludeUrl(u.url));
   } catch {
-    return [...staticRoutes, ...toolRoutes];
+    return [...staticRoutes, ...toolRoutes].filter((u) => shouldIncludeUrl(u.url));
   }
 }
 

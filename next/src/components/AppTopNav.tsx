@@ -133,9 +133,22 @@ export default function AppTopNav({
         <div className="rounded-xl overflow-hidden">
           {brand?.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
-            <img src={brand.logoUrl} alt={brand?.title ? `${brand.title} Logo` : "Logo"} className="h-14 w-auto rounded-xl object-contain mix-blend-screen" />
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={brand.logoUrl}
+              alt={brand?.title ? `${brand.title} Logo` : "Logo"}
+              title={brand?.title ? `${brand.title} Logo` : "Logo"}
+              className="h-14 w-auto rounded-xl object-contain mix-blend-screen"
+            />
           ) : (
-            <Image src="/ecomefficiency.png" alt="Ecom Efficiency Logo" width={160} height={64} className="h-14 w-auto rounded-xl mix-blend-screen" />
+            <Image
+              src="/ecomefficiency.png"
+              alt="Ecom Efficiency Logo"
+              title="Ecom Efficiency Logo"
+              width={160}
+              height={64}
+              className="h-14 w-auto rounded-xl mix-blend-screen"
+            />
           )}
         </div>
       </div>

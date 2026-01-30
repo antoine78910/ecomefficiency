@@ -1,22 +1,6 @@
-"use client";
-import React from "react";
 import { Button } from "@/components/ui/button";
-import Image from "next/image";
 
 const Footer = () => {
-  const [isHomePage, setIsHomePage] = React.useState(false);
-  
-  React.useEffect(() => {
-    try {
-      if (typeof window !== 'undefined') {
-        setIsHomePage(window.location.pathname === '/');
-      }
-    } catch (error) {
-      // Silently handle errors
-      setIsHomePage(false);
-    }
-  }, []);
-
   return (
     <footer className="bg-black border-t border-white/10 py-8 md:py-12 pl-3 pr-4 md:px-6 lg:px-8">
       <div className="w-full mx-auto">
@@ -24,14 +8,9 @@ const Footer = () => {
           {/* Logo & Description */}
           <div className="col-span-2 md:col-span-2 pl-1">
             <div className="mb-4 flex flex-col items-start gap-2 md:gap-3">
-              <Image
-                src="/ecomefficiency.png"
-                alt="Ecom Efficiency"
-                width={160}
-                height={64}
-                className="h-10 md:h-12 w-auto -ml-2 md:-ml-4 rounded-xl mix-blend-screen"
-                priority
-              />
+              <div className="text-white font-semibold text-lg md:text-xl">
+                Ecom Efficiency
+              </div>
               {/* Social Media Links below the logo */}
               <div className="flex space-x-3 md:space-x-4">
               <Button
@@ -101,9 +80,7 @@ const Footer = () => {
             <h3 className="text-white font-semibold text-xs md:text-sm mb-2 md:mb-3">Quick Links</h3>
             <ul className="space-y-1.5">
               <li><a href="/" title="Home" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Home</a></li>
-              {!isHomePage && (
-                <li><a href="/tools" title="All tools" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">All Tools</a></li>
-              )}
+              <li><a href="/tools" title="All tools" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">All Tools</a></li>
               <li><a href="/pricing" title="Pricing" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Pricing</a></li>
               <li><a href="/blog" title="Blog" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Blog</a></li>
               <li><a href="/articles" title="Articles" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Articles</a></li>

@@ -88,6 +88,138 @@ function stripFirstYouTubeEmbed(html: string, video: DetectedVideo): string {
   }
 }
 
+// Enforce editorial rules for blog bodies (best-effort).
+// Goal: keep blog content compliant with internal prompt constraints:
+// - No H1 in body
+// - Only H2/H3 headings
+// - No external links
+// - No links to other blog posts
+// - Exactly 2 allowed internal links (soft mid + final)
+// - FAQ section present
+const BLOG_ALLOWED_LINKS = new Set<string>([
+  "/pricing",
+  "/tools",
+  "/app",
+  "https://www.ecomefficiency.com/pricing",
+  "https://www.ecomefficiency.com/tools",
+  "https://www.ecomefficiency.com/app",
+]);
+
+function normalizeHref(href: string): string {
+  return String(href || "").trim();
+}
+
+function isAllowedBlogLink(href: string): boolean {
+  const h = normalizeHref(href);
+  if (!h) return false;
+  if (h.startsWith("#")) return false;
+  if (/^(mailto:|tel:|javascript:)/i.test(h)) return false;
+  if (h.startsWith("/blog")) return false;
+  if (/^https?:\/\//i.test(h)) {
+    try {
+      const u = new URL(h);
+      const host = u.hostname.toLowerCase().replace(/^www\./, "");
+      if (host !== "ecomefficiency.com") return false;
+      const abs = `https://www.ecomefficiency.com${u.pathname}${u.search || ""}`;
+      return BLOG_ALLOWED_LINKS.has(abs) || BLOG_ALLOWED_LINKS.has(u.pathname);
+    } catch {
+      return false;
+    }
+  }
+  if (h.startsWith("/")) return BLOG_ALLOWED_LINKS.has(h);
+  // Relative paths like "pricing" are treated as unsafe here.
+  return false;
+}
+
+function enforceBlogPromptHtml(input: string | null | undefined): { html: string; keptLinks: string[] } {
+  let html = String(input || "");
+  if (!html) return { html: "", keptLinks: [] };
+
+  // Remove/demote headings:
+  // - H1 is forbidden in body: demote to H2
+  html = html.replace(/<\s*\/?\s*h1\b/gi, (m) => m.replace(/h1/i, "h2"));
+  // - H4+ demoted to H3
+  html = html.replace(/<\s*\/?\s*h[4-6]\b/gi, (m) => m.replace(/h[4-6]/i, "h3"));
+
+  // Insert the anti-shortcuts sentence early if missing (best-effort).
+  const antiShortcutSentence = "The goal is to scale without dubious shortcuts and without hurting your credibility.";
+  if (!/dubious shortcuts|hurting your credibility|raccourcis douteux|crédibilit/i.test(html)) {
+    const idx = html.toLowerCase().indexOf("</p>");
+    if (idx !== -1) {
+      html = html.slice(0, idx + 4) + `<p>${antiShortcutSentence}</p>` + html.slice(idx + 4);
+    }
+  }
+
+  // Enforce link rules: keep only allowed internal links, max 2.
+  const keptLinks: string[] = [];
+  html = html.replace(
+    /<a\b[^>]*\bhref=(["'])([^"']+)\1[^>]*>([\s\S]*?)<\/a>/gi,
+    (_full, _q, href, inner) => {
+      const h = String(href || "");
+      if (!isAllowedBlogLink(h)) return String(inner || "");
+      if (keptLinks.length >= 2) return String(inner || "");
+      keptLinks.push(h);
+      // Strip attributes, re-render clean anchor (no HTML injection in attrs).
+      const safeHref = normalizeHref(h).replace(/"/g, "%22");
+      return `<a href="${safeHref}">${String(inner || "")}</a>`;
+    }
+  );
+
+  // Ensure FAQ section exists (append if missing).
+  if (!/<h2[^>]*>\s*FAQ\s*<\/h2>/i.test(html)) {
+    html += `
+<h2>FAQ</h2>
+<h3>What is Ecom Efficiency?</h3>
+<p>Ecom Efficiency is a SaaS that gives you access to a curated stack of SPY, SEO and AI tools in one place.</p>
+<h3>Who is it for?</h3>
+<p>It’s built for e-commerce founders and marketers who want a practical tool stack without paying for each tool separately.</p>
+<h3>Can I cancel anytime?</h3>
+<p>Yes. You can cancel at any time from your account area.</p>
+<h3>Does it replace individual subscriptions?</h3>
+<p>For many workflows it can, because you get broad access in one dashboard—your exact fit depends on your stack and usage.</p>
+`;
+  }
+
+  return { html, keptLinks };
+}
+
+function enforceBlogPromptMarkdown(input: string | null | undefined): { markdown: string; keptLinks: string[] } {
+  let md = String(input || "");
+  if (!md) return { markdown: "", keptLinks: [] };
+
+  // H1 forbidden → demote to H2
+  md = md.replace(/^#\s+/gm, "## ");
+  // H4+ demote to H3
+  md = md.replace(/^####+\s+/gm, "### ");
+
+  const antiShortcutSentence = "The goal is to scale without dubious shortcuts and without hurting your credibility.";
+  if (!/dubious shortcuts|hurting your credibility|raccourcis douteux|crédibilit/i.test(md)) {
+    // Insert after the first paragraph break (best-effort).
+    const firstBreak = md.indexOf("\n\n");
+    if (firstBreak !== -1) {
+      md = md.slice(0, firstBreak + 2) + antiShortcutSentence + "\n\n" + md.slice(firstBreak + 2);
+    } else {
+      md = antiShortcutSentence + "\n\n" + md;
+    }
+  }
+
+  const keptLinks: string[] = [];
+  // Enforce "exactly 2 links" (best-effort): remove disallowed + cap to 2.
+  md = md.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, text, href) => {
+    const h = String(href || "");
+    if (!isAllowedBlogLink(h)) return String(text || "");
+    if (keptLinks.length >= 2) return String(text || "");
+    keptLinks.push(h);
+    return `[${String(text || "")}](${normalizeHref(h)})`;
+  });
+
+  if (!/^##\s*FAQ\s*$/im.test(md)) {
+    md += `\n\n## FAQ\n\n### What is Ecom Efficiency?\nEcom Efficiency is a SaaS that gives you access to a curated stack of SPY, SEO and AI tools in one place.\n\n### Who is it for?\nIt’s built for e-commerce founders and marketers who want a practical tool stack without paying for each tool separately.\n\n### Can I cancel anytime?\nYes. You can cancel at any time from your account area.\n\n### Does it replace individual subscriptions?\nFor many workflows it can, because you get broad access in one dashboard—your exact fit depends on your stack and usage.\n`;
+  }
+
+  return { markdown: md, keptLinks };
+}
+
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
   const post = await getPostBySlug(slug);
@@ -130,7 +262,10 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
   const publishedIso = post.published_at ? new Date(post.published_at).toISOString() : undefined;
   const description = toMetaDescription(post);
   const primaryVideo = extractPrimaryVideoFromHtml(post.content_html);
-  const contentHtml = post.content_html && primaryVideo ? stripFirstYouTubeEmbed(post.content_html, primaryVideo) : post.content_html;
+  const rawHtml = post.content_html && primaryVideo ? stripFirstYouTubeEmbed(post.content_html, primaryVideo) : post.content_html;
+  const enforcedHtml = rawHtml ? enforceBlogPromptHtml(rawHtml) : null;
+  const enforcedMd = post.content_markdown ? enforceBlogPromptMarkdown(post.content_markdown) : null;
+  const contentHtml = enforcedHtml?.html || rawHtml;
 
   const jsonLd = {
     "@context": "https://schema.org",
@@ -139,8 +274,8 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     datePublished: publishedIso,
     dateModified: publishedIso,
     author: { "@type": "Organization", name: post.author || "Ecom Efficiency Team" },
-    publisher: { "@type": "Organization", name: "Ecom Efficiency", logo: { "@type": "ImageObject", url: "https://ecomefficiency.com/ecomefficiency.png" } },
-    mainEntityOfPage: { "@type": "WebPage", "@id": `https://ecomefficiency.com/blog/${post.slug}` },
+    publisher: { "@type": "Organization", name: "Ecom Efficiency", logo: { "@type": "ImageObject", url: "https://www.ecomefficiency.com/ecomefficiency.png" } },
+    mainEntityOfPage: { "@type": "WebPage", "@id": `https://www.ecomefficiency.com/blog/${post.slug}` },
     image: post.cover_image ? [post.cover_image] : undefined,
     description,
   };
@@ -224,9 +359,6 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                 allowFullScreen
               />
             </div>
-            <div className="mt-3 text-xs text-gray-500">
-              Video: <a className="underline hover:text-gray-300" href={primaryVideo.watchUrl} target="_blank" rel="noreferrer noopener">{primaryVideo.watchUrl}</a>
-            </div>
           </section>
         ) : null}
 
@@ -237,10 +369,11 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
               dangerouslySetInnerHTML={{ __html: contentHtml }}
               className="outrank-content"
             />
-          ) : post.content_markdown ? (
+          ) : enforcedMd?.markdown ? (
             <ReactMarkdown
               components={{
-                h1: ({node, ...props}) => <h1 className="text-3xl font-bold text-white mt-8 mb-4" {...props} />,
+                // Blog directive: never render body H1. Demote to H2.
+                h1: ({node, ...props}) => <h2 className="text-2xl font-bold text-white mt-6 mb-3" {...props} />,
                 h2: ({node, ...props}) => <h2 className="text-2xl font-bold text-white mt-6 mb-3" {...props} />,
                 h3: ({node, ...props}) => <h3 className="text-xl font-semibold text-white mt-4 mb-2" {...props} />,
                 p: ({node, ...props}) => <p className="mb-4 text-gray-300" {...props} />,
@@ -257,7 +390,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                 blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-purple-500 pl-4 italic text-gray-400 my-4" {...props} />,
               }}
             >
-              {post.content_markdown}
+              {enforcedMd.markdown}
             </ReactMarkdown>
           ) : (
             <p className="text-gray-400">No content available.</p>

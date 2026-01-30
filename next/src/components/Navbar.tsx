@@ -68,6 +68,7 @@ const Navbar = () => {
           <img 
             src="/ecomefficiency.png" 
             alt="Ecom Efficiency Logo" 
+            title="Ecom Efficiency Logo"
             className="h-full object-contain"
           />
         </div>
@@ -103,7 +104,14 @@ const Navbar = () => {
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <button className="flex items-center gap-2 rounded-full focus:outline-none cursor-pointer">
-              <Image src="/favicon.png" alt="Account" width={32} height={32} className="rounded-full border border-[#8B5CF6]/40" />
+              <Image
+                src="/favicon.png"
+                alt="Account"
+                title="Account"
+                width={32}
+                height={32}
+                className="rounded-full border border-[#8B5CF6]/40"
+              />
               <span className="hidden md:inline text-[#cfd3d8]">Account</span>
             </button>
           </DropdownMenuTrigger>

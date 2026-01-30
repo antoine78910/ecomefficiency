@@ -87,11 +87,19 @@ export default function ToolImage({ toolName, icon, className = "w-full h-full o
     <div className="relative w-full h-full">
       {isRemote ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={src} alt={alt || toolName} className={className} loading="lazy" onError={handleError} />
+        <img
+          src={src}
+          alt={alt || toolName}
+          title={alt || toolName}
+          className={className}
+          loading="lazy"
+          onError={handleError}
+        />
       ) : (
         <Image
           src={src}
           alt={alt || toolName}
+          title={alt || toolName}
           fill
           className={className}
           sizes="(max-width: 768px) 96px, (max-width: 1024px) 128px, 160px"
