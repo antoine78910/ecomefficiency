@@ -40,14 +40,6 @@ const partners: Partner[] = [
     websiteUrl: "https://www.8lab-ecosystem.com/",
     logoSrc: "/partners-logos/8lab.png",
   },
-  {
-    name: "Verified Supplier (UsaDrop)",
-    description:
-      "A reliable private supplier for serious dropshippers. Fast fulfillment, no MOQ, dedicated 1-on-1 agent, and up to 70% cost coverage on CNY orders. Built for testing and scaling without friction.",
-    offer: "Up to 70% cost coverage on CNY orders",
-    websiteUrl: "https://app.usadrop.com/u?d=MjU3OTgy",
-    logoSrc: "/partners-logos/usadrop.png",
-  },
 ];
 
 export default function Partners() {
@@ -74,7 +66,7 @@ export default function Partners() {
                 >
                   {/* Logo banner */}
                   <div className="relative rounded-2xl border border-white/10 bg-black/50 p-4 h-24 flex items-center justify-center overflow-hidden">
-                    <div className={`relative w-full h-full ${p.name === "Verified Supplier (UsaDrop)" ? "scale-125" : ""}`}>
+                    <div className="relative w-full h-full">
                       <Image
                         src={p.logoSrc}
                         alt={`${p.name} logo`}
