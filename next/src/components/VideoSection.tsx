@@ -1,4 +1,5 @@
 import { headers } from "next/headers";
+import PlayButtonVideo from "@/components/PlayButtonVideo";
 
 function cleanHost(h: string) {
   return String(h || "").toLowerCase().split(":")[0].replace(/^www\./, "");
@@ -44,17 +45,15 @@ export default async function VideoSection() {
           </div>
         ) : (
           <div className="relative mx-auto w-full max-w-5xl aspect-video rounded-xl overflow-hidden border border-white/10 bg-black">
-            {/* Avoid downloading the 3MB video on initial load */}
-            <video
-              className="absolute inset-0 w-full h-full object-cover"
+            {/* Show a preview image while loading, then try autoplay. If autoplay is blocked, keep a Play button overlay. */}
+            <PlayButtonVideo
+              src="/demo.mp4"
               poster="/ecomefficiency.png"
-              playsInline
-              preload="none"
-              controls
               title="Ecom Efficiency demo"
-            >
-              <source src="/demo.mp4" type="video/mp4" />
-            </video>
+              autoPlayOnVisible
+              loop
+            />
+            <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
           </div>
         )}
       </div>

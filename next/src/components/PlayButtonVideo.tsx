@@ -7,15 +7,23 @@ export default function PlayButtonVideo({
   poster,
   title,
   className = "absolute inset-0 w-full h-full object-cover",
+  autoPlay,
+  autoPlayOnVisible,
+  loop,
 }: {
   src: string;
   poster?: string;
   title: string;
   className?: string;
+  autoPlay?: boolean;
+  autoPlayOnVisible?: boolean;
+  loop?: boolean;
 }) {
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
+  const wrapperRef = React.useRef<HTMLDivElement | null>(null);
 
   const [isPlaying, setIsPlaying] = React.useState(false);
+  const [autoplayTried, setAutoplayTried] = React.useState(false);
 
   const play = React.useCallback(() => {
     const v = videoRef.current;
@@ -31,6 +39,52 @@ export default function PlayButtonVideo({
       });
   }, []);
 
+  // Optional: attempt autoplay (muted) once on mount.
+  React.useEffect(() => {
+    if (!autoPlay) return;
+    if (autoplayTried) return;
+    setAutoplayTried(true);
+    const t = window.setTimeout(() => {
+      try {
+        const v = videoRef.current;
+        if (!v) return;
+        v.muted = true;
+        v.play().then(() => setIsPlaying(true)).catch(() => {});
+      } catch {}
+    }, 50);
+    return () => window.clearTimeout(t);
+  }, [autoPlay, autoplayTried]);
+
+  // Optional: attempt autoplay when visible (best for LP perf).
+  React.useEffect(() => {
+    if (!autoPlayOnVisible) return;
+    if (autoplayTried) return;
+    const el = wrapperRef.current;
+    if (!el) return;
+    let done = false;
+    const io = new IntersectionObserver(
+      (entries) => {
+        if (done) return;
+        const e = entries[0];
+        if (!e?.isIntersecting) return;
+        done = true;
+        setAutoplayTried(true);
+        try {
+          const v = videoRef.current;
+          if (!v) return;
+          v.muted = true;
+          v.play().then(() => setIsPlaying(true)).catch(() => {});
+        } catch {}
+        try { io.disconnect(); } catch {}
+      },
+      { root: null, rootMargin: "200px", threshold: 0.15 }
+    );
+    try { io.observe(el); } catch {}
+    return () => {
+      try { io.disconnect(); } catch {}
+    };
+  }, [autoPlayOnVisible, autoplayTried]);
+
   const pause = React.useCallback(() => {
     const v = videoRef.current;
     if (!v) return;
@@ -44,7 +98,7 @@ export default function PlayButtonVideo({
   }, [isPlaying, pause, play]);
 
   return (
-    <div className="absolute inset-0">
+    <div ref={wrapperRef} className="absolute inset-0">
       <video
         ref={videoRef}
         className={className}
@@ -54,6 +108,7 @@ export default function PlayButtonVideo({
         poster={poster}
         playsInline
         muted
+        loop={Boolean(loop)}
         controls={false}
         controlsList="nodownload noremoteplayback noplaybackrate"
         disablePictureInPicture
