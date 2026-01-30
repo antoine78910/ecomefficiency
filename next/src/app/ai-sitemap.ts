@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
 
-const BASE_URL = "https://ecomefficiency.com";
+const BASE_URL = "https://www.ecomefficiency.com";
 
 // Dedicated sitemap for high-value, AI-relevant pages.
 export default function aiSitemap(): MetadataRoute.Sitemap {

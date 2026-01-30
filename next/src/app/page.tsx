@@ -1,3 +1,4 @@
+import type { Metadata } from "next";
 import Footer from "@/components/Footer";
 import HomeClientBoot from "@/components/HomeClientBoot";
 import HomeClientSections from "@/components/HomeClientSections";
@@ -7,6 +8,28 @@ import PricingSection from "@/components/PricingSection";
 import VideoSection from "@/components/VideoSection";
 import FaqSection from "@/components/FaqSection";
 import JoinMembersSection from "@/components/JoinMembersSection";
+
+export const metadata: Metadata = {
+  title: "Ecom Efficiency — Access 50+ Ecom Spy, SEO & AI Tools for 99% Off",
+  description:
+    "Access 50+ premium e-commerce tools (Spy, SEO, AI) in one dashboard. Save $4,000+/month and scale faster. Cancel anytime.",
+  alternates: { canonical: "/" },
+  openGraph: {
+    url: "/",
+    title: "Ecom Efficiency — Access 50+ Ecom Spy, SEO & AI Tools for 99% Off",
+    description:
+      "Access 50+ premium e-commerce tools (Spy, SEO, AI) in one dashboard. Save $4,000+/month and scale faster.",
+    images: [{ url: "/header_ee.png?v=8", width: 1200, height: 630, alt: "Ecom Efficiency" }],
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Ecom Efficiency — Access 50+ Ecom Spy, SEO & AI Tools for 99% Off",
+    description:
+      "Access 50+ premium e-commerce tools (Spy, SEO, AI) in one dashboard. Save $4,000+/month and scale faster.",
+    images: ["/header_ee.png?v=8"],
+  },
+};
 
 export default function Home() {
   const faqJsonLd = {

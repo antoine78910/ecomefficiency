@@ -9,14 +9,18 @@ import CrispScript from "@/components/CrispScript";
 // import { Analytics } from "@vercel/analytics/next";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://ecomefficiency.com"),
-  title: "Ecom Efficiency",
-  description: "#1 groupbuy for ecommerce and online business - Save $4000+ every month",
+  metadataBase: new URL("https://www.ecomefficiency.com"),
+  title: {
+    default: "Ecom Efficiency — Access 50+ Ecom Spy, SEO & AI Tools for 99% Off",
+    template: "%s | Ecom Efficiency",
+  },
+  description:
+    "Access 50+ premium e-commerce tools (Spy, SEO, AI) in one dashboard. Save $4,000+/month and scale faster. Cancel anytime.",
   openGraph: {
     type: "website",
-    url: "https://ecomefficiency.com/",
-    title: "Access +50 SEO / SPY / AI tools",
-    description: "Save $4000+ every month — #1 groupbuy for ecommerce and online business",
+    url: "https://www.ecomefficiency.com/",
+    title: "Ecom Efficiency — Access 50+ Ecom Spy, SEO & AI Tools for 99% Off",
+    description: "Access 50+ premium e-commerce tools (Spy, SEO, AI) in one dashboard. Save $4,000+/month.",
     siteName: "Ecom Efficiency",
     images: [
       {
@@ -30,8 +34,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Access +50 SEO / SPY / AI tools",
-    description: "Save $4000+ every month — #1 groupbuy for ecommerce and online business",
+    title: "Ecom Efficiency — Access 50+ Ecom Spy, SEO & AI Tools for 99% Off",
+    description: "Access 50+ premium e-commerce tools (Spy, SEO, AI) in one dashboard. Save $4,000+/month.",
     images: ["/header_ee.png?v=8"],
   },
   icons: {
@@ -50,9 +54,10 @@ export default function RootLayout({
     "@context": "https://schema.org",
     "@type": "Organization",
     name: "Ecom Efficiency",
-    description: "#1 groupbuy for ecommerce and online business - Save $4000+ every month",
-    url: "https://ecomefficiency.com",
-    logo: "https://ecomefficiency.com/ecomefficiency.png",
+    description:
+      "Access 50+ premium e-commerce tools (Spy, SEO, AI) in one dashboard. Save $4,000+/month and scale faster.",
+    url: "https://www.ecomefficiency.com",
+    logo: "https://www.ecomefficiency.com/ecomefficiency.png",
     sameAs: [
       "https://x.com/EcomEfficiency",
       "https://www.instagram.com/ecom.efficiency/",
@@ -61,11 +66,26 @@ export default function RootLayout({
     ],
   };
 
+  const websiteJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "WebSite",
+    url: "https://www.ecomefficiency.com/",
+    name: "Ecom Efficiency",
+    inLanguage: "en",
+    description:
+      "Access 50+ premium e-commerce tools (Spy, SEO, AI) in one dashboard. Save $4,000+/month and scale faster.",
+    publisher: {
+      "@type": "Organization",
+      name: "Ecom Efficiency",
+    },
+  };
+
   return (
     <html lang="en" className="h-full" suppressHydrationWarning translate="no">
       <head>
         <meta name="google" content="notranslate" />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }} />
         <Script id="yandex-metrika" strategy="lazyOnload">
           {`(function(){
       try {
