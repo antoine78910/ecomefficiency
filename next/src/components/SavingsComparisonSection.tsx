@@ -62,16 +62,6 @@ const SavingsComparisonSection = () => {
       } catch (e) {
         // Invalid URL, continue with default detection
       }
-      // Prefer browser IP first (works reliably with user proxies)
-      try {
-        const browser = await fetch('https://ipapi.co/json/', { cache: 'no-store' }).then(r=>r.json()).catch(()=>({} as any))
-        if (browser?.country) {
-          const cc = String(browser.country).toUpperCase()
-          const eur = new Set(['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE'])
-          setCurrency(eur.has(cc) ? 'EUR' : 'USD')
-          return
-        }
-      } catch {}
       // Server IP fallback
       try {
         const r = await fetch('/api/ip-region', { cache: 'no-store' })

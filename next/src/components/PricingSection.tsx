@@ -8,6 +8,20 @@ import { postGoal } from "@/lib/analytics";
 
 type Currency = 'USD' | 'EUR';
 
+function detectCurrencyFromLocale(): Currency {
+  try {
+    const eurCC = new Set(['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE']);
+    const locale = Intl.DateTimeFormat().resolvedOptions().locale || navigator.language || 'en-US';
+    const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    const regionMatch = locale.match(/[-_]([A-Z]{2})/);
+    const region = regionMatch ? regionMatch[1] : '';
+    const isEuropeTimezone = timeZone.startsWith('Europe/') || timeZone.includes('Paris') || timeZone.includes('Berlin') || timeZone.includes('Brussels');
+    return (region && eurCC.has(region)) || isEuropeTimezone ? 'EUR' : 'USD';
+  } catch {
+    return 'USD';
+  }
+}
+
 	const plans = [
 		{
     name: "Starter",
@@ -158,64 +172,38 @@ const PricingSection = () => {
       }
       
       try {
+        // Cache currency for this session to avoid duplicate work on LP
         try {
-          const eurCC = new Set(['AT','BE','BG','HR','CY','CZ','DK','EE','FI','FR','DE','GR','HU','IE','IT','LV','LT','LU','MT','NL','PL','PT','RO','SK','SI','ES','SE']);
-          
-          // 1) IP FIRST (most reliable for actual location)
-          const browser = await fetch('https://ipapi.co/json/', { cache: 'no-store' }).then(r => r.json()).catch(() => ({}));
-          if (browser?.country) {
-            const cc = String(browser.country).toUpperCase();
-            const detectedCurrency = eurCC.has(cc) ? 'EUR' : 'USD';
-            setCurrency(detectedCurrency);
+          const cached = sessionStorage.getItem('ee_currency');
+          if (cached === 'EUR' || cached === 'USD') {
+            setCurrency(cached as Currency);
             setIsReady(true);
             handleCheckoutIntent(url);
             return;
           }
-          
-          // 2) Fallback to server IP
+        } catch {}
+
+        // Prefer first-party IP detection (avoid external ipapi.co request on LP)
+        try {
           const server = await fetch('/api/ip-region', { cache: 'no-store' }).then(r => r.json()).catch(() => ({}));
           if (server?.currency === 'EUR' || server?.currency === 'USD') {
             setCurrency(server.currency);
+            try { sessionStorage.setItem('ee_currency', server.currency); } catch {}
             setIsReady(true);
             handleCheckoutIntent(url);
             return;
           }
-          
-          // 3) Fallback to locale/timezone
-          try {
-            const locale = Intl.DateTimeFormat().resolvedOptions().locale || navigator.language || 'en-US';
-            const timeZone = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-            
-            const regionMatch = locale.match(/[-_]([A-Z]{2})/);
-            const region = regionMatch ? regionMatch[1] : '';
-            
-            // Also check timezone for Europe
-            const isEuropeTimezone = timeZone.startsWith('Europe/') || timeZone.includes('Paris') || timeZone.includes('Berlin') || timeZone.includes('Brussels');
-            
-            if ((region && eurCC.has(region)) || isEuropeTimezone) {
-              setCurrency('EUR');
-              setIsReady(true);
-              handleCheckoutIntent(url);
-              return;
-            } else if (region) {
-              setCurrency('USD');
-              setIsReady(true);
-              handleCheckoutIntent(url);
-              return;
-            }
-          } catch {}
-          
-          // 4) Default to USD (most users outside EU)
-          setCurrency('USD');
-          setIsReady(true);
-          handleCheckoutIntent(url);
-        } catch (e: any) {
-          // Safe logging to prevent DataCloneError
-          console.error('[Pricing] Currency detection error:', e?.message || String(e));
-          setCurrency('USD'); // Default to USD on any error
-          setIsReady(true);
-        }
+        } catch {}
+
+        // Fallback: locale/timezone
+        const next = detectCurrencyFromLocale();
+        setCurrency(next);
+        try { sessionStorage.setItem('ee_currency', next); } catch {}
+        setIsReady(true);
+        handleCheckoutIntent(url);
       } catch (e: any) {
+        // Safe logging to prevent DataCloneError
+        console.error('[Pricing] Currency detection error:', e?.message || String(e));
         setCurrency('USD');
         setIsReady(true);
       }

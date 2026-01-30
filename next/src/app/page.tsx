@@ -1,10 +1,9 @@
 import type { Metadata } from "next";
 import Footer from "@/components/Footer";
-import ToolsScrollingSection from "@/components/ToolsScrollingSection";
-import SavingsComparisonSection from "@/components/SavingsComparisonSection";
-import HomePricingSection from "@/components/HomePricingSection";
+import HomeClientSections from "@/components/HomeClientSections";
 import NewHeroSection from "@/components/NewHeroSection";
 import NewNavbar from "@/components/NewNavbar";
+import PricingSection from "@/components/PricingSection";
 import VideoSection from "@/components/VideoSection";
 import FaqSection from "@/components/FaqSection";
 import JoinMembersSection from "@/components/JoinMembersSection";
@@ -77,9 +76,8 @@ export default function Home() {
       <NewNavbar />
       <NewHeroSection />
       <VideoSection />
-      <ToolsScrollingSection />
-      <SavingsComparisonSection />
-      <HomePricingSection />
+      <HomeClientSections />
+      <PricingSection />
       <FaqSection />
       <JoinMembersSection />
       <Footer />
