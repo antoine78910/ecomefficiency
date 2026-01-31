@@ -28,9 +28,9 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   }
 
   if (tool.slug === "pipiads") {
-    const title = "Pipiads : spy TikTok Ads, produits gagnants & créas | Ecom Efficiency";
+    const title = "Pipiads: TikTok ad spy tool for winners & creatives | Ecom Efficiency";
     const description =
-      "Guide court sur Pipiads: spy TikTok Ads, filtres utiles, méthode produit gagnant, analyse créa (hooks/angles) et alternatives pour mieux scaler.";
+      "Short guide to Pipiads: TikTok ad spy, filters that matter, a fast winner workflow, creative analysis (hooks/angles), and practical alternatives.";
     return {
       title,
       description,
@@ -113,8 +113,8 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
           <h1 className="mt-5 text-4xl md:text-5xl font-bold text-white">{tool.name}</h1>
           {tool.slug === "pipiads" ? (
             <p className="mt-4 text-lg text-gray-300">
-              <strong>Pipiads</strong> est un outil de <strong>spy TikTok Ads</strong> pour analyser des publicités actives/passées et repérer des patterns qui
-              convertissent (produits, hooks, angles).
+              <strong>Pipiads</strong> is a <strong>TikTok ad spy tool</strong> to analyze active/past ads and spot patterns that convert (products, hooks,
+              angles).
             </p>
           ) : (
             <p className="mt-4 text-lg text-gray-300">
@@ -136,16 +136,20 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
 
         {tool.slug === "pipiads" ? (
           <div className="grid lg:grid-cols-[280px_1fr] gap-8">
-            <aside className="lg:sticky lg:top-24 self-start space-y-6">
-              <ToolToc items={pipiadsToc} defaultActiveId={pipiadsToc[0]?.id} />
-              <EcomToolsCta compact />
+            <aside className="lg:sticky lg:top-24 self-start flex flex-col gap-6 max-h-[calc(100vh-7rem)]">
+              <div className="min-h-0 overflow-auto pr-1">
+                <ToolToc items={pipiadsToc} defaultActiveId={pipiadsToc[0]?.id} />
+              </div>
+              <div className="shrink-0">
+                <EcomToolsCta compact />
+              </div>
             </aside>
             <div className="min-w-0">
               <PipiadsChapters />
 
               {related.length ? (
                 <section className="mt-12">
-                  <h2 className="text-2xl font-bold text-white mb-4">Outils similaires</h2>
+                  <h2 className="text-2xl font-bold text-white mb-4">Similar tools</h2>
                   <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
                     {related.map((r) => (
                       <Link

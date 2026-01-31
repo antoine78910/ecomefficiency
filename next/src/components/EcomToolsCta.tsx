@@ -8,10 +8,11 @@ export type CtaLogo = {
 };
 
 const DEFAULT_LOGOS: CtaLogo[] = [
-  { src: "/tools-logos/semrush.png", alt: "Semrush" },
-  { src: "/tools-logos/pipiads.png", alt: "Pipiads" },
-  { src: "/tools-logos/chatgpt.png", alt: "ChatGPT" },
-  { src: "/tools-logos/canva.png", alt: "Canva" },
+  { src: "/tools-logos/cta-logo-1.png", alt: "Tool logo 1" },
+  { src: "/tools-logos/cta-logo-2.png", alt: "Tool logo 2" },
+  { src: "/tools-logos/cta-logo-3.png", alt: "Tool logo 3" },
+  { src: "/tools-logos/cta-logo-4.png", alt: "Tool logo 4" },
+  { src: "/tools-logos/cta-logo-5.png", alt: "Tool logo 5" },
 ] as const;
 
 export default function EcomToolsCta({
@@ -23,7 +24,7 @@ export default function EcomToolsCta({
   logos?: CtaLogo[];
   totalTools?: number;
 }) {
-  const shownLogos = logos.slice(0, 4);
+  const shownLogos = logos.slice(0, 5);
   const remaining = Math.max(0, totalTools - shownLogos.length);
 
   return (
@@ -33,20 +34,19 @@ export default function EcomToolsCta({
         compact ? "p-4" : "p-6",
       ].join(" ")}
     >
-      <div className="flex items-center justify-between gap-4">
-        <div className="min-w-0">
-          <p className={compact ? "text-white font-semibold" : "text-white font-bold text-xl"}>
-            Access 50+ ecom tools in one platform
-          </p>
-          <p className={compact ? "text-gray-300 mt-1 text-sm" : "text-gray-300 mt-2"}>
-            <span className={compact ? "font-semibold text-white" : "font-bold text-white text-lg"}>$29.99/mo</span>{" "}
-            <span className="text-gray-400">·</span> SEO / SPY / AI tools
-          </p>
+      <div className="flex items-center justify-between gap-3">
+        <p className={compact ? "text-white font-semibold" : "text-white font-bold text-xl"}>
+          Access 50+ ecom tools in one platform
+        </p>
+        <div className="shrink-0 text-right">
+          <div className={compact ? "text-sm text-white font-semibold" : "text-white font-bold text-lg"}>$29.99/mo</div>
+          <div className="text-xs text-gray-400">SEO / SPY / AI tools</div>
         </div>
+      </div>
 
-        <div className="shrink-0">
-          <div className="flex -space-x-3 justify-end">
-            {shownLogos.map((l) => (
+      <div className={compact ? "mt-3" : "mt-4"}>
+        <div className="flex flex-wrap items-center gap-2">
+          {shownLogos.map((l) => (
             <div
               key={l.src}
               className="relative w-10 h-10 rounded-full overflow-hidden border border-white/15 bg-black ring-2 ring-black"
@@ -55,26 +55,16 @@ export default function EcomToolsCta({
               <Image src={l.src} alt={l.alt} fill sizes="40px" loading="lazy" className="object-cover" />
             </div>
           ))}
-            {remaining > 0 ? (
-              <div
-                className="relative w-10 h-10 rounded-full overflow-hidden border border-white/15 bg-black ring-2 ring-black flex items-center justify-center"
-                title={`${remaining} more tools`}
-                aria-label={`${remaining} more tools`}
-              >
-                <span className="text-[11px] font-semibold text-white/90">+{remaining}</span>
-              </div>
-            ) : null}
-          </div>
           {remaining > 0 ? (
-            <div className="mt-2 flex items-center justify-end gap-2">
-              <div className="flex items-center gap-1" aria-hidden="true">
-                <span className="w-1 h-1 rounded-full bg-white/30" />
-                <span className="w-1 h-1 rounded-full bg-white/30" />
-                <span className="w-1 h-1 rounded-full bg-white/30" />
-              </div>
-              <span className="text-[11px] text-gray-400">and more</span>
+            <div
+              className="relative w-10 h-10 rounded-full overflow-hidden border border-white/15 bg-black ring-2 ring-black flex items-center justify-center"
+              title={`${remaining} more tools`}
+              aria-label={`${remaining} more tools`}
+            >
+              <span className="text-[11px] font-semibold text-white/90">+{remaining}</span>
             </div>
           ) : null}
+          {remaining > 0 ? <span className="text-[11px] text-gray-400 ml-1">and more</span> : null}
         </div>
       </div>
 

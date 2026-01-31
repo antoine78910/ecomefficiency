@@ -60,7 +60,7 @@ export default function ToolToc({
 
   return (
     <nav aria-label="Table of contents" className="rounded-2xl border border-white/10 bg-gray-900/30 p-4">
-      <div className="text-sm font-semibold text-white">Sommaire</div>
+      <div className="text-sm font-semibold text-white">Table of contents</div>
       <ul className="mt-3 space-y-1">
         {items.map((it) => {
           const isActive = it.id === activeId;
