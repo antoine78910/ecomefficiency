@@ -5,6 +5,7 @@ import * as React from "react";
 export type TocItem = {
   id: string;
   label: string;
+  level?: 2 | 3;
 };
 
 function getActiveIdFromHash(items: TocItem[]) {
@@ -64,6 +65,7 @@ export default function ToolToc({
       <ul className="mt-2 space-y-1">
         {items.map((it) => {
           const isActive = it.id === activeId;
+          const isH3 = it.level === 3;
           return (
             <li key={it.id}>
               <a
@@ -71,6 +73,7 @@ export default function ToolToc({
                 onClick={() => setActiveId(it.id)}
                 className={[
                   "block rounded-lg px-2 py-1 text-xs transition-colors",
+                  isH3 ? "pl-4 text-gray-400" : "",
                   isActive ? "bg-purple-500/15 text-purple-200 border border-purple-500/25" : "text-gray-300 hover:text-white hover:bg-white/5",
                 ].join(" ")}
               >
