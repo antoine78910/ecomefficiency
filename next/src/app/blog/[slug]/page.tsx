@@ -430,7 +430,14 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         <div className={showToc ? "grid lg:grid-cols-[320px_1fr] gap-10" : ""}>
           {showToc ? (
             <aside className="lg:sticky lg:top-24 self-start flex flex-col gap-4">
-              <ToolToc items={tocItems} defaultActiveId={tocItems[0]?.id} />
+              <div
+                className="min-h-0 overflow-y-auto pr-1
+                  [scrollbar-width:none] [-ms-overflow-style:none]
+                  [&::-webkit-scrollbar]:hidden"
+                style={{ maxHeight: "calc(100vh - 7rem - 220px)" }}
+              >
+                <ToolToc items={tocItems} defaultActiveId={tocItems[0]?.id} collapseSubheadings />
+              </div>
               <EcomToolsCta compact />
             </aside>
           ) : null}

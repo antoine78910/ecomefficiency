@@ -136,9 +136,17 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
 
         {tool.slug === "pipiads" ? (
           <div className="grid lg:grid-cols-[320px_1fr] gap-10">
-            <aside className="lg:sticky lg:top-24 self-start flex flex-col gap-4">
-              <ToolToc items={pipiadsToc} defaultActiveId={pipiadsToc[0]?.id} />
-              <EcomToolsCta compact />
+            <aside className="lg:sticky lg:top-24 self-start flex flex-col gap-4 max-h-[calc(100vh-7rem)]">
+              <div
+                className="min-h-0 overflow-y-auto pr-1
+                  [scrollbar-width:none] [-ms-overflow-style:none]
+                  [&::-webkit-scrollbar]:hidden"
+              >
+                <ToolToc items={pipiadsToc} defaultActiveId={pipiadsToc[0]?.id} collapseSubheadings />
+              </div>
+              <div className="shrink-0">
+                <EcomToolsCta compact />
+              </div>
             </aside>
             <div className="min-w-0">
               <PipiadsChapters />
