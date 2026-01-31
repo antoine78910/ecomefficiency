@@ -7,12 +7,16 @@ export type CtaLogo = {
   title?: string;
 };
 
+// CDN cache-bust for static CTA logo assets.
+// Update this string when swapping any CTA logo file.
+const CTA_LOGO_VERSION = "2026-01-31-01";
+
 const DEFAULT_LOGOS: CtaLogo[] = [
-  { src: "/tools-logos/cta-logo-1.png", alt: "Tool logo 1" },
-  { src: "/tools-logos/cta-logo-2.png", alt: "Tool logo 2" },
-  { src: "/tools-logos/cta-logo-3.png", alt: "Tool logo 3" },
-  { src: "/tools-logos/cta-logo-4.png", alt: "Tool logo 4" },
-  { src: "/tools-logos/cta-logo-5.png", alt: "Tool logo 5" },
+  { src: `/tools-logos/cta-logo-1.png?v=${CTA_LOGO_VERSION}`, alt: "Tool logo 1" },
+  { src: `/tools-logos/cta-logo-2.png?v=${CTA_LOGO_VERSION}`, alt: "Tool logo 2" },
+  { src: `/tools-logos/cta-logo-3.png?v=${CTA_LOGO_VERSION}`, alt: "Tool logo 3" },
+  { src: `/tools-logos/cta-logo-4.png?v=${CTA_LOGO_VERSION}`, alt: "Tool logo 4" },
+  { src: `/tools-logos/cta-logo-5.png?v=${CTA_LOGO_VERSION}`, alt: "Tool logo 5" },
 ] as const;
 
 export default function EcomToolsCta({
