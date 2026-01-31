@@ -59,9 +59,9 @@ export default function ToolToc({
   }, [items]);
 
   return (
-    <nav aria-label="Table of contents" className="rounded-2xl border border-white/10 bg-gray-900/30 p-4">
-      <div className="text-sm font-semibold text-white">Table of contents</div>
-      <ul className="mt-3 space-y-1">
+    <nav aria-label="Table of contents" className="rounded-2xl border border-white/10 bg-gray-900/30 p-3">
+      <div className="text-[11px] font-semibold text-white/90 uppercase tracking-wide">Table of contents</div>
+      <ul className="mt-2 space-y-1">
         {items.map((it) => {
           const isActive = it.id === activeId;
           return (
@@ -70,7 +70,7 @@ export default function ToolToc({
                 href={`#${it.id}`}
                 onClick={() => setActiveId(it.id)}
                 className={[
-                  "block rounded-lg px-2 py-1.5 text-sm transition-colors",
+                  "block rounded-lg px-2 py-1 text-xs transition-colors",
                   isActive ? "bg-purple-500/15 text-purple-200 border border-purple-500/25" : "text-gray-300 hover:text-white hover:bg-white/5",
                 ].join(" ")}
               >

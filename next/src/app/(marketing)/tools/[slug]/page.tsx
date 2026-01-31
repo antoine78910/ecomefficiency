@@ -99,7 +99,7 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
     <div className="min-h-screen bg-black">
       <NewNavbar />
 
-      <article className="max-w-5xl mx-auto px-6 py-12">
+      <article className="max-w-6xl mx-auto px-6 lg:px-8 py-12">
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
         {pipiadsFaqJsonLd ? (
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(pipiadsFaqJsonLd) }} />
@@ -135,14 +135,10 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
         </div>
 
         {tool.slug === "pipiads" ? (
-          <div className="grid lg:grid-cols-[280px_1fr] gap-8">
-            <aside className="lg:sticky lg:top-24 self-start flex flex-col gap-6 max-h-[calc(100vh-7rem)]">
-              <div className="min-h-0 overflow-auto pr-1">
-                <ToolToc items={pipiadsToc} defaultActiveId={pipiadsToc[0]?.id} />
-              </div>
-              <div className="shrink-0">
-                <EcomToolsCta compact />
-              </div>
+          <div className="grid lg:grid-cols-[320px_1fr] gap-10">
+            <aside className="lg:sticky lg:top-24 self-start flex flex-col gap-4">
+              <ToolToc items={pipiadsToc} defaultActiveId={pipiadsToc[0]?.id} />
+              <EcomToolsCta compact />
             </aside>
             <div className="min-w-0">
               <PipiadsChapters />
