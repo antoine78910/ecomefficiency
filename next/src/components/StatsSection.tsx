@@ -46,11 +46,11 @@ const StatsSection = () => {
               </li>
               <li className="flex items-center gap-2">
                 <span className="text-[#7f62fe] font-bold">✓</span>
-                <span>Includes high-value tools like PipiAds ($97/mo)</span>
+                <span>Includes high-value tools like Pipiads ($280/mo)</span>
               </li>
               <li className="flex items-center gap-2">
                 <span className="text-[#7f62fe] font-bold">✓</span>
-                <span>Access TrendTrack ($89/mo) & Helium 10 ($99/mo)</span>
+                <span>Access Freepik ($40/mo) plus more Pro tools</span>
               </li>
             </ul>
             

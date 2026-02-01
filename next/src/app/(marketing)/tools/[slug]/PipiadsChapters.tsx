@@ -37,7 +37,7 @@ export const pipiadsFaq = [
   },
   {
     q: "How much does Pipiads cost?",
-    a: "Typically ~ $77 to $155/month depending on the plan. You can also access it inside a bundle via Ecom Efficiency.",
+    a: "Standalone pricing varies. In the Ecom Efficiency bundle, Pipiads is included with a displayed value of $280/month.",
   },
 ] as const;
 
@@ -196,8 +196,29 @@ export default function PipiadsChapters() {
         <h2 className="text-2xl font-bold text-white mb-3">💰 Pipiads pricing (and how to pay less)</h2>
         <div className="rounded-xl border border-white/10 bg-gray-900/30 p-4 text-gray-300">
           <p>
-            Pipiads is subscription‑based, typically around <strong>~ $77 to $155 / month</strong> depending on plan and options.
+            If you buy Pipiads standalone, pricing depends on the plan. In the <strong>Ecom Efficiency</strong> bundle, we display Pipiads at{" "}
+            <strong>$280/month</strong> of tool value.
           </p>
+          <div className="mt-4 grid sm:grid-cols-2 gap-3">
+            <div className="rounded-xl border border-white/10 bg-black/30 p-4">
+              <div className="text-white font-semibold">Included value (example)</div>
+              <ul className="mt-2 list-disc list-inside space-y-1 text-gray-300">
+                <li>
+                  <strong>Pipiads</strong>: $280/month value
+                </li>
+                <li>
+                  <strong>Freepik</strong>: $40/month value
+                </li>
+              </ul>
+            </div>
+            <div className="rounded-xl border border-white/10 bg-black/30 p-4">
+              <div className="text-white font-semibold">Credits</div>
+              <p className="mt-2 text-gray-300">
+                You get <strong>near‑unlimited credits</strong> for day‑to‑day usage (fair‑use), so you can research continuously without constantly hitting a hard
+                cap.
+              </p>
+            </div>
+          </div>
           <p className="mt-2">
             If you want access to it alongside SEO/SPY/AI tools in one place, you can check{" "}
             <Link href="/pricing" className="text-purple-200 hover:text-white underline underline-offset-4" title="Pricing Ecom Efficiency">

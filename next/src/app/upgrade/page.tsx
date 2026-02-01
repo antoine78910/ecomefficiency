@@ -16,7 +16,7 @@ export default function UpgradePage() {
           <div className="max-w-6xl mx-auto px-6">
             <h1 className="text-4xl md:text-5xl font-bold text-center mb-2">All your +50 Sublaunch tools access plus…</h1>
             <p className="text-center text-sm text-gray-300 mb-8">Access nearly $300 worth of additional tools</p>
-            <div className="grid md:grid-cols-3 gap-6">
+            <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
               <div className="rounded-2xl border border-purple-500/30 bg-[linear-gradient(180deg,rgba(149,65,224,0.06)_0%,rgba(124,48,199,0.06)_100%)] p-6">
                 <div className="flex items-center gap-3 mb-4">
                   <img src="/tools-logos/trendtrack.png" alt="TrendTrack" className="w-16 h-16 object-contain" />
@@ -32,7 +32,7 @@ export default function UpgradePage() {
                   <h3 className="text-lg font-semibold">Pipiads</h3>
                 </div>
                 <p className="text-sm text-gray-300">Ad spy access for your research workflow.</p>
-                <div className="mt-3 inline-flex items-center text-[11px] px-2 py-1 rounded-full bg-yellow-500/15 text-yellow-300 border border-yellow-500/30">Worth $99</div>
+                <div className="mt-3 inline-flex items-center text-[11px] px-2 py-1 rounded-full bg-yellow-500/15 text-yellow-300 border border-yellow-500/30">Worth $280</div>
                 <div className="mt-3 text-green-300 font-semibold drop-shadow-[0_0_10px_rgba(74,222,128,0.45)]">+1 additional 100k credits account</div>
               </div>
               <div className="rounded-2xl border border-orange-500/30 bg-[linear-gradient(180deg,rgba(249,115,22,0.06)_0%,rgba(234,88,12,0.06)_100%)] p-6">
@@ -43,6 +43,15 @@ export default function UpgradePage() {
                 <p className="text-sm text-gray-300">AI voice generation for content and ads.</p>
                 <div className="mt-3 inline-flex items-center text-[11px] px-2 py-1 rounded-full bg-yellow-500/15 text-yellow-300 border border-yellow-500/30">Worth $99</div>
                 <div className="mt-3 text-green-300 font-semibold drop-shadow-[0_0_10px_rgba(74,222,128,0.45)]">+1 additional 500k credits account</div>
+              </div>
+              <div className="rounded-2xl border border-emerald-500/30 bg-[linear-gradient(180deg,rgba(16,185,129,0.06)_0%,rgba(5,150,105,0.06)_100%)] p-6">
+                <div className="flex items-center gap-3 mb-4">
+                  <img src="/tools-logos/freepik.png" alt="Freepik" className="w-16 h-16 object-contain" />
+                  <h3 className="text-lg font-semibold">Freepik</h3>
+                </div>
+                <p className="text-sm text-gray-300">Stock graphics, templates and design assets for creatives.</p>
+                <div className="mt-3 inline-flex items-center text-[11px] px-2 py-1 rounded-full bg-yellow-500/15 text-yellow-300 border border-yellow-500/30">Worth $40</div>
+                <div className="mt-3 text-gray-300 text-sm">Included in your bundle</div>
               </div>
             </div>
           </div>
