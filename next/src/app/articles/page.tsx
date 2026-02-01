@@ -26,6 +26,14 @@ const articles = [
     readTime: "25 min",
     category: "Dropshipping",
   },
+  {
+    slug: "china-ecommerce-supply-chain",
+    title: "China e-commerce supply chain: real costs & trusted agents",
+    excerpt:
+      "Understand where margins get hidden (agents, traders, shipping lines) and use a simple framework to audit pricing, verify partners, and scale with a structured China supply chain.",
+    readTime: "10 min",
+    category: "Supply chain",
+  },
 ] as const;
 
 export default function ArticlesIndexPage() {
