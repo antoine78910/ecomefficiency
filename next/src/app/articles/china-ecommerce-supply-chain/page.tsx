@@ -88,24 +88,21 @@ export default function ChinaSupplyChainArticlePage() {
           </div>
 
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
-            Understanding Why the <span className="gradient-text">E-commerce Supply Chain</span> Is Opaque (and Expensive)
+            China <span className="gradient-text">e-commerce supply chain</span>: real costs & trusted agents
           </h1>
           <p className="text-gray-300 text-lg leading-relaxed">
-            Most e-commerce founders lose money without realizing it on every order—not because of marketing, but because the supply chain is misunderstood.
-          </p>
-          <p className="text-gray-300 text-lg leading-relaxed mt-4">
-            China isn’t the problem. The problem is invisible intermediaries, unclear pricing, and blind decisions that compound as you scale.
+            Most founders lose money per order because supply chains are opaque: hidden intermediaries, unclear pricing, and shipping lines you can’t audit.
           </p>
         </header>
 
         {/* Left sidebar (same structure as /blog/[slug]) */}
         <div className="mt-10 grid gap-10 lg:grid-cols-[320px_1fr] lg:items-start">
-          <aside className="hidden lg:block lg:sticky lg:top-24 self-start flex flex-col gap-4">
+          <aside className="hidden lg:block lg:sticky lg:top-24 self-start flex flex-col gap-8">
             <div
               className="min-h-0 overflow-y-auto pr-1
                 [scrollbar-width:none] [-ms-overflow-style:none]
                 [&::-webkit-scrollbar]:hidden"
-              style={{ maxHeight: "calc(100vh - 7rem - 220px)" }}
+              style={{ maxHeight: "calc(100vh - 7rem - 260px)" }}
             >
               <ToolToc items={toc} defaultActiveId={toc[0]?.id} collapseSubheadings />
             </div>

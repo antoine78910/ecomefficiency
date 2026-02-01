@@ -335,7 +335,7 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
 
         {tool.slug === "pipiads" ? (
           <div className="grid lg:grid-cols-[320px_1fr] gap-10">
-            <aside className="lg:sticky lg:top-24 self-start flex flex-col gap-4 max-h-[calc(100vh-7rem)]">
+            <aside className="lg:sticky lg:top-24 self-start flex flex-col gap-8 max-h-[calc(100vh-7rem)]">
               <div
                 className="min-h-0 overflow-y-auto pr-1
                   [scrollbar-width:none] [-ms-overflow-style:none]
@@ -372,7 +372,7 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
           </div>
         ) : tool.slug === "kalodata" ? (
           <div className="grid lg:grid-cols-[320px_1fr] gap-10">
-            <aside className="lg:sticky lg:top-24 self-start flex flex-col gap-4 max-h-[calc(100vh-7rem)]">
+            <aside className="lg:sticky lg:top-24 self-start flex flex-col gap-8 max-h-[calc(100vh-7rem)]">
               <div
                 className="min-h-0 overflow-y-auto pr-1
                   [scrollbar-width:none] [-ms-overflow-style:none]
@@ -409,7 +409,7 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
           </div>
         ) : tool.slug === "dropship-io" ? (
           <div className="grid lg:grid-cols-[320px_1fr] gap-10">
-            <aside className="lg:sticky lg:top-24 self-start flex flex-col gap-4 max-h-[calc(100vh-7rem)]">
+            <aside className="lg:sticky lg:top-24 self-start flex flex-col gap-8 max-h-[calc(100vh-7rem)]">
               <div
                 className="min-h-0 overflow-y-auto pr-1
                   [scrollbar-width:none] [-ms-overflow-style:none]
@@ -446,7 +446,7 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
           </div>
         ) : tool.slug === "atria" ? (
           <div className="grid lg:grid-cols-[320px_1fr] gap-10">
-            <aside className="lg:sticky lg:top-24 self-start flex flex-col gap-4 max-h-[calc(100vh-7rem)]">
+            <aside className="lg:sticky lg:top-24 self-start flex flex-col gap-8 max-h-[calc(100vh-7rem)]">
               <div
                 className="min-h-0 overflow-y-auto pr-1
                   [scrollbar-width:none] [-ms-overflow-style:none]
@@ -483,7 +483,7 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
           </div>
         ) : tool.slug === "flair-ai" ? (
           <div className="grid lg:grid-cols-[320px_1fr] gap-10">
-            <aside className="lg:sticky lg:top-24 self-start flex flex-col gap-4 max-h-[calc(100vh-7rem)]">
+            <aside className="lg:sticky lg:top-24 self-start flex flex-col gap-8 max-h-[calc(100vh-7rem)]">
               <div
                 className="min-h-0 overflow-y-auto pr-1
                   [scrollbar-width:none] [-ms-overflow-style:none]
@@ -520,7 +520,7 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
           </div>
         ) : tool.slug === "elevenlabs" ? (
           <div className="grid lg:grid-cols-[320px_1fr] gap-10">
-            <aside className="lg:sticky lg:top-24 self-start flex flex-col gap-4 max-h-[calc(100vh-7rem)]">
+            <aside className="lg:sticky lg:top-24 self-start flex flex-col gap-8 max-h-[calc(100vh-7rem)]">
               <div
                 className="min-h-0 overflow-y-auto pr-1
                   [scrollbar-width:none] [-ms-overflow-style:none]

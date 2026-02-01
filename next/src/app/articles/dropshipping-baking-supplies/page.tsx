@@ -109,12 +109,12 @@ export default function DropshippingBakingSuppliesArticlePage() {
 
         {/* Left sidebar (same structure as /blog/[slug]) */}
         <div className="mt-10 grid gap-10 lg:grid-cols-[320px_1fr] lg:items-start">
-          <aside className="hidden lg:block lg:sticky lg:top-24 self-start flex flex-col gap-4">
+          <aside className="hidden lg:block lg:sticky lg:top-24 self-start flex flex-col gap-8">
             <div
               className="min-h-0 overflow-y-auto pr-1
                 [scrollbar-width:none] [-ms-overflow-style:none]
                 [&::-webkit-scrollbar]:hidden"
-              style={{ maxHeight: "calc(100vh - 7rem - 220px)" }}
+              style={{ maxHeight: "calc(100vh - 7rem - 260px)" }}
             >
               <ToolToc items={toc} defaultActiveId={toc[0]?.id} collapseSubheadings />
             </div>
