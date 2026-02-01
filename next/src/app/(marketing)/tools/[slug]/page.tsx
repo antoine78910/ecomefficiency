@@ -7,6 +7,7 @@ import Footer from "@/components/Footer";
 import NewNavbar from "@/components/NewNavbar";
 import ToolToc from "@/components/ToolToc";
 import { toolsCatalog } from "@/data/toolsCatalog";
+import KalodataChapters, { kalodataFaq, kalodataToc } from "./KalodataChapters";
 import PipiadsChapters, { pipiadsFaq, pipiadsToc } from "./PipiadsChapters";
 
 export const dynamic = "force-static";
@@ -41,6 +42,24 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
         title,
         description,
         images: [{ url: "/header_ee.png?v=8", width: 1200, height: 630, alt: "Pipiads" }],
+      },
+    };
+  }
+
+  if (tool.slug === "kalodata") {
+    const title = "Kalodata: TikTok Shop analytics (GMV) for winning products | Ecom Efficiency";
+    const description =
+      "Short guide to Kalodata: TikTok Shop analytics, GMV tracking, creator performance, winner validation workflow, pricing, and best tool combos.";
+    return {
+      title,
+      description,
+      alternates: { canonical: `/tools/${tool.slug}` },
+      openGraph: {
+        type: "article",
+        url: `/tools/${tool.slug}`,
+        title,
+        description,
+        images: [{ url: "/header_ee.png?v=8", width: 1200, height: 630, alt: "Kalodata" }],
       },
     };
   }
@@ -95,6 +114,19 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
         }
       : null;
 
+  const kalodataFaqJsonLd =
+    tool.slug === "kalodata"
+      ? {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: kalodataFaq.map((f) => ({
+            "@type": "Question",
+            name: f.q,
+            acceptedAnswer: { "@type": "Answer", text: f.a },
+          })),
+        }
+      : null;
+
   return (
     <div className="min-h-screen bg-black">
       <NewNavbar />
@@ -103,6 +135,9 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
         {pipiadsFaqJsonLd ? (
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(pipiadsFaqJsonLd) }} />
+        ) : null}
+        {kalodataFaqJsonLd ? (
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(kalodataFaqJsonLd) }} />
         ) : null}
 
         <div className="mb-8">
@@ -115,6 +150,11 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
             <p className="mt-4 text-lg text-gray-300">
               <strong>Pipiads</strong> is a <strong>TikTok ad spy tool</strong> to analyze active/past ads and spot patterns that convert (products, hooks,
               angles).
+            </p>
+          ) : tool.slug === "kalodata" ? (
+            <p className="mt-4 text-lg text-gray-300">
+              <strong>Kalodata</strong> is a <strong>TikTok Shop analytics</strong> tool to track GMV, creators, and product demand—so you validate what actually
+              sells (not just what goes viral).
             </p>
           ) : (
             <p className="mt-4 text-lg text-gray-300">
@@ -150,6 +190,43 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
             </aside>
             <div className="min-w-0">
               <PipiadsChapters />
+
+              {related.length ? (
+                <section className="mt-12">
+                  <h2 className="text-2xl font-bold text-white mb-4">Similar tools</h2>
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {related.map((r) => (
+                      <Link
+                        key={r.slug}
+                        href={`/tools/${r.slug}`}
+                        title={`${r.name} tool page`}
+                        className="rounded-2xl border border-white/10 bg-gray-900/30 p-4 hover:border-purple-500/30 transition-colors"
+                      >
+                        <div className="text-white font-semibold">{r.name}</div>
+                        <div className="text-sm text-gray-400 mt-1">{r.shortDescription}</div>
+                      </Link>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+            </div>
+          </div>
+        ) : tool.slug === "kalodata" ? (
+          <div className="grid lg:grid-cols-[320px_1fr] gap-10">
+            <aside className="lg:sticky lg:top-24 self-start flex flex-col gap-4 max-h-[calc(100vh-7rem)]">
+              <div
+                className="min-h-0 overflow-y-auto pr-1
+                  [scrollbar-width:none] [-ms-overflow-style:none]
+                  [&::-webkit-scrollbar]:hidden"
+              >
+                <ToolToc items={kalodataToc} defaultActiveId={kalodataToc[0]?.id} collapseSubheadings />
+              </div>
+              <div className="shrink-0">
+                <EcomToolsCta compact />
+              </div>
+            </aside>
+            <div className="min-w-0">
+              <KalodataChapters />
 
               {related.length ? (
                 <section className="mt-12">
