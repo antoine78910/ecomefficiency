@@ -104,16 +104,18 @@ export default function ProfitableSaturatedProductsArticlePage() {
         </header>
 
         <div className="mt-10 grid gap-10 lg:grid-cols-[320px_1fr] lg:items-start">
-          <aside className="hidden lg:block lg:sticky lg:top-24 self-start flex flex-col gap-8">
+          <aside className="hidden lg:block lg:sticky lg:top-24 self-start flex flex-col">
             <div
               className="min-h-0 overflow-y-auto pr-1
                 [scrollbar-width:none] [-ms-overflow-style:none]
                 [&::-webkit-scrollbar]:hidden"
-              style={{ maxHeight: "calc(100vh - 7rem - 260px)" }}
+              style={{ maxHeight: "calc(100vh - 7rem - 220px)" }}
             >
               <ToolToc items={toc} defaultActiveId={toc[0]?.id} collapseSubheadings />
             </div>
-            <EcomToolsCta compact totalTools={50} />
+            <div className="mt-6">
+              <EcomToolsCta compact totalTools={50} />
+            </div>
           </aside>
 
           <div className="min-w-0 max-w-3xl mx-auto lg:mx-0">

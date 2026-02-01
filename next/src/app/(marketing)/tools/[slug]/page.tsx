@@ -335,7 +335,7 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
 
         {tool.slug === "pipiads" ? (
           <div className="grid lg:grid-cols-[320px_1fr] gap-10">
-            <aside className="lg:sticky lg:top-24 self-start flex flex-col gap-8 max-h-[calc(100vh-7rem)]">
+            <aside className="lg:sticky lg:top-24 self-start flex flex-col max-h-[calc(100vh-7rem)]">
               <div
                 className="min-h-0 overflow-y-auto pr-1
                   [scrollbar-width:none] [-ms-overflow-style:none]
@@ -343,7 +343,7 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
               >
                 <ToolToc items={pipiadsToc} defaultActiveId={pipiadsToc[0]?.id} collapseSubheadings />
               </div>
-              <div className="shrink-0">
+              <div className="mt-6 shrink-0">
                 <EcomToolsCta compact />
               </div>
             </aside>
@@ -372,7 +372,7 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
           </div>
         ) : tool.slug === "kalodata" ? (
           <div className="grid lg:grid-cols-[320px_1fr] gap-10">
-            <aside className="lg:sticky lg:top-24 self-start flex flex-col gap-8 max-h-[calc(100vh-7rem)]">
+            <aside className="lg:sticky lg:top-24 self-start flex flex-col max-h-[calc(100vh-7rem)]">
               <div
                 className="min-h-0 overflow-y-auto pr-1
                   [scrollbar-width:none] [-ms-overflow-style:none]
@@ -380,7 +380,7 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
               >
                 <ToolToc items={kalodataToc} defaultActiveId={kalodataToc[0]?.id} collapseSubheadings />
               </div>
-              <div className="shrink-0">
+              <div className="mt-6 shrink-0">
                 <EcomToolsCta compact />
               </div>
             </aside>
@@ -409,7 +409,7 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
           </div>
         ) : tool.slug === "dropship-io" ? (
           <div className="grid lg:grid-cols-[320px_1fr] gap-10">
-            <aside className="lg:sticky lg:top-24 self-start flex flex-col gap-8 max-h-[calc(100vh-7rem)]">
+            <aside className="lg:sticky lg:top-24 self-start flex flex-col max-h-[calc(100vh-7rem)]">
               <div
                 className="min-h-0 overflow-y-auto pr-1
                   [scrollbar-width:none] [-ms-overflow-style:none]
@@ -417,7 +417,7 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
               >
                 <ToolToc items={dropshipIoToc} defaultActiveId={dropshipIoToc[0]?.id} collapseSubheadings />
               </div>
-              <div className="shrink-0">
+              <div className="mt-6 shrink-0">
                 <EcomToolsCta compact />
               </div>
             </aside>
@@ -446,7 +446,7 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
           </div>
         ) : tool.slug === "atria" ? (
           <div className="grid lg:grid-cols-[320px_1fr] gap-10">
-            <aside className="lg:sticky lg:top-24 self-start flex flex-col gap-8 max-h-[calc(100vh-7rem)]">
+            <aside className="lg:sticky lg:top-24 self-start flex flex-col max-h-[calc(100vh-7rem)]">
               <div
                 className="min-h-0 overflow-y-auto pr-1
                   [scrollbar-width:none] [-ms-overflow-style:none]
@@ -454,7 +454,7 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
               >
                 <ToolToc items={atriaToc} defaultActiveId={atriaToc[0]?.id} collapseSubheadings />
               </div>
-              <div className="shrink-0">
+              <div className="mt-6 shrink-0">
                 <EcomToolsCta compact />
               </div>
             </aside>
@@ -483,7 +483,7 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
           </div>
         ) : tool.slug === "flair-ai" ? (
           <div className="grid lg:grid-cols-[320px_1fr] gap-10">
-            <aside className="lg:sticky lg:top-24 self-start flex flex-col gap-8 max-h-[calc(100vh-7rem)]">
+            <aside className="lg:sticky lg:top-24 self-start flex flex-col max-h-[calc(100vh-7rem)]">
               <div
                 className="min-h-0 overflow-y-auto pr-1
                   [scrollbar-width:none] [-ms-overflow-style:none]
@@ -491,7 +491,7 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
               >
                 <ToolToc items={flairAiToc} defaultActiveId={flairAiToc[0]?.id} collapseSubheadings />
               </div>
-              <div className="shrink-0">
+              <div className="mt-6 shrink-0">
                 <EcomToolsCta compact />
               </div>
             </aside>
@@ -520,7 +520,7 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
           </div>
         ) : tool.slug === "elevenlabs" ? (
           <div className="grid lg:grid-cols-[320px_1fr] gap-10">
-            <aside className="lg:sticky lg:top-24 self-start flex flex-col gap-8 max-h-[calc(100vh-7rem)]">
+            <aside className="lg:sticky lg:top-24 self-start flex flex-col max-h-[calc(100vh-7rem)]">
               <div
                 className="min-h-0 overflow-y-auto pr-1
                   [scrollbar-width:none] [-ms-overflow-style:none]
@@ -528,7 +528,7 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
               >
                 <ToolToc items={elevenLabsToc} defaultActiveId={elevenLabsToc[0]?.id} collapseSubheadings />
               </div>
-              <div className="shrink-0">
+              <div className="mt-6 shrink-0">
                 <EcomToolsCta compact />
               </div>
             </aside>
