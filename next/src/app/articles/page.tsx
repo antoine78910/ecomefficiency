@@ -27,6 +27,14 @@ const articles = [
     category: "Dropshipping",
   },
   {
+    slug: "profitable-saturated-products",
+    title: "How to be profitable on any saturated product in e-commerce",
+    excerpt:
+      "A repeatable framework to scale competitive products without gimmicks: win with stronger hooks, a best‑of product page, and continuous offer testing.",
+    readTime: "7 min",
+    category: "Scaling",
+  },
+  {
     slug: "china-ecommerce-supply-chain",
     title: "China e-commerce supply chain: real costs & trusted agents",
     excerpt:
