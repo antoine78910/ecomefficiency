@@ -7,6 +7,7 @@ import Footer from "@/components/Footer";
 import NewNavbar from "@/components/NewNavbar";
 import ToolToc from "@/components/ToolToc";
 import { toolsCatalog } from "@/data/toolsCatalog";
+import DropshipIoChapters, { dropshipIoFaq, dropshipIoToc } from "./DropshipIoChapters";
 import KalodataChapters, { kalodataFaq, kalodataToc } from "./KalodataChapters";
 import PipiadsChapters, { pipiadsFaq, pipiadsToc } from "./PipiadsChapters";
 
@@ -60,6 +61,24 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
         title,
         description,
         images: [{ url: "/header_ee.png?v=8", width: 1200, height: 630, alt: "Kalodata" }],
+      },
+    };
+  }
+
+  if (tool.slug === "dropship-io") {
+    const title = "Dropship.io: Shopify store-based product research | Ecom Efficiency";
+    const description =
+      "Short guide to Dropship.io: store-level product research, trend validation, saturation signals, a fast workflow to find winners, pricing, and alternatives.";
+    return {
+      title,
+      description,
+      alternates: { canonical: `/tools/${tool.slug}` },
+      openGraph: {
+        type: "article",
+        url: `/tools/${tool.slug}`,
+        title,
+        description,
+        images: [{ url: "/header_ee.png?v=8", width: 1200, height: 630, alt: "Dropship.io" }],
       },
     };
   }
@@ -127,6 +146,19 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
         }
       : null;
 
+  const dropshipIoFaqJsonLd =
+    tool.slug === "dropship-io"
+      ? {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: dropshipIoFaq.map((f) => ({
+            "@type": "Question",
+            name: f.q,
+            acceptedAnswer: { "@type": "Answer", text: f.a },
+          })),
+        }
+      : null;
+
   return (
     <div className="min-h-screen bg-black">
       <NewNavbar />
@@ -138,6 +170,9 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
         ) : null}
         {kalodataFaqJsonLd ? (
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(kalodataFaqJsonLd) }} />
+        ) : null}
+        {dropshipIoFaqJsonLd ? (
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(dropshipIoFaqJsonLd) }} />
         ) : null}
 
         <div className="mb-8">
@@ -155,6 +190,11 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
             <p className="mt-4 text-lg text-gray-300">
               <strong>Kalodata</strong> is a <strong>TikTok Shop analytics</strong> tool to track GMV, creators, and product demand—so you validate what actually
               sells (not just what goes viral).
+            </p>
+          ) : tool.slug === "dropship-io" ? (
+            <p className="mt-4 text-lg text-gray-300">
+              <strong>Dropship.io</strong> is a <strong>Shopify store-based</strong> product research tool—so you validate products via real store adoption, not
+              hype.
             </p>
           ) : (
             <p className="mt-4 text-lg text-gray-300">
@@ -227,6 +267,43 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
             </aside>
             <div className="min-w-0">
               <KalodataChapters />
+
+              {related.length ? (
+                <section className="mt-12">
+                  <h2 className="text-2xl font-bold text-white mb-4">Similar tools</h2>
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {related.map((r) => (
+                      <Link
+                        key={r.slug}
+                        href={`/tools/${r.slug}`}
+                        title={`${r.name} tool page`}
+                        className="rounded-2xl border border-white/10 bg-gray-900/30 p-4 hover:border-purple-500/30 transition-colors"
+                      >
+                        <div className="text-white font-semibold">{r.name}</div>
+                        <div className="text-sm text-gray-400 mt-1">{r.shortDescription}</div>
+                      </Link>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+            </div>
+          </div>
+        ) : tool.slug === "dropship-io" ? (
+          <div className="grid lg:grid-cols-[320px_1fr] gap-10">
+            <aside className="lg:sticky lg:top-24 self-start flex flex-col gap-4 max-h-[calc(100vh-7rem)]">
+              <div
+                className="min-h-0 overflow-y-auto pr-1
+                  [scrollbar-width:none] [-ms-overflow-style:none]
+                  [&::-webkit-scrollbar]:hidden"
+              >
+                <ToolToc items={dropshipIoToc} defaultActiveId={dropshipIoToc[0]?.id} collapseSubheadings />
+              </div>
+              <div className="shrink-0">
+                <EcomToolsCta compact />
+              </div>
+            </aside>
+            <div className="min-w-0">
+              <DropshipIoChapters />
 
               {related.length ? (
                 <section className="mt-12">
