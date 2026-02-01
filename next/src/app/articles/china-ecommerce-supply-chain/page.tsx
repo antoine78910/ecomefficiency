@@ -1,10 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 
-import ArticleToc, { type TocItem } from "../../../components/ArticleToc";
 import EcomToolsCta from "@/components/EcomToolsCta";
 import Footer from "@/components/Footer";
 import NewNavbar from "@/components/NewNavbar";
+import ToolToc, { type TocItem } from "@/components/ToolToc";
 
 const INFINITE_FULFILLMENT_URL =
   "https://infinitefulfillment.typeform.com/contact?typeform-source=537aanhyt63.typeform.com";
@@ -68,7 +68,7 @@ export default function ChinaSupplyChainArticlePage() {
     <div className="min-h-screen bg-black">
       <NewNavbar />
 
-      <article className="max-w-6xl mx-auto px-6 py-12">
+      <article className="max-w-6xl mx-auto px-6 lg:px-8 py-12">
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
 
         <Link
@@ -98,17 +98,20 @@ export default function ChinaSupplyChainArticlePage() {
           </p>
         </header>
 
-        {/* Mobile TOC */}
-        <div className="lg:hidden mt-8 p-4 rounded-2xl bg-gray-900 border border-white/10">
-          <ArticleToc
-            items={toc}
-            heading="ON THIS PAGE"
-            linkClassName="px-3 py-2 rounded-lg border border-transparent border-l-2 text-gray-300 hover:text-white hover:bg-white/5"
-            activeLinkClassName="text-white font-semibold bg-white/5 border-white/10 border-l-purple-400"
-          />
-        </div>
+        {/* Left sidebar (same structure as /blog/[slug]) */}
+        <div className="mt-10 grid gap-10 lg:grid-cols-[320px_1fr] lg:items-start">
+          <aside className="hidden lg:block lg:sticky lg:top-24 self-start flex flex-col gap-4">
+            <div
+              className="min-h-0 overflow-y-auto pr-1
+                [scrollbar-width:none] [-ms-overflow-style:none]
+                [&::-webkit-scrollbar]:hidden"
+              style={{ maxHeight: "calc(100vh - 7rem - 220px)" }}
+            >
+              <ToolToc items={toc} defaultActiveId={toc[0]?.id} collapseSubheadings />
+            </div>
+            <EcomToolsCta compact totalTools={50} />
+          </aside>
 
-        <div className="mt-10 grid gap-10 lg:grid-cols-[minmax(0,1fr)_340px] lg:items-start">
           {/* Content */}
           <div className="min-w-0 max-w-3xl mx-auto lg:mx-0">
             <SectionTitle id="why-opaque">Why supply chains are opaque (and expensive)</SectionTitle>
@@ -371,34 +374,6 @@ export default function ChinaSupplyChainArticlePage() {
               <EcomToolsCta totalTools={50} />
             </div>
           </div>
-
-          {/* Right nav */}
-          <aside className="hidden lg:block">
-            <div className="sticky top-24 h-[calc(100vh-6rem)] flex flex-col">
-              <div className="overflow-auto pr-2 pb-6">
-                <div className="rounded-2xl bg-gray-900/60 border border-white/10 p-4">
-                  <ArticleToc
-                    items={toc}
-                    heading="ON THIS PAGE"
-                    linkClassName="px-3 py-2 rounded-lg border border-transparent border-l-2 text-gray-300 hover:text-white hover:bg-white/5"
-                    activeLinkClassName="text-white font-semibold bg-white/5 border-white/10 border-l-purple-400"
-                  />
-                  <div className="mt-6 p-4 rounded-xl bg-black/20 border border-white/10">
-                    <p className="text-sm font-semibold text-white mb-2">What this playbook helps you do</p>
-                    <ul className="text-sm text-gray-300 space-y-1 list-disc list-inside">
-                      <li>Audit hidden margins</li>
-                      <li>Verify factories vs traders</li>
-                      <li>Compare shipping lines (promised vs actual)</li>
-                      <li>Make a clear “optimize vs switch” decision</li>
-                    </ul>
-                  </div>
-                </div>
-              </div>
-              <div className="pt-4 border-t border-white/10">
-                <EcomToolsCta compact totalTools={50} />
-              </div>
-            </div>
-          </aside>
         </div>
       </article>
 
