@@ -12,11 +12,11 @@ export type CtaLogo = {
 const CTA_LOGO_VERSION = "2026-01-31-01";
 
 const DEFAULT_LOGOS: CtaLogo[] = [
-  { src: `/tools-logos/cta-logo-1.png?v=${CTA_LOGO_VERSION}`, alt: "Tool logo 1" },
-  { src: `/tools-logos/cta-logo-2.png?v=${CTA_LOGO_VERSION}`, alt: "Tool logo 2" },
-  { src: `/tools-logos/cta-logo-3.png?v=${CTA_LOGO_VERSION}`, alt: "Tool logo 3" },
-  { src: `/tools-logos/cta-logo-4.png?v=${CTA_LOGO_VERSION}`, alt: "Tool logo 4" },
-  { src: `/tools-logos/cta-logo-5.png?v=${CTA_LOGO_VERSION}`, alt: "Tool logo 5" },
+  { src: `/tools-logos/cta-logo-1.png?v=${CTA_LOGO_VERSION}`, alt: "Higgsfield" },
+  { src: `/tools-logos/cta-logo-2.png?v=${CTA_LOGO_VERSION}`, alt: "Kalodata" },
+  { src: `/tools-logos/cta-logo-3.png?v=${CTA_LOGO_VERSION}`, alt: "Canva" },
+  { src: `/tools-logos/cta-logo-4.png?v=${CTA_LOGO_VERSION}`, alt: "Semrush" },
+  { src: `/tools-logos/cta-logo-5.png?v=${CTA_LOGO_VERSION}`, alt: "Pipiads" },
 ] as const;
 
 export default function EcomToolsCta({

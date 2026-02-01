@@ -23,7 +23,7 @@ function formatPrice(amount: number, currency: Currency) {
 type SavingsTool = { name: string; price?: number };
 
 const tools: SavingsTool[] = [
-  { name: 'Pipiads', price: 99 },
+  { name: 'Pipiads', price: 280 },
   { name: 'Atria', price: 159 },
   { name: 'Runway', price: 95 },
   { name: 'Heygen', price: 80 },
@@ -42,6 +42,7 @@ const tools: SavingsTool[] = [
   { name: 'Shophunter', price: 75 },
   { name: 'Midjourney', price: 72 },
   { name: 'Canva', price: 449 },
+  { name: 'Freepik', price: 40 },
   { name: 'GPT', price: 20 },
   { name: 'Semrush', price: 399 },
   { name: 'Similarweb', price: 199 },

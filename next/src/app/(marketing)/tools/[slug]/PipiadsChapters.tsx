@@ -206,9 +206,6 @@ export default function PipiadsChapters() {
                 <li>
                   <strong>Pipiads</strong>: $280/month value
                 </li>
-                <li>
-                  <strong>Freepik</strong>: $40/month value
-                </li>
               </ul>
             </div>
             <div className="rounded-xl border border-white/10 bg-black/30 p-4">

@@ -86,7 +86,7 @@ const Tools = () => {
 
   // Monthly price indicators per tool
   const PRICE_MAP: Record<string, number> = {
-    'Pipiads': 99,
+    'Pipiads': 280,
     'Atria': 159,
     'Runway': 95,
     'Heygen': 80,
@@ -106,6 +106,7 @@ const Tools = () => {
     'ShopHunter': 75,
     'Midjourney': 72,
     'Canva': 449,
+    'Freepik': 40,
     'ChatGPT': 20,
     'Semrush': 399,
     'Similarweb': 199,
