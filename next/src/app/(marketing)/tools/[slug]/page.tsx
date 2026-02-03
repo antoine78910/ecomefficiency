@@ -28,6 +28,7 @@ import Helium10Chapters, { helium10Faq, helium10Toc } from "./Helium10Chapters";
 import ChatGPTChapters, { chatgptFaq, chatgptToc } from "./ChatGPTChapters";
 import CanvaChapters, { canvaFaq, canvaToc } from "./CanvaChapters";
 import FotorChapters, { fotorFaq, fotorToc } from "./FotorChapters";
+import BrainFmChapters, { brainFmFaq, brainFmToc } from "./BrainFmChapters";
 
 export const dynamic = "force-static";
 export const revalidate = 86400; // 1 day
@@ -431,6 +432,24 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     };
   }
 
+  if (tool.slug === "brain-fm") {
+    const title = "Brain.fm: functional focus music for deep work & sleep | Ecom Efficiency";
+    const description =
+      "Brain.fm review: science-backed functional music to improve focus, relaxation, and sleep—plus a fast workflow, pricing, limits, and alternatives.";
+    return {
+      title,
+      description,
+      alternates: { canonical: `/tools/${tool.slug}` },
+      openGraph: {
+        type: "article",
+        url: `/tools/${tool.slug}`,
+        title,
+        description,
+        images: [{ url: "/header_ee.png?v=8", width: 1200, height: 630, alt: "Brain.fm" }],
+      },
+    };
+  }
+
   const title = `${tool.name}: what it does, best use cases & workflows | Ecom Efficiency`;
   const description = `${tool.name}: ${tool.shortDescription}`;
 
@@ -735,6 +754,19 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
         }
       : null;
 
+  const brainFmFaqJsonLd =
+    tool.slug === "brain-fm"
+      ? {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: brainFmFaq.map((f) => ({
+            "@type": "Question",
+            name: f.q,
+            acceptedAnswer: { "@type": "Answer", text: f.a },
+          })),
+        }
+      : null;
+
   return (
     <div className="min-h-screen bg-black">
       <NewNavbar />
@@ -800,6 +832,9 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
         ) : null}
         {fotorFaqJsonLd ? (
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(fotorFaqJsonLd) }} />
+        ) : null}
+        {brainFmFaqJsonLd ? (
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(brainFmFaqJsonLd) }} />
         ) : null}
 
         <div className="mb-8">
@@ -906,6 +941,11 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
             <p className="mt-4 text-lg text-gray-300">
               <strong>Fotor</strong> is an <strong>online photo editor</strong> with AI enhancement and background removal—so you can clean product images and build
               simple ad creatives fast.
+            </p>
+          ) : tool.slug === "brain-fm" ? (
+            <p className="mt-4 text-lg text-gray-300">
+              <strong>Brain.fm</strong> is <strong>science-backed functional music</strong> for focus, relaxation, and sleep—so you can reduce distractions and get into
+              deep work faster.
             </p>
           ) : (
             <p className="mt-4 text-lg text-gray-300">
@@ -1644,6 +1684,43 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
             </aside>
             <div className="min-w-0">
               <FotorChapters />
+
+              {related.length ? (
+                <section className="mt-12">
+                  <h2 className="text-2xl font-bold text-white mb-4">Similar tools</h2>
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {related.map((r) => (
+                      <Link
+                        key={r.slug}
+                        href={`/tools/${r.slug}`}
+                        title={`${r.name} tool page`}
+                        className="rounded-2xl border border-white/10 bg-gray-900/30 p-4 hover:border-purple-500/30 transition-colors"
+                      >
+                        <div className="text-white font-semibold">{r.name}</div>
+                        <div className="text-sm text-gray-400 mt-1">{r.shortDescription}</div>
+                      </Link>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+            </div>
+          </div>
+        ) : tool.slug === "brain-fm" ? (
+          <div className="grid lg:grid-cols-[320px_1fr] gap-10">
+            <aside className="lg:sticky lg:top-24 self-start flex flex-col max-h-[calc(100vh-7rem)]">
+              <div
+                className="min-h-0 overflow-y-auto pr-1
+                  [scrollbar-width:none] [-ms-overflow-style:none]
+                  [&::-webkit-scrollbar]:hidden"
+              >
+                <ToolToc items={brainFmToc} defaultActiveId={brainFmToc[0]?.id} collapseSubheadings />
+              </div>
+              <div className="mt-6 shrink-0">
+                <EcomToolsCta compact />
+              </div>
+            </aside>
+            <div className="min-w-0">
+              <BrainFmChapters />
 
               {related.length ? (
                 <section className="mt-12">
