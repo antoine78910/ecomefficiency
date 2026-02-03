@@ -1,11 +1,12 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 
 import EcomToolsCta from "@/components/EcomToolsCta";
 import Footer from "@/components/Footer";
 import NewNavbar from "@/components/NewNavbar";
 import ToolToc from "@/components/ToolToc";
+import { seoToolsCatalog } from "@/data/seoToolsCatalog";
 import { toolsCatalog } from "@/data/toolsCatalog";
 import AtriaChapters, { atriaFaq, atriaToc } from "./AtriaChapters";
 import DropshipIoChapters, { dropshipIoFaq, dropshipIoToc } from "./DropshipIoChapters";
@@ -31,11 +32,35 @@ function getTool(slug: string) {
 }
 
 export async function generateStaticParams() {
-  return toolsCatalog.map((t) => ({ slug: t.slug }));
+  const slugs = new Set<string>();
+  for (const t of toolsCatalog) slugs.add(t.slug);
+  for (const t of seoToolsCatalog) slugs.add(t.slug);
+  return Array.from(slugs).map((slug) => ({ slug }));
 }
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
   const { slug } = await params;
+
+  // SEO tools live under /tools/seo/<slug>. Keep /tools/<slug> as a redirect entrypoint.
+  if (seoToolsCatalog.some((t) => t.slug === slug)) {
+    const tool = seoToolsCatalog.find((t) => t.slug === slug)!;
+    const title = `${tool.name}: SEO tool review, pricing & best workflows | Ecom Efficiency`;
+    const description = `${tool.name}: ${tool.shortDescription} Learn core features, practical workflows, pricing, and alternatives.`;
+    return {
+      title,
+      description,
+      alternates: { canonical: `/tools/seo/${tool.slug}` },
+      robots: { index: false, follow: true },
+      openGraph: {
+        type: "article",
+        url: `/tools/seo/${tool.slug}`,
+        title,
+        description,
+        images: [{ url: "/header_ee.png?v=8", width: 1200, height: 630, alt: tool.name }],
+      },
+    };
+  }
+
   const tool = getTool(slug);
   if (!tool) {
     return { title: "Tool not found | Ecom Efficiency", robots: { index: false, follow: false } };
@@ -330,6 +355,13 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function ToolPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
+
+  // SEO tools are served under /tools/seo/<slug> with a richer template.
+  // Keep /tools/<slug> as a stable entrypoint (redirect) for all +30 SEO tools.
+  if (seoToolsCatalog.some((t) => t.slug === slug)) {
+    redirect(`/tools/seo/${slug}`);
+  }
+
   const tool = getTool(slug);
   if (!tool) notFound();
 
