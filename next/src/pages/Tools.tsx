@@ -27,7 +27,7 @@ const toolsData = [
   { id: 16, name: "Foreplay", description: "Ad creation tool", category: "Marketing" },
   { id: 17, name: "Freepik", description: "Graphic resources platform, icons, photos", category: "Design" },
   { id: 18, name: "Fotor", description: "AI image editing", category: "AI" },
-  { id: 19, name: "Gemini", description: "AI text and task automation", category: "AI" },
+  { id: 19, name: "TurboScribe", description: "AI transcription and summaries", category: "Productivity" },
   { id: 20, name: "Helium 10", description: "Market analysis and product research", category: "Ecommerce" },
   { id: 21, name: "Hunter", description: "Email finder & verification", category: "Marketing" },
   { id: 22, name: "Iconscout", description: "Marketplace of icons and illustrations", category: "Design" },
@@ -54,7 +54,6 @@ const toolsData = [
   { id: 43, name: "Text Optimizer", description: "Textual content optimization tool to improve SEO", category: "SEO" },
   { id: 44, name: "TrendTrack", description: "Track winning shopify stores, viral trends & high-performing ads", category: "Analytics" },
   { id: 45, name: "Ubersuggest", description: "Keyword research and SEO insights", category: "SEO" },
-  { id: 46, name: "Veo 3", description: "Google AI video generator", category: "AI" },
   { id: 47, name: "Youzign", description: "Graphic design tool", category: "Design" },
   { id: 48, name: "YourTextGuru", description: "SEO content optimization", category: "SEO" },
   { id: 49, name: "WooRank", description: "SEO analysis and website audit tool", category: "SEO" }

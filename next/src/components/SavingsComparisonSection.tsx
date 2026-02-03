@@ -27,8 +27,6 @@ const tools: SavingsTool[] = [
   { name: 'Atria', price: 159 },
   { name: 'Runway', price: 95 },
   { name: 'Heygen', price: 80 },
-  { name: 'Veo3', price: 250 },
-  { name: 'Gemini', price: 20 },
   { name: 'Flair AI', price: 149 },
   { name: 'Exploding Topics', price: 39 },
   // BrandSearch removed
@@ -43,6 +41,7 @@ const tools: SavingsTool[] = [
   { name: 'Midjourney', price: 72 },
   { name: 'Canva', price: 449 },
   { name: 'Freepik', price: 40 },
+  { name: 'TurboScribe', price: 20 },
   { name: 'GPT', price: 20 },
   { name: 'Semrush', price: 399 },
   { name: 'Similarweb', price: 199 },

@@ -20,7 +20,7 @@ const STARTER_NAMES = [
   'ChatGPT','Midjourney','SendShort','Capcut','Helium10','Dropship.io','ShopHunter','WinningHunter'
 ];
 const PRO_NAMES = [
-  'Flair.ai','ChatGPT','Gemini','Gemini & NanoBanana','Midjourney','Exploding Topics','Pipiads','Kalodata','WinningHunter','Capcut','SendShort','Helium10','Dropship.io','ShopHunter','Atria','Heygen','Fotor','ForePlay','ElevenLabs','Runway','Veo 3',
+  'Flair.ai','ChatGPT','Midjourney','Exploding Topics','Pipiads','Kalodata','WinningHunter','Capcut','SendShort','Helium10','Dropship.io','ShopHunter','Atria','Heygen','Fotor','ForePlay','ElevenLabs','Runway','Freepik','TurboScribe',
   'Higgsfield','Vmake'
 ];
 
@@ -66,7 +66,7 @@ const Tools = () => {
     const list = galleryTools.filter(t => t.name !== 'Ubersuggest' && t.name !== 'Semrush')
     const seoTile: GalleryTool = { id: 0, name: '+30 SEO Tools', description: 'Includes: Semrush, Ubersuggest, …', icon: '/tools-logos/seo.png' }
     const base = [...list, seoTile]
-    const weight = (n: string) => (n === 'Gemini' ? 0 : (n === '+30 SEO Tools' ? 9999 : 1))
+    const weight = (n: string) => (n === '+30 SEO Tools' ? 9999 : 1)
     const ordered = base.sort((a, b) => weight(a.name) - weight(b.name))
     return ordered.map((t, i) => ({ ...t, id: i + 1 }))
   }, [])
@@ -97,9 +97,6 @@ const Tools = () => {
     'Atria': 159,
     'Runway': 95,
     'Heygen': 80,
-    'Veo 3': 250,
-    'Gemini': 20,
-    'Gemini & NanoBanana': 20,
     'Flair.ai': 149,
     'Exploding Topics': 39,
     'Trendtrack': 89,
@@ -114,6 +111,7 @@ const Tools = () => {
     'Midjourney': 72,
     'Canva': 449,
     'Freepik': 40,
+    'TurboScribe': 20,
     'ChatGPT': 20,
     'Semrush': 399,
     'Similarweb': 199,

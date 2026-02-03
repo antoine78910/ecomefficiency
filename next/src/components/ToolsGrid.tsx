@@ -22,11 +22,11 @@ const TOOLS: Tool[] = [
   { name: 'Fotor', description: 'AI Photo Editor', icon: '/tools-images/fotor.png' },
   { name: 'Dropship.io', description: 'Dropshipping Analytics', icon: '/tools-images/dropship.png' },
   { name: 'Heygen', description: 'AI Video Generator', icon: '/tools-images/heygen.png' },
-  { name: 'Veo 3', description: 'Team Collaboration', icon: '/tools-images/veo3.png' },
+  { name: 'Freepik', description: 'Stock graphics & assets', icon: '/tools-logos/freepik.png' },
   { name: 'Brain.fm', description: 'Focus & Sleep Music', icon: '/tools-images/brain.png' },
   { name: 'Capcut', description: 'Video Editing App', icon: '/tools-images/capcut.png' },
   { name: 'Exploding Topics', description: 'Trend Analysis Tool', icon: '/tools-images/exploding.png' },
-  { name: 'Gemini', description: 'AI Language Model', icon: '/tools-images/gemini.png' },
+  { name: 'TurboScribe', description: 'AI transcription', icon: '/tools-logos/turboscribe.png' },
 ]
 
 

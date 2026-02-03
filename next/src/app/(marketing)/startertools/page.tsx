@@ -21,7 +21,7 @@ const STARTER_TOOL_NAMES = [
   'WinningHunter',
 ];
 const PRO_ONLY_TOOL_NAMES = [
-  'Flair.ai', 'Gemini', 'Exploding Topics', 'Pipiads', 'Kalodata',
+  'Flair.ai', 'Freepik', 'TurboScribe', 'Exploding Topics', 'Pipiads', 'Kalodata',
   'Atria', 'Heygen', 'Fotor', 'ForePlay', 'ElevenLabs', 'Runway', 'Trendtrack', 'Higgsfield', 'Vmake'
 ];
 
@@ -44,7 +44,8 @@ export default function StarterToolsPage() {
     'WinningHunter': 'https://app.winninghunter.com/login',
     // pro-only
     'Flair.ai': 'https://app.flair.ai/explore',
-    'Gemini': 'https://gemini.google.com/app',
+    'Freepik': 'https://www.freepik.com/',
+    'TurboScribe': 'https://turboscribe.ai/',
     'Exploding Topics': 'https://www.semrush.com/app/exploding-topics/',
     'Pipiads': 'https://www.pipiads.com/login',
     'Kalodata': 'https://www.kalodata.com/login',

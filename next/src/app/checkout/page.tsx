@@ -296,8 +296,8 @@ function CheckoutContent() {
     'Fotor',
     'ForePlay',
     'Exploding Topics',
-    'Veo 3',
-    'Gemini',
+    'Freepik',
+    'TurboScribe',
   ];
 
   // Calculate discounted price if promo is applied

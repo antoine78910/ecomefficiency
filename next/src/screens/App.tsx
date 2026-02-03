@@ -586,9 +586,20 @@ function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'sta
   const wlAccent = normalizeHex(String((typeof window !== 'undefined' ? (window as any).__wl_accent : '') || '#7c30c7'), '#7c30c7')
   const wlBtnText = bestTextColorOn(mixHex(wlMain, wlAccent, 0.5))
   const proExtras = [
-    'Pipiads', 'Atria', 'Runway', 'Heygen', 'Veo3/Gemini', 'Flair AI',
-    'Exploding topics', 'Eleven labs', 'Higgsfield', 'Vmake',
-    'Fotor', 'Foreplay', 'Kalodata'
+    'Pipiads',
+    'Atria',
+    'Runway',
+    'Heygen',
+    'Freepik',
+    'TurboScribe',
+    'Flair AI',
+    'Exploding topics',
+    'Eleven labs',
+    'Higgsfield',
+    'Vmake',
+    'Fotor',
+    'Foreplay',
+    'Kalodata',
   ]
 
   const formatPrice = (amount: number, c: 'USD' | 'EUR') => {

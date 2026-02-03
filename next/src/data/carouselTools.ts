@@ -17,7 +17,6 @@ export const logoDomainMap: Record<string, string> = {
   'figma': 'figma.com',
   'elevenlabs': 'elevenlabs.io',
   'gpt': 'openai.com',
-  'gemini': 'google.com',
   'midjourney': 'midjourney.com',
   'higgsfield': 'higgsfield.ai',
   'vmake': 'vmake.ai',
@@ -33,6 +32,7 @@ export const carouselTools: CarouselTool[] = [
   { name: 'ChatGPT', description: 'AI writing assistant', icon: '/tools-logos/chatgpt.png' },
   { name: 'Semrush', description: 'SEO/marketing analytics', icon: '/tools-logos/semrush.png' },
   { name: 'Canva', description: 'Graphic design platform', icon: '/tools-logos/canva.png' },
+  { name: 'Freepik', description: 'Stock graphics & assets', icon: '/tools-logos/freepik.png' },
   { name: 'ShopHunter', description: 'Shopify sales tracker', icon: '/tools-logos/shophunter.png' },
   { name: 'WinningHunter', description: 'Winning ad finder', icon: '/tools-logos/winninghunter.png' },
   { name: 'Pipiads', description: 'TikTok/Facebook ad spy', icon: '/tools-logos/pipiads.png' },
@@ -44,11 +44,10 @@ export const carouselTools: CarouselTool[] = [
   { name: 'Vmake', description: 'AI video editor', icon: '/tools-logos/vmake.png' },
   { name: 'Dropship.io', description: 'Shopify product tracker', icon: '/tools-logos/dropship.png' },
   { name: 'Heygen', description: 'AI avatar videos', icon: '/tools-logos/heygen.png' },
-  { name: 'Veo 3', description: 'AI video by Google.', icon: '/tools-logos/veo3.png' },
+  { name: 'TurboScribe', description: 'AI transcription', icon: '/tools-logos/turboscribe.png' },
   { name: 'Brain.fm', description: 'Focus music', icon: '/tools-logos/brain.png' },
   { name: 'Capcut', description: 'Social video editor', icon: '/tools-logos/capcut.png' },
   { name: 'Exploding Topics', description: 'Emerging trends finder', icon: '/tools-logos/exploding.png' },
-  { name: 'Gemini & NanoBanana', description: 'AI LLM & Image Generation', icon: '/tools-logos/gemini.png' },
 ];
 
 
