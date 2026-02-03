@@ -179,7 +179,16 @@ export default function ChinaSupplyChainArticlePage() {
             <SectionTitle id="agent-honesty">How to check if your agent is honest on pricing</SectionTitle>
             <h3 className="text-xl font-semibold text-white mt-6 mb-3">1) Benchmark factory pricing on 1688</h3>
             <p className="text-gray-300 leading-relaxed mb-4">
-              1688 is the Chinese domestic marketplace where agents often source. You don’t buy there—you use it to benchmark pricing, detect abnormal gaps, and
+              <a
+                href="https://www.1688.com/"
+                target="_blank"
+                rel="noreferrer noopener"
+                className="text-purple-400 hover:text-purple-300 underline"
+                title="1688 marketplace"
+              >
+                1688
+              </a>{" "}
+              is the Chinese domestic marketplace where agents often source. You don’t buy there—you use it to benchmark pricing, detect abnormal gaps, and
               understand where margins may be hidden.
             </p>
             <h3 className="text-xl font-semibold text-white mt-6 mb-3">2) Learn to spot factory vs trader</h3>
@@ -287,7 +296,16 @@ export default function ChinaSupplyChainArticlePage() {
             <div className="p-5 rounded-2xl bg-gray-900 border border-white/10 mb-6">
               <ul className="space-y-2 text-gray-300">
                 <li>
-                  <strong>Day 1–2:</strong> identify your stable product + benchmark pricing on 1688
+                  <strong>Day 1–2:</strong> identify your stable product + benchmark pricing on{" "}
+                  <a
+                    href="https://www.1688.com/"
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="text-purple-400 hover:text-purple-300 underline"
+                    title="1688 marketplace"
+                  >
+                    1688
+                  </a>
                 </li>
                 <li>
                   <strong>Day 3:</strong> audit your current agent (pricing, shipping, delays)
@@ -363,15 +381,41 @@ export default function ChinaSupplyChainArticlePage() {
                 },
               ].map((item) => (
                 <div key={item.q} className="p-5 rounded-2xl bg-gray-900 border border-white/10">
-                  <p className="text-white font-semibold mb-2">{item.q}</p>
-                  <p className="text-gray-300 leading-relaxed">{item.a}</p>
+                  <h3 className="text-white font-semibold mb-2">{item.q}</h3>
+                  <h4 className="text-gray-300 leading-relaxed font-normal">{item.a}</h4>
                 </div>
               ))}
             </div>
 
-            <div className="mt-14">
-              <EcomToolsCta totalTools={50} />
-            </div>
+            <section className="mt-14">
+              <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">Similar reads</h2>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <Link
+                  href="/articles/profitable-saturated-products"
+                  title="How to be profitable on saturated products"
+                  className="rounded-2xl border border-white/10 bg-gray-900/30 p-4 hover:border-purple-500/30 transition-colors"
+                >
+                  <div className="text-white font-semibold">How to be profitable on saturated products</div>
+                  <div className="text-sm text-gray-400 mt-1">A 3‑pillar framework: better creatives, a stronger product page, and an offer that converts.</div>
+                </Link>
+                <Link
+                  href="/articles/dropshipping-baking-supplies"
+                  title="Dropshipping baking supplies guide"
+                  className="rounded-2xl border border-white/10 bg-gray-900/30 p-4 hover:border-purple-500/30 transition-colors"
+                >
+                  <div className="text-white font-semibold">Dropshipping baking supplies (complete guide)</div>
+                  <div className="text-sm text-gray-400 mt-1">Products, suppliers, margins, SEO, compliance, packaging, and acquisition channels.</div>
+                </Link>
+                <Link
+                  href="/tools/dropship-io"
+                  title="Dropship.io tool page"
+                  className="rounded-2xl border border-white/10 bg-gray-900/30 p-4 hover:border-purple-500/30 transition-colors"
+                >
+                  <div className="text-white font-semibold">Dropship.io</div>
+                  <div className="text-sm text-gray-400 mt-1">Validate products using real Shopify store adoption and store-level signals.</div>
+                </Link>
+              </div>
+            </section>
           </div>
         </div>
       </article>

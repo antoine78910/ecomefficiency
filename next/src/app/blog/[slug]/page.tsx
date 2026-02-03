@@ -33,6 +33,89 @@ async function getPostBySlug(slug: string): Promise<BlogPost | null> {
   return (data as BlogPost) || null;
 }
 
+type RelatedPost = Pick<BlogPost, "slug" | "title" | "excerpt" | "cover_image" | "published_at" | "category">;
+
+async function getRelatedPosts(post: BlogPost): Promise<RelatedPost[]> {
+  if (!supabaseAdmin) return [];
+  const category = String(post.category || "").trim();
+
+  const baseSelect = "slug,title,excerpt,cover_image,published_at,category";
+
+  // Try same category first (excluding current post)
+  if (category) {
+    const { data } = await supabaseAdmin
+      .from("blog_posts")
+      .select(baseSelect)
+      .eq("category", category)
+      .neq("slug", post.slug)
+      .order("published_at", { ascending: false })
+      .limit(3);
+    const items = (data as any as RelatedPost[]) || [];
+    if (items.length >= 3) return items.slice(0, 3);
+  }
+
+  // Fallback: latest posts excluding current
+  const { data: recent } = await supabaseAdmin
+    .from("blog_posts")
+    .select(baseSelect)
+    .neq("slug", post.slug)
+    .order("published_at", { ascending: false })
+    .limit(3);
+  return ((recent as any as RelatedPost[]) || []).slice(0, 3);
+}
+
+type FaqPair = { q: string; a: string };
+
+function extractFaqPairsFromMarkdown(md: string | null | undefined): FaqPair[] {
+  const s = String(md || "");
+  if (!s) return [];
+  const lines = s.split("\n");
+  const out: FaqPair[] = [];
+
+  let inFaq = false;
+  let currentQ = "";
+  let currentA: string[] = [];
+
+  const flush = () => {
+    const q = currentQ.trim();
+    const a = currentA.join(" ").replace(/\s+/g, " ").trim();
+    if (q && a) out.push({ q, a });
+    currentQ = "";
+    currentA = [];
+  };
+
+  for (const raw of lines) {
+    const line = raw.trim();
+    if (/^##\s+FAQ\s*$/i.test(line)) {
+      flush();
+      inFaq = true;
+      continue;
+    }
+    if (!inFaq) continue;
+
+    // New section stops FAQ
+    if (/^##\s+/.test(line) && !/^##\s+FAQ\s*$/i.test(line)) {
+      flush();
+      break;
+    }
+
+    const q = line.match(/^###\s+(.+?)\s*$/)?.[1]?.trim();
+    if (q) {
+      flush();
+      currentQ = q;
+      continue;
+    }
+
+    // Collect answer text (skip headings/empty lines)
+    if (!line) continue;
+    if (/^#{1,6}\s+/.test(line)) continue;
+    currentA.push(line);
+  }
+
+  flush();
+  return out.slice(0, 10);
+}
+
 function toMetaDescription(post: BlogPost): string {
   const d = (post.excerpt || "").trim();
   if (d) return d.slice(0, 160);
@@ -140,8 +223,8 @@ function enforceBlogPromptHtml(input: string | null | undefined): { html: string
   // Remove/demote headings:
   // - H1 is forbidden in body: demote to H2
   html = html.replace(/<\s*\/?\s*h1\b/gi, (m) => m.replace(/h1/i, "h2"));
-  // - H4+ demoted to H3
-  html = html.replace(/<\s*\/?\s*h[4-6]\b/gi, (m) => m.replace(/h[4-6]/i, "h3"));
+  // - H5/H6 demoted to H4 (we use H4 for FAQ answers)
+  html = html.replace(/<\s*\/?\s*h[5-6]\b/gi, (m) => m.replace(/h[5-6]/i, "h4"));
 
   // Insert the anti-shortcuts sentence early if missing (best-effort).
   const antiShortcutSentence = "The goal is to scale without dubious shortcuts and without hurting your credibility.";
@@ -172,13 +255,13 @@ function enforceBlogPromptHtml(input: string | null | undefined): { html: string
     html += `
 <h2>FAQ</h2>
 <h3>What is Ecom Efficiency?</h3>
-<p>Ecom Efficiency is a SaaS that gives you access to a curated stack of SPY, SEO and AI tools in one place.</p>
+<h4>Ecom Efficiency is a SaaS that gives you access to a curated stack of SPY, SEO and AI tools in one place.</h4>
 <h3>Who is it for?</h3>
-<p>It’s built for e-commerce founders and marketers who want a practical tool stack without paying for each tool separately.</p>
+<h4>It’s built for e-commerce founders and marketers who want a practical tool stack without paying for each tool separately.</h4>
 <h3>Can I cancel anytime?</h3>
-<p>Yes. You can cancel at any time from your account area.</p>
+<h4>Yes. You can cancel at any time from your account area.</h4>
 <h3>Does it replace individual subscriptions?</h3>
-<p>For many workflows it can, because you get broad access in one dashboard—your exact fit depends on your stack and usage.</p>
+<h4>For many workflows it can, because you get broad access in one dashboard—your exact fit depends on your stack and usage.</h4>
 `;
   }
 
@@ -191,8 +274,8 @@ function enforceBlogPromptMarkdown(input: string | null | undefined): { markdown
 
   // H1 forbidden → demote to H2
   md = md.replace(/^#\s+/gm, "## ");
-  // H4+ demote to H3
-  md = md.replace(/^####+\s+/gm, "### ");
+  // H5/H6 demote to H4 (we use H4 for FAQ answers)
+  md = md.replace(/^#{5,6}\s+/gm, "#### ");
 
   const antiShortcutSentence = "The goal is to scale without dubious shortcuts and without hurting your credibility.";
   if (!/dubious shortcuts|hurting your credibility|raccourcis douteux|crédibilit/i.test(md)) {
@@ -216,7 +299,7 @@ function enforceBlogPromptMarkdown(input: string | null | undefined): { markdown
   });
 
   if (!/^##\s*FAQ\s*$/im.test(md)) {
-    md += `\n\n## FAQ\n\n### What is Ecom Efficiency?\nEcom Efficiency is a SaaS that gives you access to a curated stack of SPY, SEO and AI tools in one place.\n\n### Who is it for?\nIt’s built for e-commerce founders and marketers who want a practical tool stack without paying for each tool separately.\n\n### Can I cancel anytime?\nYes. You can cancel at any time from your account area.\n\n### Does it replace individual subscriptions?\nFor many workflows it can, because you get broad access in one dashboard—your exact fit depends on your stack and usage.\n`;
+    md += `\n\n## FAQ\n\n### What is Ecom Efficiency?\n#### Ecom Efficiency is a SaaS that gives you access to a curated stack of SPY, SEO and AI tools in one place.\n\n### Who is it for?\n#### It’s built for e-commerce founders and marketers who want a practical tool stack without paying for each tool separately.\n\n### Can I cancel anytime?\n#### Yes. You can cancel at any time from your account area.\n\n### Does it replace individual subscriptions?\n#### For many workflows it can, because you get broad access in one dashboard—your exact fit depends on your stack and usage.\n`;
   }
 
   return { markdown: md, keptLinks };
@@ -376,6 +459,9 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
         }
       : null;
 
+  const relatedPosts = await getRelatedPosts(post);
+  const faqPairs = extractFaqPairsFromMarkdown(enforcedMd?.markdown || post.content_markdown);
+
   return (
     <div className="min-h-screen bg-black">
       <NewNavbar />
@@ -506,6 +592,11 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                             {children}
                           </h3>
                         ),
+                        h4: ({ node, children, ...props }) => (
+                          <h4 className="text-lg font-semibold text-white mt-3 mb-2" {...props}>
+                            {children}
+                          </h4>
+                        ),
                         p: ({ node, ...props }) => <p className="mb-4 text-gray-300" {...props} />,
                         a: ({ node, ...props }) => <a className="text-purple-400 hover:text-purple-300 underline" {...props} />,
                         ul: ({ node, ...props }) => <ul className="list-disc list-inside mb-4 space-y-2" {...props} />,
@@ -530,6 +621,19 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
                 <p className="text-gray-400">No content available.</p>
               )}
             </div>
+
+            {/* SEO-only FAQ structure (H2/H3/H4) for Q/A ranking */}
+            {faqPairs.length ? (
+              <div className="sr-only">
+                <h2>FAQ</h2>
+                {faqPairs.map((f) => (
+                  <div key={f.q}>
+                    <h3>{f.q}</h3>
+                    <h4>{f.a}</h4>
+                  </div>
+                ))}
+              </div>
+            ) : null}
             
             <style
               dangerouslySetInnerHTML={{
@@ -729,23 +833,25 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
               </div>
             )}
 
-            {/* CTA Section */}
-            <div className="text-center py-16">
-              <h3 className="text-2xl md:text-3xl font-bold text-white mb-4">Ready to access all the best SPY, SEO & AI tools for 99% off ?</h3>
-              <p className="text-gray-400 mb-8 max-w-2xl mx-auto">Boost your productivity while minimizing your costs by accessing +50 Ecom tools</p>
-              <Link href="/sign-up">
-                <button className="cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_32px_0_rgba(149,65,224,0.70)] px-6 py-3 rounded-xl border-[1px] border-[#9541e0] text-white font-medium group h-[48px] min-w-[160px]">
-                  <div className="relative overflow-hidden w-full text-center">
-                    <p className="transition-transform group-hover:-translate-y-7 duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] whitespace-nowrap">
-                      Get Started
-                    </p>
-                    <p className="absolute left-1/2 -translate-x-1/2 top-7 group-hover:top-0 transition-all duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] whitespace-nowrap">
-                      Get Started
-                    </p>
-                  </div>
-                </button>
-              </Link>
-            </div>
+            {/* Similar posts (replace CTA) */}
+            {relatedPosts.length ? (
+              <section className="py-12">
+                <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">Similar reads</h2>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {relatedPosts.map((r) => (
+                    <Link
+                      key={r.slug}
+                      href={`/blog/${r.slug}`}
+                      title={r.title}
+                      className="rounded-2xl border border-white/10 bg-gray-900/30 p-4 hover:border-purple-500/30 transition-colors"
+                    >
+                      <div className="text-white font-semibold line-clamp-2">{r.title}</div>
+                      <div className="text-sm text-gray-400 mt-1 line-clamp-2">{(r.excerpt || "").trim() || "Read this article for a practical breakdown."}</div>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            ) : null}
           </div>
         </div>
         

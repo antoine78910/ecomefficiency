@@ -767,6 +767,52 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
         }
       : null;
 
+  // SEO-friendly FAQ heading structure (H2/H3/H4) without changing UI.
+  const faqSeoItems =
+    tool.slug === "pipiads"
+      ? pipiadsFaq
+      : tool.slug === "kalodata"
+        ? kalodataFaq
+        : tool.slug === "dropship-io"
+          ? dropshipIoFaq
+          : tool.slug === "atria"
+            ? atriaFaq
+            : tool.slug === "flair-ai"
+              ? flairAiFaq
+              : tool.slug === "elevenlabs"
+                ? elevenLabsFaq
+                : tool.slug === "shophunter"
+                  ? shopHunterFaq
+                  : tool.slug === "sendshort"
+                    ? sendShortFaq
+                    : tool.slug === "exploding-topics"
+                      ? explodingTopicsFaq
+                      : tool.slug === "heygen"
+                        ? heygenFaq
+                        : tool.slug === "vmake"
+                          ? vmakeFaq
+                          : tool.slug === "higgsfield"
+                            ? higgsfieldFaq
+                            : tool.slug === "foreplay"
+                              ? foreplayFaq
+                              : tool.slug === "winninghunter"
+                                ? winningHunterFaq
+                                : tool.slug === "capcut"
+                                  ? capcutFaq
+                                  : tool.slug === "turboscribe"
+                                    ? turboscribeFaq
+                                    : tool.slug === "helium10"
+                                      ? helium10Faq
+                                      : tool.slug === "chatgpt"
+                                        ? chatgptFaq
+                                        : tool.slug === "canva"
+                                          ? canvaFaq
+                                          : tool.slug === "fotor"
+                                            ? fotorFaq
+                                            : tool.slug === "brain-fm"
+                                              ? brainFmFaq
+                                              : null;
+
   return (
     <div className="min-h-screen bg-black">
       <NewNavbar />
@@ -835,6 +881,17 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
         ) : null}
         {brainFmFaqJsonLd ? (
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(brainFmFaqJsonLd) }} />
+        ) : null}
+        {faqSeoItems?.length ? (
+          <div className="sr-only">
+            <h2>FAQ</h2>
+            {faqSeoItems.map((f) => (
+              <div key={f.q}>
+                <h3>{f.q}</h3>
+                <h4>{f.a}</h4>
+              </div>
+            ))}
+          </div>
         ) : null}
 
         <div className="mb-8">

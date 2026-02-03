@@ -520,29 +520,54 @@ export default function DropshippingBakingSuppliesArticlePage() {
             <SectionTitle id="faq">FAQ</SectionTitle>
             <div className="space-y-4">
               <div className="p-5 rounded-2xl bg-gray-900 border border-white/10">
-                <p className="text-white font-semibold mb-2">Can you dropship baking ingredients?</p>
-                <p className="text-gray-300 leading-relaxed">
+                <h3 className="text-white font-semibold mb-2">Can you dropship baking ingredients?</h3>
+                <h4 className="text-gray-300 leading-relaxed font-normal">
                   You can, but it’s riskier: temperature, shelf life, allergens, and returns. In general, start with tools/packaging, then add stable consumables only if your sourcing is solid.
-                </p>
+                </h4>
               </div>
               <div className="p-5 rounded-2xl bg-gray-900 border border-white/10">
-                <p className="text-white font-semibold mb-2">Which products are the most SEO-friendly?</p>
-                <p className="text-gray-300 leading-relaxed">
+                <h3 className="text-white font-semibold mb-2">Which products are the most SEO-friendly?</h3>
+                <h4 className="text-gray-300 leading-relaxed font-normal">
                   Categories with comparisons and technical choice: piping tips (sizes/uses), molds (shapes/materials), silicone mats, turntables, scrapers, and pastry packaging.
-                </p>
+                </h4>
               </div>
               <div className="p-5 rounded-2xl bg-gray-900 border border-white/10">
-                <p className="text-white font-semibold mb-2">How do you avoid a price war?</p>
-                <p className="text-gray-300 leading-relaxed">
+                <h3 className="text-white font-semibold mb-2">How do you avoid a price war?</h3>
+                <h4 className="text-gray-300 leading-relaxed font-normal">
                   Bundle + content + brand. If your offer is just “silicone spatula,” you’re comparable. If you sell a beginner cake-design kit (with guide + sizes + examples), you sell a result.
-                </p>
+                </h4>
               </div>
             </div>
 
-            {/* CTA */}
-            <div className="mt-14">
-              <EcomToolsCta logos={CTA_LOGOS} totalTools={50} />
-            </div>
+            <section className="mt-14">
+              <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">Similar reads</h2>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <Link
+                  href="/articles/china-ecommerce-supply-chain"
+                  title="China e-commerce supply chain guide"
+                  className="rounded-2xl border border-white/10 bg-gray-900/30 p-4 hover:border-purple-500/30 transition-colors"
+                >
+                  <div className="text-white font-semibold">China e-commerce supply chain (real costs)</div>
+                  <div className="text-sm text-gray-400 mt-1">Agents, factories, shipping lines, and how to avoid hidden margins.</div>
+                </Link>
+                <Link
+                  href="/articles/profitable-saturated-products"
+                  title="How to be profitable on saturated products"
+                  className="rounded-2xl border border-white/10 bg-gray-900/30 p-4 hover:border-purple-500/30 transition-colors"
+                >
+                  <div className="text-white font-semibold">Profitable saturated products (3 pillars)</div>
+                  <div className="text-sm text-gray-400 mt-1">Win with better creatives, a stronger product page, and a better offer.</div>
+                </Link>
+                <Link
+                  href="/tools/pipiads"
+                  title="Pipiads tool page"
+                  className="rounded-2xl border border-white/10 bg-gray-900/30 p-4 hover:border-purple-500/30 transition-colors"
+                >
+                  <div className="text-white font-semibold">Pipiads</div>
+                  <div className="text-sm text-gray-400 mt-1">Find winning TikTok ads fast and analyze hooks, angles, and creatives.</div>
+                </Link>
+              </div>
+            </section>
 
             <SectionTitle id="references">References</SectionTitle>
             <ul className="list-disc list-inside space-y-2 text-gray-300">

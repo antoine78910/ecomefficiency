@@ -279,9 +279,35 @@ export default function ProfitableSaturatedProductsArticlePage() {
               scale becomes predictable.
             </p>
 
-            <div className="mt-14">
-              <EcomToolsCta totalTools={50} />
-            </div>
+            <section className="mt-14">
+              <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">Similar reads</h2>
+              <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                <Link
+                  href="/articles/china-ecommerce-supply-chain"
+                  title="China e-commerce supply chain guide"
+                  className="rounded-2xl border border-white/10 bg-gray-900/30 p-4 hover:border-purple-500/30 transition-colors"
+                >
+                  <div className="text-white font-semibold">China e-commerce supply chain (real costs)</div>
+                  <div className="text-sm text-gray-400 mt-1">Agents, factories, shipping lines, and how to avoid hidden margins.</div>
+                </Link>
+                <Link
+                  href="/articles/dropshipping-baking-supplies"
+                  title="Dropshipping baking supplies guide"
+                  className="rounded-2xl border border-white/10 bg-gray-900/30 p-4 hover:border-purple-500/30 transition-colors"
+                >
+                  <div className="text-white font-semibold">Dropshipping baking supplies (complete guide)</div>
+                  <div className="text-sm text-gray-400 mt-1">Products, suppliers, margins, SEO, compliance, packaging, and acquisition channels.</div>
+                </Link>
+                <Link
+                  href="/tools/pipiads"
+                  title="Pipiads tool page"
+                  className="rounded-2xl border border-white/10 bg-gray-900/30 p-4 hover:border-purple-500/30 transition-colors"
+                >
+                  <div className="text-white font-semibold">Pipiads</div>
+                  <div className="text-sm text-gray-400 mt-1">Find winning TikTok ads fast and analyze hooks, angles, and creatives.</div>
+                </Link>
+              </div>
+            </section>
           </div>
         </div>
       </article>
