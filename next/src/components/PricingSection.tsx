@@ -230,6 +230,9 @@ const PricingSection = () => {
 				
         {/* SEO-only section heading (keep UI heading text unchanged) */}
         <h2 className="sr-only">Pricing</h2>
+        <p className="sr-only">
+          Starter from $19.99/month (or $11.99/month billed annually). Pro from $29.99/month (or $17.99/month billed annually). Community plan: custom pricing.
+        </p>
 
         <div className="text-3xl md:text-4xl font-bold text-center mb-6 text-white font-sans tracking-normal">
 					Simple and Flexible Pricing

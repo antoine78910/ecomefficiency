@@ -42,7 +42,6 @@ const FaqSection = () => {
             >
               {/* SEO-only heading structure (does not change UI) */}
               <div className="sr-only">
-                <h3>{faq.question}</h3>
                 <h4>{faq.answer}</h4>
               </div>
               <AccordionTrigger className="text-left text-white hover:text-purple-400 py-6 text-lg font-medium cursor-pointer">

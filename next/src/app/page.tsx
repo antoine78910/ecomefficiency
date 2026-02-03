@@ -78,16 +78,6 @@ export default function Home() {
       {/* SEO-only headings (do not change the landing page UI) */}
       <div className="sr-only">
         <h1>EcomEfficiency - All-in-One Access to 50+ SEO, Spy &amp; AI Tools for Ecommerce</h1>
-        <h2>The only subscription you&apos;ll ever need</h2>
-        <h3>
-          Boost your sales and outpace competitors with instant access to 50+ of the best AI, SEO &amp; Spy tools—without paying for them individually.
-        </h3>
-        <h3>Why pay for multiple subscriptions when you can get everything for less?</h3>
-        <h2>Pricing</h2>
-        <h3>Starter</h3>
-        <h3>Pro</h3>
-        <h3>Community</h3>
-        <h2>Frequently Asked Questions</h2>
       </div>
 
       <NewHeroSection />

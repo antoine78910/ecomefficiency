@@ -12,19 +12,20 @@ const ToolsScrollingSection = () => {
   return (
     <div className="bg-black py-20 overflow-hidden relative">
       <div className="max-w-7xl mx-auto px-6 lg:px-8 relative z-10">
+        {/* SEO-only headings (avoid duplicates from responsive layouts) */}
+        <div className="sr-only">
+          <h2>The only subscription you&apos;ll ever need</h2>
+          <h3>
+            Boost your sales and outpace competitors with instant access to 50+ of the best AI, SEO &amp; Spy tools—without paying for them individually.
+          </h3>
+          <h3>Why pay for multiple subscriptions when you can get everything for less?</h3>
+        </div>
         {/* Mobile layout: title + paragraph above 3 auto-scrolling rows */}
         <div className="md:hidden ee-mobile-rows">
-          <h2 className="text-3xl font-bold text-white mb-2">
+          <div className="text-3xl font-bold text-white mb-2">
             The only subscription
             <br />
             <span className="gradient-text">You'll ever need</span>
-          </h2>
-          {/* SEO-only heading emphasis (keep UI unchanged) */}
-          <div className="sr-only">
-            <h3>
-              Boost your sales and outpace competitors with instant access to 50+ of the best AI, SEO & Spy tools—without paying for them individually.
-            </h3>
-            <h3>Why pay for multiple subscriptions when you can get everything for less?</h3>
           </div>
           <div className="mt-6 space-y-3">
             {[0, 1, 2].map((row) => {
@@ -90,17 +91,10 @@ const ToolsScrollingSection = () => {
         <div className="hidden md:flex items-center justify-between gap-16">
           {/* Left side - Title */}
           <div className="flex-shrink-0 w-1/3 pr-12">
-            <h2 className="text-4xl md:text-5xl font-bold text-white mb-4">
+            <div className="text-4xl md:text-5xl font-bold text-white mb-4">
               The only subscription
               <br />
               <span className="gradient-text">You'll ever need</span>
-            </h2>
-            {/* SEO-only heading emphasis (keep UI unchanged) */}
-            <div className="sr-only">
-              <h3>
-                Boost your sales and outpace competitors with instant access to 50+ of the best AI, SEO & Spy tools—without paying for them individually.
-              </h3>
-              <h3>Why pay for multiple subscriptions when you can get everything for less?</h3>
             </div>
             <p className="text-xl text-gray-400 max-w-2xl">
               Boost your sales and outpace competitors with instant access to 50+ of the best AI, SEO & Spy tools—without paying for them individually.
