@@ -6,6 +6,8 @@ import EcomToolsCta from "@/components/EcomToolsCta";
 import Footer from "@/components/Footer";
 import NewNavbar from "@/components/NewNavbar";
 import ToolToc from "@/components/ToolToc";
+import { seoToolsCatalog } from "@/data/seoToolsCatalog";
+import { toolsCatalog } from "@/data/toolsCatalog";
 import { ArrowLeft, Clock, Calendar, User } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { supabaseAdmin } from "@/integrations/supabase/server";
@@ -116,6 +118,75 @@ function extractFaqPairsFromMarkdown(md: string | null | undefined): FaqPair[] {
   return out.slice(0, 10);
 }
 
+type RecommendedTool = { href: string; title: string; description: string };
+
+function normalizeKey(input: string): string {
+  return String(input || "").toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+}
+
+function pickRecommendedTools(post: BlogPost): RecommendedTool[] {
+  const hay = `${post.title || ""} ${post.category || ""} ${(post.tags || []).join(" ")} ${post.excerpt || ""}`;
+  const s = normalizeKey(hay);
+
+  const picks: RecommendedTool[] = [];
+  const push = (t: RecommendedTool) => {
+    if (picks.some((p) => p.href === t.href)) return;
+    picks.push(t);
+  };
+
+  const addSeo = () => {
+    push({ href: "/tools/seo/semrush", title: "Semrush", description: "SEO research, competitor analysis, and keyword strategy." });
+    push({ href: "/tools/seo/ubersuggest", title: "Ubersuggest", description: "Fast keyword ideas, SEO audits, and content opportunities." });
+    push({ href: "/tools/seo/ahrefs", title: "Ahrefs", description: "Backlinks, rankings, and SEO competitive intelligence." });
+  };
+
+  const addSpy = () => {
+    push({ href: "/tools/pipiads", title: "Pipiads", description: "Find winning TikTok ads and analyze hooks, angles, and creatives." });
+    push({ href: "/tools/dropship-io", title: "Dropship.io", description: "Validate products using real Shopify store adoption." });
+    push({ href: "/tools/winninghunter", title: "Winning Hunter", description: "Spot winning products early with ad/store signals." });
+  };
+
+  const addCreative = () => {
+    push({ href: "/tools/canva", title: "Canva", description: "Create ad creatives, thumbnails, and ecommerce visuals fast." });
+    push({ href: "/tools/capcut", title: "CapCut", description: "Edit short-form videos for TikTok/Reels/Shorts." });
+    push({ href: "/tools/vmake", title: "Vmake", description: "Generate and iterate ecommerce video ad variations faster." });
+  };
+
+  const addAi = () => {
+    push({ href: "/tools/chatgpt", title: "ChatGPT", description: "Write ads, scripts, and SEO content with structured prompts." });
+    push({ href: "/tools/turboscribe", title: "TurboScribe", description: "Transcribe and repurpose long videos into clips and text." });
+    push({ href: "/tools/elevenlabs", title: "ElevenLabs", description: "AI voiceovers for UGC-style ads and video narration." });
+  };
+
+  // Heuristics
+  if (/\bseo\b|\bkeyword\b|\bgoogle\b|\bcontent\b|\bbacklink\b/.test(s)) addSeo();
+  if (/\bdropship\b|\bdropshipping\b|\btiktok\b|\bad\b|\bspy\b|\bwinner\b|\bwinning\b/.test(s)) addSpy();
+  if (/\bcreative\b|\bvideo\b|\bugc\b|\breels\b|\bshorts\b|\bthumbnail\b|\bdesign\b/.test(s)) addCreative();
+  if (/\bai\b|\bprompt\b|\bcopy\b|\bscript\b|\bvoice\b|\btranscrib/.test(s)) addAi();
+
+  // Fallback if no signal: include a balanced stack.
+  if (!picks.length) {
+    addSpy();
+    addSeo();
+    addAi();
+  }
+
+  // Ensure tools exist in catalogs; if not, drop them.
+  const exists = (href: string) => {
+    if (href.startsWith("/tools/seo/")) {
+      const slug = href.replace("/tools/seo/", "");
+      return seoToolsCatalog.some((t) => t.slug === slug);
+    }
+    if (href.startsWith("/tools/")) {
+      const slug = href.replace("/tools/", "");
+      return toolsCatalog.some((t) => t.slug === slug) || seoToolsCatalog.some((t) => t.slug === slug);
+    }
+    return true;
+  };
+
+  return picks.filter((t) => exists(t.href)).slice(0, 3);
+}
+
 function toMetaDescription(post: BlogPost): string {
   const d = (post.excerpt || "").trim();
   if (d) return d.slice(0, 160);
@@ -179,19 +250,23 @@ function stripFirstYouTubeEmbed(html: string, video: DetectedVideo): string {
 // - Only H2/H3 headings
 // - No external links
 // - No links to other blog posts
-// - Exactly 2 allowed internal links (soft mid + final)
 // - FAQ section present
-const BLOG_ALLOWED_LINKS = new Set<string>([
-  "/pricing",
-  "/tools",
-  "/app",
-  "https://www.ecomefficiency.com/pricing",
-  "https://www.ecomefficiency.com/tools",
-  "https://www.ecomefficiency.com/app",
-]);
+const BLOG_MAX_INTERNAL_LINKS = 8;
 
 function normalizeHref(href: string): string {
   return String(href || "").trim();
+}
+
+function isAllowedInternalPath(pathname: string): boolean {
+  const p = String(pathname || "").trim();
+  if (!p.startsWith("/")) return false;
+  if (p.startsWith("/blog")) return false;
+  // Allow internal linking to tools (core request).
+  if (p === "/tools" || p.startsWith("/tools/")) return true;
+  if (p === "/pricing" || p.startsWith("/pricing")) return true;
+  if (p === "/app" || p.startsWith("/app")) return true;
+  if (p === "/articles" || p.startsWith("/articles/")) return true;
+  return false;
 }
 
 function isAllowedBlogLink(href: string): boolean {
@@ -205,13 +280,12 @@ function isAllowedBlogLink(href: string): boolean {
       const u = new URL(h);
       const host = u.hostname.toLowerCase().replace(/^www\./, "");
       if (host !== "ecomefficiency.com") return false;
-      const abs = `https://www.ecomefficiency.com${u.pathname}${u.search || ""}`;
-      return BLOG_ALLOWED_LINKS.has(abs) || BLOG_ALLOWED_LINKS.has(u.pathname);
+      return isAllowedInternalPath(u.pathname);
     } catch {
       return false;
     }
   }
-  if (h.startsWith("/")) return BLOG_ALLOWED_LINKS.has(h);
+  if (h.startsWith("/")) return isAllowedInternalPath(h);
   // Relative paths like "pricing" are treated as unsafe here.
   return false;
 }
@@ -235,14 +309,14 @@ function enforceBlogPromptHtml(input: string | null | undefined): { html: string
     }
   }
 
-  // Enforce link rules: keep only allowed internal links, max 2.
+  // Enforce link rules: keep only allowed internal links, cap volume to avoid spam.
   const keptLinks: string[] = [];
   html = html.replace(
     /<a\b[^>]*\bhref=(["'])([^"']+)\1[^>]*>([\s\S]*?)<\/a>/gi,
     (_full, _q, href, inner) => {
       const h = String(href || "");
       if (!isAllowedBlogLink(h)) return String(inner || "");
-      if (keptLinks.length >= 2) return String(inner || "");
+      if (keptLinks.length >= BLOG_MAX_INTERNAL_LINKS) return String(inner || "");
       keptLinks.push(h);
       // Strip attributes, re-render clean anchor (no HTML injection in attrs).
       const safeHref = normalizeHref(h).replace(/"/g, "%22");
@@ -289,11 +363,11 @@ function enforceBlogPromptMarkdown(input: string | null | undefined): { markdown
   }
 
   const keptLinks: string[] = [];
-  // Enforce "exactly 2 links" (best-effort): remove disallowed + cap to 2.
+  // Enforce internal link allowlist (best-effort): remove disallowed + cap to avoid spam.
   md = md.replace(/\[([^\]]+)\]\(([^)]+)\)/g, (_m, text, href) => {
     const h = String(href || "");
     if (!isAllowedBlogLink(h)) return String(text || "");
-    if (keptLinks.length >= 2) return String(text || "");
+    if (keptLinks.length >= BLOG_MAX_INTERNAL_LINKS) return String(text || "");
     keptLinks.push(h);
     return `[${String(text || "")}](${normalizeHref(h)})`;
   });
@@ -461,6 +535,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
   const relatedPosts = await getRelatedPosts(post);
   const faqPairs = extractFaqPairsFromMarkdown(enforcedMd?.markdown || post.content_markdown);
+  const recommendedTools = pickRecommendedTools(post);
 
   return (
     <div className="min-h-screen bg-black">
@@ -635,6 +710,26 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
               </div>
             ) : null}
             
+            {/* Recommended tools (internal linking for stronger topical clusters) */}
+            {recommendedTools.length ? (
+              <section className="pt-10">
+                <h2 className="text-2xl md:text-3xl font-bold text-white mb-4">Recommended tools</h2>
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                  {recommendedTools.map((t) => (
+                    <Link
+                      key={t.href}
+                      href={t.href}
+                      title={t.title}
+                      className="rounded-2xl border border-white/10 bg-gray-900/30 p-4 hover:border-purple-500/30 transition-colors"
+                    >
+                      <div className="text-white font-semibold">{t.title}</div>
+                      <div className="text-sm text-gray-400 mt-1">{t.description}</div>
+                    </Link>
+                  ))}
+                </div>
+              </section>
+            ) : null}
+
             <style
               dangerouslySetInnerHTML={{
                 __html: `
