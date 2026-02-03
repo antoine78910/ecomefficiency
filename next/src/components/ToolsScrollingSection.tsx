@@ -48,7 +48,7 @@ const ToolsScrollingSection = () => {
                             className="w-full h-full object-contain bg-black"
                           />
                         </div>
-                        <h3 className="text-white font-semibold text-xs mb-0.5">{tool.name}</h3>
+                        <div className="text-white font-semibold text-xs mb-0.5">{tool.name}</div>
                         <p className="text-gray-400 text-[11px] leading-relaxed line-clamp-2">{tool.description}</p>
                       </div>
                     ))}
@@ -61,11 +61,14 @@ const ToolsScrollingSection = () => {
             })}
           </div>
 
-          {/* After rows: paragraph and CTA */}
+          {/* After rows: SEO copy and CTA */}
           <div className="mt-6">
-            <p className="text-base text-gray-400">
+            <h3 className="text-base text-gray-400 font-normal">
               Boost your sales and outpace competitors with instant access to 50+ of the best AI, SEO & Spy tools—without paying for them individually.
-            </p>
+            </h3>
+            <h3 className="mt-2 text-base text-gray-400 font-normal">
+              Why pay for multiple subscriptions when you can get everything for less?
+            </h3>
             <div className="mt-4">
               <Link prefetch={false} href="/tools">
                 <button className="cursor-pointer bg-white/10 hover:bg-white/20 px-5 py-2.5 rounded-xl border-[1px] border-white/20 text-white font-medium group">
@@ -88,9 +91,12 @@ const ToolsScrollingSection = () => {
               <br />
               <span className="gradient-text">You'll ever need</span>
             </h2>
-            <p className="text-xl text-gray-400 max-w-2xl">
-            Boost your sales and outpace competitors with instant access to 50+ of the best AI, SEO & Spy tools—without paying for them individually.
-            </p>
+            <h3 className="text-xl text-gray-400 max-w-2xl font-normal">
+              Boost your sales and outpace competitors with instant access to 50+ of the best AI, SEO & Spy tools—without paying for them individually.
+            </h3>
+            <h3 className="mt-2 text-xl text-gray-400 max-w-2xl font-normal">
+              Why pay for multiple subscriptions when you can get everything for less?
+            </h3>
             <div className="mt-6">
               <Link prefetch={false} href="/tools">
                 <button className="cursor-pointer bg-white/10 hover:bg-white/20 px-6 py-3 rounded-xl border-[1px] border-white/20 text-white font-medium group">
@@ -128,7 +134,7 @@ const ToolsScrollingSection = () => {
                         className="w-full h-full object-contain bg-black"
                       />
                     </div>
-                    <h3 className="text-white font-semibold text-base mb-2">{tool.name}</h3>
+                    <div className="text-white font-semibold text-base mb-2">{tool.name}</div>
                     <p className="text-gray-400 text-sm leading-relaxed">{tool.description}</p>
                   </div>
                 ))}
@@ -156,7 +162,7 @@ const ToolsScrollingSection = () => {
                         className="w-full h-full object-contain bg-black"
                       />
                     </div>
-                    <h3 className="text-white font-semibold text-base mb-2">{tool.name}</h3>
+                    <div className="text-white font-semibold text-base mb-2">{tool.name}</div>
                     <p className="text-gray-400 text-sm leading-relaxed">{tool.description}</p>
                   </div>
                 ))}
@@ -184,7 +190,7 @@ const ToolsScrollingSection = () => {
                         className="w-full h-full object-contain bg-black"
                       />
                     </div>
-                    <h3 className="text-white font-semibold text-base mb-2">{tool.name}</h3>
+                    <div className="text-white font-semibold text-base mb-2">{tool.name}</div>
                     <p className="text-gray-400 text-sm leading-relaxed">{tool.description}</p>
                   </div>
                 ))}

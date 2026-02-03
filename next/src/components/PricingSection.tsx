@@ -229,7 +229,7 @@ const PricingSection = () => {
 				</div>
 				
         <h2 className="text-3xl md:text-4xl font-bold text-center mb-6 text-white font-sans tracking-normal">
-					Simple and Flexible Pricing
+          Pricing
 				</h2>
 
         <div className="flex flex-wrap items-center justify-center gap-4 mb-10">

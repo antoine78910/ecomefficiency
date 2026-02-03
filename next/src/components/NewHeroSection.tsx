@@ -1,6 +1,5 @@
 import { Check, ArrowRight } from "lucide-react";
 import Link from "next/link";
-import NewHeroAnimatedWord from "@/components/NewHeroAnimatedWord";
 
 const NewHeroSection = () => {
   return (
@@ -44,20 +43,18 @@ const NewHeroSection = () => {
 
           {/* Removed redundant ECOM EFFICIENCY TOOLS badge per request */}
 
-          {/* Main Heading with animated word cycle */}
+          {/* Main Heading (SEO-first) */}
           <h1 className="text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-4 leading-[1.06] tracking-normal">
-            <span className="block">Access the</span>
+            <span className="block">EcomEfficiency</span>
             <span className="block">
-              Most Powerful{' '}
-              <NewHeroAnimatedWord />{' '}
-              Tools
+              All-in-One Access to <span className="text-purple-400">50+</span> SEO, Spy & AI Tools
             </span>
-            <span className="block">for <span className="text-purple-400">99% OFF</span> in one click</span>
+            <span className="block">for Ecommerce</span>
           </h1>
 
           {/* Subheading */}
           <p className="text-xl text-gray-400 mb-6 md:mb-8 max-w-3xl mx-auto">
-            Boost your productivity while minimizing your costs
+            Built for dropshippers and ecommerce teams who want to find winners, analyze ads, and scale faster—without paying for every tool separately.
           </p>
 
           {/* CTA Buttons */}

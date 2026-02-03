@@ -77,7 +77,7 @@ const Footer = () => {
 
           {/* Quick Links */}
           <div className="pl-1">
-            <h3 className="text-white font-semibold text-xs md:text-sm mb-2 md:mb-3">Quick Links</h3>
+            <div className="text-white font-semibold text-xs md:text-sm mb-2 md:mb-3">Quick Links</div>
             <ul className="space-y-1.5">
               <li><a href="/" title="Home" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Home</a></li>
               <li><a href="/tools" title="All tools" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">All Tools</a></li>
@@ -90,7 +90,7 @@ const Footer = () => {
 
           {/* Support */}
           <div>
-            <h3 className="text-white font-semibold text-xs md:text-sm mb-2 md:mb-3">Support</h3>
+            <div className="text-white font-semibold text-xs md:text-sm mb-2 md:mb-3">Support</div>
             <ul className="space-y-1.5">
               <li className="flex flex-wrap items-baseline gap-1">
                 <span className="text-gray-400 text-xs md:text-sm">Email:</span>

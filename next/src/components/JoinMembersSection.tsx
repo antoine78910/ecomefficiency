@@ -15,9 +15,9 @@ const JoinMembersSection = () => {
           <div className="flex flex-col md:flex-row items-center justify-between gap-8">
             {/* Text Content */}
             <div className="flex-1 text-center md:text-left">
-              <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">
+              <div className="text-3xl md:text-4xl font-bold text-white mb-3">
                 Join <span className="gradient-text">+2000 Members</span>
-              </h2>
+              </div>
               <p className="text-lg text-white">
               Access our free community of e-commerce experts and take part in the monthly vote to pick your favorite tool.
               </p>
