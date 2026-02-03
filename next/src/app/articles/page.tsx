@@ -19,6 +19,14 @@ export const metadata: Metadata = {
 
 const articles = [
   {
+    slug: "dropshipping-product-research-2026",
+    title: "Recherche produit dropshipping (2026) : méthode PipiAds & Dropship.io",
+    excerpt:
+      "Un process réel pour trouver une pépite en dropshipping : critères, scan PipiAds, validation Dropship.io, erreurs à éviter, checklist et plan d’action 7 jours.",
+    readTime: "9 min",
+    category: "Dropshipping",
+  },
+  {
     slug: "dropshipping-baking-supplies",
     title: "Dropshipping baking supplies: the complete guide (products, suppliers, margins & SEO)",
     excerpt:
