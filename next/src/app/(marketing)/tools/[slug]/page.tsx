@@ -26,6 +26,7 @@ import CapCutChapters, { capcutFaq, capcutToc } from "./CapCutChapters";
 import TurboScribeChapters, { turboscribeFaq, turboscribeToc } from "./TurboScribeChapters";
 import Helium10Chapters, { helium10Faq, helium10Toc } from "./Helium10Chapters";
 import ChatGPTChapters, { chatgptFaq, chatgptToc } from "./ChatGPTChapters";
+import CanvaChapters, { canvaFaq, canvaToc } from "./CanvaChapters";
 
 export const dynamic = "force-static";
 export const revalidate = 86400; // 1 day
@@ -393,6 +394,24 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     };
   }
 
+  if (tool.slug === "canva") {
+    const title = "Canva: fast design tool for ads, ecommerce & templates | Ecom Efficiency";
+    const description =
+      "Canva review: design platform to create ad creatives, social posts, thumbnails, and ecommerce visuals fast—plus templates, workflow, pricing, and alternatives.";
+    return {
+      title,
+      description,
+      alternates: { canonical: `/tools/${tool.slug}` },
+      openGraph: {
+        type: "article",
+        url: `/tools/${tool.slug}`,
+        title,
+        description,
+        images: [{ url: "/header_ee.png?v=8", width: 1200, height: 630, alt: "Canva" }],
+      },
+    };
+  }
+
   const title = `${tool.name}: what it does, best use cases & workflows | Ecom Efficiency`;
   const description = `${tool.name}: ${tool.shortDescription}`;
 
@@ -671,6 +690,19 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
         }
       : null;
 
+  const canvaFaqJsonLd =
+    tool.slug === "canva"
+      ? {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: canvaFaq.map((f) => ({
+            "@type": "Question",
+            name: f.q,
+            acceptedAnswer: { "@type": "Answer", text: f.a },
+          })),
+        }
+      : null;
+
   return (
     <div className="min-h-screen bg-black">
       <NewNavbar />
@@ -730,6 +762,9 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
         ) : null}
         {chatgptFaqJsonLd ? (
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(chatgptFaqJsonLd) }} />
+        ) : null}
+        {canvaFaqJsonLd ? (
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(canvaFaqJsonLd) }} />
         ) : null}
 
         <div className="mb-8">
@@ -826,6 +861,11 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
             <p className="mt-4 text-lg text-gray-300">
               <strong>ChatGPT</strong> is an <strong>AI assistant</strong> to structure ideas, write better copy, generate SEO content, and automate workflows—so you
               move from questions to execution faster.
+            </p>
+          ) : tool.slug === "canva" ? (
+            <p className="mt-4 text-lg text-gray-300">
+              <strong>Canva</strong> is an <strong>online design platform</strong> to create ad creatives, social content, thumbnails, and ecommerce visuals fast—without
+              design skills.
             </p>
           ) : (
             <p className="mt-4 text-lg text-gray-300">
@@ -1490,6 +1530,43 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
             </aside>
             <div className="min-w-0">
               <ChatGPTChapters />
+
+              {related.length ? (
+                <section className="mt-12">
+                  <h2 className="text-2xl font-bold text-white mb-4">Similar tools</h2>
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {related.map((r) => (
+                      <Link
+                        key={r.slug}
+                        href={`/tools/${r.slug}`}
+                        title={`${r.name} tool page`}
+                        className="rounded-2xl border border-white/10 bg-gray-900/30 p-4 hover:border-purple-500/30 transition-colors"
+                      >
+                        <div className="text-white font-semibold">{r.name}</div>
+                        <div className="text-sm text-gray-400 mt-1">{r.shortDescription}</div>
+                      </Link>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+            </div>
+          </div>
+        ) : tool.slug === "canva" ? (
+          <div className="grid lg:grid-cols-[320px_1fr] gap-10">
+            <aside className="lg:sticky lg:top-24 self-start flex flex-col max-h-[calc(100vh-7rem)]">
+              <div
+                className="min-h-0 overflow-y-auto pr-1
+                  [scrollbar-width:none] [-ms-overflow-style:none]
+                  [&::-webkit-scrollbar]:hidden"
+              >
+                <ToolToc items={canvaToc} defaultActiveId={canvaToc[0]?.id} collapseSubheadings />
+              </div>
+              <div className="mt-6 shrink-0">
+                <EcomToolsCta compact />
+              </div>
+            </aside>
+            <div className="min-w-0">
+              <CanvaChapters />
 
               {related.length ? (
                 <section className="mt-12">
