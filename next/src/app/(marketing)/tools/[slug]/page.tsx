@@ -23,6 +23,7 @@ import HiggsfieldChapters, { higgsfieldFaq, higgsfieldToc } from "./HiggsfieldCh
 import ForeplayChapters, { foreplayFaq, foreplayToc } from "./ForeplayChapters";
 import WinningHunterChapters, { winningHunterFaq, winningHunterToc } from "./WinningHunterChapters";
 import CapCutChapters, { capcutFaq, capcutToc } from "./CapCutChapters";
+import TurboScribeChapters, { turboscribeFaq, turboscribeToc } from "./TurboScribeChapters";
 
 export const dynamic = "force-static";
 export const revalidate = 86400; // 1 day
@@ -336,6 +337,24 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     };
   }
 
+  if (tool.slug === "turboscribe") {
+    const title = "TurboScribe: AI transcription & summaries for repurposing | Ecom Efficiency";
+    const description =
+      "TurboScribe review: AI transcription and summarization to convert audio/video into clean text, summaries, and captions—ideal for content repurposing at scale.";
+    return {
+      title,
+      description,
+      alternates: { canonical: `/tools/${tool.slug}` },
+      openGraph: {
+        type: "article",
+        url: `/tools/${tool.slug}`,
+        title,
+        description,
+        images: [{ url: "/header_ee.png?v=8", width: 1200, height: 630, alt: "TurboScribe" }],
+      },
+    };
+  }
+
   const title = `${tool.name}: what it does, best use cases & workflows | Ecom Efficiency`;
   const description = `${tool.name}: ${tool.shortDescription}`;
 
@@ -575,6 +594,19 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
         }
       : null;
 
+  const turboscribeFaqJsonLd =
+    tool.slug === "turboscribe"
+      ? {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: turboscribeFaq.map((f) => ({
+            "@type": "Question",
+            name: f.q,
+            acceptedAnswer: { "@type": "Answer", text: f.a },
+          })),
+        }
+      : null;
+
   return (
     <div className="min-h-screen bg-black">
       <NewNavbar />
@@ -625,6 +657,9 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
         ) : null}
         {capcutFaqJsonLd ? (
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(capcutFaqJsonLd) }} />
+        ) : null}
+        {turboscribeFaqJsonLd ? (
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(turboscribeFaqJsonLd) }} />
         ) : null}
 
         <div className="mb-8">
@@ -706,6 +741,11 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
             <p className="mt-4 text-lg text-gray-300">
               <strong>CapCut</strong> is a <strong>short-form video editor</strong> for TikTok/Reels/Shorts with captions, templates, and social-first pacing—so you
               can ship UGC-style ads and content faster.
+            </p>
+          ) : tool.slug === "turboscribe" ? (
+            <p className="mt-4 text-lg text-gray-300">
+              <strong>TurboScribe</strong> is an <strong>AI transcription + summarization</strong> tool to convert audio/video into clean text and summaries—so you
+              can repurpose content into blogs, captions, and scripts without manual typing.
             </p>
           ) : (
             <p className="mt-4 text-lg text-gray-300">
@@ -1259,6 +1299,43 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
             </aside>
             <div className="min-w-0">
               <CapCutChapters />
+
+              {related.length ? (
+                <section className="mt-12">
+                  <h2 className="text-2xl font-bold text-white mb-4">Similar tools</h2>
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {related.map((r) => (
+                      <Link
+                        key={r.slug}
+                        href={`/tools/${r.slug}`}
+                        title={`${r.name} tool page`}
+                        className="rounded-2xl border border-white/10 bg-gray-900/30 p-4 hover:border-purple-500/30 transition-colors"
+                      >
+                        <div className="text-white font-semibold">{r.name}</div>
+                        <div className="text-sm text-gray-400 mt-1">{r.shortDescription}</div>
+                      </Link>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+            </div>
+          </div>
+        ) : tool.slug === "turboscribe" ? (
+          <div className="grid lg:grid-cols-[320px_1fr] gap-10">
+            <aside className="lg:sticky lg:top-24 self-start flex flex-col max-h-[calc(100vh-7rem)]">
+              <div
+                className="min-h-0 overflow-y-auto pr-1
+                  [scrollbar-width:none] [-ms-overflow-style:none]
+                  [&::-webkit-scrollbar]:hidden"
+              >
+                <ToolToc items={turboscribeToc} defaultActiveId={turboscribeToc[0]?.id} collapseSubheadings />
+              </div>
+              <div className="mt-6 shrink-0">
+                <EcomToolsCta compact />
+              </div>
+            </aside>
+            <div className="min-w-0">
+              <TurboScribeChapters />
 
               {related.length ? (
                 <section className="mt-12">
