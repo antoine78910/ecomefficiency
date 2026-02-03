@@ -228,9 +228,12 @@ const PricingSection = () => {
 					</div>
 				</div>
 				
-        <h2 className="text-3xl md:text-4xl font-bold text-center mb-6 text-white font-sans tracking-normal">
-          Pricing
-				</h2>
+        {/* SEO-only section heading (keep UI heading text unchanged) */}
+        <h2 className="sr-only">Pricing</h2>
+
+        <div className="text-3xl md:text-4xl font-bold text-center mb-6 text-white font-sans tracking-normal">
+					Simple and Flexible Pricing
+				</div>
 
         <div className="flex flex-wrap items-center justify-center gap-4 mb-10">
           <div className="inline-flex items-center rounded-full border border-purple-500/30 bg-black/40 overflow-hidden">

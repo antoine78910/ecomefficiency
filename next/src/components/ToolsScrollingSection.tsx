@@ -19,6 +19,13 @@ const ToolsScrollingSection = () => {
             <br />
             <span className="gradient-text">You'll ever need</span>
           </h2>
+          {/* SEO-only heading emphasis (keep UI unchanged) */}
+          <div className="sr-only">
+            <h3>
+              Boost your sales and outpace competitors with instant access to 50+ of the best AI, SEO & Spy tools—without paying for them individually.
+            </h3>
+            <h3>Why pay for multiple subscriptions when you can get everything for less?</h3>
+          </div>
           <div className="mt-6 space-y-3">
             {[0, 1, 2].map((row) => {
               const data = row === 0 ? leftColumn : row === 1 ? middleColumn : rightColumn;
@@ -61,14 +68,11 @@ const ToolsScrollingSection = () => {
             })}
           </div>
 
-          {/* After rows: SEO copy and CTA */}
+          {/* After rows: paragraph and CTA */}
           <div className="mt-6">
-            <h3 className="text-base text-gray-400 font-normal">
+            <p className="text-base text-gray-400">
               Boost your sales and outpace competitors with instant access to 50+ of the best AI, SEO & Spy tools—without paying for them individually.
-            </h3>
-            <h3 className="mt-2 text-base text-gray-400 font-normal">
-              Why pay for multiple subscriptions when you can get everything for less?
-            </h3>
+            </p>
             <div className="mt-4">
               <Link prefetch={false} href="/tools">
                 <button className="cursor-pointer bg-white/10 hover:bg-white/20 px-5 py-2.5 rounded-xl border-[1px] border-white/20 text-white font-medium group">
@@ -91,12 +95,16 @@ const ToolsScrollingSection = () => {
               <br />
               <span className="gradient-text">You'll ever need</span>
             </h2>
-            <h3 className="text-xl text-gray-400 max-w-2xl font-normal">
+            {/* SEO-only heading emphasis (keep UI unchanged) */}
+            <div className="sr-only">
+              <h3>
+                Boost your sales and outpace competitors with instant access to 50+ of the best AI, SEO & Spy tools—without paying for them individually.
+              </h3>
+              <h3>Why pay for multiple subscriptions when you can get everything for less?</h3>
+            </div>
+            <p className="text-xl text-gray-400 max-w-2xl">
               Boost your sales and outpace competitors with instant access to 50+ of the best AI, SEO & Spy tools—without paying for them individually.
-            </h3>
-            <h3 className="mt-2 text-xl text-gray-400 max-w-2xl font-normal">
-              Why pay for multiple subscriptions when you can get everything for less?
-            </h3>
+            </p>
             <div className="mt-6">
               <Link prefetch={false} href="/tools">
                 <button className="cursor-pointer bg-white/10 hover:bg-white/20 px-6 py-3 rounded-xl border-[1px] border-white/20 text-white font-medium group">
