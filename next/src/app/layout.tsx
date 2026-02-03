@@ -8,12 +8,12 @@ export const metadata: Metadata = {
     template: "EcomEfficiency - %s",
   },
   description:
-    "All-in-one access to 50+ SEO, ad spy & AI tools for dropshippers and ecommerce brands. Find winners, analyze ads, optimize SEO, and scale faster.",
+    "#1 group buy for ecommerce & online businesses – Save $4,000+ every month",
   openGraph: {
     type: "website",
     url: "https://www.ecomefficiency.com/",
     title: "EcomEfficiency - All-in-One Access to 50+ SEO, Spy & AI Tools for Ecommerce",
-    description: "All-in-one access to 50+ SEO, ad spy & AI tools for dropshippers and ecommerce brands. Find winners, analyze ads, optimize SEO, and scale faster.",
+    description: "#1 group buy for ecommerce & online businesses – Save $4,000+ every month",
     siteName: "Ecom Efficiency",
     images: [
       {
@@ -28,7 +28,7 @@ export const metadata: Metadata = {
   twitter: {
     card: "summary_large_image",
     title: "EcomEfficiency - All-in-One Access to 50+ SEO, Spy & AI Tools for Ecommerce",
-    description: "All-in-one access to 50+ SEO, ad spy & AI tools for dropshippers and ecommerce brands. Find winners, analyze ads, optimize SEO, and scale faster.",
+    description: "#1 group buy for ecommerce & online businesses – Save $4,000+ every month",
     images: ["/header_ee.png?v=8"],
   },
   icons: {
@@ -48,7 +48,7 @@ export default function RootLayout({
     "@type": "Organization",
     name: "Ecom Efficiency",
     description:
-      "All-in-one access to 50+ SEO, ad spy & AI tools for dropshippers and ecommerce brands. Find winners, analyze ads, optimize SEO, and scale faster.",
+      "#1 group buy for ecommerce & online businesses – Save $4,000+ every month",
     url: "https://www.ecomefficiency.com",
     logo: "https://www.ecomefficiency.com/ecomefficiency.png",
     sameAs: [
@@ -66,7 +66,7 @@ export default function RootLayout({
     name: "Ecom Efficiency",
     inLanguage: "en",
     description:
-      "All-in-one access to 50+ SEO, ad spy & AI tools for dropshippers and ecommerce brands. Find winners, analyze ads, optimize SEO, and scale faster.",
+      "#1 group buy for ecommerce & online businesses – Save $4,000+ every month",
     publisher: {
       "@type": "Organization",
       name: "Ecom Efficiency",

@@ -11,13 +11,13 @@ import JoinMembersSection from "@/components/JoinMembersSection";
 export const metadata: Metadata = {
   title: "EcomEfficiency - All-in-One Access to 50+ SEO, Spy & AI Tools for Ecommerce",
   description:
-    "All-in-one access to 50+ SEO, ad spy & AI tools for dropshippers and ecommerce brands. Find winners, analyze ads, optimize SEO, and scale faster.",
+    "#1 group buy for ecommerce & online businesses – Save $4,000+ every month",
   alternates: { canonical: "/" },
   openGraph: {
     url: "/",
     title: "EcomEfficiency - All-in-One Access to 50+ SEO, Spy & AI Tools for Ecommerce",
     description:
-      "All-in-one access to 50+ SEO, ad spy & AI tools for dropshippers and ecommerce brands. Find winners, analyze ads, optimize SEO, and scale faster.",
+      "#1 group buy for ecommerce & online businesses – Save $4,000+ every month",
     images: [{ url: "/header_ee.png?v=8", width: 1200, height: 630, alt: "Ecom Efficiency" }],
     type: "website",
   },
@@ -25,7 +25,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "EcomEfficiency - All-in-One Access to 50+ SEO, Spy & AI Tools for Ecommerce",
     description:
-      "All-in-one access to 50+ SEO, ad spy & AI tools for dropshippers and ecommerce brands. Find winners, analyze ads, optimize SEO, and scale faster.",
+      "#1 group buy for ecommerce & online businesses – Save $4,000+ every month",
     images: ["/header_ee.png?v=8"],
   },
 };
