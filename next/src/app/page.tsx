@@ -9,23 +9,23 @@ import FaqSection from "@/components/FaqSection";
 import JoinMembersSection from "@/components/JoinMembersSection";
 
 export const metadata: Metadata = {
-  title: "Ecom Efficiency — Access 50+ Ecom Spy, SEO & AI Tools for 99% Off",
+  title: "EcomEfficiency - All-in-One Access to 50+ SEO, Spy & AI Tools for Ecommerce",
   description:
-    "Access 50+ premium e-commerce tools (Spy, SEO, AI) in one dashboard. Save $4,000+/month and scale faster. Cancel anytime.",
+    "All-in-one access to 50+ SEO, ad spy & AI tools for dropshippers and ecommerce brands. Find winners, analyze ads, optimize SEO, and scale faster.",
   alternates: { canonical: "/" },
   openGraph: {
     url: "/",
-    title: "Ecom Efficiency — Access 50+ Ecom Spy, SEO & AI Tools for 99% Off",
+    title: "EcomEfficiency - All-in-One Access to 50+ SEO, Spy & AI Tools for Ecommerce",
     description:
-      "Access 50+ premium e-commerce tools (Spy, SEO, AI) in one dashboard. Save $4,000+/month and scale faster.",
+      "All-in-one access to 50+ SEO, ad spy & AI tools for dropshippers and ecommerce brands. Find winners, analyze ads, optimize SEO, and scale faster.",
     images: [{ url: "/header_ee.png?v=8", width: 1200, height: 630, alt: "Ecom Efficiency" }],
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Ecom Efficiency — Access 50+ Ecom Spy, SEO & AI Tools for 99% Off",
+    title: "EcomEfficiency - All-in-One Access to 50+ SEO, Spy & AI Tools for Ecommerce",
     description:
-      "Access 50+ premium e-commerce tools (Spy, SEO, AI) in one dashboard. Save $4,000+/month and scale faster.",
+      "All-in-one access to 50+ SEO, ad spy & AI tools for dropshippers and ecommerce brands. Find winners, analyze ads, optimize SEO, and scale faster.",
     images: ["/header_ee.png?v=8"],
   },
 };

@@ -4,16 +4,16 @@ import "./globals.css";
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.ecomefficiency.com"),
   title: {
-    default: "Ecom Efficiency — Access 50+ Ecom Spy, SEO & AI Tools for 99% Off",
-    template: "%s | Ecom Efficiency",
+    default: "EcomEfficiency - All-in-One Access to 50+ SEO, Spy & AI Tools for Ecommerce",
+    template: "EcomEfficiency - %s",
   },
   description:
-    "Access 50+ premium e-commerce tools (Spy, SEO, AI) in one dashboard. Save $4,000+/month and scale faster. Cancel anytime.",
+    "All-in-one access to 50+ SEO, ad spy & AI tools for dropshippers and ecommerce brands. Find winners, analyze ads, optimize SEO, and scale faster.",
   openGraph: {
     type: "website",
     url: "https://www.ecomefficiency.com/",
-    title: "Ecom Efficiency — Access 50+ Ecom Spy, SEO & AI Tools for 99% Off",
-    description: "Access 50+ premium e-commerce tools (Spy, SEO, AI) in one dashboard. Save $4,000+/month.",
+    title: "EcomEfficiency - All-in-One Access to 50+ SEO, Spy & AI Tools for Ecommerce",
+    description: "All-in-one access to 50+ SEO, ad spy & AI tools for dropshippers and ecommerce brands. Find winners, analyze ads, optimize SEO, and scale faster.",
     siteName: "Ecom Efficiency",
     images: [
       {
@@ -27,8 +27,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: "summary_large_image",
-    title: "Ecom Efficiency — Access 50+ Ecom Spy, SEO & AI Tools for 99% Off",
-    description: "Access 50+ premium e-commerce tools (Spy, SEO, AI) in one dashboard. Save $4,000+/month.",
+    title: "EcomEfficiency - All-in-One Access to 50+ SEO, Spy & AI Tools for Ecommerce",
+    description: "All-in-one access to 50+ SEO, ad spy & AI tools for dropshippers and ecommerce brands. Find winners, analyze ads, optimize SEO, and scale faster.",
     images: ["/header_ee.png?v=8"],
   },
   icons: {
@@ -48,7 +48,7 @@ export default function RootLayout({
     "@type": "Organization",
     name: "Ecom Efficiency",
     description:
-      "Access 50+ premium e-commerce tools (Spy, SEO, AI) in one dashboard. Save $4,000+/month and scale faster.",
+      "All-in-one access to 50+ SEO, ad spy & AI tools for dropshippers and ecommerce brands. Find winners, analyze ads, optimize SEO, and scale faster.",
     url: "https://www.ecomefficiency.com",
     logo: "https://www.ecomefficiency.com/ecomefficiency.png",
     sameAs: [
@@ -66,7 +66,7 @@ export default function RootLayout({
     name: "Ecom Efficiency",
     inLanguage: "en",
     description:
-      "Access 50+ premium e-commerce tools (Spy, SEO, AI) in one dashboard. Save $4,000+/month and scale faster.",
+      "All-in-one access to 50+ SEO, ad spy & AI tools for dropshippers and ecommerce brands. Find winners, analyze ads, optimize SEO, and scale faster.",
     publisher: {
       "@type": "Organization",
       name: "Ecom Efficiency",
