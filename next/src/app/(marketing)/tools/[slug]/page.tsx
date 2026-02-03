@@ -20,6 +20,7 @@ import HeyGenChapters, { heygenFaq, heygenToc } from "./HeyGenChapters";
 import VmakeChapters, { vmakeFaq, vmakeToc } from "./VmakeChapters";
 import HiggsfieldChapters, { higgsfieldFaq, higgsfieldToc } from "./HiggsfieldChapters";
 import ForeplayChapters, { foreplayFaq, foreplayToc } from "./ForeplayChapters";
+import WinningHunterChapters, { winningHunterFaq, winningHunterToc } from "./WinningHunterChapters";
 
 export const dynamic = "force-static";
 export const revalidate = 86400; // 1 day
@@ -273,6 +274,24 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     };
   }
 
+  if (tool.slug === "winninghunter") {
+    const title = "Winning Hunter: dropshipping product research & winning ads signals | Ecom Efficiency";
+    const description =
+      "Winning Hunter review: spot winning dropshipping products early using ad and store signals, run faster test cycles, check saturation, and validate what’s worth testing.";
+    return {
+      title,
+      description,
+      alternates: { canonical: `/tools/${tool.slug}` },
+      openGraph: {
+        type: "article",
+        url: `/tools/${tool.slug}`,
+        title,
+        description,
+        images: [{ url: "/header_ee.png?v=8", width: 1200, height: 630, alt: "Winning Hunter" }],
+      },
+    };
+  }
+
   const title = `${tool.name}: what it does, best use cases & workflows | Ecom Efficiency`;
   const description = `${tool.name}: ${tool.shortDescription}`;
 
@@ -479,6 +498,19 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
         }
       : null;
 
+  const winningHunterFaqJsonLd =
+    tool.slug === "winninghunter"
+      ? {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: winningHunterFaq.map((f) => ({
+            "@type": "Question",
+            name: f.q,
+            acceptedAnswer: { "@type": "Answer", text: f.a },
+          })),
+        }
+      : null;
+
   return (
     <div className="min-h-screen bg-black">
       <NewNavbar />
@@ -523,6 +555,9 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
         ) : null}
         {foreplayFaqJsonLd ? (
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(foreplayFaqJsonLd) }} />
+        ) : null}
+        {winningHunterFaqJsonLd ? (
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(winningHunterFaqJsonLd) }} />
         ) : null}
 
         <div className="mb-8">
@@ -594,6 +629,11 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
             <p className="mt-4 text-lg text-gray-300">
               <strong>Foreplay</strong> is an <strong>ad creative library</strong> tool to organize winning ads by hooks, angles, and offers—so you can brief and
               iterate faster without losing what works.
+            </p>
+          ) : tool.slug === "winninghunter" ? (
+            <p className="mt-4 text-lg text-gray-300">
+              <strong>Winning Hunter</strong> is a <strong>dropshipping product research</strong> tool to spot winners early using ad/store signals—so you can test
+              faster and avoid late-stage saturation.
             </p>
           ) : (
             <p className="mt-4 text-lg text-gray-300">
@@ -1073,6 +1113,43 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
             </aside>
             <div className="min-w-0">
               <ForeplayChapters />
+
+              {related.length ? (
+                <section className="mt-12">
+                  <h2 className="text-2xl font-bold text-white mb-4">Similar tools</h2>
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {related.map((r) => (
+                      <Link
+                        key={r.slug}
+                        href={`/tools/${r.slug}`}
+                        title={`${r.name} tool page`}
+                        className="rounded-2xl border border-white/10 bg-gray-900/30 p-4 hover:border-purple-500/30 transition-colors"
+                      >
+                        <div className="text-white font-semibold">{r.name}</div>
+                        <div className="text-sm text-gray-400 mt-1">{r.shortDescription}</div>
+                      </Link>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+            </div>
+          </div>
+        ) : tool.slug === "winninghunter" ? (
+          <div className="grid lg:grid-cols-[320px_1fr] gap-10">
+            <aside className="lg:sticky lg:top-24 self-start flex flex-col max-h-[calc(100vh-7rem)]">
+              <div
+                className="min-h-0 overflow-y-auto pr-1
+                  [scrollbar-width:none] [-ms-overflow-style:none]
+                  [&::-webkit-scrollbar]:hidden"
+              >
+                <ToolToc items={winningHunterToc} defaultActiveId={winningHunterToc[0]?.id} collapseSubheadings />
+              </div>
+              <div className="mt-6 shrink-0">
+                <EcomToolsCta compact />
+              </div>
+            </aside>
+            <div className="min-w-0">
+              <WinningHunterChapters />
 
               {related.length ? (
                 <section className="mt-12">
