@@ -24,6 +24,13 @@ const PRO_NAMES = [
   'Higgsfield','Vmake'
 ];
 
+const SLUG_OVERRIDES: Record<string, string> = {
+  WinningHunter: "winninghunter",
+  "Winning Hunter": "winninghunter",
+  Heygen: "heygen",
+  HeyGen: "heygen",
+};
+
 const Tools = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [tier, setTier] = useState<'starter'|'pro'>("pro");
@@ -231,7 +238,20 @@ const Tools = () => {
                 </div>
                 ) : (
                   (() => {
-                    const slug = resolveToolSlug(tool.name)
+                    const rawName = String(tool.name || "")
+                    const cleanName = rawName.trim()
+                    const normalizedKey = cleanName.toLowerCase().replace(/\s+/g, "").replace(/\./g, "")
+                    // Ensure common "no-space" variants always resolve to the correct internal tool page.
+                    const forcedSlug =
+                      normalizedKey === "winninghunter"
+                        ? "winninghunter"
+                        : normalizedKey === "shophunter"
+                          ? "shophunter"
+                          : normalizedKey === "brainfm"
+                            ? "brain-fm"
+                            : null
+
+                    const slug = forcedSlug || resolveToolSlug(cleanName) || SLUG_OVERRIDES[cleanName] || SLUG_OVERRIDES[rawName] || null
                     const href = slug ? `/tools/${slug}` : null
                     const card = (
                       <Card
