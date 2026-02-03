@@ -40,7 +40,7 @@ export default function EcomToolsCta({
     >
       <div className="flex items-center justify-between gap-3">
         <p className={compact ? "text-white font-semibold" : "text-white font-bold text-xl"}>
-          Access 50+ ecom tools in one platform
+          Access 50+ Ecom tools in one platform
         </p>
         <div className="shrink-0 text-right">
           <div className={compact ? "text-sm text-white font-semibold" : "text-white font-bold text-lg"}>$29.99/mo</div>
@@ -78,7 +78,7 @@ export default function EcomToolsCta({
       </div>
 
       <div className={compact ? "mt-4" : "mt-5"}>
-        <Link href="/sign-up" title="Get access to 50+ ecom tools" className="flex-1">
+        <Link href="/sign-up" title="Get access to 50+ Ecom tools" className="flex-1">
           <button
             title="Try it now"
             className={[

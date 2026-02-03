@@ -1,22 +1,22 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import ToolToc, { type TocItem } from "@/components/ToolToc";
-import EcomToolsCta, { type CtaLogo } from "@/components/EcomToolsCta";
+import EcomToolsCta from "@/components/EcomToolsCta";
 
 import Footer from "@/components/Footer";
 import NewNavbar from "@/components/NewNavbar";
 
 export const metadata: Metadata = {
-  title: "Dropshipping baking supplies: products, suppliers, margins & SEO | Ecom Efficiency",
+  title: "Dropshipping baking supplies: suppliers, margins & SEO | Ecom Efficiency",
   description:
-    "Dropshipping baking supplies: a complete guide to launching a profitable store (products, suppliers, food-contact compliance, packaging, pricing, SEO, acquisition, and FAQ).",
+    "A practical guide to dropshipping baking tools: winning products, suppliers/QC, food-contact compliance, shipping, margins, SEO, and acquisition.",
   alternates: { canonical: "/articles/dropshipping-baking-supplies" },
   openGraph: {
     type: "article",
     url: "/articles/dropshipping-baking-supplies",
-    title: "Dropshipping baking supplies: products, suppliers, margins & SEO",
+    title: "Dropshipping baking supplies: suppliers, margins & SEO",
     description:
-      "Dropshipping baking supplies: an actionable playbook to sell baking tools and supplies (sourcing, quality, pricing, SEO, and growth).",
+      "An actionable playbook to sell baking supplies: sourcing, quality control, margins, SEO, and growth.",
     images: [{ url: "/header_ee.png?v=8", width: 1200, height: 630, alt: "Dropshipping baking supplies" }],
   },
 };
@@ -34,14 +34,6 @@ const toc: TocItem[] = [
   { id: "ops-cs", label: "Ops & customer support: CS, UGC, repeat purchases" },
   { id: "faq", label: "FAQ" },
   { id: "references", label: "References" },
-];
-
-// CTA logos (edit this list anytime)
-const CTA_LOGOS: CtaLogo[] = [
-  { src: "/tools-logos/semrush.png", alt: "Semrush", title: "Semrush" },
-  { src: "/tools-logos/pipiads.png", alt: "Pipiads", title: "Pipiads" },
-  { src: "/tools-logos/chatgpt.png", alt: "ChatGPT", title: "ChatGPT" },
-  { src: "/tools-logos/canva.png", alt: "Canva", title: "Canva" },
 ];
 
 function SectionTitle({ id, children }: { id: string; children: React.ReactNode }) {
@@ -119,7 +111,7 @@ export default function DropshippingBakingSuppliesArticlePage() {
               <ToolToc items={toc} defaultActiveId={toc[0]?.id} collapseSubheadings />
             </div>
             <div className="mt-6">
-              <EcomToolsCta compact logos={CTA_LOGOS} totalTools={50} />
+              <EcomToolsCta compact totalTools={50} />
             </div>
           </aside>
 
