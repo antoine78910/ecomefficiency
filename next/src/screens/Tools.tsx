@@ -318,86 +318,18 @@ const Tools = () => {
                 </div>
                 <p className="text-gray-400 text-sm mb-3">Included tools with short descriptions.</p>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {[
-                    { n: 'Semrush', d: 'All‑in‑one SEO & competitive research platform.' },
-                    { n: 'Ubersuggest', d: 'Keyword ideas and site SEO audits.' },
-                    { n: 'Academun', d: 'Academic writing and research helper.' },
-                    { n: 'WriteHuman', d: 'AI writing that preserves human tone.' },
-                    { n: 'SEObserver', d: 'Backlink and SERP monitoring insights.' },
-                    { n: 'SE Ranking', d: 'Rank tracking and site audit suite.' },
-                    { n: 'Flaticon', d: 'Millions of icons for web assets.' },
-                    { n: 'AnswerThePublic', d: 'Topic questions mined from searches.' },
-                    { n: '123RF', d: 'Stock photos and vectors for creatives.' },
-                    { n: 'Motion Array', d: 'Video templates, presets, and assets.' },
-                    { n: 'Artlist', d: 'Royalty‑free music and SFX library.' },
-                    { n: 'YourTextGuru', d: 'SEO briefs and content optimization.' },
-                    { n: 'Similarweb', d: 'Competitive traffic and audience data.' },
-                    { n: 'SurferLink', d: 'Internal linking recommendations.' },
-                    { n: 'Ahrefs', d: 'Backlinks, keywords, and site explorer.' },
-                    { n: 'Alura', d: 'Etsy SEO and product optimization.' },
-                    { n: 'SpyFu', d: 'Competitor PPC & SEO keyword intel.' },
-                    { n: 'AlsoAsked', d: 'SERP questions and topic clusters.' },
-                    { n: 'KeywordTool', d: 'Keyword ideas from multiple engines.' },
-                    { n: 'Wincher', d: 'Rank tracking with daily updates.' },
-                    { n: 'Serpstat', d: 'All‑in‑one SEO platform and audits.' },
-                    { n: 'Zonbase', d: 'Amazon product and keyword research.' },
-                    { n: 'QuillBot', d: 'Paraphrasing and grammar tools.' },
-                    { n: 'HaloScan', d: 'Site scanning for technical issues.' },
-                    { n: 'BypassGPT', d: 'Detection evasion for AI content.' },
-                    { n: 'SEOptimer', d: 'On‑page audits and recommendations.' },
-                    { n: 'AMZScout', d: 'Amazon product validation and trends.' },
-                    { n: 'ZIKAnalytics', d: 'eBay product and market analysis.' },
-                    { n: 'Niche Scraper', d: 'Discover trending e‑commerce niches.' },
-                    { n: 'Dinorank', d: 'Keyword cannibalization and ranks.' },
-                    { n: 'SEOZoom', d: 'Italian SEO suite for rankings.' },
-                    { n: 'SmartScout', d: 'Amazon brand and category insights.' },
-                    { n: 'Freepik', d: 'Stock graphics for content creation.' },
-                    { n: 'SearchAtlas', d: 'SEO content and backlink tools.' },
-                    { n: 'Mangools', d: 'KWFinder, SERP, and backlink suite.' },
-                    { n: 'Sistrix', d: 'Visibility index and SEO modules.' },
-                    { n: 'PublicWWW', d: 'Source code search at scale.' },
-                    { n: 'Hunter', d: 'Email discovery and verification.' },
-                    { n: 'Pexda', d: 'Winning product research database.' },
-                    { n: 'XOVI', d: 'SEO and online marketing suite.' },
-                    { n: 'Smodin.io', d: 'AI writing and rewriting tools.' },
-                    { n: 'Ranxplorer', d: 'FR market keyword and SEO data.' },
-                    { n: 'BuzzSumo', d: 'Content research and influencer data.' },
-                    { n: 'Storyblocks', d: 'Stock videos and motion graphics.' },
-                    { n: 'WooRank', d: 'Website reviews and SEO checks.' },
-                    { n: 'Iconscout', d: 'Icons and illustrations library.' },
-                    { n: 'Babbar', d: 'Semantic SEO and internal meshing.' },
-                    { n: 'Moz', d: 'Authority metrics and SEO toolkit.' },
-                    { n: 'One Hour Indexing', d: 'Fast URL indexing service.' },
-                    { n: 'WordAI', d: 'AI rewriter for unique wording.' },
-                    { n: 'Jungle Scout', d: 'Amazon research and sales tracker.' },
-                    { n: 'Colinkri', d: 'Link prospecting and outreach.' },
-                    { n: 'Keysearch', d: 'Affordable keyword research suite.' },
-                    { n: 'TextOptimizer', d: 'Content optimization suggestions.' },
-                    { n: '1.fr', d: 'Semantic coverage and topic ideas.' },
-                    { n: 'DomCop', d: 'Expired domains with SEO metrics.' },
-                    { n: 'Envato Elements', d: 'Creative assets: stock, templates.' },
-                    { n: 'Quetext', d: 'Plagiarism checker and citations.' },
-                    { n: 'Majestic', d: 'Backlink index with TF/CF metrics.' },
-                    { n: 'Screaming Frog', d: 'Site crawler for technical SEO.' },
-                  ].map(t => (
-                    (() => {
-                      const seoSlug = seoSlugByName.get(normalizeSeoName(t.n)) || null
-                      const slug = resolveToolSlug(t.n)
-                      const href = seoSlug ? `/tools/seo/${seoSlug}` : (slug ? `/tools/${slug}` : null)
-                      const inner = (
-                        <div className="rounded-lg border border-white/10 p-3 bg-black/30">
-                          <div className="text-white font-medium text-sm">{t.n}</div>
-                          <div className="text-gray-400 text-xs">{t.d}</div>
-                        </div>
-                      )
-                      return href ? (
-                        <Link key={t.n} href={href} title={`${t.n} tool page`} className="block hover:brightness-110 transition">
-                          {inner}
-                        </Link>
-                      ) : (
-                        <div key={t.n}>{inner}</div>
-                      )
-                    })()
+                  {seoToolsCatalog.map((t) => (
+                    <Link
+                      key={t.slug}
+                      href={`/tools/seo/${t.slug}`}
+                      title={`${t.name} SEO tool page`}
+                      className="block hover:brightness-110 transition"
+                    >
+                      <div className="rounded-lg border border-white/10 p-3 bg-black/30">
+                        <div className="text-white font-medium text-sm">{t.name}</div>
+                        <div className="text-gray-400 text-xs">{t.shortDescription}</div>
+                      </div>
+                    </Link>
                   ))}
                 </div>
                 {/* Removed external link per request */}
