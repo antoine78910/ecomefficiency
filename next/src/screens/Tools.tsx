@@ -9,6 +9,7 @@ import Footer from "@/components/Footer";
 import NewNavbar from "@/components/NewNavbar";
 import { carouselTools } from "@/data/carouselTools";
 import { resolveToolSlug } from "@/data/toolsCatalog";
+import { seoToolsCatalog } from "@/data/seoToolsCatalog";
 import ToolImage from "@/components/ToolImage";
 import { useRouter, usePathname } from "next/navigation";
 
@@ -37,6 +38,25 @@ const Tools = () => {
   const [seoOpen, setSeoOpen] = useState(false)
   const router = useRouter();
   const pathname = usePathname();
+
+  const normalizeSeoName = React.useCallback((input: string) => {
+    return String(input || "")
+      .toLowerCase()
+      .replace(/&/g, " and ")
+      .replace(/\+/g, " ")
+      .replace(/\./g, " ")
+      .replace(/[^a-z0-9\s-]/g, " ")
+      .replace(/\s+/g, " ")
+      .trim();
+  }, []);
+
+  const seoSlugByName = React.useMemo(() => {
+    const m = new Map<string, string>();
+    for (const t of seoToolsCatalog) {
+      m.set(normalizeSeoName(t.name), t.slug);
+    }
+    return m;
+  }, [normalizeSeoName]);
 
   React.useEffect(() => {
     try {
@@ -361,8 +381,9 @@ const Tools = () => {
                     { n: 'Screaming Frog', d: 'Site crawler for technical SEO.' },
                   ].map(t => (
                     (() => {
+                      const seoSlug = seoSlugByName.get(normalizeSeoName(t.n)) || null
                       const slug = resolveToolSlug(t.n)
-                      const href = slug ? `/tools/${slug}` : null
+                      const href = seoSlug ? `/tools/seo/${seoSlug}` : (slug ? `/tools/${slug}` : null)
                       const inner = (
                         <div className="rounded-lg border border-white/10 p-3 bg-black/30">
                           <div className="text-white font-medium text-sm">{t.n}</div>
