@@ -20,6 +20,10 @@ export const higgsfieldFaq = [
   { q: "Is Higgsfield beginner-friendly?", a: "Yes—no technical skills required. Start with clear messaging, generate variations, then test." },
   { q: "Can Higgsfield be used for ecommerce?", a: "Absolutely. It works well for product showcases, launches, and brand storytelling clips." },
   { q: "Is Higgsfield worth it?", a: "If video quality limits your ad performance or creative velocity, yes." },
+  {
+    q: "Do I get unlimited models and weekly credits?",
+    a: "On Ecom Efficiency, we provide the Creator plan access (value: $250) with weekly credit top-ups so everyone can generate consistently, plus unlimited access to select top models.",
+  },
 ] as const;
 
 export default function HiggsfieldChapters() {
@@ -213,8 +217,38 @@ export default function HiggsfieldChapters() {
         <h2 className="text-2xl font-bold text-white mb-3">💰 Higgsfield pricing (and how to pay less)</h2>
         <div className="rounded-xl border border-white/10 bg-gray-900/30 p-4 text-gray-300">
           <p>
-            Higgsfield is subscription-based, typically around <strong>$29 to $99/month</strong>, depending on credits, resolution/length, and commercial usage.
+            Higgsfield uses a <strong>subscription + credits</strong> model (credits and limits vary by plan). If you need extra generations, they also sell{" "}
+            <strong>one-time credit packs</strong> (valid for a limited period).
           </p>
+          <div className="mt-4 rounded-xl border border-white/10 bg-black/30 p-4">
+            <div className="text-white font-semibold">Creator plan in Ecom Efficiency (value: $250)</div>
+            <ul className="mt-2 list-disc list-inside space-y-1 text-gray-300">
+              <li>
+                <strong>Weekly credits are added</strong> so the whole community can generate consistently.
+              </li>
+              <li>
+                <strong>Unlimited on top models</strong> (as labeled by Higgsfield) — including{" "}
+                <strong>Seedream</strong> and <strong>Nano Banana</strong> for images, and advanced video models (e.g. <strong>Kling</strong>/<strong>Wan</strong>/
+                <strong>Sora</strong>/<strong>Veo</strong>) depending on what’s currently marked as unlimited in your plan.
+              </li>
+              <li>
+                On Higgsfield’s pricing page, the annual Creator plan is promoted with <strong>“Unlimited Nano Banana Pro”</strong>.
+              </li>
+            </ul>
+            <p className="mt-3 text-gray-300">
+              For up-to-date limits and which models are currently “Unlimited”, always refer to{" "}
+              <a
+                href="https://higgsfield.ai/pricing"
+                className="text-purple-200 hover:text-white underline underline-offset-4"
+                target="_blank"
+                rel="noreferrer"
+              >
+                Higgsfield’s pricing page
+              </a>
+              .
+            </p>
+          </div>
+
           <p className="mt-3">
             If you want Higgsfield combined with spy, creative, SEO & AI tools, you can access it via{" "}
             <Link href="/pricing" className="text-purple-200 hover:text-white underline underline-offset-4" title="Pricing page">
