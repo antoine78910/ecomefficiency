@@ -16,6 +16,7 @@ import PipiadsChapters, { pipiadsFaq, pipiadsToc } from "./PipiadsChapters";
 import SendShortChapters, { sendShortFaq, sendShortToc } from "./SendShortChapters";
 import ShopHunterChapters, { shopHunterFaq, shopHunterToc } from "./ShopHunterChapters";
 import ExplodingTopicsChapters, { explodingTopicsFaq, explodingTopicsToc } from "./ExplodingTopicsChapters";
+import HeyGenChapters, { heygenFaq, heygenToc } from "./HeyGenChapters";
 
 export const dynamic = "force-static";
 export const revalidate = 86400; // 1 day
@@ -197,6 +198,24 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     };
   }
 
+  if (tool.slug === "heygen") {
+    const title = "HeyGen: AI avatar video generator for UGC ads & demos | Ecom Efficiency";
+    const description =
+      "HeyGen review: generate realistic talking-head videos from scripts, scale UGC-style ads and product demos, localize into multiple languages, and test creatives faster.";
+    return {
+      title,
+      description,
+      alternates: { canonical: `/tools/${tool.slug}` },
+      openGraph: {
+        type: "article",
+        url: `/tools/${tool.slug}`,
+        title,
+        description,
+        images: [{ url: "/header_ee.png?v=8", width: 1200, height: 630, alt: "HeyGen" }],
+      },
+    };
+  }
+
   const title = `${tool.name}: what it does, best use cases & workflows | Ecom Efficiency`;
   const description = `${tool.name}: ${tool.shortDescription}`;
 
@@ -351,6 +370,19 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
         }
       : null;
 
+  const heygenFaqJsonLd =
+    tool.slug === "heygen"
+      ? {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: heygenFaq.map((f) => ({
+            "@type": "Question",
+            name: f.q,
+            acceptedAnswer: { "@type": "Answer", text: f.a },
+          })),
+        }
+      : null;
+
   return (
     <div className="min-h-screen bg-black">
       <NewNavbar />
@@ -383,6 +415,9 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
         ) : null}
         {explodingTopicsFaqJsonLd ? (
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(explodingTopicsFaqJsonLd) }} />
+        ) : null}
+        {heygenFaqJsonLd ? (
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(heygenFaqJsonLd) }} />
         ) : null}
 
         <div className="mb-8">
@@ -434,6 +469,11 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
             <p className="mt-4 text-lg text-gray-300">
               <strong>Exploding Topics</strong> is a <strong>trend discovery</strong> tool to spot emerging topics and markets early—so you build and publish before
               everyone else.
+            </p>
+          ) : tool.slug === "heygen" ? (
+            <p className="mt-4 text-lg text-gray-300">
+              <strong>HeyGen</strong> is an <strong>AI avatar video</strong> tool to generate talking-head videos from scripts—so you can scale UGC-style ads, demos,
+              and localization without filming.
             </p>
           ) : (
             <p className="mt-4 text-lg text-gray-300">
@@ -765,6 +805,43 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
             </aside>
             <div className="min-w-0">
               <ExplodingTopicsChapters />
+
+              {related.length ? (
+                <section className="mt-12">
+                  <h2 className="text-2xl font-bold text-white mb-4">Similar tools</h2>
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {related.map((r) => (
+                      <Link
+                        key={r.slug}
+                        href={`/tools/${r.slug}`}
+                        title={`${r.name} tool page`}
+                        className="rounded-2xl border border-white/10 bg-gray-900/30 p-4 hover:border-purple-500/30 transition-colors"
+                      >
+                        <div className="text-white font-semibold">{r.name}</div>
+                        <div className="text-sm text-gray-400 mt-1">{r.shortDescription}</div>
+                      </Link>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+            </div>
+          </div>
+        ) : tool.slug === "heygen" ? (
+          <div className="grid lg:grid-cols-[320px_1fr] gap-10">
+            <aside className="lg:sticky lg:top-24 self-start flex flex-col max-h-[calc(100vh-7rem)]">
+              <div
+                className="min-h-0 overflow-y-auto pr-1
+                  [scrollbar-width:none] [-ms-overflow-style:none]
+                  [&::-webkit-scrollbar]:hidden"
+              >
+                <ToolToc items={heygenToc} defaultActiveId={heygenToc[0]?.id} collapseSubheadings />
+              </div>
+              <div className="mt-6 shrink-0">
+                <EcomToolsCta compact />
+              </div>
+            </aside>
+            <div className="min-w-0">
+              <HeyGenChapters />
 
               {related.length ? (
                 <section className="mt-12">
