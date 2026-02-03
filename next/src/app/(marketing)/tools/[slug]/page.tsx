@@ -13,6 +13,7 @@ import ElevenLabsChapters, { elevenLabsFaq, elevenLabsToc } from "./ElevenLabsCh
 import FlairAiChapters, { flairAiFaq, flairAiToc } from "./FlairAiChapters";
 import KalodataChapters, { kalodataFaq, kalodataToc } from "./KalodataChapters";
 import PipiadsChapters, { pipiadsFaq, pipiadsToc } from "./PipiadsChapters";
+import ShopHunterChapters, { shopHunterFaq, shopHunterToc } from "./ShopHunterChapters";
 
 export const dynamic = "force-static";
 export const revalidate = 86400; // 1 day
@@ -140,6 +141,24 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     };
   }
 
+  if (tool.slug === "shophunter") {
+    const title = "ShopHunter: Shopify store research & competitor analysis | Ecom Efficiency";
+    const description =
+      "ShopHunter review: store-level Shopify competitor analysis to find winning products, detect new launches, measure saturation, and validate niches (with a fast workflow).";
+    return {
+      title,
+      description,
+      alternates: { canonical: `/tools/${tool.slug}` },
+      openGraph: {
+        type: "article",
+        url: `/tools/${tool.slug}`,
+        title,
+        description,
+        images: [{ url: "/header_ee.png?v=8", width: 1200, height: 630, alt: "ShopHunter" }],
+      },
+    };
+  }
+
   const title = `${tool.name}: what it does, best use cases & workflows | Ecom Efficiency`;
   const description = `${tool.name}: ${tool.shortDescription}`;
 
@@ -255,6 +274,19 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
         }
       : null;
 
+  const shopHunterFaqJsonLd =
+    tool.slug === "shophunter"
+      ? {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: shopHunterFaq.map((f) => ({
+            "@type": "Question",
+            name: f.q,
+            acceptedAnswer: { "@type": "Answer", text: f.a },
+          })),
+        }
+      : null;
+
   return (
     <div className="min-h-screen bg-black">
       <NewNavbar />
@@ -278,6 +310,9 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
         ) : null}
         {elevenLabsFaqJsonLd ? (
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(elevenLabsFaqJsonLd) }} />
+        ) : null}
+        {shopHunterFaqJsonLd ? (
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(shopHunterFaqJsonLd) }} />
         ) : null}
 
         <div className="mb-8">
@@ -314,6 +349,11 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
             <p className="mt-4 text-lg text-gray-300">
               <strong>ElevenLabs</strong> is a <strong>realistic AI voice generator</strong> for ad voiceovers, demos, and UGC-style narration—so you can test
               scripts faster without voice actor bottlenecks.
+            </p>
+          ) : tool.slug === "shophunter" ? (
+            <p className="mt-4 text-lg text-gray-300">
+              <strong>ShopHunter</strong> is a <strong>Shopify store intelligence</strong> tool to validate products and niches using store-level data (what stores
+              sell and add)—not ad hype.
             </p>
           ) : (
             <p className="mt-4 text-lg text-gray-300">
@@ -534,6 +574,43 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
             </aside>
             <div className="min-w-0">
               <ElevenLabsChapters />
+
+              {related.length ? (
+                <section className="mt-12">
+                  <h2 className="text-2xl font-bold text-white mb-4">Similar tools</h2>
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {related.map((r) => (
+                      <Link
+                        key={r.slug}
+                        href={`/tools/${r.slug}`}
+                        title={`${r.name} tool page`}
+                        className="rounded-2xl border border-white/10 bg-gray-900/30 p-4 hover:border-purple-500/30 transition-colors"
+                      >
+                        <div className="text-white font-semibold">{r.name}</div>
+                        <div className="text-sm text-gray-400 mt-1">{r.shortDescription}</div>
+                      </Link>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+            </div>
+          </div>
+        ) : tool.slug === "shophunter" ? (
+          <div className="grid lg:grid-cols-[320px_1fr] gap-10">
+            <aside className="lg:sticky lg:top-24 self-start flex flex-col max-h-[calc(100vh-7rem)]">
+              <div
+                className="min-h-0 overflow-y-auto pr-1
+                  [scrollbar-width:none] [-ms-overflow-style:none]
+                  [&::-webkit-scrollbar]:hidden"
+              >
+                <ToolToc items={shopHunterToc} defaultActiveId={shopHunterToc[0]?.id} collapseSubheadings />
+              </div>
+              <div className="mt-6 shrink-0">
+                <EcomToolsCta compact />
+              </div>
+            </aside>
+            <div className="min-w-0">
+              <ShopHunterChapters />
 
               {related.length ? (
                 <section className="mt-12">
