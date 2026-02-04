@@ -76,6 +76,10 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE_URL}/blog`, changeFrequency: "daily", priority: 0.8 },
     { url: `${BASE_URL}/articles`, changeFrequency: "weekly", priority: 0.8 },
     { url: `${BASE_URL}/articles/dropshipping-baking-supplies`, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${BASE_URL}/freetools`, changeFrequency: "weekly", priority: 0.7 },
+    { url: `${BASE_URL}/freetools/break-even-roas-calculator`, changeFrequency: "monthly", priority: 0.7 },
+    { url: `${BASE_URL}/freetools/shopify-app-detector`, changeFrequency: "weekly", priority: 0.7 },
+    { url: `${BASE_URL}/freetools/customer-lifetime-value-calculator`, changeFrequency: "weekly", priority: 0.7 },
   ];
 
   const base = [...staticRoutes, ...toolRoutes, ...seoToolRoutes, ...groupbuyRoutes, ...discountRoutes].filter((u) => shouldIncludeUrl(u.url));
