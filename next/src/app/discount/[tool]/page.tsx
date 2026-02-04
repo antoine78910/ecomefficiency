@@ -80,11 +80,11 @@ function pickAlternatives(tool: DiscountTool): Array<{ name: string; href: strin
 
 function buildToc(toolName: string): TocItem[] {
   return [
-    { id: "intro", label: `${toolName} promo code: what to know`, level: 2 },
+    { id: "intro", label: `${toolName} promo code, discount code & coupon code`, level: 2 },
     { id: "best-way", label: `Best way to get ${toolName} cheaper in ${YEAR}`, level: 2 },
-    { id: "coupons", label: "Coupon codes (reveal & copy)", level: 2 },
-    { id: "official-code", label: `Does ${toolName} have an official promo code?`, level: 2 },
-    { id: "current-discounts", label: `Current ${toolName} discounts & official offers`, level: 2 },
+    { id: "coupons", label: `${toolName} coupon code (reveal & copy)`, level: 2 },
+    { id: "official-code", label: `Does ${toolName} have an official promo code / discount code?`, level: 2 },
+    { id: "current-discounts", label: `Current ${toolName} discount code offers`, level: 2 },
     { id: "seasonal", label: `${toolName} Black Friday, Christmas & seasonal deals`, level: 2 },
     { id: "pricing", label: `${toolName} pricing vs smarter alternatives`, level: 2 },
     { id: "faq", label: "FAQ", level: 2 },
@@ -93,17 +93,21 @@ function buildToc(toolName: string): TocItem[] {
 }
 
 function metaTitle(toolName: string): string {
-  return `${toolName} promo code & discount – how to save in ${YEAR} | Ecom Efficiency`;
+  return `${toolName} promo code, discount code & coupon code (${YEAR})`;
 }
 
 function metaDescription(toolName: string): string {
-  return `Looking for a ${toolName} promo code or discount? Discover the smartest way to reduce costs, compare options, and avoid unreliable coupons.`;
+  return `Find a ${toolName} promo code, discount code, or coupon code in ${YEAR}. Compare offers and the safest ways to pay less (no unreliable codes).`;
 }
 
 export async function generateStaticParams(): Promise<Array<{ tool: string }>> {
   const slugs = new Set<string>();
   for (const t of toolsCatalog) slugs.add(t.slug);
-  for (const s of seoToolsCatalog) slugs.add(resolveToolSlug(s.name) || s.slug);
+  for (const s of seoToolsCatalog) {
+    slugs.add(s.slug);
+    const resolved = resolveToolSlug(s.name);
+    if (resolved) slugs.add(resolved);
+  }
   return Array.from(slugs).map((tool) => ({ tool }));
 }
 
@@ -162,7 +166,26 @@ export default async function DiscountToolPage({ params }: { params: Promise<{ t
   const alternatives = pickAlternatives(t);
 
   const publishedIso = new Date(`${YEAR}-02-03T00:00:00.000Z`).toISOString();
-  const jsonLd = {
+  const faqItems = [
+    {
+      q: `What is the best ${t.name} promo code in ${YEAR}?`,
+      a: `Try codes like ${couponA} or ${couponB} if a coupon field exists. If they don’t apply, bundled access can be more reliable than chasing a promo code.`,
+    },
+    {
+      q: `Is there a working ${t.name} discount code right now?`,
+      a: `Discount codes change frequently. When discounts exist, they’re usually seasonal or tied to annual billing rather than permanent public codes.`,
+    },
+    {
+      q: `Is a ${t.name} coupon code safe to use?`,
+      a: `Only use codes from the official checkout or reputable sources. Avoid “too good to be true” coupons and unstable third‑party deals.`,
+    },
+    {
+      q: `Is EcomEfficiency cheaper than paying for ${t.name}?`,
+      a: `In most cases, yes—especially if you use multiple tools. Bundled access reduces your total SaaS stack cost versus paying full price for one tool.`,
+    },
+  ];
+
+  const jsonLdWebPage = {
     "@context": "https://schema.org",
     "@type": "WebPage",
     name: metaTitle(t.name).replace(" | Ecom Efficiency", ""),
@@ -177,12 +200,23 @@ export default async function DiscountToolPage({ params }: { params: Promise<{ t
     },
   };
 
+  const jsonLdFaq = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: faqItems.map((f) => ({
+      "@type": "Question",
+      name: f.q,
+      acceptedAnswer: { "@type": "Answer", text: f.a },
+    })),
+  };
+
   return (
     <div className="min-h-screen bg-black">
       <NewNavbar />
 
       <article className="max-w-6xl mx-auto px-6 lg:px-8 py-12">
-        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdWebPage) }} />
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdFaq) }} />
 
         <Link
           href="/tools"
@@ -203,11 +237,11 @@ export default async function DiscountToolPage({ params }: { params: Promise<{ t
           </div>
 
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
-            {t.name} <span className="gradient-text">Promo Code</span>, Discount in {YEAR}
+            {t.name} <span className="gradient-text">Promo Code</span>, Discount Code & Coupon Code ({YEAR})
           </h1>
           <p className="text-gray-300 text-lg leading-relaxed">
-            Looking for a <strong>{t.name} promo code</strong>, a <strong>{t.name} discount</strong>, or coupons like{" "}
-            <strong>{couponA}</strong>? This guide shows the safest ways to reduce cost—without shady deals.
+            Looking for a <strong>{t.name} promo code</strong>, a <strong>{t.name} discount code</strong>, or a <strong>{t.name} coupon code</strong> (ex:
+            <strong> {couponA}</strong>)? This page explains what actually works in {YEAR}—without shady deals.
           </p>
         </header>
 
@@ -227,13 +261,14 @@ export default async function DiscountToolPage({ params }: { params: Promise<{ t
           </aside>
 
           <div className="min-w-0 max-w-3xl mx-auto lg:mx-0">
-            <SectionTitle id="intro">{t.name} promo code: what to know</SectionTitle>
+            <SectionTitle id="intro">{t.name} promo code, discount code & coupon code</SectionTitle>
             <p className="text-gray-300 leading-relaxed mb-4">
-              If you’re searching for a {t.name} coupon, your goal is simple: <strong>pay less for {t.name}</strong> without using unreliable deals.
+              If you’re searching for a {t.name} promo code, discount code, or coupon code, your goal is simple:{" "}
+              <strong>pay less for {t.name}</strong> without using unreliable deals.
             </p>
             <p className="text-gray-300 leading-relaxed mb-6">
-              Most SaaS tools like {t.name} don’t run permanent public promo codes. Discounts (when they exist) are typically temporary, seasonal, or limited
-              to specific plans.
+              Most SaaS tools like {t.name} don’t run permanent public promo codes or discount codes. Offers (when they exist) are usually temporary, seasonal,
+              or tied to annual billing.
             </p>
 
             <div className="p-5 rounded-2xl bg-gray-900 border border-white/10 mb-6">
@@ -284,7 +319,7 @@ export default async function DiscountToolPage({ params }: { params: Promise<{ t
               </div>
             </div>
 
-            <SectionTitle id="coupons">Coupon codes (reveal & copy)</SectionTitle>
+            <SectionTitle id="coupons">{t.name} coupon code (reveal & copy)</SectionTitle>
             <p className="text-gray-300 leading-relaxed mb-4">
               People often search for codes like <strong>{couponA}</strong> or <strong>{couponB}</strong>. These may or may not be accepted by {t.name} at
               checkout (tools change offers frequently). If a coupon box exists, try these first.
@@ -302,9 +337,9 @@ export default async function DiscountToolPage({ params }: { params: Promise<{ t
               />
             </div>
 
-            <SectionTitle id="official-code">Does {t.name} have an official promo code?</SectionTitle>
+            <SectionTitle id="official-code">Does {t.name} have an official promo code or discount code?</SectionTitle>
             <p className="text-gray-300 leading-relaxed mb-4">
-              In most cases, {t.name} does not offer a permanent public promo code.
+              In most cases, {t.name} does not offer a permanent public promo code or permanent discount code.
             </p>
             <div className="p-5 rounded-2xl bg-gray-900 border border-white/10 mb-6">
               <div className="text-white font-semibold mb-2">What usually exists</div>
@@ -318,7 +353,7 @@ export default async function DiscountToolPage({ params }: { params: Promise<{ t
               </p>
             </div>
 
-            <SectionTitle id="current-discounts">Current {t.name} discounts & official offers</SectionTitle>
+            <SectionTitle id="current-discounts">Current {t.name} discount code offers</SectionTitle>
             <p className="text-gray-300 leading-relaxed mb-4">
               Depending on the period, {t.name} may offer annual billing discounts, free trials, or partner plans. These can help—but they still often cost
               more than bundled access when you’re using multiple tools.
@@ -435,28 +470,7 @@ export default async function DiscountToolPage({ params }: { params: Promise<{ t
 
             <SectionTitle id="faq">FAQ</SectionTitle>
             <div className="space-y-4">
-              {[
-                {
-                  q: `Is there an official ${t.name} promo code like ${codeBase}25?`,
-                  a: `As of now, no permanent public promo code exists for ${t.name}. Most discounts are seasonal or plan‑specific.`,
-                },
-                {
-                  q: `Is EcomEfficiency cheaper than a ${t.name} discount?`,
-                  a: `In most scenarios, yes—bundled access costs less than discounted standalone pricing when you use multiple tools.`,
-                },
-                {
-                  q: `Can I fully use ${t.name} with EcomEfficiency?`,
-                  a: `Yes. You get access to the core features needed for real e-commerce workflows.`,
-                },
-                {
-                  q: `When is the best time to buy ${t.name}?`,
-                  a: `Only during rare seasonal promotions — or anytime via a smarter alternative that reduces your monthly SaaS stack cost.`,
-                },
-                {
-                  q: "Is this legit and safe?",
-                  a: "Yes. EcomEfficiency provides access without shady promo code hunting or unreliable third‑party deals.",
-                },
-              ].map((item) => (
+              {faqItems.map((item) => (
                 <div key={item.q} className="p-5 rounded-2xl bg-gray-900 border border-white/10">
                   <h3 className="text-white font-semibold mb-2">{item.q}</h3>
                   <h4 className="text-gray-300 leading-relaxed font-normal">{item.a}</h4>

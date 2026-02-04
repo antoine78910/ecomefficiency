@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { supabaseAdmin } from "@/integrations/supabase/server";
-import { toolsCatalog } from "@/data/toolsCatalog";
+import { toolsCatalog, resolveToolSlug } from "@/data/toolsCatalog";
+import { seoToolsCatalog } from "@/data/seoToolsCatalog";
 
 // Use the primary public host so Google Search Console can attribute discovery.
 const BASE_URL = "https://www.ecomefficiency.com";
@@ -34,10 +35,38 @@ function shouldIncludeUrl(url: string) {
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+  const allToolSlugs = new Set<string>();
+  for (const t of toolsCatalog) allToolSlugs.add(t.slug);
+  for (const s of seoToolsCatalog) {
+    allToolSlugs.add(s.slug);
+    const resolved = resolveToolSlug(s.name);
+    if (resolved) allToolSlugs.add(resolved);
+  }
+
   const toolRoutes: MetadataRoute.Sitemap = toolsCatalog.map((t) => ({
     url: `${BASE_URL}/tools/${t.slug}`,
     changeFrequency: "monthly",
     priority: 0.7,
+  }));
+
+  const seoToolRoutes: MetadataRoute.Sitemap = seoToolsCatalog
+    .filter((s) => !resolveToolSlug(s.name)) // only list /tools/seo/* when there isn't a canonical /tools/* equivalent
+    .map((s) => ({
+      url: `${BASE_URL}/tools/seo/${s.slug}`,
+      changeFrequency: "monthly",
+      priority: 0.6,
+    }));
+
+  const groupbuyRoutes: MetadataRoute.Sitemap = Array.from(allToolSlugs).map((slug) => ({
+    url: `${BASE_URL}/groupbuy/${slug}`,
+    changeFrequency: "monthly",
+    priority: 0.6,
+  }));
+
+  const discountRoutes: MetadataRoute.Sitemap = Array.from(allToolSlugs).map((slug) => ({
+    url: `${BASE_URL}/discount/${slug}`,
+    changeFrequency: "monthly",
+    priority: 0.6,
   }));
 
   const staticRoutes: MetadataRoute.Sitemap = [
@@ -49,7 +78,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE_URL}/articles/dropshipping-baking-supplies`, changeFrequency: "monthly", priority: 0.7 },
   ];
 
-  if (!supabaseAdmin) return [...staticRoutes, ...toolRoutes].filter((u) => shouldIncludeUrl(u.url));
+  const base = [...staticRoutes, ...toolRoutes, ...seoToolRoutes, ...groupbuyRoutes, ...discountRoutes].filter((u) => shouldIncludeUrl(u.url));
+  if (!supabaseAdmin) return base;
 
   try {
     const { data } = await supabaseAdmin.from("blog_posts").select("slug, published_at").order("published_at", { ascending: false });
@@ -64,9 +94,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         priority: 0.7,
       }));
 
-    return [...staticRoutes, ...toolRoutes, ...blogRoutes].filter((u) => shouldIncludeUrl(u.url));
+    return [...base, ...blogRoutes].filter((u) => shouldIncludeUrl(u.url));
   } catch {
-    return [...staticRoutes, ...toolRoutes].filter((u) => shouldIncludeUrl(u.url));
+    return base;
   }
 }
 
