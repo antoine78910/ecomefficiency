@@ -539,6 +539,19 @@ export const toolsCatalog: ToolCatalogItem[] = [
     ],
   },
   {
+    slug: "runway",
+    name: "Runway AI",
+    category: "AI (Image/Video)",
+    shortDescription: "AI video generation and editing suite for content and ad creatives.",
+    bestFor: ["creators", "e-commerce brands", "paid ads teams", "video editors"],
+    aliases: ["Runway", "RunwayML", "Runway ML"],
+    practicalUseCases: [
+      "Generate short video variations for ad testing (hooks, angles, formats).",
+      "Remove backgrounds / objects and clean product footage faster.",
+      "Create scroll-stopping AI video creatives without a full production setup.",
+    ],
+  },
+  {
     slug: "searchatlas",
     name: "SearchAtlas",
     category: "SEO",

@@ -104,6 +104,7 @@ const OFFICIAL_PRICE_BY_SLUG: Record<string, string> = {
   // Non-SEO tools present in EcomEfficiency (fallbacks from our own positioning/value list)
   pipiads: "$280/mo",
   atria: "$159/mo",
+  runway: "$95/mo",
   "flair-ai": "$149/mo",
   "exploding-topics": "$39/mo",
   sendshort: "$59/mo",
