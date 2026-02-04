@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 import ToolToc, { type TocItem } from "@/components/ToolToc";
 import EcomToolsCta from "@/components/EcomToolsCta";
@@ -105,6 +106,19 @@ export default function DropshippingBakingSuppliesArticlePage() {
             In this guide, you’ll get a clear, step-by-step playbook to launch a baking supplies dropshipping store—while avoiding the common traps (quality, food contact, returns, margins).
           </p>
         </header>
+
+        <div className="mt-8 rounded-2xl border border-white/10 bg-gray-900/30 overflow-hidden">
+          <div className="relative w-full aspect-[16/9] bg-black/30">
+            <Image
+              src="/articles/dropshipping-baking-supplies/og.png?v=1"
+              alt="Dropshipping baking supplies cover image"
+              fill
+              className="object-contain"
+              sizes="(max-width: 1024px) 100vw, 960px"
+              priority
+            />
+          </div>
+        </div>
 
         {/* Left sidebar (same structure as /blog/[slug]) */}
         <div className="mt-10 grid gap-10 lg:grid-cols-[320px_1fr] lg:items-start">

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 
 import EcomToolsCta from "@/components/EcomToolsCta";
@@ -117,6 +118,19 @@ export default function DropshipIo2026ProductResearchArticlePage() {
             <strong>read signals</strong> and build <strong>brand-first</strong> stores.
           </p>
         </header>
+
+        <div className="mt-8 rounded-2xl border border-white/10 bg-gray-900/30 overflow-hidden">
+          <div className="relative w-full aspect-[16/9] bg-black/30">
+            <Image
+              src="/articles/dropship-io-2026-product-research/og.png?v=1"
+              alt="Dropship.io product research 2026 cover image"
+              fill
+              className="object-contain"
+              sizes="(max-width: 1024px) 100vw, 960px"
+              priority
+            />
+          </div>
+        </div>
 
         <div className="mt-10 grid gap-10 lg:grid-cols-[320px_1fr] lg:items-start">
           <aside className="hidden lg:block lg:sticky lg:top-24 self-start flex flex-col">
