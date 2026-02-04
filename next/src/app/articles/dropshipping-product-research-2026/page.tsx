@@ -34,9 +34,9 @@ const toc: TocItem[] = [
   { id: "global-logic", label: "The framework: 4 simple steps", level: 2 },
   { id: "step-1", label: "Step 1 — Criteria that prevent fake winners", level: 2 },
   { id: "step-2", label: "Step 2 — Scan the market with PipiAds", level: 2 },
-  { id: "pipiads-live", label: "PipiAds in action", level: 3 },
+  { id: "pipiads-live", label: "Market scan in action", level: 3 },
   { id: "step-3", label: "Step 3 — Validate with Dropship.io", level: 2 },
-  { id: "dropship-live", label: "Dropship.io in action", level: 3 },
+  { id: "dropship-live", label: "Store validation in action", level: 3 },
   { id: "mistakes", label: "Common mistakes (and direct impact)", level: 2 },
   { id: "checklist", label: "Actionable checklist", level: 2 },
   { id: "seven-days", label: "7‑day action plan", level: 2 },
@@ -256,25 +256,25 @@ export default function DropshippingProductResearch2026ArticlePage() {
               </p>
             </div>
 
-            <SubTitle id="pipiads-live">PipiAds in action</SubTitle>
+            <SubTitle id="pipiads-live">Market scan in action</SubTitle>
             <p className="text-gray-300 leading-relaxed mb-4">
-              Example of a quick scan (top products / ads) to understand what’s being pushed and why.
+              Example of a quick scan (filters + signals) to understand what’s being pushed and why.
             </p>
             <div className="grid gap-4">
               <FullWidthScreenshot
-                src="/articles/dropshipping-product-research-2026/pipiads-1.png"
-                alt="PipiAds — Ad Search view"
-                caption="Ad Search: filters + signals to spot what’s being scaled."
+                src="/articles/dropshipping-product-research-2026/research-01.png"
+                alt="Example market scan dashboard screenshot"
+                caption="Example: use filters and key signals to spot what’s scaling."
               />
               <FullWidthScreenshot
-                src="/articles/dropshipping-product-research-2026/pipiads-2.png"
-                alt="PipiAds — TikTok Shop Products view"
-                caption="Top products: sort by signal (GMV, trend, dates, etc.)."
+                src="/articles/dropshipping-product-research-2026/research-02.png"
+                alt="Example sortable product list screenshot"
+                caption="Example: sort by strong signals (trend, timing, momentum) to shortlist products."
               />
               <FullWidthScreenshot
-                src="/articles/dropshipping-product-research-2026/pipiads-3.png"
-                alt="PipiAds — Advertiser analytics view"
-                caption="Advertiser analytics: impressions/likes/spend patterns (fast validation)."
+                src="/articles/dropshipping-product-research-2026/research-03.png"
+                alt="Example advertiser performance dashboard screenshot"
+                caption="Example: validate patterns quickly (consistency, iterations, and scaling signals)."
               />
             </div>
 
@@ -331,20 +331,20 @@ export default function DropshippingProductResearch2026ArticlePage() {
               </ul>
             </div>
 
-            <SubTitle id="dropship-live">Dropship.io in action</SubTitle>
+            <SubTitle id="dropship-live">Store validation in action</SubTitle>
             <p className="text-gray-300 leading-relaxed mb-4">
               Example: you find store‑proven products, then validate revenue signals, timing, catalog size, and consistency.
             </p>
             <div className="grid gap-4">
               <FullWidthScreenshot
-                src="/articles/dropshipping-product-research-2026/dropship-1.png"
-                alt="Dropship.io — Product Database view"
-                caption="Product Database: filters + store‑level revenue signals."
+                src="/articles/dropshipping-product-research-2026/research-04.png"
+                alt="Example product database screenshot"
+                caption="Example: filter products and check store-level revenue signals."
               />
               <FullWidthScreenshot
-                src="/articles/dropshipping-product-research-2026/dropship-2.png"
-                alt="Dropship.io — Catalog cards view"
-                caption="Mini catalogs: check offer logic, angles, and consistency."
+                src="/articles/dropshipping-product-research-2026/research-05.png"
+                alt="Example store catalog cards screenshot"
+                caption="Example: review mini-catalogs to understand offer logic and consistency."
               />
             </div>
 
