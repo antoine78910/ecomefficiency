@@ -29,7 +29,7 @@ const NewNavbar = () => {
             <Link prefetch={false} href="/tools" title="Tools" className="text-gray-400 hover:text-white transition-colors">Tools</Link>
             <Link prefetch={false} href="/affiliate" title="Affiliate" className="text-gray-400 hover:text-white transition-colors">Affiliate</Link>
             <Link prefetch={false} href="/pricing" title="Pricing" className="text-gray-400 hover:text-white transition-colors">Pricing</Link>
-            <Link prefetch={false} href="/blog" title="Blog" className="text-gray-400 hover:text-white transition-colors">Blog</Link>
+            <Link prefetch={false} href="/articles" title="Articles" className="text-gray-400 hover:text-white transition-colors">Articles</Link>
             <Link prefetch={false} href="/partners" title="Partners" className="text-gray-400 hover:text-white transition-colors">Partners</Link>
           </div>
 
@@ -95,8 +95,8 @@ const NewNavbar = () => {
                 <Link prefetch={false} href="/pricing" title="Pricing" className="block px-4 py-3 text-base text-white hover:bg-white/10">
                   Pricing
                 </Link>
-                <Link prefetch={false} href="/blog" title="Blog" className="block px-4 py-3 text-base text-white hover:bg-white/10">
-                  Blog
+                <Link prefetch={false} href="/articles" title="Articles" className="block px-4 py-3 text-base text-white hover:bg-white/10">
+                  Articles
                 </Link>
                 <Link prefetch={false} href="/partners" title="Partners" className="block px-4 py-3 text-base text-white hover:bg-white/10">
                   Partners
