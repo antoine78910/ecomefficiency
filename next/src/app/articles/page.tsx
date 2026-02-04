@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 
 import Footer from "@/components/Footer";
@@ -25,6 +26,7 @@ const articles = [
       "Shopify tracking is degraded. Learn to read signals (curves + filters) and use Dropship.io to find brand-ready products you can scale cleanly.",
     readTime: "8 min",
     category: "Dropshipping",
+    image: "/articles/dropship-io-2026-product-research/og.png?v=1",
   },
   {
     slug: "ecommerce-niche-research",
@@ -33,6 +35,7 @@ const articles = [
       "Stop chasing “magic products”. Learn a reliable niche research method with practical tools, checklists, common traps, and a 7‑day plan to avoid wasted tests.",
     readTime: "8 min",
     category: "Strategy",
+    image: "/header_ee.png?v=8",
   },
   {
     slug: "dropshipping-product-research-2026",
@@ -41,6 +44,7 @@ const articles = [
       "A real, repeatable process to find profitable dropshipping products: criteria, PipiAds scanning, Dropship.io validation, mistakes to avoid, checklist, and a 7‑day plan.",
     readTime: "9 min",
     category: "Dropshipping",
+    image: "/articles/dropshipping-product-research-2026/og.png?v=1",
   },
   {
     slug: "dropshipping-baking-supplies",
@@ -49,6 +53,7 @@ const articles = [
       "An actionable playbook to sell baking tools and supplies via dropshipping: product selection, food-contact compliance, sourcing, branding, pricing, SEO, and acquisition.",
     readTime: "25 min",
     category: "Dropshipping",
+    image: "/articles/dropshipping-baking-supplies/og.png?v=1",
   },
   {
     slug: "profitable-saturated-products",
@@ -57,6 +62,7 @@ const articles = [
       "A repeatable framework to scale competitive products without gimmicks: win with stronger hooks, a best‑of product page, and continuous offer testing.",
     readTime: "7 min",
     category: "Scaling",
+    image: "/articles/profitable-saturated-products/og.png?v=1",
   },
   {
     slug: "china-ecommerce-supply-chain",
@@ -65,6 +71,7 @@ const articles = [
       "Understand where margins get hidden (agents, traders, shipping lines) and use a simple framework to audit pricing, verify partners, and scale with a structured China supply chain.",
     readTime: "10 min",
     category: "Supply chain",
+    image: "/articles/china-ecommerce-supply-chain/og.png?v=1",
   },
 ] as const;
 
@@ -94,6 +101,17 @@ export default function ArticlesIndexPage() {
                 title={a.title}
                 className="group bg-gray-900 border border-white/10 rounded-2xl overflow-hidden hover:border-purple-500/30 transition-all hover:scale-[1.02]"
               >
+                <div className="relative w-full aspect-[16/9] bg-black/30 overflow-hidden">
+                  <Image
+                    src={a.image}
+                    alt={a.title}
+                    fill
+                    className="object-cover group-hover:scale-[1.02] transition-transform duration-300"
+                    sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                    priority={a.slug === "dropship-io-2026-product-research"}
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent" />
+                </div>
                 <div className="p-5">
                   <div className="flex items-center gap-2 mb-3">
                     <span className="text-xs px-2 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
