@@ -18,7 +18,14 @@ export const metadata: Metadata = {
     title: "Dropshipping product research: PipiAds + Dropship.io method (2026)",
     description:
       "A real process to find a dropshipping winner with PipiAds + Dropship.io: criteria, filters, validation, mistakes to avoid, and an actionable checklist.",
-    images: [{ url: "/header_ee.png?v=8", width: 1200, height: 630, alt: "Dropshipping product research 2026" }],
+    images: [
+      {
+        url: "/articles/dropshipping-product-research-2026/og.png?v=1",
+        width: 1600,
+        height: 900,
+        alt: "Best product research strategy for 2026",
+      },
+    ],
   },
 };
 

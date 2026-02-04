@@ -17,7 +17,14 @@ export const metadata: Metadata = {
     title: "How to be profitable on saturated products (3 pillars)",
     description:
       "A practical playbook to scale competitive products without gimmicks: improve your hooks, build a best‑of product page, and test offers continuously.",
-    images: [{ url: "/header_ee.png?v=8", width: 1200, height: 630, alt: "Profitable saturated products" }],
+    images: [
+      {
+        url: "/articles/profitable-saturated-products/og.png?v=1",
+        width: 1600,
+        height: 900,
+        alt: "How to profit from any saturated e-commerce product",
+      },
+    ],
   },
 };
 

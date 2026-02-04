@@ -20,7 +20,14 @@ export const metadata: Metadata = {
     title: "China e-commerce supply chain: real costs & trusted agents",
     description:
       "Avoid hidden margins in China: understand agents, factories, shipping lines, and a clear framework to optimize your e-commerce supply chain.",
-    images: [{ url: "/header_ee.png?v=8", width: 1200, height: 630, alt: "China e-commerce supply chain" }],
+    images: [
+      {
+        url: "/articles/china-ecommerce-supply-chain/og.png?v=1",
+        width: 1600,
+        height: 900,
+        alt: "China e-commerce supply chain: how to source cheaper products",
+      },
+    ],
   },
 };
 

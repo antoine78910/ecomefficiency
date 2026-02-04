@@ -7,17 +7,24 @@ import Footer from "@/components/Footer";
 import NewNavbar from "@/components/NewNavbar";
 
 export const metadata: Metadata = {
-  title: "Dropshipping baking supplies: suppliers, margins & SEO | Ecom Efficiency",
+  title: "Dropshipping baking supplies: products & SEO | Ecom Efficiency",
   description:
-    "A practical guide to dropshipping baking tools: winning products, suppliers/QC, food-contact compliance, shipping, margins, SEO, and acquisition.",
+    "A practical guide to dropshipping baking supplies: what to sell, how to source, and how to grow with SEO (without wasting tests).",
   alternates: { canonical: "/articles/dropshipping-baking-supplies" },
   openGraph: {
     type: "article",
     url: "/articles/dropshipping-baking-supplies",
-    title: "Dropshipping baking supplies: suppliers, margins & SEO",
+    title: "Dropshipping baking supplies: products & SEO",
     description:
-      "An actionable playbook to sell baking supplies: sourcing, quality control, margins, SEO, and growth.",
-    images: [{ url: "/header_ee.png?v=8", width: 1200, height: 630, alt: "Dropshipping baking supplies" }],
+      "Products, suppliers, and a simple SEO playbook to build demand and sales in the baking niche.",
+    images: [
+      {
+        url: "/articles/dropshipping-baking-supplies/og.png?v=1",
+        width: 1600,
+        height: 900,
+        alt: "Baking supplies dropshipping 2026: products, suppliers & SEO",
+      },
+    ],
   },
 };
 
