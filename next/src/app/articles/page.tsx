@@ -19,6 +19,14 @@ export const metadata: Metadata = {
 
 const articles = [
   {
+    slug: "ecommerce-niche-research",
+    title: "E-commerce niche research: why it’s the real growth lever",
+    excerpt:
+      "Stop chasing “magic products”. Learn a reliable niche research method with practical tools, checklists, common traps, and a 7‑day plan to avoid wasted tests.",
+    readTime: "8 min",
+    category: "Strategy",
+  },
+  {
     slug: "dropshipping-product-research-2026",
     title: "Dropshipping product research (2026): PipiAds + Dropship.io method",
     excerpt:
