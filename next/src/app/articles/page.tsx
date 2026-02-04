@@ -19,6 +19,14 @@ export const metadata: Metadata = {
 
 const articles = [
   {
+    slug: "dropship-io-2026-product-research",
+    title: "Dropship.io in 2026: why it’s #1 despite tracking limits",
+    excerpt:
+      "Shopify tracking is degraded. Learn to read signals (curves + filters) and use Dropship.io to find brand-ready products you can scale cleanly.",
+    readTime: "8 min",
+    category: "Dropshipping",
+  },
+  {
     slug: "ecommerce-niche-research",
     title: "E-commerce niche research: why it’s the real growth lever",
     excerpt:
