@@ -8,31 +8,31 @@ import NewNavbar from "@/components/NewNavbar";
 import ToolToc, { type TocItem } from "@/components/ToolToc";
 
 export const metadata: Metadata = {
-  title: "Recherche produit dropshipping (2026) : méthode PipiAds & Dropship.io | Ecom Efficiency",
+  title: "Dropshipping product research (2026): real method with PipiAds + Dropship.io | Ecom Efficiency",
   description:
-    "Méthode concrète pour trouver des produits rentables en dropshipping avec PipiAds et Dropship.io. Process clair, niches, exemples, erreurs et plan d’action 7 jours.",
+    "A real, repeatable method to find profitable dropshipping products in 2026 using PipiAds + Dropship.io: criteria, filters, validation, mistakes to avoid, and a 7‑day action plan.",
   alternates: { canonical: "/articles/dropshipping-product-research-2026" },
   openGraph: {
     type: "article",
     url: "/articles/dropshipping-product-research-2026",
-    title: "Recherche produit dropshipping : méthode PipiAds & Dropship.io (2026)",
+    title: "Dropshipping product research: PipiAds + Dropship.io method (2026)",
     description:
-      "Un process réel pour trouver une pépite dropshipping avec PipiAds + Dropship.io : critères, filtres, validation, erreurs à éviter et checklist actionnable.",
-    images: [{ url: "/header_ee.png?v=8", width: 1200, height: 630, alt: "Recherche produit dropshipping 2026" }],
+      "A real process to find a dropshipping winner with PipiAds + Dropship.io: criteria, filters, validation, mistakes to avoid, and an actionable checklist.",
+    images: [{ url: "/header_ee.png?v=8", width: 1200, height: 630, alt: "Dropshipping product research 2026" }],
   },
 };
 
 const toc: TocItem[] = [
-  { id: "intro", label: "Objectif (méthode réelle, pas des hacks)", level: 2 },
-  { id: "global-logic", label: "La logique globale : 4 étapes simples", level: 2 },
-  { id: "step-1", label: "Étape 1 — Les critères qui font la différence", level: 2 },
-  { id: "step-2", label: "Étape 2 — Scanner le marché avec PipiAds", level: 2 },
-  { id: "pipiads-live", label: "PipiAds en action (captures)", level: 3 },
-  { id: "step-3", label: "Étape 3 — Valider avec Dropship.io", level: 2 },
-  { id: "dropship-live", label: "Dropship.io en action (captures)", level: 3 },
-  { id: "mistakes", label: "Erreurs classiques (et leur impact)", level: 2 },
-  { id: "checklist", label: "Checklist actionnable", level: 2 },
-  { id: "seven-days", label: "Plan d’action 7 jours", level: 2 },
+  { id: "intro", label: "Goal (real method, no hacks)", level: 2 },
+  { id: "global-logic", label: "The framework: 4 simple steps", level: 2 },
+  { id: "step-1", label: "Step 1 — Criteria that prevent fake winners", level: 2 },
+  { id: "step-2", label: "Step 2 — Scan the market with PipiAds", level: 2 },
+  { id: "pipiads-live", label: "PipiAds in action", level: 3 },
+  { id: "step-3", label: "Step 3 — Validate with Dropship.io", level: 2 },
+  { id: "dropship-live", label: "Dropship.io in action", level: 3 },
+  { id: "mistakes", label: "Common mistakes (and direct impact)", level: 2 },
+  { id: "checklist", label: "Actionable checklist", level: 2 },
+  { id: "seven-days", label: "7‑day action plan", level: 2 },
   { id: "faq", label: "FAQ", level: 2 },
   { id: "conclusion", label: "Conclusion", level: 2 },
 ];
@@ -53,11 +53,7 @@ function SubTitle({ id, children }: { id: string; children: React.ReactNode }) {
   );
 }
 
-function ScreenshotGrid({ children }: { children: React.ReactNode }) {
-  return <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 mt-5">{children}</div>;
-}
-
-function ScreenshotCard({
+function FullWidthScreenshot({
   src,
   alt,
   caption,
@@ -68,10 +64,12 @@ function ScreenshotCard({
 }) {
   return (
     <figure className="rounded-2xl border border-white/10 bg-gray-900/30 overflow-hidden">
-      <div className="relative w-full aspect-[16/10]">
-        <Image src={src} alt={alt} fill className="object-cover" sizes="(max-width: 1024px) 100vw, 33vw" />
-      </div>
-      {caption ? <figcaption className="p-3 text-sm text-gray-400">{caption}</figcaption> : null}
+      <a href={src} target="_blank" rel="noreferrer noopener" title="Open image in a new tab">
+        <div className="relative w-full aspect-[16/9] bg-black/30">
+          <Image src={src} alt={alt} fill className="object-contain" sizes="(max-width: 1024px) 100vw, 768px" />
+        </div>
+      </a>
+      {caption ? <figcaption className="px-4 py-3 text-sm text-gray-400">{caption}</figcaption> : null}
     </figure>
   );
 }
@@ -81,7 +79,7 @@ export default function DropshippingProductResearch2026ArticlePage() {
   const jsonLd = {
     "@context": "https://schema.org",
     "@type": "BlogPosting",
-    headline: "Recherche produit dropshipping (2026) : méthode réelle PipiAds + Dropship.io",
+    headline: "Dropshipping product research (2026): real method with PipiAds + Dropship.io",
     datePublished: publishedIso,
     dateModified: publishedIso,
     author: { "@type": "Organization", name: "Ecom Efficiency Team" },
@@ -114,18 +112,24 @@ export default function DropshippingProductResearch2026ArticlePage() {
             <span className="text-xs px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
               Dropshipping
             </span>
-            <span className="text-xs text-gray-500">Updated: {new Date(publishedIso).toLocaleDateString("fr-FR")}</span>
+            <span className="text-xs text-gray-500">Updated: {new Date(publishedIso).toLocaleDateString("en-US")}</span>
             <span className="text-xs text-gray-500">•</span>
-            <span className="text-xs text-gray-500">Temps de lecture: ~9 min</span>
+            <span className="text-xs text-gray-500">Read time: ~9 min</span>
           </div>
 
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">
-            Comment trouver une <span className="gradient-text">pépite</span> en dropshipping en 2026
+            How to Find a <span className="gradient-text">Winning Product</span> in Dropshipping in 2026
           </h1>
           <p className="text-gray-300 text-lg leading-relaxed">
-            Méthode réelle <Link className="text-purple-400 hover:text-purple-300 underline" href="/tools/pipiads">PipiAds</Link> +{" "}
-            <Link className="text-purple-400 hover:text-purple-300 underline" href="/tools/dropship-io">Dropship.io</Link>, pour construire un cashflow stable
-            (pas pour chasser des hacks).
+            A real method using{" "}
+            <Link className="text-purple-400 hover:text-purple-300 underline" href="/tools/pipiads">
+              PipiAds
+            </Link>{" "}
+            +{" "}
+            <Link className="text-purple-400 hover:text-purple-300 underline" href="/tools/dropship-io">
+              Dropship.io
+            </Link>{" "}
+            to build a stable cashflow (not to chase short‑lived hacks).
           </p>
         </header>
 
@@ -145,260 +149,266 @@ export default function DropshippingProductResearch2026ArticlePage() {
           </aside>
 
           <div className="min-w-0 max-w-3xl mx-auto lg:mx-0">
-            <SectionTitle id="intro">L’objectif (méthode réelle, pas des hacks)</SectionTitle>
+            <SectionTitle id="intro">Goal (real method, no hacks)</SectionTitle>
             <p className="text-gray-300 leading-relaxed mb-4">
-              L’objectif de cette méthode n’est pas de chasser des hacks ou des produits éphémères, mais de construire un cashflow{" "}
-              <strong>stable, exploitable et scalable</strong>, sans méthodes bancales ni risques inutiles pour votre crédibilité business.
+              The goal isn’t to chase hacks or short‑lived products — it’s to build a{" "}
+              <strong>stable, usable, scalable</strong> cashflow without messy methods or credibility risk.
             </p>
             <p className="text-gray-300 leading-relaxed mb-6">
-              La recherche produit efficace repose sur un <strong>process</strong>, pas sur l’intuition.
+              Effective product research is a <strong>process</strong>, not intuition.
             </p>
 
-            <SectionTitle id="global-logic">La logique globale : 4 étapes simples (mais mal exécutées par 90 % des gens)</SectionTitle>
+            <SectionTitle id="global-logic">The framework: 4 simple steps (but poorly executed by 90% of people)</SectionTitle>
             <div className="p-5 rounded-2xl bg-gray-900 border border-white/10 mb-6">
               <ol className="list-decimal list-inside space-y-2 text-gray-300">
-                <li>Définir les bons critères de sélection</li>
-                <li>Scanner le marché via PipiAds</li>
-                <li>Valider / affiner avec Dropship.io</li>
-                <li>Constituer une short‑list exploitable (produits + boutiques)</li>
+                <li>Define the right selection criteria</li>
+                <li>Scan the market with PipiAds</li>
+                <li>Validate and refine with Dropship.io</li>
+                <li>Build an actionable short‑list (products + stores)</li>
               </ol>
             </div>
 
-            <SectionTitle id="step-1">Étape 1 — Les critères qui font la différence (et évitent les fausses pépites)</SectionTitle>
+            <SectionTitle id="step-1">Step 1 — Criteria that prevent fake winners</SectionTitle>
             <p className="text-gray-300 leading-relaxed mb-4">
-              Privilégiez les <strong>boutiques nichées</strong> plutôt que le généraliste. Une boutique de niche permet de tester, pivoter et scaler
-              sans repartir de zéro.
+              Prefer a <strong>niche store</strong> over a general store. A niche store lets you test, pivot, and scale without rebuilding from zero.
             </p>
             <div className="p-5 rounded-2xl bg-gray-900 border border-white/10 mb-6">
-              <div className="text-white font-semibold mb-2">Ce qui fonctionne durablement</div>
+              <div className="text-white font-semibold mb-2">What works long‑term</div>
               <ul className="list-disc list-inside space-y-2 text-gray-300">
-                <li>Vêtements (cargo, gothique, old money, shapewear)</li>
-                <li>Bijoux</li>
-                <li>Jouets / loisirs créatifs</li>
-                <li>Niches passion (poterie, déco, hobbies)</li>
-                <li>Shapewear & produits body‑positive</li>
+                <li>Apparel (cargo, gothic, old money, shapewear)</li>
+                <li>Jewelry</li>
+                <li>Toys / creative hobbies</li>
+                <li>Passion niches (pottery, home decor, hobbies)</li>
+                <li>Shapewear & body‑positive products</li>
               </ul>
-              <div className="text-white font-semibold mt-4 mb-2">Pourquoi ?</div>
+              <div className="text-white font-semibold mt-4 mb-2">Why</div>
               <ul className="list-disc list-inside space-y-2 text-gray-300">
-                <li>Demande constante</li>
-                <li>Faciles à transitionner en marque</li>
-                <li>Plusieurs produits = moins de dépendance à un seul best‑seller</li>
+                <li>Steady demand</li>
+                <li>Easier to brand into a real store</li>
+                <li>Multiple products = less dependence on one best seller</li>
               </ul>
             </div>
 
             <p className="text-gray-300 leading-relaxed mb-4">
-              Le <strong>monoproduit</strong> reste valable (sous conditions). Il fonctionne uniquement si:
+              A <strong>one‑product store</strong> can still work (under conditions). It works only if:
             </p>
             <ul className="list-disc list-inside space-y-2 text-gray-300 mb-6">
-              <li>Le contenu est qualitatif</li>
-              <li>Le branding est propre</li>
-              <li>Le produit résout un problème clair</li>
+              <li>Your content is high quality</li>
+              <li>Your branding looks clean</li>
+              <li>The product solves a clear problem</li>
             </ul>
             <div className="p-5 rounded-2xl bg-gray-900 border border-white/10 mb-6">
-              <div className="text-white font-semibold mb-2">Avantages du monoproduit</div>
+              <div className="text-white font-semibold mb-2">One‑product advantages</div>
               <ul className="list-disc list-inside space-y-2 text-gray-300">
-                <li>Focalisation totale sur un produit</li>
-                <li>Moins de charge mentale</li>
-                <li>Plus rapide à lancer</li>
+                <li>Full focus on one offer</li>
+                <li>Lower operational load</li>
+                <li>Faster to launch</li>
               </ul>
             </div>
 
-            <SectionTitle id="step-2">Étape 2 — Recherche rapide et efficace avec PipiAds</SectionTitle>
+            <SectionTitle id="step-2">Step 2 — Scan the market quickly with PipiAds</SectionTitle>
             <p className="text-gray-300 leading-relaxed mb-4">
-              Avec <Link className="text-purple-400 hover:text-purple-300 underline" href="/tools/pipiads">PipiAds</Link>, vous cherchez le Pareto:
-              <strong> 20 % d’effort, 80 % de résultats</strong>.
+              With{" "}
+              <Link className="text-purple-400 hover:text-purple-300 underline" href="/tools/pipiads">
+                PipiAds
+              </Link>
+              , you want Pareto results: <strong>20% effort, 80% output</strong>.
             </p>
             <div className="p-5 rounded-2xl bg-gray-900 border border-white/10 mb-6">
-              <div className="text-white font-semibold mb-2">Chemin</div>
+              <div className="text-white font-semibold mb-2">Path</div>
               <ul className="list-disc list-inside space-y-2 text-gray-300">
-                <li>Annonceurs → Top Produits</li>
-                <li>Affichage : 500 produits par page</li>
-                <li>Classement : hebdomadaire</li>
+                <li>Advertisers → Top Products</li>
+                <li>Display: 500 products per page</li>
+                <li>Ranking: weekly</li>
               </ul>
               <p className="text-gray-300 leading-relaxed mt-4">
-                Objectif: voir ce qui est massivement poussé sur TikTok, puis décider si vous pouvez <strong>faire mieux</strong> (contenu, angle, branding).
+                Goal: see what’s being pushed at scale on TikTok, then decide if you can <strong>do it better</strong> (content, angle, branding).
               </p>
             </div>
 
             <div className="p-5 rounded-2xl bg-gray-900 border border-white/10 mb-6">
-              <div className="text-white font-semibold mb-2">Ce qu’on analyse vraiment</div>
+              <div className="text-white font-semibold mb-2">What you actually analyze</div>
               <ul className="list-disc list-inside space-y-2 text-gray-300">
-                <li>Qualité du contenu (pas la boutique)</li>
-                <li>Angle marketing</li>
-                <li>Potentiel d’adaptation (autre pays / autre positionnement)</li>
-                <li>Saturation réelle (pas juste “ça tourne”)</li>
+                <li>Content quality (not the store)</li>
+                <li>Marketing angle</li>
+                <li>Adaptation potential (country / positioning)</li>
+                <li>Real saturation (not just “it’s running”)</li>
               </ul>
             </div>
 
             <div className="p-5 rounded-2xl bg-gray-900 border border-white/10 mb-6">
-              <div className="text-white font-semibold mb-2">Exemples concrets (observables)</div>
+              <div className="text-white font-semibold mb-2">Concrete examples (observable)</div>
               <ul className="list-disc list-inside space-y-2 text-gray-300">
-                <li>Perruques niche afro → énorme potentiel FR</li>
-                <li>Kits de poterie → demande intemporelle + TikTok friendly</li>
-                <li>Cargos → tendance forte mais contenu à refaire</li>
-                <li>Gothique / niches esthétiques → faible concurrence, forte identité</li>
+                <li>Afro niche wigs → strong potential in EU markets</li>
+                <li>Pottery kits → evergreen demand + TikTok‑friendly</li>
+                <li>Cargo pants → strong trend, but creatives need a refresh</li>
+                <li>Gothic / aesthetic niches → lower competition, strong identity</li>
               </ul>
               <p className="text-gray-300 leading-relaxed mt-4">
-                Règle clé: un produit déjà vendu peut rester une pépite si vous faites <strong>mieux</strong> que la source.
+                Key rule: a product can still be a winner if you can execute <strong>better</strong> than the source.
               </p>
             </div>
 
-            <SubTitle id="pipiads-live">PipiAds en action (captures)</SubTitle>
+            <SubTitle id="pipiads-live">PipiAds in action</SubTitle>
             <p className="text-gray-300 leading-relaxed mb-4">
-              Voici un exemple de scan rapide (top produits / ads) pour comprendre ce qui est push et pourquoi.
+              Example of a quick scan (top products / ads) to understand what’s being pushed and why.
             </p>
-            <ScreenshotGrid>
-              <ScreenshotCard
+            <div className="grid gap-4">
+              <FullWidthScreenshot
                 src="/articles/dropshipping-product-research-2026/pipiads-1.png"
-                alt="PipiAds — Ad Search (scan des ads en ecommerce)"
-                caption="Scan rapide: Ad Search (TikTok/Facebook) + filtres."
+                alt="PipiAds — Ad Search view"
+                caption="Ad Search: filters + signals to spot what’s being scaled."
               />
-              <ScreenshotCard
+              <FullWidthScreenshot
                 src="/articles/dropshipping-product-research-2026/pipiads-2.png"
-                alt="PipiAds — TikTok Shop Products (top produits)"
-                caption="Top produits: tri + signaux (GMV, tendances, dates, etc.)."
+                alt="PipiAds — TikTok Shop Products view"
+                caption="Top products: sort by signal (GMV, trend, dates, etc.)."
               />
-              <ScreenshotCard
+              <FullWidthScreenshot
                 src="/articles/dropshipping-product-research-2026/pipiads-3.png"
-                alt="PipiAds — analytics annonceur (données ads & stores)"
-                caption="Validation rapide via analytics annonceur (ads, likes, spend, etc.)."
+                alt="PipiAds — Advertiser analytics view"
+                caption="Advertiser analytics: impressions/likes/spend patterns (fast validation)."
               />
-            </ScreenshotGrid>
+            </div>
 
-            <SectionTitle id="step-3">Étape 3 — Validation avancée avec Dropship.io</SectionTitle>
+            <SectionTitle id="step-3">Step 3 — Advanced validation with Dropship.io</SectionTitle>
             <p className="text-gray-300 leading-relaxed mb-4">
-              Ici, on confirme et on détecte ce que PipiAds ne montre pas toujours: ventes, dynamique boutique, timing, cohérence catalogue.
-              Utilisez <Link className="text-purple-400 hover:text-purple-300 underline" href="/tools/dropship-io">Dropship.io</Link> pour éviter les faux positifs.
+              Here, you confirm what PipiAds doesn’t always show: sales dynamics, store timing, catalog coherence, and store‑proven adoption.
+              Use{" "}
+              <Link className="text-purple-400 hover:text-purple-300 underline" href="/tools/dropship-io">
+                Dropship.io
+              </Link>{" "}
+              to reduce false positives.
             </p>
 
             <div className="p-5 rounded-2xl bg-gray-900 border border-white/10 mb-6">
-              <div className="text-white font-semibold mb-2">Filtrage produit recommandé</div>
+              <div className="text-white font-semibold mb-2">Recommended product filters</div>
               <ul className="list-disc list-inside space-y-2 text-gray-300">
-                <li>Revenus mensuels : 21 000 $ → 70 000 $</li>
-                <li>Date de création : ≤ 12 mois</li>
+                <li>Monthly revenue: $21,000 → $70,000</li>
+                <li>Store age / creation date: ≤ 12 months</li>
               </ul>
               <p className="text-gray-300 leading-relaxed mt-4">
-                Objectif: produits récents, pas encore rincés.
+                Goal: newer products that aren’t fully exhausted.
               </p>
             </div>
 
             <div className="p-5 rounded-2xl bg-gray-900 border border-white/10 mb-6">
-              <div className="text-white font-semibold mb-2">Filtrage boutique (monoproduits & mini‑catalogues)</div>
+              <div className="text-white font-semibold mb-2">Store filters (one‑product & mini‑catalog stores)</div>
               <ul className="list-disc list-inside space-y-2 text-gray-300">
-                <li>Revenus : 58 000 $ → 300 000 $</li>
-                <li>Nombre de produits : 1 à 20</li>
+                <li>Revenue: $58,000 → $300,000</li>
+                <li>Number of products: 1 to 20</li>
               </ul>
               <p className="text-gray-300 leading-relaxed mt-4">
-                C’est là que se cachent les vraies opportunités copiables (produit + offre + angle + catalogue).
+                This is where you’ll find the most “copyable” opportunities: product + offer + angle + catalog strategy.
               </p>
             </div>
 
             <div className="p-5 rounded-2xl bg-gray-900 border border-white/10 mb-6">
-              <div className="text-white font-semibold mb-2">Exemples de pépites (sans bullshit)</div>
+              <div className="text-white font-semibold mb-2">Examples of winners (no fluff)</div>
               <ol className="list-decimal list-inside space-y-2 text-gray-300">
                 <li>
-                  <strong>Shapewear</strong> — marché ultra‑validé, plusieurs best‑sellers possibles, contenu facilement amélioré, scalabilité énorme.
+                  <strong>Shapewear</strong> — proven market, multiple potential best sellers, content can be improved quickly, huge scalability.
                 </li>
                 <li>
-                  <strong>Kits enfants / famille</strong> — achat émotionnel, mamans très réactives, Facebook + TikTok = combo solide.
+                  <strong>Kids / family kits</strong> — emotional purchase, very reactive buyers, Meta + TikTok can work well together.
                 </li>
                 <li>
-                  <strong>Produits problème → solution</strong> — compression socks, ceintures lombaires, sommeil / récupération.
+                  <strong>Problem → solution products</strong> — compression socks, lower back support, sleep / recovery.
                 </li>
               </ol>
-              <div className="text-white font-semibold mt-4 mb-2">Toujours vérifier</div>
+              <div className="text-white font-semibold mt-4 mb-2">Always verify</div>
               <ul className="list-disc list-inside space-y-2 text-gray-300">
-                <li>Normes fournisseurs</li>
-                <li>Légalité</li>
-                <li>Promesses marketing réalistes</li>
+                <li>Supplier compliance</li>
+                <li>Legality in your target country</li>
+                <li>Realistic marketing claims</li>
               </ul>
             </div>
 
-            <SubTitle id="dropship-live">Dropship.io en action (captures)</SubTitle>
+            <SubTitle id="dropship-live">Dropship.io in action</SubTitle>
             <p className="text-gray-300 leading-relaxed mb-4">
-              Exemple: vous repérez des produits dans une base “store‑proven”, puis vous regardez les signaux de revenus, timing, catalogue et cohérence.
+              Example: you find store‑proven products, then validate revenue signals, timing, catalog size, and consistency.
             </p>
-            <div className="grid gap-4 sm:grid-cols-2 mt-5">
-              <ScreenshotCard
+            <div className="grid gap-4">
+              <FullWidthScreenshot
                 src="/articles/dropshipping-product-research-2026/dropship-1.png"
-                alt="Dropship.io — Product Database (liste produits + revenus)"
-                caption="Product Database: filtres + revenus mensuels + tracking."
+                alt="Dropship.io — Product Database view"
+                caption="Product Database: filters + store‑level revenue signals."
               />
-              <ScreenshotCard
+              <FullWidthScreenshot
                 src="/articles/dropshipping-product-research-2026/dropship-2.png"
-                alt="Dropship.io — exemples produits (cartes catalogue)"
-                caption="Mini-catalogues: vérifier la logique boutique, l’offre et les angles."
+                alt="Dropship.io — Catalog cards view"
+                caption="Mini catalogs: check offer logic, angles, and consistency."
               />
             </div>
 
-            <SectionTitle id="mistakes">Les erreurs classiques (et leur impact direct)</SectionTitle>
+            <SectionTitle id="mistakes">Common mistakes (and direct impact)</SectionTitle>
             <div className="p-5 rounded-2xl bg-gray-900 border border-white/10 mb-6">
               <ul className="space-y-2 text-gray-300">
                 <li>
-                  <strong>Copier des boutiques dropshipping mal faites</strong> → image low‑cost, taux de conversion faible
+                  <strong>Copying low‑quality dropshipping stores</strong> → cheap brand perception, low conversion rate
                 </li>
                 <li>
-                  <strong>Lancer des produits trop saturés</strong> → CPC élevé, fatigue créative
+                  <strong>Launching overly saturated products</strong> → high CPC, creative fatigue
                 </li>
                 <li>
-                  <strong>Tester sans niche claire</strong> → impossible de scaler proprement
+                  <strong>Testing without a clear niche</strong> → hard to scale cleanly
                 </li>
                 <li>
-                  <strong>Ignorer le contenu</strong> → ads mortes avant même d’apprendre
+                  <strong>Ignoring content quality</strong> → ads die before you even learn
                 </li>
               </ul>
             </div>
 
-            <SectionTitle id="checklist">Checklist actionnable — Recherche produit efficace</SectionTitle>
+            <SectionTitle id="checklist">Actionable checklist — effective product research</SectionTitle>
             <div className="p-5 rounded-2xl bg-gray-900 border border-white/10 mb-6">
               <ul className="space-y-2 text-gray-300">
-                <li>✅ Niche claire (pas généraliste)</li>
-                <li>✅ Produit déjà validé quelque part</li>
-                <li>✅ Contenu améliorable</li>
-                <li>✅ Prix ≤ 70 $</li>
+                <li>✅ Clear niche (not a general store)</li>
+                <li>✅ Product already validated somewhere</li>
+                <li>✅ Creatives can be improved</li>
+                <li>✅ Price ≤ $70</li>
                 <li>
-                  ✅ Possibilité de sourcing optimisé (AliExpress →{" "}
+                  ✅ Sourcing can be optimized (AliExpress →{" "}
                   <a
                     href="https://www.1688.com/"
                     target="_blank"
                     rel="noreferrer noopener"
                     className="text-purple-400 hover:text-purple-300 underline"
-                    title="1688 (benchmark prix fournisseurs)"
+                    title="1688 (supplier price benchmarking)"
                   >
                     1688
                   </a>
                   )
                 </li>
-                <li>✅ Potentiel multi‑produits ou branding</li>
+                <li>✅ Multi‑product potential or brandable angle</li>
               </ul>
             </div>
 
-            <SectionTitle id="seven-days">Plan d’action 7 jours</SectionTitle>
+            <SectionTitle id="seven-days">7‑day action plan</SectionTitle>
             <div className="p-5 rounded-2xl bg-gray-900 border border-white/10 mb-6">
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="rounded-xl border border-white/10 bg-black/20 p-4">
-                  <div className="text-white font-semibold">Jour 1–2</div>
-                  <div className="text-gray-300 mt-1">Recherche PipiAds (top produits hebdo)</div>
+                  <div className="text-white font-semibold">Day 1–2</div>
+                  <div className="text-gray-300 mt-1">PipiAds research (weekly top products)</div>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-black/20 p-4">
-                  <div className="text-white font-semibold">Jour 3</div>
-                  <div className="text-gray-300 mt-1">Validation Dropship.io (produits + stores)</div>
+                  <div className="text-white font-semibold">Day 3</div>
+                  <div className="text-gray-300 mt-1">Dropship.io validation (products + stores)</div>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-black/20 p-4">
-                  <div className="text-white font-semibold">Jour 4</div>
-                  <div className="text-gray-300 mt-1">Sélection de 3–5 produits maximum</div>
+                  <div className="text-white font-semibold">Day 4</div>
+                  <div className="text-gray-300 mt-1">Select 3–5 products max</div>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-black/20 p-4">
-                  <div className="text-white font-semibold">Jour 5</div>
-                  <div className="text-gray-300 mt-1">Récupération / adaptation du contenu</div>
+                  <div className="text-white font-semibold">Day 5</div>
+                  <div className="text-gray-300 mt-1">Collect and adapt creatives</div>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-black/20 p-4">
-                  <div className="text-white font-semibold">Jour 6</div>
-                  <div className="text-gray-300 mt-1">Montage boutique simple & propre</div>
+                  <div className="text-white font-semibold">Day 6</div>
+                  <div className="text-gray-300 mt-1">Build a simple, clean store</div>
                 </div>
                 <div className="rounded-xl border border-white/10 bg-black/20 p-4">
-                  <div className="text-white font-semibold">Jour 7</div>
-                  <div className="text-gray-300 mt-1">Lancement test ads + tracking</div>
+                  <div className="text-white font-semibold">Day 7</div>
+                  <div className="text-gray-300 mt-1">Launch test ads + tracking</div>
                 </div>
               </div>
             </div>
@@ -407,24 +417,24 @@ export default function DropshippingProductResearch2026ArticlePage() {
             <div className="space-y-4">
               {[
                 {
-                  q: "Faut-il éviter les produits déjà vendus ?",
-                  a: "Non. Il faut éviter les produits mal exécutés, pas ceux qui vendent. Si vous pouvez faire mieux (contenu, offre, branding), le produit reste exploitable.",
+                  q: "Should you avoid products that have already been sold?",
+                  a: "No. Avoid poorly executed products, not products that sell. If you can execute better (creative, offer, branding), the product can still work.",
                 },
                 {
-                  q: "Monoproduit ou boutique niche ?",
-                  a: "Monoproduit = rapide. Boutique niche = durable. Les deux fonctionnent si l’exécution est propre, avec un contenu fort et un positionnement clair.",
+                  q: "One‑product store or niche store?",
+                  a: "One‑product stores are faster. Niche stores are more durable. Both work if execution is clean with strong content and clear positioning.",
                 },
                 {
-                  q: "Quel CA minimum regarder ?",
-                  a: "Indicatif: > 3 000 $/jour peut signaler un produit fort, mais le contenu prime sur le chiffre. Un bon contenu peut battre un produit “plus gros” mal exécuté.",
+                  q: "What minimum revenue should you look at?",
+                  a: "As a rough signal, > $3k/day can indicate strength—but content quality matters more than the number. Better creatives can beat a bigger product with weak execution.",
                 },
                 {
-                  q: "Peut-on lancer en France un produit US ?",
-                  a: "Oui, si le marché FR est mal servi ou mal brandé. Adaptez l’angle, le copy, les preuves et le pricing au contexte local.",
+                  q: "Can you launch a US product in another country?",
+                  a: "Yes—if the local market is underserved or poorly branded. Adapt angle, copy, proof, and pricing to the local context.",
                 },
                 {
-                  q: "TikTok Ads obligatoire ?",
-                  a: "Non, mais c’est aujourd’hui le levier le plus rapide pour tester. Le bon mix dépend de la niche (Meta, Google, UGC, email).",
+                  q: "Are TikTok Ads mandatory?",
+                  a: "No, but it’s often the fastest testing lever. The right mix depends on the niche (Meta, Google, UGC, email).",
                 },
               ].map((item) => (
                 <div key={item.q} className="p-5 rounded-2xl bg-gray-900 border border-white/10">
@@ -436,17 +446,17 @@ export default function DropshippingProductResearch2026ArticlePage() {
 
             <SectionTitle id="conclusion">Conclusion</SectionTitle>
             <p className="text-gray-300 leading-relaxed mb-4">
-              Cette méthode fonctionne parce qu’elle repose sur l’observation réelle du marché, pas sur des théories.
+              This method works because it’s based on real market observation—not theory.
             </p>
             <p className="text-gray-300 leading-relaxed mb-6">
-              Si vous voulez structurer vos recherches produit, éviter les erreurs classiques et scaler proprement, cette approche est une base solide.
+              If you want a structured way to find products, avoid common mistakes, and scale cleanly, this is a solid foundation.
             </p>
             <p className="text-gray-300 leading-relaxed mb-8">
-              Pour aller plus loin et structurer vos tests, votre sourcing et votre branding sans raccourcis douteux, la méthode complète est disponible sur{" "}
+              To go further and structure testing, sourcing, and branding without shortcuts, the full method is available on{" "}
               <Link href="/pricing" className="text-purple-400 hover:text-purple-300 underline" title="Ecom Efficiency pricing">
                 Ecom Efficiency
               </Link>{" "}
-              — scaling propre et durable.
+              — clean, durable scaling.
             </p>
 
             <section className="mt-14">
@@ -458,7 +468,7 @@ export default function DropshippingProductResearch2026ArticlePage() {
                   className="rounded-2xl border border-white/10 bg-gray-900/30 p-4 hover:border-purple-500/30 transition-colors"
                 >
                   <div className="text-white font-semibold">Pipiads</div>
-                  <div className="text-sm text-gray-400 mt-1">Trouver des ads TikTok gagnantes et analyser hooks, angles, créas.</div>
+                  <div className="text-sm text-gray-400 mt-1">Find winning TikTok ads and analyze hooks, angles, and creatives.</div>
                 </Link>
                 <Link
                   href="/tools/dropship-io"
@@ -466,7 +476,7 @@ export default function DropshippingProductResearch2026ArticlePage() {
                   className="rounded-2xl border border-white/10 bg-gray-900/30 p-4 hover:border-purple-500/30 transition-colors"
                 >
                   <div className="text-white font-semibold">Dropship.io</div>
-                  <div className="text-sm text-gray-400 mt-1">Valider des produits via l’adoption réelle des stores Shopify.</div>
+                  <div className="text-sm text-gray-400 mt-1">Validate products using real Shopify store adoption signals.</div>
                 </Link>
                 <Link
                   href="/articles/profitable-saturated-products"
@@ -474,7 +484,7 @@ export default function DropshippingProductResearch2026ArticlePage() {
                   className="rounded-2xl border border-white/10 bg-gray-900/30 p-4 hover:border-purple-500/30 transition-colors"
                 >
                   <div className="text-white font-semibold">Profitable saturated products (3 pillars)</div>
-                  <div className="text-sm text-gray-400 mt-1">Créatives, product page et offre: le framework simple pour gagner.</div>
+                  <div className="text-sm text-gray-400 mt-1">Creatives, product page, and offer: the simple framework to win.</div>
                 </Link>
               </div>
             </section>
