@@ -12,7 +12,7 @@ type ApiResponse =
       fetchedUrl: string;
       status: number;
       isShopify: boolean;
-      theme: { name: string | null; confidence: "high" | "medium" | "low"; evidence?: string };
+      theme: { name: string | null; internalName?: string | null; confidence: "high" | "medium" | "low"; evidence?: string };
       apps: Array<{ name: string; confidence: "high" | "medium"; evidence: string }>;
       signals: { cartJsOk: boolean; productsJsonOk: boolean };
       detectedAt: string;
@@ -126,6 +126,13 @@ export default function ShopifyAppDetector() {
           <div className="mt-4">
             {result.isShopify ? <ThemeBadge theme={result.theme} /> : <ThemeBadge theme={{ name: "Not a Shopify store", confidence: "low" }} />}
           </div>
+
+          {result.isShopify && result.theme?.internalName ? (
+            <div className="mt-3 text-xs text-gray-300">
+              <span className="text-gray-400">Theme name:</span>{" "}
+              <span className="text-white/90 font-medium">{result.theme.internalName}</span>
+            </div>
+          ) : null}
 
           <div className="mt-3 text-xs text-gray-300">
             Theme detection is best effort. Some stores hide theme info or load it dynamically.

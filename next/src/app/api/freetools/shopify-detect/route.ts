@@ -12,6 +12,7 @@ type ThemeMatch = {
   methods?: string[];
   score?: number;
   base?: "Dawn OS 2.0" | "Non-Dawn / Custom";
+  internalName?: string | null;
 };
 
 // Known Shopify Theme Store IDs → theme names (best-effort).
@@ -78,6 +79,7 @@ const THEME_RULES: ThemeScoreRule[] = [
     js: [
       { re: /\bshrine\.js\b/i, evidence: "shrine.js" },
       { re: /\btheme-shrine\.js\b/i, evidence: "theme-shrine.js" },
+      { re: /\bshrine-pro\b/i, evidence: "shrine-pro (asset name)" },
     ],
     css: [
       { re: /\bshrine-product\b/i, evidence: ".shrine-product" },
@@ -275,6 +277,33 @@ function extractThemeStoreId(html: string): { themeStoreId: number | null; evide
   return { themeStoreId: null };
 }
 
+function extractShopifyThemeName(html: string): string | null {
+  const text = String(html || "");
+
+  // Prefer Shopify.theme = { ... name: "..." ... }
+  const themeObjMatch = text.match(/Shopify\.theme\s*=\s*\{[\s\S]{0,1200}?\}/i);
+  if (themeObjMatch?.[0]) {
+    const nameMatch = themeObjMatch[0].match(/["']?name["']?\s*:\s*["']([^"']{2,160})["']/i);
+    if (nameMatch?.[1]) return nameMatch[1].trim();
+  }
+
+  // ShopifyAnalytics meta theme name
+  const analyticsTheme = text.match(/ShopifyAnalytics\.meta[\s\S]{0,4000}?"theme"\s*:\s*\{[\s\S]{0,900}?\}/i);
+  if (analyticsTheme?.[0]) {
+    const nameMatch = analyticsTheme[0].match(/["']name["']\s*:\s*["']([^"']{2,160})["']/i);
+    if (nameMatch?.[1]) return nameMatch[1].trim();
+  }
+
+  return null;
+}
+
+function inferShrineVariantFromCorpus(corpus: string) {
+  const t = String(corpus || "").toLowerCase();
+  if (t.includes("shrine-pro")) return "Shrine PRO";
+  if (t.includes("shrine pro")) return "Shrine PRO";
+  return "Shrine";
+}
+
 function detectDawnBase(corpus: string) {
   const t = String(corpus || "");
   const hasVariantOrGallery = /\bvariant-radios\b/i.test(t) || /\bmedia-gallery\b/i.test(t);
@@ -288,7 +317,10 @@ function detectExclusiveTheme(corpus: string): { theme: string; score: number; e
 
   if (/\bdbtfy-/i.test(t) || /\bDebutify\.theme\b/i.test(t)) return { theme: "Debutify", score: 100, evidence: "dbtfy* / Debutify.theme" };
   if (/\bminimog\.js\b/i.test(t) || /\bm-section\b/i.test(t)) return { theme: "Minimog", score: 95, evidence: "minimog.js / .m-section" };
-  if (/\bshrine\.js\b/i.test(t) || /\btheme-shrine\.js\b/i.test(t)) return { theme: "Shrine", score: 95, evidence: "shrine.js / theme-shrine.js" };
+  // Shrine often ships under shrine-pro asset names.
+  if (/\bshrine\.js\b/i.test(t) || /\btheme-shrine\.js\b/i.test(t) || /\bshrine-pro\b/i.test(t) || /\bshrine-product\b/i.test(t)) {
+    return { theme: "Shrine", score: 95, evidence: "shrine.js / theme-shrine.js / shrine-pro / .shrine-*" };
+  }
 
   return null;
 }
@@ -649,17 +681,21 @@ export async function GET(req: NextRequest) {
 
       const corpus = [home.text, ...assetTexts, productJsText, assetUrls.join("\n")].join("\n\n");
       const base = detectDawnBase(corpus);
+      const internalName = extractShopifyThemeName(home.text);
 
       // STEP 2 — Exclusive signals (stop & return)
       const exclusive = detectExclusiveTheme(corpus);
       if (exclusive) {
+        const displayName =
+          exclusive.theme === "Shrine" ? inferShrineVariantFromCorpus(`${corpus}\n${internalName || ""}`) : exclusive.theme;
         theme = {
-          name: exclusive.theme,
+          name: displayName,
           confidence: "high",
           evidence: `exclusive:${exclusive.evidence}`,
           methods: ["exclusive_signal"],
           score: exclusive.score,
           base,
+          internalName: internalName || null,
         };
       } else {
         // theme_store_id mapping is still used as an extra strong hint (not required, but very reliable).
@@ -682,6 +718,7 @@ export async function GET(req: NextRequest) {
             score: top.score,
             themeStoreId: storeIdInfo.themeStoreId || null,
             base,
+            internalName: internalName || null,
           };
         } else if (top && top.score >= 45) {
           // Soft detection: return most likely theme (not overly conservative).
@@ -693,12 +730,13 @@ export async function GET(req: NextRequest) {
             score: top.score,
             themeStoreId: storeIdInfo.themeStoreId || null,
             base,
+            internalName: internalName || null,
           };
         } else {
           theme =
             base === "Dawn OS 2.0"
-              ? { name: "Dawn-based Custom", confidence: "low", evidence: "base=Dawn OS 2.0 but no theme scored ≥45%", methods: ["base_detection"], score: top?.score || 0, base }
-              : { name: "Custom", confidence: "low", evidence: "no theme scored ≥45%", methods: ["fingerprint_scoring"], score: top?.score || 0, base };
+              ? { name: "Dawn-based Custom", confidence: "low", evidence: "base=Dawn OS 2.0 but no theme scored ≥45%", methods: ["base_detection"], score: top?.score || 0, base, internalName: internalName || null }
+              : { name: "Custom", confidence: "low", evidence: "no theme scored ≥45%", methods: ["fingerprint_scoring"], score: top?.score || 0, base, internalName: internalName || null };
         }
       }
     }
