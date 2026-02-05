@@ -11,6 +11,7 @@ type ThemeMatch = {
   themeStoreId?: number | null;
   methods?: string[];
   score?: number;
+  base?: "Dawn OS 2.0" | "Non-Dawn / Custom";
 };
 
 // Known Shopify Theme Store IDs → theme names (best-effort).
@@ -21,11 +22,6 @@ const THEME_STORE_ID_MAP: Record<string, string> = {
   "796": "Impulse",
   "730": "Prestige",
 } as const;
-
-type ThemeFingerprint = {
-  theme: string;
-  patterns: Array<{ re: RegExp; evidence: string; weight: number }>;
-};
 
 // Shopify Theme Fingerprints (name hidden detection)
 // Rule: never rely on theme_name. Use a scoring system per theme.
@@ -40,6 +36,28 @@ type ThemeScoreRule = {
   hard100?: Array<{ re: RegExp; evidence: string }>;
 };
 
+// Allowed themes to score (per prompt)
+const ALLOWED_THEMES = new Set<string>([
+  "Debutify",
+  "Shrine",
+  "Impulse",
+  "Prestige",
+  "Impact",
+  "Focal",
+  "Symmetry",
+  "Stiletto",
+  "Motion",
+  "Empire",
+  "Palo Alto",
+  "Parallax",
+  "Streamline",
+  "Minimog",
+  "Envy",
+  "Turbo",
+  "Flex",
+  "Warehouse",
+]);
+
 const THEME_RULES: ThemeScoreRule[] = [
   // 1) Debutify (hard)
   {
@@ -53,15 +71,6 @@ const THEME_RULES: ThemeScoreRule[] = [
       { re: /\bdbtfy-trust-badges\b/i, evidence: "dbtfy-trust-badges" },
       { re: /\bdbtfy-sales-countdown\b/i, evidence: "dbtfy-sales-countdown" },
     ],
-  },
-  // 2) Story
-  {
-    theme: "Story",
-    sections: [
-      { re: /\bslideshow-story\b/i, evidence: "slideshow-story" },
-      { re: /\bimage-with-text-overlay\b/i, evidence: "image-with-text-overlay" },
-    ],
-    css: [{ re: /\bstory-section\b/i, evidence: ".story-section" }],
   },
   // 3) Shrine
   {
@@ -106,8 +115,6 @@ const THEME_RULES: ThemeScoreRule[] = [
     ],
     layout: [{ re: /font-family\s*:\s*[^;]*serif/i, evidence: "serif typography" }],
   },
-  // 7) Paradise
-  { theme: "Paradise", sections: [{ re: /\bhero-fullscreen\b/i, evidence: "hero-fullscreen" }], css: [{ re: /\bparadise-/i, evidence: ".paradise-*" }] },
   // 8) Symmetry
   {
     theme: "Symmetry",
@@ -191,20 +198,7 @@ const THEME_RULES: ThemeScoreRule[] = [
     ],
     css: [{ re: /\bflex-\w+/i, evidence: "flex-* classes" }],
   },
-  // 20) Booster
-  {
-    theme: "Booster",
-    // Dropship conversion themes often expose booster assets or urgency blocks.
-    js: [
-      { re: /\bbooster(\.min)?\.js\b/i, evidence: "booster.js" },
-      { re: /\bbooster-theme\b/i, evidence: "booster-theme" },
-    ],
-    ux: [
-      { re: /\bscarcity\b|\burgency\b/i, evidence: "scarcity/urgency blocks" },
-      { re: /\bcountdown\b/i, evidence: "countdown timer" },
-    ],
-  },
-  // 21) Warehouse
+  // 20) Warehouse
   {
     theme: "Warehouse",
     // Wholesale / dense catalogs.
@@ -279,6 +273,24 @@ function extractThemeStoreId(html: string): { themeStoreId: number | null; evide
   }
 
   return { themeStoreId: null };
+}
+
+function detectDawnBase(corpus: string) {
+  const t = String(corpus || "");
+  const hasVariantOrGallery = /\bvariant-radios\b/i.test(t) || /\bmedia-gallery\b/i.test(t);
+  const hasPageWidthOrSection = /\bpage-width\b/i.test(t) || /\bshopify-section\b/i.test(t);
+  const hasProductForm = /\bProductForm\b/i.test(t) || /\bproduct-form\b/i.test(t) || /\bproductForm\b/i.test(t);
+  return hasVariantOrGallery && hasPageWidthOrSection && hasProductForm ? ("Dawn OS 2.0" as const) : ("Non-Dawn / Custom" as const);
+}
+
+function detectExclusiveTheme(corpus: string): { theme: string; score: number; evidence: string } | null {
+  const t = String(corpus || "");
+
+  if (/\bdbtfy-/i.test(t) || /\bDebutify\.theme\b/i.test(t)) return { theme: "Debutify", score: 100, evidence: "dbtfy* / Debutify.theme" };
+  if (/\bminimog\.js\b/i.test(t) || /\bm-section\b/i.test(t)) return { theme: "Minimog", score: 95, evidence: "minimog.js / .m-section" };
+  if (/\bshrine\.js\b/i.test(t) || /\btheme-shrine\.js\b/i.test(t)) return { theme: "Shrine", score: 95, evidence: "shrine.js / theme-shrine.js" };
+
+  return null;
 }
 
 function normalizeMaybeUrl(raw: string, baseUrl: string): string | null {
@@ -390,17 +402,19 @@ function scoreThemeByRules({
 }: {
   html: string;
   corpus: string;
-}): { theme: string; score: number; evidence: string[] } | null {
+}): Array<{ theme: string; score: number; evidence: string[] }> {
   const h = String(html || "");
   const t = String(corpus || "");
 
   const scored: Array<{ theme: string; score: number; evidence: string[] }> = [];
 
   for (const rule of THEME_RULES) {
+    if (!ALLOWED_THEMES.has(rule.theme)) continue;
     // Hard rule (Debutify): if dbtfy signatures present → 100%.
     const hardHit = matchAny(rule.hard100, t);
     if (hardHit) {
-      return { theme: rule.theme, score: 100, evidence: [`hard:${hardHit}`] };
+      scored.push({ theme: rule.theme, score: 100, evidence: [`hard:${hardHit}`] });
+      continue;
     }
 
     let score = 0;
@@ -440,8 +454,7 @@ function scoreThemeByRules({
   }
 
   scored.sort((a, b) => b.score - a.score);
-  const top = scored[0];
-  return top || null;
+  return scored;
 }
 
 function detectAppsFromHtml(html: string): AppMatch[] {
@@ -605,36 +618,10 @@ export async function GET(req: NextRequest) {
     } catch {}
 
     const isShopify = looksLikeShopify(home.text, home.headers, cartJs || undefined, productsJson || undefined);
-    let theme: ThemeMatch = isShopify ? { name: null, confidence: "low" as const } : { name: null, confidence: "low" as const };
+    let theme: ThemeMatch = { name: null, confidence: "low" as const };
 
-    // theme_store_id mapping (ultra reliable for theme-store themes)
     if (isShopify) {
-      const storeIdInfo = extractThemeStoreId(home.text);
-      if (storeIdInfo.themeStoreId) {
-        const mapped = THEME_STORE_ID_MAP[String(storeIdInfo.themeStoreId)];
-        if (mapped) {
-          theme = {
-            name: mapped,
-            confidence: "high",
-            evidence: `theme_store_id:${storeIdInfo.themeStoreId}`,
-            themeStoreId: storeIdInfo.themeStoreId,
-            methods: ["theme_store_id"],
-            score: 100,
-          };
-        } else {
-          theme = {
-            name: null,
-            confidence: "low",
-            evidence: `theme_store_id:${storeIdInfo.themeStoreId}`,
-            themeStoreId: storeIdInfo.themeStoreId,
-            methods: ["theme_store_id"],
-          };
-        }
-      }
-    }
-
-    // Scoring fingerprints (name hidden detection)
-    if (isShopify && !theme.name) {
+      // Build corpus used by base detection + exclusive signals + scoring.
       const assetUrls = pickThemeAssetCandidates(home.text, usedBase, hostname);
       const assetTexts: string[] = [];
       for (const assetUrl of assetUrls) {
@@ -647,7 +634,7 @@ export async function GET(req: NextRequest) {
         }
       }
 
-      // Optional product.js as extra corpus (never use theme_name directly).
+      // Product JS (extra signal corpus)
       let productJsText = "";
       const handle = productsJson?.ok ? extractProductHandleFromProductsJson(productsJson.text) : null;
       if (handle) {
@@ -661,27 +648,58 @@ export async function GET(req: NextRequest) {
       }
 
       const corpus = [home.text, ...assetTexts, productJsText, assetUrls.join("\n")].join("\n\n");
-      const top = scoreThemeByRules({ html: home.text, corpus });
-      if (top) {
-        if (top.score >= 70) {
+      const base = detectDawnBase(corpus);
+
+      // STEP 2 — Exclusive signals (stop & return)
+      const exclusive = detectExclusiveTheme(corpus);
+      if (exclusive) {
+        theme = {
+          name: exclusive.theme,
+          confidence: "high",
+          evidence: `exclusive:${exclusive.evidence}`,
+          methods: ["exclusive_signal"],
+          score: exclusive.score,
+          base,
+        };
+      } else {
+        // theme_store_id mapping is still used as an extra strong hint (not required, but very reliable).
+        const storeIdInfo = extractThemeStoreId(home.text);
+        const storeIdMapped = storeIdInfo.themeStoreId ? THEME_STORE_ID_MAP[String(storeIdInfo.themeStoreId)] : null;
+
+        const all = scoreThemeByRules({ html: home.text, corpus });
+        const top = all[0] || null;
+        const second = all[1] || null;
+
+        // Adaptive thresholds:
+        // ≥75 High confidence, ≥60 Probable, ≥45 Likely, else Custom.
+        if (top && top.score >= 60) {
+          const ambiguous = second && second.score >= 60 ? ` | ambiguous:${second.theme}=${second.score}%` : "";
           theme = {
             name: top.theme,
-            confidence: top.score >= 85 ? "high" : "medium",
-            evidence: top.evidence.slice(0, 4).join(" | "),
+            confidence: top.score >= 75 ? "high" : "medium",
+            evidence: `${top.evidence.slice(0, 4).join(" | ")}${storeIdMapped ? ` | store_id_hint:${storeIdMapped}` : ""}${ambiguous}`,
             methods: ["fingerprint_scoring"],
             score: top.score,
+            themeStoreId: storeIdInfo.themeStoreId || null,
+            base,
+          };
+        } else if (top && top.score >= 45) {
+          // Soft detection: return most likely theme (not overly conservative).
+          theme = {
+            name: top.theme,
+            confidence: "medium",
+            evidence: `soft:${top.evidence.slice(0, 4).join(" | ")}${storeIdMapped ? ` | store_id_hint:${storeIdMapped}` : ""}`,
+            methods: ["fingerprint_scoring"],
+            score: top.score,
+            themeStoreId: storeIdInfo.themeStoreId || null,
+            base,
           };
         } else {
-          theme = {
-            name: "Custom / Forked theme",
-            confidence: "low",
-            evidence: `best_guess:${top.theme} score=${top.score}% (${top.evidence.slice(0, 3).join(" | ")})`,
-            methods: ["fingerprint_scoring"],
-            score: top.score,
-          };
+          theme =
+            base === "Dawn OS 2.0"
+              ? { name: "Dawn-based Custom", confidence: "low", evidence: "base=Dawn OS 2.0 but no theme scored ≥45%", methods: ["base_detection"], score: top?.score || 0, base }
+              : { name: "Custom", confidence: "low", evidence: "no theme scored ≥45%", methods: ["fingerprint_scoring"], score: top?.score || 0, base };
         }
-      } else {
-        theme = { name: "Custom / Forked theme", confidence: "low", evidence: "no fingerprints matched", methods: ["fingerprint_scoring"], score: 0 };
       }
     }
 
