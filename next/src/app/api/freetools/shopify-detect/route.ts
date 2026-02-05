@@ -10,6 +10,7 @@ type ThemeMatch = {
   evidence?: string;
   themeStoreId?: number | null;
   methods?: string[];
+  score?: number;
 };
 
 // Known Shopify Theme Store IDs → theme names (best-effort).
@@ -26,49 +27,155 @@ type ThemeFingerprint = {
   patterns: Array<{ re: RegExp; evidence: string; weight: number }>;
 };
 
-// Fingerprints from common asset headers / namespaces.
-// Keep patterns conservative to avoid false positives on minified bundles.
-const THEME_FINGERPRINTS: ThemeFingerprint[] = [
+// Shopify Theme Fingerprints (name hidden detection)
+// Rule: never rely on theme_name. Use a scoring system per theme.
+// Score ≥ 70 → detected; ≥ 85 → high confidence; else → Custom / Forked theme.
+type ThemeScoreRule = {
+  theme: string;
+  js?: Array<{ re: RegExp; evidence: string }>;
+  css?: Array<{ re: RegExp; evidence: string }>;
+  sections?: Array<{ re: RegExp; evidence: string }>;
+  ux?: Array<{ re: RegExp; evidence: string }>;
+  layout?: Array<{ re: RegExp; evidence: string }>;
+  hard100?: Array<{ re: RegExp; evidence: string }>;
+};
+
+const THEME_RULES: ThemeScoreRule[] = [
+  // 1) Debutify (hard)
   {
-    theme: "Dawn",
-    patterns: [
-      { re: /@shopify\/dawn/i, evidence: "@shopify/dawn", weight: 3 },
-      { re: /\bwindow\.Dawn\b/i, evidence: "window.Dawn", weight: 2 },
-      { re: /\bDawn Theme\b/i, evidence: "Dawn Theme", weight: 2 },
-      { re: /Shopify\s*-\s*Dawn theme/i, evidence: "Shopify - Dawn theme", weight: 2 },
+    theme: "Debutify",
+    hard100: [
+      { re: /\bdbtfy-/i, evidence: ".dbtfy-*" },
+      { re: /\bdbtfy-upsell\b/i, evidence: "dbtfy-upsell" },
+      { re: /\bdbtfy-cart-goal\b/i, evidence: "dbtfy-cart-goal" },
+      { re: /\bDebutify\.theme\b/i, evidence: "Debutify.theme" },
+      { re: /\bdbtfy\.min\.js\b/i, evidence: "dbtfy.min.js" },
+      { re: /\bdbtfy-trust-badges\b/i, evidence: "dbtfy-trust-badges" },
+      { re: /\bdbtfy-sales-countdown\b/i, evidence: "dbtfy-sales-countdown" },
     ],
   },
+  // 2) Story
   {
-    theme: "Impulse",
-    patterns: [
-      { re: /\btheme\.Impulse\b/i, evidence: "theme.Impulse", weight: 3 },
-      { re: /\bImpulse Theme\b/i, evidence: "Impulse Theme", weight: 2 },
-      { re: /\bannouncement-bar-impulse\b/i, evidence: "announcement-bar-impulse", weight: 2 },
+    theme: "Story",
+    sections: [
+      { re: /\bslideshow-story\b/i, evidence: "slideshow-story" },
+      { re: /\bimage-with-text-overlay\b/i, evidence: "image-with-text-overlay" },
+    ],
+    css: [{ re: /\bstory-section\b/i, evidence: ".story-section" }],
+  },
+  // 3) Shrine
+  {
+    theme: "Shrine",
+    js: [
+      { re: /\bshrine\.js\b/i, evidence: "shrine.js" },
+      { re: /\btheme-shrine\.js\b/i, evidence: "theme-shrine.js" },
+    ],
+    css: [
+      { re: /\bshrine-product\b/i, evidence: ".shrine-product" },
+      { re: /\bshrine-variant-picker\b/i, evidence: ".shrine-variant-picker" },
+    ],
+    ux: [
+      { re: /\bsticky\s*(add to cart|atc)\b/i, evidence: "sticky ATC" },
+      { re: /\bvariant-selects\b/i, evidence: "<variant-selects>" },
     ],
   },
+  // 4) Impact
+  {
+    theme: "Impact",
+    js: [
+      { re: /\bimpact\.js\b/i, evidence: "impact.js" },
+      { re: /\bgsap\b/i, evidence: "GSAP" },
+      { re: /\bIntersectionObserver\b/i, evidence: "IntersectionObserver" },
+    ],
+    sections: [{ re: /\bscroll-reveal\b/i, evidence: "scroll-reveal" }],
+  },
+  // 5) Focal
+  {
+    theme: "Focal",
+    sections: [{ re: /\bfeatured-collection-carousel\b/i, evidence: "featured-collection-carousel" }],
+    css: [{ re: /\bfocal-/i, evidence: ".focal-*" }],
+  },
+  // 6) Prestige
   {
     theme: "Prestige",
-    patterns: [
-      { re: /\bprestige\.js\b/i, evidence: "prestige.js", weight: 3 },
-      { re: /\bPrestige Theme\b/i, evidence: "Prestige Theme", weight: 2 },
-      { re: /\bslideshow-prestige\b/i, evidence: "slideshow-prestige", weight: 2 },
+    css: [{ re: /\bprestige-/i, evidence: ".prestige-*" }],
+    sections: [
+      { re: /\blookbook\b/i, evidence: "lookbook" },
+      { re: /\bimage-with-text-overlay\b/i, evidence: "image-with-text-overlay" },
+      { re: /\bslideshow-prestige\b/i, evidence: "slideshow-prestige" },
     ],
+    layout: [{ re: /font-family\s*:\s*[^;]*serif/i, evidence: "serif typography" }],
   },
+  // 7) Paradise
+  { theme: "Paradise", sections: [{ re: /\bhero-fullscreen\b/i, evidence: "hero-fullscreen" }], css: [{ re: /\bparadise-/i, evidence: ".paradise-*" }] },
+  // 8) Symmetry
   {
-    theme: "Debut",
-    patterns: [
-      { re: /\bdebut\.js\b/i, evidence: "debut.js", weight: 3 },
-      { re: /\bDebut Theme\b/i, evidence: "Debut Theme", weight: 2 },
-    ],
+    theme: "Symmetry",
+    sections: [{ re: /\bfilter-sidebar\b/i, evidence: "filter-sidebar" }],
+    css: [{ re: /\bcollection-filters\b/i, evidence: ".collection-filters" }],
   },
+  // 9) Stiletto
   {
-    theme: "Turbo",
-    patterns: [
-      { re: /\bturbo\.js\b/i, evidence: "turbo.js", weight: 3 },
-      { re: /\bTurbo Theme\b/i, evidence: "Turbo Theme", weight: 2 },
-    ],
+    theme: "Stiletto",
+    sections: [{ re: /\beditorial-slideshow\b/i, evidence: "editorial-slideshow" }],
+    css: [{ re: /\bstiletto-/i, evidence: ".stiletto-*" }],
   },
-] as const;
+  // 10) Impulse
+  {
+    theme: "Impulse",
+    sections: [
+      { re: /\bpromo-banner\b/i, evidence: "promo-banner" },
+      { re: /\bcountdown-timer\b/i, evidence: "countdown-timer" },
+    ],
+    css: [{ re: /\bimpulse-/i, evidence: ".impulse-*" }],
+    ux: [{ re: /\bupsell\b/i, evidence: "upsell logic" }],
+  },
+  // 11) Motion
+  {
+    theme: "Motion",
+    sections: [{ re: /\banimated-text\b/i, evidence: "animated-text" }],
+    ux: [{ re: /\bscroll animation\b|\bscrollAnimation\b/i, evidence: "scroll animation handlers" }],
+  },
+  // 12) Empire
+  {
+    theme: "Empire",
+    sections: [{ re: /\bmega-collection\b/i, evidence: "mega-collection" }],
+    css: [{ re: /\bcollection-grid-large\b/i, evidence: "collection-grid-large" }],
+    ux: [{ re: /\bwholesale\b|\bb2b\b/i, evidence: "wholesale/B2B" }],
+  },
+  // 13) Palo Alto
+  {
+    theme: "Palo Alto",
+    sections: [{ re: /\btext-columns-with-images\b/i, evidence: "text-columns-with-images" }],
+    css: [{ re: /\bpaloalto-/i, evidence: ".paloalto-*" }],
+  },
+  // 14) Parallax
+  {
+    theme: "Parallax",
+    sections: [{ re: /\bparallax-image\b/i, evidence: "parallax-image" }],
+    js: [{ re: /\bparallax\b/i, evidence: "parallax handler" }],
+    css: [{ re: /background-attachment\s*:\s*fixed/i, evidence: "background-attachment: fixed" }],
+  },
+  // 15) Streamline
+  {
+    theme: "Streamline",
+    sections: [{ re: /\bmobile-optimized-slideshow\b/i, evidence: "mobile-optimized-slideshow" }],
+    ux: [{ re: /\bsticky\b.*\bmobile\b.*\badd to cart\b/i, evidence: "sticky mobile ATC" }],
+  },
+  // 16) Minimog
+  {
+    theme: "Minimog",
+    js: [{ re: /\bminimog\.js\b/i, evidence: "minimog.js" }],
+    css: [{ re: /\bm-section\b/i, evidence: ".m-section" }],
+    sections: [{ re: /\bm-product-recommendations\b/i, evidence: "m-product-recommendations" }],
+  },
+  // 17) Envy
+  {
+    theme: "Envy",
+    sections: [{ re: /\bfeatured-product-grid\b/i, evidence: "featured-product-grid" }],
+    css: [{ re: /\benvy-/i, evidence: ".envy-*" }],
+  },
+];
 
 function normalizeInputToHostname(input: string): string {
   const raw = String(input || "").trim();
@@ -104,78 +211,34 @@ function uniqByName(list: AppMatch[]) {
   return out;
 }
 
-function extractThemeFromText(html: string): ThemeMatch {
+function extractThemeStoreId(html: string): { themeStoreId: number | null; evidence?: string } {
   const text = String(html || "");
 
-  // High confidence: Shopify.theme object with explicit name.
+  // Extract theme_store_id from common JS objects (never use theme_name).
   const themeObjMatch = text.match(/Shopify\.theme\s*=\s*\{[\s\S]{0,500}?\}/i);
   if (themeObjMatch?.[0]) {
-    const nameMatch = themeObjMatch[0].match(/["']?name["']?\s*:\s*["']([^"']{2,64})["']/i);
     const storeIdMatch = themeObjMatch[0].match(/["']?theme_store_id["']?\s*:\s*(\d{1,6})/i);
     const themeStoreId = storeIdMatch?.[1] ? Number(storeIdMatch[1]) : null;
-    if (nameMatch?.[1]) {
-      return {
-        name: nameMatch[1].trim(),
-        confidence: "high",
-        evidence: "Shopify.theme.name",
-        themeStoreId,
-        methods: ["shopify_theme_name"],
-      };
-    }
-    if (themeStoreId) {
-      const mapped = THEME_STORE_ID_MAP[String(themeStoreId)];
-      if (mapped) {
-        return {
-          name: mapped,
-          confidence: "high",
-          evidence: `theme_store_id:${themeStoreId}`,
-          themeStoreId,
-          methods: ["theme_store_id"],
-        };
-      }
-      return { name: null, confidence: "low", evidence: `theme_store_id:${themeStoreId}`, themeStoreId, methods: ["theme_store_id"] };
-    }
+    if (themeStoreId) return { themeStoreId, evidence: "Shopify.theme.theme_store_id" };
   }
 
-  // Medium: JSON-ish embed (some storefronts render a "theme" object).
+  // JSON-ish embeds
   const embedded = text.match(/["']theme["']\s*:\s*\{[\s\S]{0,300}?\}/i);
   if (embedded?.[0]) {
-    const nameMatch = embedded[0].match(/["']?name["']?\s*:\s*["']([^"']{2,64})["']/i);
     const storeIdMatch = embedded[0].match(/["']?theme_store_id["']?\s*:\s*(\d{1,6})/i);
     const themeStoreId = storeIdMatch?.[1] ? Number(storeIdMatch[1]) : null;
-    if (nameMatch?.[1]) return { name: nameMatch[1].trim(), confidence: "medium", evidence: "theme object name", themeStoreId, methods: ["theme_object"] };
-    if (themeStoreId) {
-      const mapped = THEME_STORE_ID_MAP[String(themeStoreId)];
-      if (mapped) return { name: mapped, confidence: "high", evidence: `theme_store_id:${themeStoreId}`, themeStoreId, methods: ["theme_store_id"] };
-    }
+    if (themeStoreId) return { themeStoreId, evidence: "embedded theme.theme_store_id" };
   }
 
-  // Medium: ShopifyAnalytics meta sometimes includes a theme object.
-  // Example patterns: ShopifyAnalytics.meta = {"page":...,"theme":{"name":"Dawn",...}}
+  // ShopifyAnalytics.meta.theme_store_id
   const analyticsTheme = text.match(/ShopifyAnalytics\.meta[\s\S]{0,2500}?"theme"\s*:\s*\{[\s\S]{0,500}?\}/i);
   if (analyticsTheme?.[0]) {
-    const nameMatch = analyticsTheme[0].match(/["']name["']\s*:\s*["']([^"']{2,64})["']/i);
     const storeIdMatch = analyticsTheme[0].match(/["']theme_store_id["']\s*:\s*(\d{1,6})/i);
     const themeStoreId = storeIdMatch?.[1] ? Number(storeIdMatch[1]) : null;
-    if (nameMatch?.[1]) return { name: nameMatch[1].trim(), confidence: "medium", evidence: "ShopifyAnalytics.meta.theme.name", themeStoreId, methods: ["shopify_analytics_meta"] };
-    if (themeStoreId) {
-      const mapped = THEME_STORE_ID_MAP[String(themeStoreId)];
-      if (mapped) return { name: mapped, confidence: "high", evidence: `theme_store_id:${themeStoreId}`, themeStoreId, methods: ["theme_store_id"] };
-    }
+    if (themeStoreId) return { themeStoreId, evidence: "ShopifyAnalytics.meta.theme_store_id" };
   }
 
-  // Medium: theme_name / themeName keys used by some themes.
-  const themeNameKey = text.match(/["']theme[_-]?name["']\s*:\s*["']([^"']{2,64})["']/i);
-  if (themeNameKey?.[1]) return { name: themeNameKey[1].trim(), confidence: "medium", evidence: "theme_name key", methods: ["theme_name_key"] };
-
-  // Medium: data attribute or meta.
-  const dataAttr = text.match(/data-theme-name\s*=\s*["']([^"']{2,64})["']/i);
-  if (dataAttr?.[1]) return { name: dataAttr[1].trim(), confidence: "medium", evidence: "data-theme-name", methods: ["dom_data_attr"] };
-
-  const meta = text.match(/<meta[^>]+name=["']theme-name["'][^>]+content=["']([^"']{2,64})["']/i);
-  if (meta?.[1]) return { name: meta[1].trim(), confidence: "medium", evidence: "meta theme-name", methods: ["meta_theme_name"] };
-
-  return { name: null, confidence: "low" };
+  return { themeStoreId: null };
 }
 
 function normalizeMaybeUrl(raw: string, baseUrl: string): string | null {
@@ -225,9 +288,16 @@ function pickThemeAssetCandidates(html: string, baseUrl: string, storeHostname: 
   const priority = [
     "theme.css",
     "base.css",
+    "sections.css",
+    "theme.css",
+    "base.css",
     "styles.css",
     "theme.js",
     "global.js",
+    "shrine.js",
+    "theme-shrine.js",
+    "minimog.js",
+    "dbtfy.min.js",
     "app.js",
     "index.js",
     "vendor.js",
@@ -245,57 +315,93 @@ function pickThemeAssetCandidates(html: string, baseUrl: string, storeHostname: 
     return as.length - bs.length;
   });
 
+  // Add common public asset routes as fallback (some stores expose /assets/*).
+  if (uniq.length < 3) {
+    const base = baseUrl.replace(/\/$/, "");
+    const extras = [
+      `${base}/assets/theme.css`,
+      `${base}/assets/base.css`,
+      `${base}/assets/sections.css`,
+      `${base}/assets/theme.js`,
+      `${base}/assets/global.js`,
+    ].filter((u) => isAllowedAssetUrl(u, storeHostname));
+    for (const e of extras) {
+      if (uniq.includes(e)) continue;
+      uniq.push(e);
+      if (uniq.length >= 8) break;
+    }
+  }
+
   // Keep it fast.
-  return uniq.slice(0, 5);
+  return uniq.slice(0, 8);
 }
 
-function scoreThemeByFingerprints(text: string) {
-  const t = String(text || "").slice(0, 160_000);
-  const scores: Record<string, { score: number; evidence: string[] }> = {};
-
-  for (const fp of THEME_FINGERPRINTS) {
-    for (const p of fp.patterns) {
-      if (p.re.test(t)) {
-        const s = (scores[fp.theme] ||= { score: 0, evidence: [] });
-        s.score += p.weight;
-        if (s.evidence.length < 3) s.evidence.push(p.evidence);
-      }
-    }
+function matchAny(list: Array<{ re: RegExp; evidence: string }> | undefined, text: string) {
+  if (!list?.length) return null;
+  for (const it of list) {
+    if (it.re.test(text)) return it.evidence;
   }
-
-  const ranked = Object.entries(scores).sort((a, b) => b[1].score - a[1].score);
-  const top = ranked[0];
-  if (!top) return null;
-
-  // Thresholds tuned to avoid weak guesses.
-  const [theme, info] = top;
-  if (info.score >= 3) return { theme, confidence: info.score >= 5 ? ("high" as const) : ("medium" as const), evidence: info.evidence.join(", ") };
   return null;
 }
 
-function scoreThemeByDomHeuristics(html: string) {
-  const t = String(html || "").toLowerCase();
-  const hints: Array<{ theme: string; re: RegExp; evidence: string; weight: number }> = [
-    { theme: "Dawn", re: /header-drawer/i, evidence: "section:header-drawer", weight: 3 },
-    { theme: "Prestige", re: /slideshow-prestige/i, evidence: "section:slideshow-prestige", weight: 3 },
-    { theme: "Impulse", re: /announcement-bar-impulse/i, evidence: "section:announcement-bar-impulse", weight: 3 },
-  ];
+function scoreThemeByRules({
+  html,
+  corpus,
+}: {
+  html: string;
+  corpus: string;
+}): { theme: string; score: number; evidence: string[] } | null {
+  const h = String(html || "");
+  const t = String(corpus || "");
 
-  const scores: Record<string, { score: number; evidence: string[] }> = {};
-  for (const h of hints) {
-    if (h.re.test(t)) {
-      const s = (scores[h.theme] ||= { score: 0, evidence: [] });
-      s.score += h.weight;
-      s.evidence.push(h.evidence);
+  const scored: Array<{ theme: string; score: number; evidence: string[] }> = [];
+
+  for (const rule of THEME_RULES) {
+    // Hard rule (Debutify): if dbtfy signatures present → 100%.
+    const hardHit = matchAny(rule.hard100, t);
+    if (hardHit) {
+      return { theme: rule.theme, score: 100, evidence: [`hard:${hardHit}`] };
     }
+
+    let score = 0;
+    const ev: string[] = [];
+
+    const jsHit = matchAny(rule.js, t);
+    if (jsHit) {
+      score += 30;
+      ev.push(`js:${jsHit}`);
+    }
+
+    const cssHit = matchAny(rule.css, t);
+    if (cssHit) {
+      score += 25;
+      ev.push(`css:${cssHit}`);
+    }
+
+    const sectionHit = matchAny(rule.sections, h);
+    if (sectionHit) {
+      score += 20;
+      ev.push(`section:${sectionHit}`);
+    }
+
+    const uxHit = matchAny(rule.ux, t);
+    if (uxHit) {
+      score += 15;
+      ev.push(`ux:${uxHit}`);
+    }
+
+    const layoutHit = matchAny(rule.layout, t);
+    if (layoutHit) {
+      score += 10;
+      ev.push(`layout:${layoutHit}`);
+    }
+
+    if (score > 0) scored.push({ theme: rule.theme, score, evidence: ev });
   }
 
-  const ranked = Object.entries(scores).sort((a, b) => b[1].score - a[1].score);
-  const top = ranked[0];
-  if (!top) return null;
-  const [theme, info] = top;
-  if (info.score >= 3) return { theme, confidence: "medium" as const, evidence: info.evidence.join(", ") };
-  return null;
+  scored.sort((a, b) => b.score - a.score);
+  const top = scored[0];
+  return top || null;
 }
 
 function detectAppsFromHtml(html: string): AppMatch[] {
@@ -459,61 +565,83 @@ export async function GET(req: NextRequest) {
     } catch {}
 
     const isShopify = looksLikeShopify(home.text, home.headers, cartJs || undefined, productsJson || undefined);
-    let theme: ThemeMatch = isShopify ? extractThemeFromText(home.text) : { name: null, confidence: "low" as const };
+    let theme: ThemeMatch = isShopify ? { name: null, confidence: "low" as const } : { name: null, confidence: "low" as const };
 
-    // Pipeline (as requested):
-    // Method 1: Shopify.theme.name (handled by extractThemeFromText)
-    // Method 2: theme_store_id mapping (handled by extractThemeFromText)
-    // Method 3: assets fingerprint (CSS/JS)
-    if (isShopify && !theme.name) {
-      const assetUrls = pickThemeAssetCandidates(home.text, usedBase, hostname);
-      for (const assetUrl of assetUrls) {
-        try {
-          const asset = await safeFetchPartialText(assetUrl, 6500);
-          if (!asset.ok || !asset.text) continue;
-          const fp = scoreThemeByFingerprints(asset.text);
-          if (fp) {
-            theme = {
-              name: fp.theme,
-              confidence: fp.confidence,
-              evidence: `asset_fingerprint:${fp.evidence}`,
-              methods: ["asset_fingerprint"],
-            };
-            break;
-          }
-        } catch {
-          // ignore
+    // theme_store_id mapping (ultra reliable for theme-store themes)
+    if (isShopify) {
+      const storeIdInfo = extractThemeStoreId(home.text);
+      if (storeIdInfo.themeStoreId) {
+        const mapped = THEME_STORE_ID_MAP[String(storeIdInfo.themeStoreId)];
+        if (mapped) {
+          theme = {
+            name: mapped,
+            confidence: "high",
+            evidence: `theme_store_id:${storeIdInfo.themeStoreId}`,
+            themeStoreId: storeIdInfo.themeStoreId,
+            methods: ["theme_store_id"],
+            score: 100,
+          };
+        } else {
+          theme = {
+            name: null,
+            confidence: "low",
+            evidence: `theme_store_id:${storeIdInfo.themeStoreId}`,
+            themeStoreId: storeIdInfo.themeStoreId,
+            methods: ["theme_store_id"],
+          };
         }
       }
     }
 
-    // Method 4: DOM/section heuristics (fallback)
+    // Scoring fingerprints (name hidden detection)
     if (isShopify && !theme.name) {
-      const dom = scoreThemeByDomHeuristics(home.text);
-      if (dom) {
-        theme = { name: dom.theme, confidence: dom.confidence, evidence: `dom:${dom.evidence}`, methods: ["dom_heuristics"] };
+      const assetUrls = pickThemeAssetCandidates(home.text, usedBase, hostname);
+      const assetTexts: string[] = [];
+      for (const assetUrl of assetUrls) {
+        try {
+          const asset = await safeFetchPartialText(assetUrl, 6500);
+          if (!asset.ok || !asset.text) continue;
+          assetTexts.push(asset.text);
+        } catch {
+          // ignore
+        }
       }
-    }
 
-    // Method 5: Product JSON/JS fallback (some themes inject theme_name here)
-    if (isShopify && !theme.name) {
+      // Optional product.js as extra corpus (never use theme_name directly).
+      let productJsText = "";
       const handle = productsJson?.ok ? extractProductHandleFromProductsJson(productsJson.text) : null;
       if (handle) {
         const productJsUrl = `${usedBase.replace(/\/$/, "")}/products/${handle}.js`;
         try {
           const js = await safeFetchPartialText(productJsUrl, 6500);
-          if (js.ok && js.text) {
-            const m = js.text.match(/["']theme[_-]?name["']\s*:\s*["']([^"']{2,64})["']/i);
-            if (m?.[1]) {
-              theme = { name: m[1].trim(), confidence: "medium", evidence: "product.js theme_name", methods: ["product_js"] };
-            } else {
-              const fp = scoreThemeByFingerprints(js.text);
-              if (fp) theme = { name: fp.theme, confidence: fp.confidence, evidence: `product_js_fingerprint:${fp.evidence}`, methods: ["product_js"] };
-            }
-          }
+          if (js.ok && js.text) productJsText = js.text;
         } catch {
           // ignore
         }
+      }
+
+      const corpus = [home.text, ...assetTexts, productJsText, assetUrls.join("\n")].join("\n\n");
+      const top = scoreThemeByRules({ html: home.text, corpus });
+      if (top) {
+        if (top.score >= 70) {
+          theme = {
+            name: top.theme,
+            confidence: top.score >= 85 ? "high" : "medium",
+            evidence: top.evidence.slice(0, 4).join(" | "),
+            methods: ["fingerprint_scoring"],
+            score: top.score,
+          };
+        } else {
+          theme = {
+            name: "Custom / Forked theme",
+            confidence: "low",
+            evidence: `best_guess:${top.theme} score=${top.score}% (${top.evidence.slice(0, 3).join(" | ")})`,
+            methods: ["fingerprint_scoring"],
+            score: top.score,
+          };
+        }
+      } else {
+        theme = { name: "Custom / Forked theme", confidence: "low", evidence: "no fingerprints matched", methods: ["fingerprint_scoring"], score: 0 };
       }
     }
 
