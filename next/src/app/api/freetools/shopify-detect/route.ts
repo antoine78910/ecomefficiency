@@ -175,6 +175,46 @@ const THEME_RULES: ThemeScoreRule[] = [
     sections: [{ re: /\bfeatured-product-grid\b/i, evidence: "featured-product-grid" }],
     css: [{ re: /\benvy-/i, evidence: ".envy-*" }],
   },
+  // 18) Turbo
+  {
+    theme: "Turbo",
+    js: [{ re: /\bturbo\.js\b/i, evidence: "turbo.js" }],
+    ux: [{ re: /\bfast transitions\b|\bperformance-focused\b/i, evidence: "performance/fast transitions" }],
+  },
+  // 19) Flex
+  {
+    theme: "Flex",
+    // Keep conservative: look for explicit Flex asset/class markers.
+    js: [
+      { re: /\bflex\.js\b/i, evidence: "flex.js" },
+      { re: /\btheme-flex\b/i, evidence: "theme-flex" },
+    ],
+    css: [{ re: /\bflex-\w+/i, evidence: "flex-* classes" }],
+  },
+  // 20) Booster
+  {
+    theme: "Booster",
+    // Dropship conversion themes often expose booster assets or urgency blocks.
+    js: [
+      { re: /\bbooster(\.min)?\.js\b/i, evidence: "booster.js" },
+      { re: /\bbooster-theme\b/i, evidence: "booster-theme" },
+    ],
+    ux: [
+      { re: /\bscarcity\b|\burgency\b/i, evidence: "scarcity/urgency blocks" },
+      { re: /\bcountdown\b/i, evidence: "countdown timer" },
+    ],
+  },
+  // 21) Warehouse
+  {
+    theme: "Warehouse",
+    // Wholesale / dense catalogs.
+    js: [{ re: /\bwarehouse(\.min)?\.js\b/i, evidence: "warehouse.js" }],
+    sections: [{ re: /\bmega-collection\b/i, evidence: "mega-collection" }],
+    ux: [
+      { re: /\bwholesale\b|\bb2b\b/i, evidence: "wholesale/B2B" },
+      { re: /\bcollection-grid-large\b/i, evidence: "dense product grids" },
+    ],
+  },
 ];
 
 function normalizeInputToHostname(input: string): string {
