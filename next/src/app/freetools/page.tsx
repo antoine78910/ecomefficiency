@@ -68,8 +68,8 @@ export default function FreeToolsPage() {
               className="rounded-2xl border border-white/10 bg-gray-900/20 p-5 hover:border-purple-500/30 transition-colors"
             >
               <div className="flex items-center gap-3">
-                <div className="shrink-0 rounded-xl border border-white/10 bg-black/20 p-2">
-                  <Image src={t.illustration} alt="" width={36} height={36} className="opacity-95" />
+                <div className="shrink-0 rounded-2xl border border-white/10 bg-black/20 p-2.5">
+                  <Image src={t.illustration} alt="" width={44} height={44} className="opacity-95" />
                 </div>
                 <div className="min-w-0">
                   <div className="text-white font-semibold leading-snug">{t.title}</div>

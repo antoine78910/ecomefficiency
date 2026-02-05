@@ -4,6 +4,7 @@ export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
 type AppMatch = { name: string; confidence: "high" | "medium"; evidence: string };
+type ThemeMatch = { name: string | null; confidence: "high" | "medium" | "low"; evidence?: string };
 
 function normalizeInputToHostname(input: string): string {
   const raw = String(input || "").trim();
@@ -39,7 +40,7 @@ function uniqByName(list: AppMatch[]) {
   return out;
 }
 
-function extractTheme(html: string): { name: string | null; confidence: "high" | "medium" | "low"; evidence?: string } {
+function extractThemeFromText(html: string): ThemeMatch {
   const text = String(html || "");
 
   // High confidence: Shopify.theme object with explicit name.
@@ -58,6 +59,18 @@ function extractTheme(html: string): { name: string | null; confidence: "high" |
     if (nameMatch?.[1]) return { name: nameMatch[1].trim(), confidence: "medium", evidence: "theme object" };
   }
 
+  // Medium: ShopifyAnalytics meta sometimes includes a theme object.
+  // Example patterns: ShopifyAnalytics.meta = {"page":...,"theme":{"name":"Dawn",...}}
+  const analyticsTheme = text.match(/ShopifyAnalytics\.meta[\s\S]{0,2500}?"theme"\s*:\s*\{[\s\S]{0,500}?\}/i);
+  if (analyticsTheme?.[0]) {
+    const nameMatch = analyticsTheme[0].match(/["']name["']\s*:\s*["']([^"']{2,64})["']/i);
+    if (nameMatch?.[1]) return { name: nameMatch[1].trim(), confidence: "medium", evidence: "ShopifyAnalytics.meta.theme" };
+  }
+
+  // Medium: theme_name / themeName keys used by some themes.
+  const themeNameKey = text.match(/["']theme[_-]?name["']\s*:\s*["']([^"']{2,64})["']/i);
+  if (themeNameKey?.[1]) return { name: themeNameKey[1].trim(), confidence: "medium", evidence: "theme_name key" };
+
   // Medium: data attribute or meta.
   const dataAttr = text.match(/data-theme-name\s*=\s*["']([^"']{2,64})["']/i);
   if (dataAttr?.[1]) return { name: dataAttr[1].trim(), confidence: "medium", evidence: "data-theme-name" };
@@ -66,6 +79,101 @@ function extractTheme(html: string): { name: string | null; confidence: "high" |
   if (meta?.[1]) return { name: meta[1].trim(), confidence: "medium", evidence: "meta theme-name" };
 
   return { name: null, confidence: "low" };
+}
+
+function normalizeMaybeUrl(raw: string, baseUrl: string): string | null {
+  const s = String(raw || "").trim();
+  if (!s) return null;
+  try {
+    if (s.startsWith("//")) return new URL(`https:${s}`).toString();
+    if (s.startsWith("http://") || s.startsWith("https://")) return new URL(s).toString();
+    if (s.startsWith("/")) return new URL(s, baseUrl).toString();
+    // Relative path
+    return new URL(s, `${baseUrl.replace(/\/$/, "")}/`).toString();
+  } catch {
+    return null;
+  }
+}
+
+function isAllowedAssetUrl(url: string, storeHostname: string) {
+  try {
+    const u = new URL(url);
+    const host = u.hostname.toLowerCase();
+    const store = storeHostname.toLowerCase();
+    // Allow same host (some stores serve assets from their domain), and Shopify CDN.
+    return host === store || host === `www.${store}` || host === "cdn.shopify.com";
+  } catch {
+    return false;
+  }
+}
+
+function pickThemeAssetCandidates(html: string, baseUrl: string, storeHostname: string): string[] {
+  const text = String(html || "");
+  const rawUrls: string[] = [];
+
+  // src/href assets (including protocol-relative).
+  const attrRe = /\b(?:src|href)\s*=\s*["']([^"']{5,500})["']/gi;
+  for (let m = attrRe.exec(text); m; m = attrRe.exec(text)) rawUrls.push(m[1]!);
+
+  // Common Shopify CDN patterns not always captured by attributes (inline JS strings).
+  const cdnRe = /(https?:\/\/cdn\.shopify\.com\/s\/files\/[^"'\s>]+|\/\/cdn\.shopify\.com\/s\/files\/[^"'\s>]+|\/cdn\/shop\/t\/\d+\/assets\/[^"'\s>]+)/gi;
+  for (let m = cdnRe.exec(text); m; m = cdnRe.exec(text)) rawUrls.push(m[1]!);
+
+  const normalized = rawUrls
+    .map((u) => normalizeMaybeUrl(u, baseUrl))
+    .filter((u): u is string => !!u)
+    .filter((u) => isAllowedAssetUrl(u, storeHostname));
+
+  // Prefer likely theme assets.
+  const priority = [
+    "theme.css",
+    "base.css",
+    "styles.css",
+    "theme.js",
+    "global.js",
+    "app.js",
+    "index.js",
+    "vendor.js",
+  ];
+
+  const uniq = Array.from(new Set(normalized));
+  uniq.sort((a, b) => {
+    const as = a.toLowerCase();
+    const bs = b.toLowerCase();
+    const ai = priority.findIndex((p) => as.includes(p));
+    const bi = priority.findIndex((p) => bs.includes(p));
+    const ar = ai === -1 ? 999 : ai;
+    const br = bi === -1 ? 999 : bi;
+    if (ar !== br) return ar - br;
+    return as.length - bs.length;
+  });
+
+  // Keep it fast.
+  return uniq.slice(0, 5);
+}
+
+function extractThemeNameFromAssetText(assetText: string): string | null {
+  const t = String(assetText || "").slice(0, 120_000);
+
+  // Look for explicit theme markers in header comments.
+  const patterns: RegExp[] = [
+    /Theme\s*Name\s*:\s*([A-Za-z0-9][A-Za-z0-9 _-]{1,40})/i,
+    /Theme\s*:\s*([A-Za-z0-9][A-Za-z0-9 _-]{1,40})/i,
+    /Shopify\s+Theme\s*[-–]\s*([A-Za-z0-9][A-Za-z0-9 _-]{1,40})/i,
+    /\bDawn\b/i, // common baseline theme; keep last as a fallback
+  ];
+
+  for (const re of patterns) {
+    const m = t.match(re);
+    if (!m) continue;
+    const candidate = (m[1] || m[0] || "").trim();
+    if (!candidate) continue;
+    // Avoid returning generic tokens from minified bundles.
+    if (candidate.length < 3 || candidate.length > 48) continue;
+    return candidate;
+  }
+
+  return null;
 }
 
 function detectAppsFromHtml(html: string): AppMatch[] {
@@ -109,6 +217,22 @@ async function safeFetchText(url: string, timeoutMs: number) {
     headers: {
       "user-agent": "Mozilla/5.0 (compatible; EcomEfficiencyBot/1.0; +https://www.ecomefficiency.com)",
       accept: "text/html,*/*",
+    },
+    signal: AbortSignal.timeout(timeoutMs),
+    cache: "no-store",
+  });
+  const text = await r.text();
+  return { ok: r.ok, status: r.status, url: r.url, headers: r.headers, text };
+}
+
+async function safeFetchPartialText(url: string, timeoutMs: number) {
+  const r = await fetch(url, {
+    method: "GET",
+    redirect: "follow",
+    headers: {
+      "user-agent": "Mozilla/5.0 (compatible; EcomEfficiencyBot/1.0; +https://www.ecomefficiency.com)",
+      accept: "text/css,text/javascript,application/javascript,text/plain,*/*",
+      range: "bytes=0-80000",
     },
     signal: AbortSignal.timeout(timeoutMs),
     cache: "no-store",
@@ -202,7 +326,25 @@ export async function GET(req: NextRequest) {
     } catch {}
 
     const isShopify = looksLikeShopify(home.text, home.headers, cartJs || undefined, productsJson || undefined);
-    const theme = isShopify ? extractTheme(home.text) : { name: null, confidence: "low" as const };
+    let theme: ThemeMatch = isShopify ? extractThemeFromText(home.text) : { name: null, confidence: "low" as const };
+
+    // If theme name is not in HTML, fetch a couple of referenced theme assets (CSS/JS) and scan for a theme header.
+    if (isShopify && !theme.name) {
+      const assetUrls = pickThemeAssetCandidates(home.text, usedBase, hostname);
+      for (const assetUrl of assetUrls) {
+        try {
+          const asset = await safeFetchPartialText(assetUrl, 6500);
+          if (!asset.ok || !asset.text) continue;
+          const name = extractThemeNameFromAssetText(asset.text);
+          if (name) {
+            theme = { name, confidence: "medium", evidence: `asset:${new URL(assetUrl).pathname.split("/").pop() || "asset"}` };
+            break;
+          }
+        } catch {
+          // ignore
+        }
+      }
+    }
     const apps = isShopify ? detectAppsFromHtml(home.text) : [];
 
     const warnings: string[] = [];
