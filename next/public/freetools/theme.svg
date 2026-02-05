@@ -1,0 +1,21 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g" x1="10" y1="8" x2="54" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#9541e0" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#7c30c7" stop-opacity="0.95"/>
+    </linearGradient>
+    <filter id="s" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="10" stdDeviation="8" flood-color="#9541e0" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+
+  <rect x="10" y="8" width="44" height="48" rx="14" fill="#0B0B10" fill-opacity="0.85" stroke="url(#g)" stroke-opacity="0.55" filter="url(#s)"/>
+
+  <!-- magnifier -->
+  <circle cx="30" cy="32" r="10" stroke="#CFA8FF" stroke-width="3" opacity="0.9"/>
+  <path d="M38 40L46 48" stroke="#9541e0" stroke-width="4" stroke-linecap="round"/>
+
+  <!-- tiny tag to suggest 'theme' -->
+  <path d="M24 22h8l4 4v6l-4 4h-8l-4-4v-6l4-4Z" fill="#9541e0" fill-opacity="0.18" stroke="#9541e0" stroke-opacity="0.35"/>
+  <circle cx="27" cy="27" r="1.6" fill="#CFA8FF" opacity="0.9"/>
+</svg>

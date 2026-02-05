@@ -13,13 +13,13 @@ const CANONICAL = "/freetools/shopify-app-detector";
 export const metadata: Metadata = {
   title: "Shopify App Detector",
   description:
-    "Free Shopify app detector (Shopify apps detector). Detect apps and the Shopify theme used by a store (best effort) from public storefront signals.",
+    "Free Shopify app detector (Shopify apps detector). Detect the Shopify theme used by a store (best effort) and confirm Shopify from public storefront signals.",
   alternates: { canonical: CANONICAL },
   openGraph: {
     type: "website",
     url: CANONICAL,
     title: "Shopify App Detector",
-    description: "Shopify app detector (shopify apps detector): detect Shopify apps and theme names like Dawn (best effort).",
+    description: "Shopify app detector (shopify apps detector): detect Shopify theme names like Dawn (best effort) and confirm if a store is Shopify.",
     images: [{ url: "/header_ee.png?v=8", width: 1200, height: 630, alt: "Shopify app detector" }],
   },
 };
@@ -45,15 +45,15 @@ export default function ShopifyAppDetectorPage() {
   const faqItems = [
     {
       q: "What is a Shopify app detector?",
-      a: "A Shopify app detector checks a store’s public storefront code and looks for app signatures (script URLs, /apps/ paths, and other public signals).",
+      a: "A Shopify app detector checks a store’s public storefront signals. This version focuses on detecting the Shopify theme name (best effort) and confirming whether the site is Shopify.",
     },
     {
       q: "Can you detect the Shopify theme name (like Dawn)?",
       a: "Sometimes. If the theme name is exposed in public storefront code (for example in Shopify.theme), this tool can detect it. Some stores hide it, so detection is best effort.",
     },
     {
-      q: "Is the app list always accurate?",
-      a: "No. Apps can load after interaction, via tag managers, or server-side. This tool is designed to be helpful, but it cannot guarantee full accuracy for every store.",
+      q: "Why can theme detection fail?",
+      a: "Some stores hide theme info, block automated requests, or load storefront code dynamically. In those cases, we may not be able to detect the theme name reliably.",
     },
     {
       q: "Does this work for any website?",
@@ -90,7 +90,7 @@ export default function ShopifyAppDetectorPage() {
     <div className="min-h-screen bg-black">
       <NewNavbar />
 
-      <article className="max-w-6xl mx-auto px-6 lg:px-8 py-12">
+      <article className="w-full px-4 sm:px-6 lg:px-10 py-12">
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdWebPage) }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdFaq) }} />
 
@@ -112,12 +112,12 @@ export default function ShopifyAppDetectorPage() {
 
           <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">Shopify app detector</h1>
           <p className="text-gray-300 text-lg leading-relaxed">
-            This <strong>shopify app detector</strong> (also searched as <strong>shopify apps detector</strong>) helps you identify Shopify apps and the
-            Shopify theme used by a store, such as Dawn, based on public storefront signals.
+            This <strong>shopify app detector</strong> (also searched as <strong>shopify apps detector</strong>) helps you detect the Shopify theme name (best
+            effort) and confirm whether a website is Shopify, based on public storefront signals.
           </p>
         </header>
 
-        <div className="mt-10 grid gap-10 lg:grid-cols-[320px_1fr] lg:items-start">
+        <div className="mt-10 grid gap-8 lg:gap-10 lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start">
           <aside className="hidden lg:block lg:sticky lg:top-24 self-start flex flex-col">
             <div
               className="min-h-0 overflow-y-auto pr-1
@@ -132,7 +132,7 @@ export default function ShopifyAppDetectorPage() {
             </div>
           </aside>
 
-          <div className="min-w-0 max-w-4xl mx-auto lg:mx-0">
+          <div className="min-w-0 max-w-none">
             <SectionTitle id="detector">Detector</SectionTitle>
             <ShopifyAppDetector />
 
@@ -145,9 +145,9 @@ export default function ShopifyAppDetectorPage() {
                 </p>
               </div>
               <div className="rounded-2xl border border-white/10 bg-gray-900/20 p-5">
-                <div className="text-white font-semibold mb-2">Installed apps (best effort)</div>
+                <div className="text-white font-semibold mb-2">Shopify confirmation</div>
                 <p className="text-gray-300 leading-relaxed text-sm">
-                  We scan the homepage HTML for known app signatures. Some apps load after interaction, so results can be incomplete.
+                  We also show whether we could confirm the site is running on Shopify using public endpoints and storefront signals.
                 </p>
               </div>
             </div>
@@ -155,14 +155,14 @@ export default function ShopifyAppDetectorPage() {
             <SectionTitle id="how-it-works">How it works</SectionTitle>
             <p className="text-gray-300 leading-relaxed mb-4">
               The detector fetches the store homepage server-side and checks for Shopify signals (Shopify assets, public endpoints like cart.js, and global
-              variables). It then extracts theme hints and app signatures when they are visible.
+              variables). It then extracts theme hints when they are visible.
             </p>
 
             <SectionTitle id="limitations">Limitations</SectionTitle>
             <ul className="list-disc list-inside space-y-2 text-gray-300">
               <li>Some stores block automated requests or require JavaScript to render critical parts of the page.</li>
               <li>Theme name is not always publicly exposed, even on Shopify stores.</li>
-              <li>Apps can load dynamically, so the homepage may not reveal everything.</li>
+              <li>Stores can customize or remove theme signals, which lowers detection confidence.</li>
             </ul>
 
             <SectionTitle id="faq">FAQ</SectionTitle>

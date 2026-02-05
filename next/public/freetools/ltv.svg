@@ -1,0 +1,27 @@
+<svg width="64" height="64" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="g" x1="10" y1="8" x2="54" y2="56" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#9541e0" stop-opacity="0.95"/>
+      <stop offset="1" stop-color="#7c30c7" stop-opacity="0.95"/>
+    </linearGradient>
+    <filter id="s" x="-20%" y="-20%" width="140%" height="140%" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="10" stdDeviation="8" flood-color="#9541e0" flood-opacity="0.18"/>
+    </filter>
+  </defs>
+
+  <rect x="10" y="8" width="44" height="48" rx="14" fill="#0B0B10" fill-opacity="0.85" stroke="url(#g)" stroke-opacity="0.55" filter="url(#s)"/>
+
+  <!-- calculator -->
+  <rect x="20" y="18" width="24" height="8" rx="3" fill="#1A1026" stroke="#CFA8FF" stroke-opacity="0.55"/>
+  <rect x="20" y="30" width="24" height="20" rx="6" fill="#0F0B14" stroke="#CFA8FF" stroke-opacity="0.25"/>
+
+  <circle cx="26" cy="36" r="2" fill="#CFA8FF" opacity="0.9"/>
+  <circle cx="32" cy="36" r="2" fill="#CFA8FF" opacity="0.9"/>
+  <circle cx="38" cy="36" r="2" fill="#CFA8FF" opacity="0.9"/>
+  <circle cx="26" cy="42" r="2" fill="#CFA8FF" opacity="0.9"/>
+  <circle cx="32" cy="42" r="2" fill="#CFA8FF" opacity="0.9"/>
+  <circle cx="38" cy="42" r="2" fill="#CFA8FF" opacity="0.9"/>
+
+  <!-- small heart/value mark -->
+  <path d="M46 26c0-2-1.6-3.6-3.6-3.6-1.3 0-2.5.7-3.1 1.8-.6-1.1-1.8-1.8-3.1-1.8-2 0-3.6 1.6-3.6 3.6 0 3.4 6.7 7.4 6.7 7.4S46 29.4 46 26Z" fill="#9541e0" opacity="0.9"/>
+</svg>

@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Image from "next/image";
 import Link from "next/link";
 
 import Footer from "@/components/Footer";
@@ -25,19 +26,19 @@ const tools = [
     slug: "break-even-roas-calculator",
     title: "Break even ROAS calculator",
     description: "Calculate break-even ROAS and max CPA using VAT, fees, shipping, and product cost.",
-    primaryKeyword: "break even roas calculator",
+    illustration: "/freetools/roas.svg",
   },
   {
     slug: "shopify-app-detector",
     title: "Shopify app detector",
     description: "Detect Shopify apps and the Shopify theme used by a store (best effort), including theme names like Dawn.",
-    primaryKeyword: "shopify app detector",
+    illustration: "/freetools/theme.svg",
   },
   {
     slug: "customer-lifetime-value-calculator",
     title: "Customer lifetime value calculator",
     description: "Estimate customer LTV, LTV:CAC ratio, and net profit per customer after marketing costs.",
-    primaryKeyword: "customer lifetime value calculator",
+    illustration: "/freetools/ltv.svg",
   },
 ] as const;
 
@@ -66,11 +67,15 @@ export default function FreeToolsPage() {
               title={t.title}
               className="rounded-2xl border border-white/10 bg-gray-900/20 p-5 hover:border-purple-500/30 transition-colors"
             >
-              <div className="text-white font-semibold">{t.title}</div>
-              <div className="text-sm text-gray-400 mt-2">{t.description}</div>
-              <div className="mt-4 text-[11px] text-gray-500">
-                Primary keyword: <span className="text-gray-300">{t.primaryKeyword}</span>
+              <div className="flex items-center gap-3">
+                <div className="shrink-0 rounded-xl border border-white/10 bg-black/20 p-2">
+                  <Image src={t.illustration} alt="" width={36} height={36} className="opacity-95" />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-white font-semibold leading-snug">{t.title}</div>
+                </div>
               </div>
+              <div className="text-sm text-gray-400 mt-2">{t.description}</div>
             </Link>
           ))}
         </section>

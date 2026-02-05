@@ -42,9 +42,9 @@ function Field({
 }) {
   return (
     <label className="block">
-      <div className="flex items-baseline justify-between gap-3 mb-2">
+      <div className="flex items-start justify-between gap-3 mb-2 min-h-[36px]">
         <div className="text-sm font-medium text-gray-200">{label}</div>
-        {helper ? <div className="text-[11px] text-gray-500">{helper}</div> : null}
+        {helper ? <div className="text-[11px] text-gray-500 truncate max-w-[170px]">{helper}</div> : null}
       </div>
       <div className="relative">
         {prefix ? (
@@ -74,8 +74,13 @@ function Field({
 
 function RatioLabel({ ratio }: { ratio: number }) {
   const label = ratio >= 3 ? "Healthy ratio" : ratio >= 2 ? "Acceptable ratio" : "Risky ratio";
-  const color = ratio >= 3 ? "text-green-300" : ratio >= 2 ? "text-yellow-300" : "text-red-300";
-  return <div className={`text-xs mt-1 ${color}`}>{label}</div>;
+  const tone =
+    ratio >= 3
+      ? "border-[#9541e0]/35 bg-[#9541e0]/18 text-purple-100"
+      : ratio >= 2
+        ? "border-[#9541e0]/20 bg-[#9541e0]/10 text-gray-200"
+        : "border-red-500/25 bg-red-500/10 text-red-200";
+  return <div className={`inline-flex mt-2 rounded-full border px-2.5 py-1 text-[11px] ${tone}`}>{label}</div>;
 }
 
 export default function LtvCalculator() {
@@ -122,13 +127,13 @@ export default function LtvCalculator() {
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_420px] items-start">
       <div className="rounded-3xl border border-white/10 bg-gray-900/20 p-5 md:p-6">
-        <div className="flex items-start justify-between gap-4 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4 mb-6">
           <div>
             <div className="text-white font-semibold">Unit economics</div>
             <div className="text-xs text-gray-400 mt-1">Enter your numbers and see LTV update instantly.</div>
           </div>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-end gap-2">
             <label className="shrink-0">
               <div className="text-[11px] text-gray-400 mb-2">Currency</div>
               <div className="relative">
@@ -147,7 +152,11 @@ export default function LtvCalculator() {
             <button
               type="button"
               onClick={reset}
-              className="mt-[18px] rounded-xl border border-white/10 bg-black/30 hover:bg-black/40 text-white text-sm px-4 py-2 transition-colors"
+              className={[
+                "mt-[18px] rounded-xl px-4 py-2 text-sm font-semibold transition-colors",
+                "bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] hover:brightness-110",
+                "border border-[#9541e0]/60 text-white shadow-[0_10px_30px_rgba(149,65,224,0.18)]",
+              ].join(" ")}
               title="Reset"
             >
               Reset
@@ -210,22 +219,22 @@ export default function LtvCalculator() {
       </div>
 
       <div className="grid gap-4">
-        <div className="rounded-3xl border border-white/10 bg-white text-black p-6">
-          <div className="text-sm text-black/60">Customer LTV</div>
+        <div className="rounded-3xl border border-[#9541e0]/35 bg-gradient-to-b from-[#9541e0]/22 to-transparent text-white p-6 shadow-[0_12px_40px_rgba(0,0,0,0.35)]">
+          <div className="text-sm text-purple-100 font-semibold tracking-wide">Customer LTV</div>
           <div className="mt-2 text-4xl font-extrabold tabular-nums">{formatCurrency(computed.ltvProfit, currency)}</div>
-          <div className="text-sm text-black/60 mt-1">Lifetime profit</div>
+          <div className="text-sm text-gray-300 mt-1">Lifetime profit</div>
         </div>
 
-        <div className="rounded-3xl border border-white/10 bg-white text-black p-6">
-          <div className="text-sm text-black/60">LTV:CAC Ratio</div>
-          <div className="mt-2 text-4xl font-extrabold tabular-nums text-[#16a34a]">{formatRatio(computed.ratio)}</div>
+        <div className="rounded-3xl border border-[#9541e0]/35 bg-gradient-to-b from-[#9541e0]/22 to-transparent text-white p-6 shadow-[0_12px_40px_rgba(0,0,0,0.35)]">
+          <div className="text-sm text-purple-100 font-semibold tracking-wide">LTV:CAC Ratio</div>
+          <div className="mt-2 text-4xl font-extrabold tabular-nums text-white">{formatRatio(computed.ratio)}</div>
           <RatioLabel ratio={computed.ratio} />
         </div>
 
-        <div className="rounded-3xl border border-white/10 bg-white text-black p-6">
-          <div className="text-sm text-black/60">Net profit / customer</div>
+        <div className="rounded-3xl border border-[#9541e0]/35 bg-gradient-to-b from-[#9541e0]/22 to-transparent text-white p-6 shadow-[0_12px_40px_rgba(0,0,0,0.35)]">
+          <div className="text-sm text-purple-100 font-semibold tracking-wide">Net profit / customer</div>
           <div className="mt-2 text-4xl font-extrabold tabular-nums">{formatCurrency(computed.netProfitAfterMarketing, currency)}</div>
-          <div className="text-sm text-black/60 mt-1">After marketing costs</div>
+          <div className="text-sm text-gray-300 mt-1">After marketing costs</div>
         </div>
       </div>
     </div>

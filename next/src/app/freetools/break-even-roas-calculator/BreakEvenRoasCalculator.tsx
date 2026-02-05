@@ -120,9 +120,9 @@ export default function BreakEvenRoasCalculator() {
   const cpaMain = computed.breakEvenCpa > 0 ? formatCurrency(computed.breakEvenCpa, currency) : "—";
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[1fr_360px] items-start">
+    <div className="grid gap-6 lg:grid-cols-[1fr_420px] items-start">
       <div className="rounded-3xl border border-white/10 bg-gray-900/20 p-5 md:p-6">
-        <div className="flex items-center justify-between gap-3 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-6">
           <div>
             <div className="text-white font-semibold">Inputs</div>
             <div className="text-xs text-gray-400 mt-1">Adjust values to see ROAS and CPA update instantly.</div>
@@ -185,33 +185,33 @@ export default function BreakEvenRoasCalculator() {
       </div>
 
       <div className="grid gap-4">
-        <div className="rounded-3xl border border-white/10 bg-[#b6ff5a] text-black p-6 shadow-[0_12px_40px_rgba(0,0,0,0.35)]">
-          <div className="flex items-center gap-2 text-sm font-semibold tracking-wide">
+        <div className="rounded-3xl border border-[#9541e0]/35 bg-gradient-to-b from-[#9541e0]/22 to-transparent text-white p-6 shadow-[0_12px_40px_rgba(0,0,0,0.35)]">
+          <div className="flex items-center gap-2 text-sm font-semibold tracking-wide text-purple-100">
             <TrendingUp className="h-4 w-4" />
             ROAS BREAK EVEN
           </div>
-          <div className="mt-4 text-5xl font-extrabold tabular-nums">{roasMain}</div>
+          <div className="mt-4 text-4xl md:text-5xl font-extrabold tabular-nums leading-none">{roasMain}</div>
 
-          <div className="mt-5 grid gap-2 text-sm">
+          <div className="mt-5 grid gap-2 text-sm text-gray-200">
             <div className="flex items-center justify-between">
               <span className="font-medium">10% profit:</span>
-              <span className="tabular-nums font-semibold">{formatRoas(computed.roas10)}</span>
+              <span className="tabular-nums font-semibold text-white">{formatRoas(computed.roas10)}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="font-medium">20% profit:</span>
-              <span className="tabular-nums font-semibold">{formatRoas(computed.roas20)}</span>
+              <span className="tabular-nums font-semibold text-white">{formatRoas(computed.roas20)}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="font-medium">30% profit:</span>
-              <span className="tabular-nums font-semibold">{formatRoas(computed.roas30)}</span>
+              <span className="tabular-nums font-semibold text-white">{formatRoas(computed.roas30)}</span>
             </div>
           </div>
         </div>
 
-        <div className="rounded-3xl border border-white/10 bg-[#b6ff5a] text-black p-6 shadow-[0_12px_40px_rgba(0,0,0,0.35)]">
-          <div className="text-sm font-semibold tracking-wide">CPA BREAK EVEN</div>
-          <div className="mt-4 text-5xl font-extrabold tabular-nums">{cpaMain}</div>
-          <div className="mt-3 text-xs text-black/70">
+        <div className="rounded-3xl border border-[#9541e0]/35 bg-gradient-to-b from-[#9541e0]/22 to-transparent text-white p-6 shadow-[0_12px_40px_rgba(0,0,0,0.35)]">
+          <div className="text-sm font-semibold tracking-wide text-purple-100">CPA BREAK EVEN</div>
+          <div className="mt-4 text-4xl md:text-5xl font-extrabold tabular-nums leading-none">{cpaMain}</div>
+          <div className="mt-3 text-xs text-gray-300">
             This is the maximum acquisition cost you can afford per purchase before you lose money.
           </div>
         </div>

@@ -100,7 +100,7 @@ export default function CustomerLifetimeValueCalculatorPage() {
     <div className="min-h-screen bg-black">
       <NewNavbar />
 
-      <article className="max-w-6xl mx-auto px-6 lg:px-8 py-12">
+      <article className="w-full px-4 sm:px-6 lg:px-10 py-12">
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdWebPage) }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdFaq) }} />
 
@@ -127,7 +127,7 @@ export default function CustomerLifetimeValueCalculatorPage() {
           </p>
         </header>
 
-        <div className="mt-10 grid gap-10 lg:grid-cols-[320px_1fr] lg:items-start">
+        <div className="mt-10 grid gap-8 lg:gap-10 lg:grid-cols-[260px_minmax(0,1fr)] lg:items-start">
           <aside className="hidden lg:block lg:sticky lg:top-24 self-start flex flex-col">
             <div
               className="min-h-0 overflow-y-auto pr-1
@@ -142,7 +142,7 @@ export default function CustomerLifetimeValueCalculatorPage() {
             </div>
           </aside>
 
-          <div className="min-w-0 max-w-4xl mx-auto lg:mx-0">
+          <div className="min-w-0 max-w-none">
             <SectionTitle id="calculator">Calculator</SectionTitle>
             <LtvCalculator />
 
