@@ -35,6 +35,12 @@ const tools = [
     illustration: "/freetools/tiktok.svg",
   },
   {
+    slug: "instagram-comment-generator",
+    title: "Instagram comment generator",
+    description: "Generate unlimited Instagram comments for free (AI-style, export as image).",
+    illustration: "/freetools/instagram.svg",
+  },
+  {
     slug: "shopify-app-detector",
     title: "Shopify app detector",
     description: "Detect Shopify apps and the Shopify theme used by a store (best effort), including theme names like Dawn.",

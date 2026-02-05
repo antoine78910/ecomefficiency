@@ -16,6 +16,7 @@ export default function aiSitemap(): MetadataRoute.Sitemap {
     { path: "/freetools", priority: 0.7, changeFrequency: "weekly" },
     { path: "/freetools/break-even-roas-calculator", priority: 0.7, changeFrequency: "monthly" },
     { path: "/freetools/tiktok-comment-generator", priority: 0.7, changeFrequency: "weekly" },
+    { path: "/freetools/instagram-comment-generator", priority: 0.7, changeFrequency: "weekly" },
     { path: "/freetools/shopify-app-detector", priority: 0.7, changeFrequency: "weekly" },
     { path: "/freetools/customer-lifetime-value-calculator", priority: 0.7, changeFrequency: "weekly" },
     { path: "/affiliate", priority: 0.6, changeFrequency: "monthly" },

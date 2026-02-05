@@ -79,6 +79,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE_URL}/freetools`, changeFrequency: "weekly", priority: 0.7 },
     { url: `${BASE_URL}/freetools/break-even-roas-calculator`, changeFrequency: "monthly", priority: 0.7 },
     { url: `${BASE_URL}/freetools/tiktok-comment-generator`, changeFrequency: "weekly", priority: 0.7 },
+    { url: `${BASE_URL}/freetools/instagram-comment-generator`, changeFrequency: "weekly", priority: 0.7 },
     { url: `${BASE_URL}/freetools/shopify-app-detector`, changeFrequency: "weekly", priority: 0.7 },
     { url: `${BASE_URL}/freetools/customer-lifetime-value-calculator`, changeFrequency: "weekly", priority: 0.7 },
   ];
