@@ -277,24 +277,61 @@ function extractThemeStoreId(html: string): { themeStoreId: number | null; evide
   return { themeStoreId: null };
 }
 
-function extractShopifyThemeName(html: string): string | null {
+function decodeShopifyThemeString(raw: string) {
+  // Shopify.theme.name sometimes contains escaped slashes like "oodie\\/live\\/AUS"
+  return String(raw || "").replace(/\\\//g, "/").trim();
+}
+
+function extractShopifyThemeMeta(html: string): {
+  internalName: string | null;
+  schemaName: string | null;
+  schemaVersion: string | null;
+  themeStoreId: number | null;
+  evidence?: string;
+} {
   const text = String(html || "");
 
-  // Prefer Shopify.theme = { ... name: "..." ... }
-  const themeObjMatch = text.match(/Shopify\.theme\s*=\s*\{[\s\S]{0,1200}?\}/i);
+  // Prefer Shopify.theme = { ... }
+  const themeObjMatch = text.match(/Shopify\.theme\s*=\s*\{[\s\S]{0,2000}?\}/i);
   if (themeObjMatch?.[0]) {
-    const nameMatch = themeObjMatch[0].match(/["']?name["']?\s*:\s*["']([^"']{2,160})["']/i);
-    if (nameMatch?.[1]) return nameMatch[1].trim();
+    const obj = themeObjMatch[0];
+    const nameMatch = obj.match(/["']?name["']?\s*:\s*["']([^"']{1,220})["']/i);
+    const schemaNameMatch = obj.match(/["']?schema_name["']?\s*:\s*["']([^"']{1,120})["']/i);
+    const schemaVersionMatch = obj.match(/["']?schema_version["']?\s*:\s*["']([^"']{1,40})["']/i);
+    const storeIdMatch = obj.match(/["']?theme_store_id["']?\s*:\s*(\d{1,6}|null)/i);
+    const themeStoreId =
+      storeIdMatch?.[1] && storeIdMatch[1].toLowerCase() !== "null" ? Number(storeIdMatch[1]) : null;
+
+    return {
+      internalName: nameMatch?.[1] ? decodeShopifyThemeString(nameMatch[1]) : null,
+      schemaName: schemaNameMatch?.[1] ? decodeShopifyThemeString(schemaNameMatch[1]) : null,
+      schemaVersion: schemaVersionMatch?.[1] ? decodeShopifyThemeString(schemaVersionMatch[1]) : null,
+      themeStoreId,
+      evidence: "Shopify.theme",
+    };
   }
 
-  // ShopifyAnalytics meta theme name
+  // ShopifyAnalytics meta theme
   const analyticsTheme = text.match(/ShopifyAnalytics\.meta[\s\S]{0,4000}?"theme"\s*:\s*\{[\s\S]{0,900}?\}/i);
   if (analyticsTheme?.[0]) {
-    const nameMatch = analyticsTheme[0].match(/["']name["']\s*:\s*["']([^"']{2,160})["']/i);
-    if (nameMatch?.[1]) return nameMatch[1].trim();
+    const obj = analyticsTheme[0];
+    const nameMatch = obj.match(/["']name["']\s*:\s*["']([^"']{1,220})["']/i);
+    const schemaNameMatch = obj.match(/["']schema_name["']\s*:\s*["']([^"']{1,120})["']/i);
+    const schemaVersionMatch = obj.match(/["']schema_version["']\s*:\s*["']([^"']{1,40})["']/i);
+    const storeIdMatch = obj.match(/["']theme_store_id["']\s*:\s*(\d{1,6}|null)/i);
+    const themeStoreId =
+      storeIdMatch?.[1] && storeIdMatch[1].toLowerCase() !== "null" ? Number(storeIdMatch[1]) : null;
+
+    return {
+      internalName: nameMatch?.[1] ? decodeShopifyThemeString(nameMatch[1]) : null,
+      schemaName: schemaNameMatch?.[1] ? decodeShopifyThemeString(schemaNameMatch[1]) : null,
+      schemaVersion: schemaVersionMatch?.[1] ? decodeShopifyThemeString(schemaVersionMatch[1]) : null,
+      themeStoreId,
+      evidence: "ShopifyAnalytics.meta.theme",
+    };
   }
 
-  return null;
+  return { internalName: null, schemaName: null, schemaVersion: null, themeStoreId: null };
 }
 
 function inferShrineVariantFromCorpus(corpus: string) {
@@ -680,14 +717,14 @@ export async function GET(req: NextRequest) {
       }
 
       const corpus = [home.text, ...assetTexts, productJsText, assetUrls.join("\n")].join("\n\n");
-      const base = detectDawnBase(corpus);
-      const internalName = extractShopifyThemeName(home.text);
+      const meta = extractShopifyThemeMeta(home.text);
+      const base = meta.schemaName?.toLowerCase() === "dawn" ? ("Dawn OS 2.0" as const) : detectDawnBase(corpus);
 
       // STEP 2 — Exclusive signals (stop & return)
       const exclusive = detectExclusiveTheme(corpus);
       if (exclusive) {
         const displayName =
-          exclusive.theme === "Shrine" ? inferShrineVariantFromCorpus(`${corpus}\n${internalName || ""}`) : exclusive.theme;
+          exclusive.theme === "Shrine" ? inferShrineVariantFromCorpus(`${corpus}\n${meta.internalName || ""}`) : exclusive.theme;
         theme = {
           name: displayName,
           confidence: "high",
@@ -695,48 +732,65 @@ export async function GET(req: NextRequest) {
           methods: ["exclusive_signal"],
           score: exclusive.score,
           base,
-          internalName: internalName || null,
+          internalName: meta.internalName || null,
+          themeStoreId: meta.themeStoreId,
         };
       } else {
-        // theme_store_id mapping is still used as an extra strong hint (not required, but very reliable).
-        const storeIdInfo = extractThemeStoreId(home.text);
-        const storeIdMapped = storeIdInfo.themeStoreId ? THEME_STORE_ID_MAP[String(storeIdInfo.themeStoreId)] : null;
-
-        const all = scoreThemeByRules({ html: home.text, corpus });
-        const top = all[0] || null;
-        const second = all[1] || null;
-
-        // Adaptive thresholds:
-        // ≥75 High confidence, ≥60 Probable, ≥45 Likely, else Custom.
-        if (top && top.score >= 60) {
-          const ambiguous = second && second.score >= 60 ? ` | ambiguous:${second.theme}=${second.score}%` : "";
+        // STEP 0 (evidence-first): if Shopify exposes schema_name, use it.
+        // Example: Shopify.theme = { name:"oodie/live/AUS", schema_name:"Dawn", schema_version:"15.0.1", theme_store_id:null }
+        if (meta.schemaName) {
           theme = {
-            name: top.theme,
-            confidence: top.score >= 75 ? "high" : "medium",
-            evidence: `${top.evidence.slice(0, 4).join(" | ")}${storeIdMapped ? ` | store_id_hint:${storeIdMapped}` : ""}${ambiguous}`,
-            methods: ["fingerprint_scoring"],
-            score: top.score,
-            themeStoreId: storeIdInfo.themeStoreId || null,
+            name: meta.schemaName,
+            confidence: "high",
+            evidence: `${meta.evidence || "Shopify.theme"}:schema_name${meta.schemaVersion ? ` v${meta.schemaVersion}` : ""}`,
+            methods: ["shopify_theme_schema_name"],
+            score: 100,
             base,
-            internalName: internalName || null,
+            internalName: meta.internalName,
+            themeStoreId: meta.themeStoreId,
           };
-        } else if (top && top.score >= 45) {
-          // Soft detection: return most likely theme (not overly conservative).
-          theme = {
-            name: top.theme,
-            confidence: "medium",
-            evidence: `soft:${top.evidence.slice(0, 4).join(" | ")}${storeIdMapped ? ` | store_id_hint:${storeIdMapped}` : ""}`,
-            methods: ["fingerprint_scoring"],
-            score: top.score,
-            themeStoreId: storeIdInfo.themeStoreId || null,
-            base,
-            internalName: internalName || null,
-          };
+          // If it's a Dawn-based custom, keep schema_name as theme, and internalName for the shop's environment.
         } else {
-          theme =
-            base === "Dawn OS 2.0"
-              ? { name: "Dawn-based Custom", confidence: "low", evidence: "base=Dawn OS 2.0 but no theme scored ≥45%", methods: ["base_detection"], score: top?.score || 0, base, internalName: internalName || null }
-              : { name: "Custom", confidence: "low", evidence: "no theme scored ≥45%", methods: ["fingerprint_scoring"], score: top?.score || 0, base, internalName: internalName || null };
+          // theme_store_id mapping is still used as an extra strong hint (not required, but very reliable).
+          const storeIdInfo = extractThemeStoreId(home.text);
+          const storeIdMapped = storeIdInfo.themeStoreId ? THEME_STORE_ID_MAP[String(storeIdInfo.themeStoreId)] : null;
+
+          const all = scoreThemeByRules({ html: home.text, corpus });
+          const top = all[0] || null;
+          const second = all[1] || null;
+
+          // Adaptive thresholds:
+          // ≥75 High confidence, ≥60 Probable, ≥45 Likely, else Custom.
+          if (top && top.score >= 60) {
+            const ambiguous = second && second.score >= 60 ? ` | ambiguous:${second.theme}=${second.score}%` : "";
+            theme = {
+              name: top.theme,
+              confidence: top.score >= 75 ? "high" : "medium",
+              evidence: `${top.evidence.slice(0, 4).join(" | ")}${storeIdMapped ? ` | store_id_hint:${storeIdMapped}` : ""}${ambiguous}`,
+              methods: ["fingerprint_scoring"],
+              score: top.score,
+              themeStoreId: storeIdInfo.themeStoreId || null,
+              base,
+              internalName: meta.internalName || null,
+            };
+          } else if (top && top.score >= 45) {
+            // Soft detection: return most likely theme (not overly conservative).
+            theme = {
+              name: top.theme,
+              confidence: "medium",
+              evidence: `soft:${top.evidence.slice(0, 4).join(" | ")}${storeIdMapped ? ` | store_id_hint:${storeIdMapped}` : ""}`,
+              methods: ["fingerprint_scoring"],
+              score: top.score,
+              themeStoreId: storeIdInfo.themeStoreId || null,
+              base,
+              internalName: meta.internalName || null,
+            };
+          } else {
+            theme =
+              base === "Dawn OS 2.0"
+                ? { name: "Dawn-based Custom", confidence: "low", evidence: "base=Dawn OS 2.0 but no theme scored ≥45%", methods: ["base_detection"], score: top?.score || 0, base, internalName: meta.internalName || null }
+                : { name: "Custom", confidence: "low", evidence: "no theme scored ≥45%", methods: ["fingerprint_scoring"], score: top?.score || 0, base, internalName: meta.internalName || null };
+          }
         }
       }
     }
