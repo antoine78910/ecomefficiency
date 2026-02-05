@@ -29,6 +29,12 @@ const tools = [
     illustration: "/freetools/roas.svg",
   },
   {
+    slug: "tiktok-comment-generator",
+    title: "TikTok comment generator",
+    description: "Generate unlimited TikTok comments and replies for free (single or bulk).",
+    illustration: "/freetools/tiktok.svg",
+  },
+  {
     slug: "shopify-app-detector",
     title: "Shopify app detector",
     description: "Detect Shopify apps and the Shopify theme used by a store (best effort), including theme names like Dawn.",
