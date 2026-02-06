@@ -3,6 +3,13 @@
 import * as React from "react";
 import { Loader2 } from "lucide-react";
 
+type AppResolved = {
+  slug: string;
+  name: string;
+  logo: string;
+  appStoreUrl: string;
+};
+
 type ApiResponse =
   | { ok: false; error: string }
   | {
@@ -24,10 +31,85 @@ function normalizeDisplay(input: string) {
   return raw.replace(/^https?:\/\//i, "").replace(/^www\./i, "").split("/")[0]!;
 }
 
+function toSlugCandidate(input: string) {
+  const s = String(input || "").trim().toLowerCase();
+  if (!s) return "";
+  const cleaned = s
+    .replace(/^https?:\/\//, "")
+    .replace(/^www\./, "")
+    .replace(/[^a-z0-9-]/g, "-")
+    .replace(/-+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  if (!/^[a-z0-9][a-z0-9-]{0,80}$/.test(cleaned)) return "";
+  return cleaned;
+}
+
+// Domain → Shopify App Store slug mapping.
+// This is intentionally a curated allow-list: we only add entries we know.
+const DOMAIN_TO_SHOPIFY_APP_SLUG: Record<string, string> = {
+  // Common ecommerce apps
+  "gorgias.chat": "gorgias",
+  "tapcart.com": "tapcart",
+  "judge.me": "judge-me",
+  "loox.io": "loox",
+  "rechargepayments.com": "recharge-subscriptions",
+  "klaviyo.com": "klaviyo-email-marketing-sms",
+  "yotpo.com": "yotpo",
+  "aftership.com": "aftership",
+  "omnisend.com": "omnisend-email-marketing-sms",
+  "privy.com": "privy",
+  "stamped.io": "stamped-io-product-reviews-ugc",
+  "rise.ai": "rise-ai",
+  "smile.io": "smile-io",
+  "tidio.com": "tidio-chat",
+  "pushowl.com": "pushowl",
+};
+
+function domainToKnownSlugCandidates(hostname: string) {
+  const host = String(hostname || "").toLowerCase().replace(/^www\./, "");
+  if (!host) return [];
+
+  const out: string[] = [];
+  const exact = DOMAIN_TO_SHOPIFY_APP_SLUG[host];
+  if (exact) out.push(exact);
+
+  // Try mapping root domain if we have it.
+  const parts = host.split(".").filter(Boolean);
+  if (parts.length >= 2) {
+    const root = `${parts.slice(-2).join(".")}`;
+    const mapped = DOMAIN_TO_SHOPIFY_APP_SLUG[root];
+    if (mapped) out.push(mapped);
+  }
+
+  return Array.from(new Set(out));
+}
+
+function extractSlugCandidatesFromUrls(urls: string[]) {
+  const out: string[] = [];
+  for (const u of urls) {
+    // If the URL already references the App Store, use it.
+    const m = String(u).match(/apps\.shopify\.com\/([a-z0-9][a-z0-9-]{0,80})/i);
+    if (m?.[1]) out.push(m[1].toLowerCase());
+
+    try {
+      const parsed = new URL(u);
+      const host = parsed.hostname.toLowerCase();
+      // Prefer known mappings for exact domains (e.g. gorgias.chat → gorgias).
+      for (const s of domainToKnownSlugCandidates(host)) out.push(s);
+    } catch {
+      // If it's not a valid URL, it might be a bare domain.
+      for (const s of domainToKnownSlugCandidates(String(u))) out.push(s);
+    }
+  }
+  return Array.from(new Set(out));
+}
+
 export default function ShopifyAppDetector() {
   const [domain, setDomain] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [result, setResult] = React.useState<ApiResponse | null>(null);
+  const [resolvedByLabel, setResolvedByLabel] = React.useState<Record<string, AppResolved | null>>({});
+  const [resolving, setResolving] = React.useState(false);
 
   const run = React.useCallback(async () => {
     const d = normalizeDisplay(domain);
@@ -38,6 +120,7 @@ export default function ShopifyAppDetector() {
 
     setLoading(true);
     setResult(null);
+    setResolvedByLabel({});
     try {
       const r = await fetch(`/api/freetools/shopify-app-detect?domain=${encodeURIComponent(d)}`, { cache: "no-store" });
       const j = (await r.json()) as ApiResponse;
@@ -51,15 +134,69 @@ export default function ShopifyAppDetector() {
 
   const byLabel = React.useMemo(() => {
     if (!result || !result.ok) return [];
-    const map = new Map<string, { label: string; urls: string[] }>();
+    const map = new Map<string, { label: string; urls: string[]; slugCandidates: string[] }>();
     for (const a of result.apps || []) {
       const label = a.label || a.url;
-      const entry = map.get(label) || { label, urls: [] as string[] };
+      const entry = map.get(label) || { label, urls: [] as string[], slugCandidates: [] as string[] };
       entry.urls.push(a.url);
       map.set(label, entry);
     }
-    return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
+    const arr = Array.from(map.values()).map((x) => ({
+      ...x,
+      slugCandidates: extractSlugCandidatesFromUrls(x.urls),
+    }));
+    return arr.sort((a, b) => a.label.localeCompare(b.label));
   }, [result]);
+
+  React.useEffect(() => {
+    let cancelled = false;
+
+    async function resolveOne(label: string, candidates: string[]) {
+      for (const slug of candidates) {
+        try {
+          const r = await fetch(`/api/freetools/shopify-app-resolve?slug=${encodeURIComponent(slug)}`, { cache: "no-store" });
+          const j = (await r.json()) as AppResolved | null;
+          if (j && j.slug && j.name && j.logo && j.appStoreUrl) return j;
+        } catch {
+          // try next candidate
+        }
+      }
+      return null;
+    }
+
+    async function runResolve() {
+      if (!result || !result.ok) return;
+      if (!byLabel.length) return;
+
+      // Resolve only top N entries to keep latency reasonable.
+      const MAX = 12;
+      const targets = byLabel.slice(0, MAX).filter((x) => x.slugCandidates.length);
+      if (!targets.length) return;
+
+      setResolving(true);
+      try {
+        // Simple concurrency = 2
+        let idx = 0;
+        const worker = async () => {
+          while (idx < targets.length) {
+            const cur = targets[idx++]!;
+            if (cancelled) return;
+            const resolved = await resolveOne(cur.label, cur.slugCandidates);
+            if (cancelled) return;
+            setResolvedByLabel((prev) => (prev[cur.label] !== undefined ? prev : { ...prev, [cur.label]: resolved }));
+          }
+        };
+        await Promise.all([worker(), worker()]);
+      } finally {
+        if (!cancelled) setResolving(false);
+      }
+    }
+
+    runResolve();
+    return () => {
+      cancelled = true;
+    };
+  }, [byLabel, result]);
 
   return (
     <div className="rounded-3xl border border-white/10 bg-gray-900/20 p-5 md:p-6">
@@ -122,6 +259,8 @@ export default function ShopifyAppDetector() {
             </span>
           </div>
 
+          {resolving ? <div className="mt-2 text-[11px] text-gray-400">Resolving official App Store names & logos…</div> : null}
+
           <div className="mt-3 text-xs text-gray-300">
             <span className="text-gray-400">Fetched:</span>{" "}
             <span className="text-white/90 font-medium">{result.fetchedUrl}</span>
@@ -148,7 +287,34 @@ export default function ShopifyAppDetector() {
               byLabel.map((app) => (
                 <div key={app.label} className="rounded-2xl border border-white/10 bg-black/20 p-4">
                   <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="font-semibold text-white">{app.label}</div>
+                    <div className="min-w-0">
+                      {resolvedByLabel[app.label] ? (
+                        <a
+                          href={resolvedByLabel[app.label]!.appStoreUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="inline-flex items-center gap-2 text-white hover:underline underline-offset-4"
+                          title="Open Shopify App Store page"
+                        >
+                          <img
+                            src={resolvedByLabel[app.label]!.logo}
+                            alt=""
+                            className="h-7 w-7 rounded-md border border-white/10 bg-black/20 object-cover"
+                            loading="lazy"
+                          />
+                          <span className="font-semibold truncate max-w-[360px]">{resolvedByLabel[app.label]!.name}</span>
+                          <span className="text-[11px] text-gray-400">({resolvedByLabel[app.label]!.slug})</span>
+                        </a>
+                      ) : (
+                        <div className="font-semibold text-white">{app.label}</div>
+                      )}
+                      {resolvedByLabel[app.label] === null && app.slugCandidates.length ? (
+                        <div className="mt-1 text-[11px] text-gray-400">
+                          App Store: not found (tried {app.slugCandidates.slice(0, 2).join(", ")}
+                          {app.slugCandidates.length > 2 ? "…" : ""})
+                        </div>
+                      ) : null}
+                    </div>
                     <div className="text-[11px] text-gray-300 border border-white/10 rounded-full px-2.5 py-1 bg-white/5">
                       URLs: {app.urls.length}
                     </div>

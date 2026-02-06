@@ -1,11 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { Copy, Download, RefreshCcw, ShieldCheck, Sparkles } from "lucide-react";
-
-type Mode = "single" | "bulk";
-type CommentType = "reply" | "video";
-type Gender = "male" | "female";
+import { Copy, Download, ShieldCheck, Sparkles, Upload, UserRound, Users } from "lucide-react";
 
 function clampText(input: string, max = 280) {
   const s = String(input || "").trim();
@@ -19,95 +15,6 @@ function slugifyName(name: string) {
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "_")
     .replace(/^_+|_+$/g, "");
-}
-
-function pick<T>(arr: T[]) {
-  return arr[Math.floor(Math.random() * arr.length)]!;
-}
-
-function generateUsername(gender: Gender) {
-  const first = gender === "female"
-    ? ["lena", "mia", "zoe", "chloe", "sara", "nina", "emma", "eva", "julia", "noa"]
-    : ["alex", "leo", "max", "ryan", "liam", "noah", "adam", "james", "sam", "ben"];
-  const second = ["shop", "ecom", "creator", "daily", "hub", "vibes", "studio", "lab", "notes", "club"];
-  const n = Math.random() < 0.7 ? String(Math.floor(10 + Math.random() * 90)) : "";
-  return `${pick(first)}_${pick(second)}${n}`;
-}
-
-function avatarDataUrl(seed: string, gender: Gender) {
-  const s = seed || "user";
-  let hash = 0;
-  for (let i = 0; i < s.length; i++) hash = (hash * 31 + s.charCodeAt(i)) >>> 0;
-  const hueA = (hash % 360 + (gender === "female" ? 18 : 0)) % 360;
-  const hueB = (hueA + 38 + (hash % 30)) % 360;
-  const initial = s.trim().slice(0, 1).toUpperCase() || "U";
-  const svg = `
-  <svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
-    <defs>
-      <linearGradient id="g" x1="8" y1="8" x2="88" y2="88" gradientUnits="userSpaceOnUse">
-        <stop stop-color="hsl(${hueA} 92% 62%)"/>
-        <stop offset="1" stop-color="hsl(${hueB} 86% 52%)"/>
-      </linearGradient>
-      <filter id="s" x="-30%" y="-30%" width="160%" height="160%">
-        <feDropShadow dx="0" dy="8" stdDeviation="8" flood-color="black" flood-opacity="0.35"/>
-      </filter>
-    </defs>
-    <circle cx="48" cy="48" r="44" fill="url(#g)" filter="url(#s)"/>
-    <circle cx="48" cy="46" r="22" fill="rgba(0,0,0,0.18)"/>
-    <text x="48" y="57" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto" font-size="30" text-anchor="middle" fill="white" font-weight="800">${initial}</text>
-  </svg>`;
-  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
-}
-
-function buildComment({
-  type,
-  topic,
-  original,
-  certified,
-}: {
-  type: CommentType;
-  topic: string;
-  original: string;
-  certified: boolean;
-}) {
-  const hooks = [
-    "This is actually super useful.",
-    "Wait… this is smart.",
-    "You just saved me hours.",
-    "Ok I’m trying this today.",
-    "This is the real advice.",
-    "Underrated tip.",
-  ];
-
-  const replies = [
-    "What product are you using for this?",
-    "Can you drop the exact steps?",
-    "Do you have a template for this?",
-    "Does this work for low budgets too?",
-    "How long did it take to see results?",
-    "Any mistakes to avoid?",
-  ];
-
-  const closers = [
-    "Thanks for sharing.",
-    "Instant follow.",
-    "Keep these coming.",
-    "Pin this.",
-    "Needed this.",
-  ];
-
-  const emojis = ["🔥", "✅", "💯", "🚀", "👏", "😮", "🧠"];
-  const e = pick(emojis);
-
-  const topicLine = topic ? ` (${topic})` : "";
-  const badge = certified ? "✅ " : "";
-
-  if (type === "video") {
-    return clampText(`${badge}${pick(hooks)}${topicLine} ${pick(closers)} ${e}`, 220);
-  }
-
-  const base = original ? `Re: “${clampText(original, 80)}” — ` : "";
-  return clampText(`${badge}${base}${pick(replies)} ${e}`, 240);
 }
 
 function downloadPngFromSvg(svg: string, filename: string) {
@@ -134,112 +41,207 @@ function downloadPngFromSvg(svg: string, filename: string) {
   img.src = url;
 }
 
-function exportPreviewAsImage({
+function escapeXmlText(input: string) {
+  return String(input || "")
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
+function escapeXmlAttr(input: string) {
+  // for href="" etc
+  return escapeXmlText(input);
+}
+
+function toSvgDataUrl(svg: string) {
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+function getCanvasContext() {
+  const canvas = document.createElement("canvas");
+  const ctx = canvas.getContext("2d");
+  return ctx;
+}
+
+function measureTextWidth(text: string, font: string) {
+  try {
+    const ctx = getCanvasContext();
+    if (!ctx) return text.length * 12;
+    ctx.font = font;
+    return ctx.measureText(text).width;
+  } catch {
+    return text.length * 12;
+  }
+}
+
+function wrapTextLines(text: string, maxWidth: number, font: string, maxLines = 3) {
+  const cleaned = clampText(text || "", 220) || "Write any comment and see what happens 😊";
+  const words = cleaned.split(/\s+/g).filter(Boolean);
+  const lines: string[] = [];
+  let cur = "";
+  for (const w of words) {
+    const next = cur ? `${cur} ${w}` : w;
+    if (measureTextWidth(next, font) <= maxWidth || !cur) {
+      cur = next;
+    } else {
+      lines.push(cur);
+      cur = w;
+      if (lines.length >= maxLines) break;
+    }
+  }
+  if (lines.length < maxLines && cur) lines.push(cur);
+  // if overflow, clamp last line
+  if (lines.length === maxLines && words.length) {
+    let last = lines[lines.length - 1] || "";
+    while (last && measureTextWidth(`${last}…`, font) > maxWidth) {
+      last = last.slice(0, -1);
+    }
+    if (last !== lines[lines.length - 1]) lines[lines.length - 1] = `${last}…`;
+  }
+  return lines.slice(0, maxLines);
+}
+
+function defaultAvatarDataUrl() {
+  // matches the grey placeholder in the reference screenshot
+  const svg = `
+<svg xmlns="http://www.w3.org/2000/svg" width="96" height="96" viewBox="0 0 96 96">
+  <circle cx="48" cy="48" r="44" fill="#d1d5db"/>
+  <circle cx="40" cy="48" r="18" fill="#6b7280" opacity="0.55"/>
+</svg>`;
+  return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`;
+}
+
+function buildTikTokReplySvg({
   username,
-  gender,
   certified,
-  text,
+  comment,
+  avatarSrc,
 }: {
   username: string;
-  gender: Gender;
   certified: boolean;
-  text: string;
+  comment: string;
+  avatarSrc: string;
 }) {
-  const safeText = clampText(text || "", 220) || "Write any comment and see what happens 😊";
-  const safeName = clampText(username || "user", 22);
-  const initial = safeName.slice(0, 1).toUpperCase() || "U";
+  const safeName = clampText(username || "username", 22) || "username";
+  const prefix = `Reply to ${safeName}'s`;
+  const suffix = "comment";
 
-  // 1100x630 social-ish export
-  const w = 1100;
-  const h = 630;
-  const bg = "#0b0b10";
-  const bubble = "#ffffff";
-  const bubbleText = "#0b0b10";
-  const accent = "#9541e0";
-  const badge = certified ? "Certified" : "";
-  const badgeWidth = certified ? 104 : 0;
+  const w = 1000;
+  const h = 360;
 
-  const hueOffset = gender === "female" ? 18 : 0;
-  const svg = `
+  const bubbleX = 60;
+  const bubbleY = 28;
+  const bubbleW = 880;
+  const bubbleH = 260;
+  const r = 22;
+
+  // smaller tail like the reference
+  const tailStartX = bubbleX + 138;
+  const tailTipX = bubbleX + 42;
+  const tailTipY = bubbleY + bubbleH + 40;
+
+  const avatarCx = bubbleX + 80;
+  const avatarCy = bubbleY + 86;
+  const avatarR = 34;
+
+  const contentX = bubbleX + 138;
+  const headerY = bubbleY + 68;
+
+  const headerFont = '700 26px ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto';
+  const prefixWidth = measureTextWidth(prefix, headerFont);
+
+  const badgeR = 11;
+  const badgeCx = contentX + prefixWidth + 20 + badgeR;
+  const badgeCy = headerY - 12;
+  const suffixX = badgeCx + badgeR + 16;
+
+  const bodyFont = '900 52px ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto';
+  const bodyMaxWidth = bubbleX + bubbleW - 44 - contentX;
+  const bodyLines = wrapTextLines(comment, bodyMaxWidth, bodyFont, 3);
+  const bodyStartY = bubbleY + 152;
+  const lineH = 58;
+
+  const bubblePath = [
+    `M ${bubbleX + r} ${bubbleY}`,
+    `H ${bubbleX + bubbleW - r}`,
+    `Q ${bubbleX + bubbleW} ${bubbleY} ${bubbleX + bubbleW} ${bubbleY + r}`,
+    `V ${bubbleY + bubbleH - r}`,
+    `Q ${bubbleX + bubbleW} ${bubbleY + bubbleH} ${bubbleX + bubbleW - r} ${bubbleY + bubbleH}`,
+    `H ${tailStartX}`,
+    `L ${tailTipX} ${tailTipY}`,
+    `L ${tailTipX + 22} ${bubbleY + bubbleH}`,
+    `H ${bubbleX + r}`,
+    `Q ${bubbleX} ${bubbleY + bubbleH} ${bubbleX} ${bubbleY + bubbleH - r}`,
+    `V ${bubbleY + r}`,
+    `Q ${bubbleX} ${bubbleY} ${bubbleX + r} ${bubbleY}`,
+    "Z",
+  ].join(" ");
+
+  const headerPrefixFill = "#6b7280";
+  const headerSuffixFill = "#9ca3af";
+  const bubbleTextFill = "#0b0b10";
+  const bgFill = "#0b0b10";
+  const verifiedBlue = "#53bde8";
+
+  const avatarHref = escapeXmlAttr(avatarSrc || defaultAvatarDataUrl());
+
+  return `
 <svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}">
   <defs>
-    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="${bg}"/>
-      <stop offset="1" stop-color="#130a1f"/>
-    </linearGradient>
-    <linearGradient id="av" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="hsl(${(268 + hueOffset) % 360} 90% 62%)"/>
-      <stop offset="1" stop-color="hsl(${(290 + hueOffset) % 360} 85% 50%)"/>
-    </linearGradient>
-    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
-      <feDropShadow dx="0" dy="18" stdDeviation="18" flood-color="black" flood-opacity="0.35"/>
+    <filter id="shadow" x="-30%" y="-30%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="16" stdDeviation="18" flood-color="black" flood-opacity="0.35"/>
     </filter>
+    <clipPath id="avatarClip">
+      <circle cx="${avatarCx}" cy="${avatarCy}" r="${avatarR}"/>
+    </clipPath>
   </defs>
 
-  <rect width="${w}" height="${h}" fill="url(#bg)"/>
+  <rect width="${w}" height="${h}" fill="${bgFill}"/>
 
   <g filter="url(#shadow)">
-    <path d="M240 210c0-26 21-48 48-48h520c26 0 48 22 48 48v210c0 26-22 48-48 48H420l-120 96v-96H288c-27 0-48-22-48-48V210Z" fill="${bubble}"/>
+    <path d="${bubblePath}" fill="#ffffff"/>
   </g>
 
-  <circle cx="340" cy="262" r="44" fill="url(#av)"/>
-  <text x="340" y="276" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto" font-size="34" text-anchor="middle" fill="white" font-weight="800">${initial}</text>
+  <g clip-path="url(#avatarClip)">
+    <image href="${avatarHref}" x="${avatarCx - avatarR}" y="${avatarCy - avatarR}" width="${avatarR * 2}" height="${avatarR * 2}" preserveAspectRatio="xMidYMid slice" />
+  </g>
 
-  <text x="410" y="242" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto" font-size="18" fill="#4b5563" font-weight="700">Reply to ${safeName}'s comment</text>
-  <text x="410" y="274" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto" font-size="44" fill="${bubbleText}" font-weight="900">${safeText.replace(/&/g, "&amp;").replace(/</g, "&lt;")}</text>
+  <text x="${contentX}" y="${headerY}" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto" font-size="26" font-weight="700" fill="${headerPrefixFill}">${escapeXmlText(prefix)}</text>
 
-  ${certified ? `
+  ${
+    certified
+      ? `
   <g>
-    <rect x="${410 + 0}" y="292" rx="999" ry="999" width="${badgeWidth}" height="28" fill="rgba(149,65,224,0.12)" stroke="rgba(149,65,224,0.35)"/>
-    <circle cx="${424}" cy="306" r="7" fill="${accent}"/>
-    <path d="M420.8 306l2.2 2.6 5.1-6.1" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-    <text x="${437}" y="312" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto" font-size="13" fill="${accent}" font-weight="800">${badge}</text>
-  </g>` : ""}
-</svg>`;
+    <circle cx="${badgeCx}" cy="${badgeCy}" r="${badgeR}" fill="${verifiedBlue}"/>
+    <path d="M ${badgeCx - 6.2} ${badgeCy + 0.2} L ${badgeCx - 1.6} ${badgeCy + 4.8} L ${badgeCx + 7.2} ${badgeCy - 4.8}" fill="none" stroke="#ffffff" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+`
+      : ""
+  }
 
-  downloadPngFromSvg(svg, `tiktok-comment-${slugifyName(safeName) || "export"}.png`);
+  <text x="${certified ? suffixX : contentX + prefixWidth + 18}" y="${headerY}" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto" font-size="26" font-weight="700" fill="${headerSuffixFill}">${escapeXmlText(suffix)}</text>
+
+  ${bodyLines
+    .map((line, idx) => {
+      const y = bodyStartY + idx * lineH;
+      return `<text x="${contentX}" y="${y}" font-family="ui-sans-serif, system-ui, -apple-system, Segoe UI, Roboto" font-size="52" font-weight="900" fill="${bubbleTextFill}">${escapeXmlText(line)}</text>`;
+    })
+    .join("\n")}
+</svg>
+`;
 }
 
 export default function TikTokCommentGenerator() {
-  const [mode, setMode] = React.useState<Mode>("single");
-  const [commentType, setCommentType] = React.useState<CommentType>("reply");
-  const [gender, setGender] = React.useState<Gender>("male");
   const [certified, setCertified] = React.useState(true);
-  const [username, setUsername] = React.useState(() => generateUsername("male"));
-  const [topic, setTopic] = React.useState("ecommerce");
-  const [originalComment, setOriginalComment] = React.useState("Is this real?");
-  const [singleOut, setSingleOut] = React.useState("");
+  const [username, setUsername] = React.useState("username");
+  const [commentText, setCommentText] = React.useState("Write any comment and see what happens 😊");
+  const [avatarSrc, setAvatarSrc] = React.useState(() => defaultAvatarDataUrl());
 
-  const [bulkCount, setBulkCount] = React.useState(10);
-  const [bulkContext, setBulkContext] = React.useState("A short TikTok about improving ROAS and profit.");
-  const [bulkOut, setBulkOut] = React.useState<string[]>([]);
+  const fileRef = React.useRef<HTMLInputElement | null>(null);
 
-  const avatar = React.useMemo(() => avatarDataUrl(username, gender), [gender, username]);
-
-  const regenerateUser = () => {
-    const next = generateUsername(gender);
-    setUsername(next);
-  };
-
-  const generateSingle = () => {
-    const out = buildComment({
-      type: commentType,
-      topic,
-      original: commentType === "reply" ? originalComment : "",
-      certified,
-    });
-    setSingleOut(out);
-  };
-
-  const generateBulk = () => {
-    const safe = Math.max(3, Math.min(50, Number.isFinite(bulkCount) ? bulkCount : 10));
-    const arr = Array.from({ length: safe }, () =>
-      buildComment({ type: "video", topic: bulkContext || topic, original: "", certified }),
-    );
-    setBulkOut(arr);
-  };
-
-  const copyText = async (t: string) => {
+  const copyText = React.useCallback(async (t: string) => {
     const txt = String(t || "").trim();
     if (!txt) return;
     try {
@@ -247,9 +249,43 @@ export default function TikTokCommentGenerator() {
     } catch {
       // ignore
     }
-  };
+  }, []);
 
-  const previewText = mode === "single" ? (singleOut || "Write any comment and see what happens 😊") : (bulkOut[0] || "Generate comments in bulk 😊");
+  const onPickAvatar = React.useCallback(() => {
+    fileRef.current?.click();
+  }, []);
+
+  const onResetAvatar = React.useCallback(() => {
+    setAvatarSrc(defaultAvatarDataUrl());
+  }, []);
+
+  const onAvatarFile = React.useCallback((f?: File | null) => {
+    if (!f) return;
+    if (!/^image\//i.test(f.type)) return;
+    const reader = new FileReader();
+    reader.onload = () => {
+      const res = typeof reader.result === "string" ? reader.result : "";
+      if (!res.startsWith("data:image/")) return;
+      setAvatarSrc(res);
+    };
+    reader.readAsDataURL(f);
+  }, []);
+
+  const svg = React.useMemo(
+    () =>
+      buildTikTokReplySvg({
+        username,
+        certified,
+        comment: commentText,
+        avatarSrc,
+      }),
+    [avatarSrc, certified, commentText, username],
+  );
+
+  const exportImage = React.useCallback(() => {
+    const safeName = clampText(username || "username", 22) || "username";
+    downloadPngFromSvg(svg, `tiktok-comment-${slugifyName(safeName) || "export"}.png`);
+  }, [svg, username]);
 
   return (
     <div className="grid gap-6 lg:grid-cols-[420px_1fr] items-start">
@@ -265,178 +301,78 @@ export default function TikTokCommentGenerator() {
           </span>
         </div>
 
-        <div className="mt-5 flex items-center gap-2">
-          <button
-            type="button"
-            onClick={() => setMode("single")}
-            className={[
-              "flex-1 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-colors",
-              mode === "single" ? "border-purple-500/40 bg-purple-500/15 text-purple-100" : "border-white/10 bg-black/20 text-gray-200 hover:bg-black/30",
-            ].join(" ")}
-          >
-            Single Mode
-          </button>
-          <button
-            type="button"
-            onClick={() => setMode("bulk")}
-            className={[
-              "flex-1 rounded-xl border px-4 py-2.5 text-sm font-semibold transition-colors",
-              mode === "bulk" ? "border-purple-500/40 bg-purple-500/15 text-purple-100" : "border-white/10 bg-black/20 text-gray-200 hover:bg-black/30",
-            ].join(" ")}
-          >
-            Bulk Mode
-          </button>
-        </div>
-
         <div className="mt-6">
           <div className="text-[11px] text-gray-400 font-semibold tracking-wide">COMMENT CONTROLS</div>
 
           <div className="mt-3 flex items-center gap-2">
-            <button
-              type="button"
-              onClick={() => setCommentType("reply")}
-              className={[
-                "flex-1 rounded-xl border px-4 py-2 text-sm transition-colors",
-                commentType === "reply" ? "border-purple-500/35 bg-purple-500/10 text-purple-100" : "border-white/10 bg-black/20 text-gray-200 hover:bg-black/30",
-              ].join(" ")}
-            >
-              Comment Reply
-            </button>
-            <button
-              type="button"
-              onClick={() => setCommentType("video")}
-              className={[
-                "flex-1 rounded-xl border px-4 py-2 text-sm transition-colors",
-                commentType === "video" ? "border-purple-500/35 bg-purple-500/10 text-purple-100" : "border-white/10 bg-black/20 text-gray-200 hover:bg-black/30",
-              ].join(" ")}
-            >
-              Video Comment
-            </button>
-          </div>
-
-          <div className="mt-4 grid gap-3">
-            <label className="block">
-              <div className="text-sm font-medium text-gray-200 mb-2">Topic (optional)</div>
-              <input
-                value={topic}
-                onChange={(e) => setTopic(e.target.value)}
-                placeholder="example: ecommerce, skincare, fitness…"
-                className="w-full h-11 rounded-xl border border-white/10 bg-black/30 text-white px-4 text-sm outline-none focus:border-purple-400/60 focus:ring-2 focus:ring-purple-500/20"
-              />
-            </label>
-
-            {mode === "single" && commentType === "reply" ? (
-              <label className="block">
-                <div className="text-sm font-medium text-gray-200 mb-2">Original comment</div>
-                <input
-                  value={originalComment}
-                  onChange={(e) => setOriginalComment(e.target.value)}
-                  placeholder="example: Is this legit?"
-                  className="w-full h-11 rounded-xl border border-white/10 bg-black/30 text-white px-4 text-sm outline-none focus:border-purple-400/60 focus:ring-2 focus:ring-purple-500/20"
-                />
-              </label>
-            ) : null}
-
-            {mode === "bulk" ? (
-              <>
-                <label className="block">
-                  <div className="text-sm font-medium text-gray-200 mb-2">Video context</div>
-                  <textarea
-                    value={bulkContext}
-                    onChange={(e) => setBulkContext(e.target.value)}
-                    rows={3}
-                    className="w-full rounded-xl border border-white/10 bg-black/30 text-white px-4 py-3 text-sm outline-none focus:border-purple-400/60 focus:ring-2 focus:ring-purple-500/20 resize-none"
-                  />
-                </label>
-                <label className="block">
-                  <div className="text-sm font-medium text-gray-200 mb-2">How many comments?</div>
-                  <input
-                    value={String(bulkCount)}
-                    onChange={(e) => setBulkCount(Number(e.target.value))}
-                    type="number"
-                    min={3}
-                    max={50}
-                    className="w-full h-11 rounded-xl border border-white/10 bg-black/30 text-white px-4 text-sm outline-none focus:border-purple-400/60 focus:ring-2 focus:ring-purple-500/20"
-                  />
-                </label>
-              </>
-            ) : null}
-          </div>
-        </div>
-
-        <div className="mt-6">
-          <div className="text-[11px] text-gray-400 font-semibold tracking-wide">USER</div>
-          <div className="mt-3 flex flex-col sm:flex-row gap-3">
-            <div className="flex-1">
+            <div className="flex-1 relative">
+              <UserRound className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-purple-200/70" />
               <input
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 placeholder="username"
-                className="w-full h-11 rounded-xl border border-white/10 bg-black/30 text-white px-4 text-sm outline-none focus:border-purple-400/60 focus:ring-2 focus:ring-purple-500/20"
+                className="w-full h-11 rounded-xl border border-white/10 bg-white/5 text-white px-10 pr-12 text-sm outline-none focus:border-purple-400/60 focus:ring-2 focus:ring-purple-500/20"
               />
-              <div className="text-[11px] text-gray-500 mt-1">Randomize or type your own username.</div>
-            </div>
-            <div className="flex gap-2">
-              <select
-                value={gender}
-                onChange={(e) => setGender(e.target.value as Gender)}
-                className="h-11 rounded-xl border border-white/10 bg-black/30 text-white text-sm px-3 outline-none focus:border-purple-400/60 focus:ring-2 focus:ring-purple-500/20"
-              >
-                <option value="male">Male</option>
-                <option value="female">Female</option>
-              </select>
               <button
                 type="button"
-                onClick={regenerateUser}
-                className="h-11 rounded-xl border border-white/10 bg-black/30 hover:bg-black/40 text-white px-4 text-sm font-semibold inline-flex items-center gap-2 transition-colors"
-                title="Generate username"
+                onClick={onPickAvatar}
+                className="absolute right-2 top-1/2 -translate-y-1/2 h-8 w-8 rounded-lg border border-white/10 bg-white/5 hover:bg-white/10 inline-flex items-center justify-center text-white/70 transition-colors"
+                title="Upload profile photo"
               >
-                <RefreshCcw className="h-4 w-4" />
-                Generate
+                <Upload className="h-4 w-4" />
               </button>
+              <input
+                ref={fileRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => onAvatarFile(e.target.files?.[0] || null)}
+              />
             </div>
+
+            <button
+              type="button"
+              onClick={() => setCertified((s) => !s)}
+              className={[
+                "h-11 w-11 rounded-xl border inline-flex items-center justify-center transition-colors",
+                certified ? "border-purple-500/35 bg-purple-500/10 hover:bg-purple-500/15" : "border-white/10 bg-white/5 hover:bg-white/10",
+              ].join(" ")}
+              title="Verified badge"
+            >
+              <ShieldCheck className={["h-4 w-4", certified ? "text-purple-200" : "text-white/60"].join(" ")} />
+            </button>
+
+            <button
+              type="button"
+              onClick={onResetAvatar}
+              className="h-11 w-11 rounded-xl border border-white/10 bg-white/5 hover:bg-white/10 inline-flex items-center justify-center text-white/70 transition-colors"
+              title="Reset profile photo"
+            >
+              <Users className="h-4 w-4" />
+            </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setCertified((s) => !s)}
-            className={[
-              "mt-3 w-full rounded-xl border px-4 py-2.5 text-sm font-semibold transition-colors inline-flex items-center justify-center gap-2",
-              certified ? "border-purple-500/35 bg-purple-500/10 text-purple-100" : "border-white/10 bg-black/20 text-gray-200 hover:bg-black/30",
-            ].join(" ")}
-          >
-            <ShieldCheck className="h-4 w-4" />
-            Certified badge {certified ? "ON" : "OFF"}
-          </button>
-        </div>
+          <div className="mt-3 rounded-2xl border border-white/10 bg-white/5 p-4">
+            <textarea
+              value={commentText}
+              onChange={(e) => setCommentText(e.target.value)}
+              rows={3}
+              className="w-full bg-transparent text-white text-sm outline-none resize-none leading-relaxed"
+            />
+            <div className="mt-2 text-right text-[11px] text-white/35">{String(commentText.length)} chars</div>
+          </div>
 
-        <div className="mt-6 flex flex-col sm:flex-row gap-3">
-          {mode === "single" ? (
+          <div className="mt-4 flex gap-3">
             <button
               type="button"
-              onClick={generateSingle}
-              className="flex-1 h-11 rounded-xl px-5 text-sm font-semibold transition-colors bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] hover:brightness-110 border border-[#9541e0]/60 text-white shadow-[0_10px_30px_rgba(149,65,224,0.22)]"
+              onClick={() => copyText(commentText)}
+              className="flex-1 h-11 rounded-xl border border-white/10 bg-black/30 hover:bg-black/40 text-white px-4 text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors"
+              title="Copy"
             >
-              Generate comment
+              <Copy className="h-4 w-4" />
+              Copy
             </button>
-          ) : (
-            <button
-              type="button"
-              onClick={generateBulk}
-              className="flex-1 h-11 rounded-xl px-5 text-sm font-semibold transition-colors bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] hover:brightness-110 border border-[#9541e0]/60 text-white shadow-[0_10px_30px_rgba(149,65,224,0.22)]"
-            >
-              Generate {bulkCount} comments
-            </button>
-          )}
-          <button
-            type="button"
-            onClick={() => copyText(mode === "single" ? singleOut : bulkOut.join("\n"))}
-            className="h-11 rounded-xl border border-white/10 bg-black/30 hover:bg-black/40 text-white px-4 text-sm font-semibold inline-flex items-center justify-center gap-2 transition-colors"
-            title="Copy"
-          >
-            <Copy className="h-4 w-4" />
-            Copy
-          </button>
+          </div>
         </div>
       </div>
 
@@ -449,7 +385,7 @@ export default function TikTokCommentGenerator() {
             </div>
             <button
               type="button"
-              onClick={() => exportPreviewAsImage({ username, gender, certified, text: previewText })}
+              onClick={exportImage}
               className="h-10 rounded-xl border border-white/10 bg-black/30 hover:bg-black/40 text-white px-4 text-sm font-semibold inline-flex items-center gap-2 transition-colors"
               title="Export Image"
             >
@@ -458,56 +394,9 @@ export default function TikTokCommentGenerator() {
             </button>
           </div>
 
-          <div className="mt-6 rounded-3xl bg-[radial-gradient(circle_at_top,#9541e0_0%,transparent_52%),radial-gradient(circle_at_bottom_right,#7c30c7_0%,transparent_55%)] p-[1px]">
-            <div className="rounded-3xl bg-black/40 p-6 md:p-10 overflow-hidden">
-              <div className="mx-auto max-w-2xl">
-                <div className="rounded-3xl bg-white text-black p-6 md:p-8 shadow-[0_18px_60px_rgba(0,0,0,0.35)]">
-                  <div className="text-gray-500 font-semibold text-sm">Reply to {username || "user"}&apos;s comment</div>
-                  <div className="mt-4 flex items-start gap-4">
-                    <div className="shrink-0">
-                      <img
-                        src={avatar}
-                        alt=""
-                        className="w-12 h-12 rounded-full border border-black/10 object-cover"
-                      />
-                    </div>
-                    <div className="min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <div className="font-extrabold text-lg">{username || "user"}</div>
-                        {certified ? (
-                          <span className="inline-flex items-center gap-1 rounded-full border border-purple-500/25 bg-purple-500/10 px-2.5 py-1 text-xs font-bold text-purple-700">
-                            <ShieldCheck className="h-3.5 w-3.5" />
-                            Certified
-                          </span>
-                        ) : null}
-                      </div>
-                      <div className="mt-2 text-3xl md:text-4xl font-black leading-tight">{previewText}</div>
-                    </div>
-                  </div>
-                </div>
-
-                {mode === "bulk" && bulkOut.length ? (
-                  <div className="mt-6 rounded-2xl border border-white/10 bg-black/20 p-4">
-                    <div className="text-sm font-semibold text-white mb-2">Bulk output</div>
-                    <ol className="space-y-2 text-sm text-gray-200">
-                      {bulkOut.slice(0, 12).map((t, idx) => (
-                        <li key={`${t}-${idx}`} className="flex items-start justify-between gap-3">
-                          <span className="flex-1">{t}</span>
-                          <button
-                            type="button"
-                            onClick={() => copyText(t)}
-                            className="shrink-0 rounded-lg border border-white/10 bg-black/20 hover:bg-black/30 px-2.5 py-1 text-xs text-white"
-                            title="Copy"
-                          >
-                            Copy
-                          </button>
-                        </li>
-                      ))}
-                    </ol>
-                    {bulkOut.length > 12 ? <div className="text-[11px] text-gray-500 mt-3">Showing first 12 comments.</div> : null}
-                  </div>
-                ) : null}
-              </div>
+          <div className="mt-6 rounded-3xl border border-white/10 bg-black/40 p-6 md:p-10 overflow-hidden">
+            <div className="mx-auto max-w-3xl">
+              <img src={toSvgDataUrl(svg)} alt="" className="w-full h-auto select-none" draggable={false} />
             </div>
           </div>
 
