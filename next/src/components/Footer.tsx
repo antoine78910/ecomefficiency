@@ -4,7 +4,7 @@ const Footer = () => {
   return (
     <footer className="bg-black border-t border-white/10 py-8 md:py-12 pl-3 pr-4 md:px-6 lg:px-8">
       <div className="w-full mx-auto">
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-6 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 md:gap-6 mb-8">
           {/* Logo & Description */}
           <div className="col-span-2 md:col-span-2 pl-1">
             <div className="mb-4 flex flex-col items-start gap-2 md:gap-3">
@@ -84,6 +84,20 @@ const Footer = () => {
               <li><a href="/pricing" title="Pricing" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Pricing</a></li>
               <li><a href="/articles" title="Articles" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Articles</a></li>
               <li><a href="/affiliate" title="Affiliate" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Affiliate</a></li>
+            </ul>
+          </div>
+
+          {/* Free tools */}
+          <div>
+            <div className="text-white font-semibold text-xs md:text-sm mb-2 md:mb-3">Free tools</div>
+            <ul className="space-y-1.5">
+              <li><a href="/freetools" title="Free tools" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Free Tools</a></li>
+              <li><a href="/freetools/break-even-roas-calculator" title="Break-even ROAS calculator" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Break-even ROAS</a></li>
+              <li><a href="/freetools/customer-lifetime-value-calculator" title="Customer lifetime value calculator" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Customer LTV</a></li>
+              <li><a href="/freetools/shopify-theme-detector" title="Shopify theme detector" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Shopify Theme Detector</a></li>
+              <li><a href="/freetools/shopify-app-detector" title="Shopify app detector" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Shopify App Detector</a></li>
+              <li><a href="/freetools/tiktok-comment-generator" title="TikTok comment generator" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">TikTok Comment Generator</a></li>
+              <li><a href="/freetools/instagram-comment-generator" title="Instagram comment generator" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Instagram Comment Generator</a></li>
             </ul>
           </div>
 
