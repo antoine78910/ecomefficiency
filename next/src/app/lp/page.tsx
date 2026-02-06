@@ -223,7 +223,7 @@ export default async function PartnersLpPage() {
             <div className="mt-8 flex flex-wrap gap-3" id="request">
               <AnimatedPrimaryButton href="/signup">Launch your SaaS</AnimatedPrimaryButton>
               <a
-                href="https://calendly.com/antod/partners-ecom-efficiency-demo"
+                href="https://calendly.com/antod/call-30min"
                 target="_blank"
                 rel="noreferrer noopener"
                 className="cursor-pointer bg-white/10 hover:bg-white/20 px-5 py-3 rounded-xl border border-white/20 text-white font-medium group overflow-hidden inline-flex items-center justify-center h-12"
@@ -487,7 +487,7 @@ export default async function PartnersLpPage() {
           <div className="mt-8 flex flex-wrap gap-3 justify-center">
             <AnimatedPrimaryButton href="/signup">Get started</AnimatedPrimaryButton>
             <a
-              href="https://calendly.com/antod/partners-ecom-efficiency-demo"
+              href="https://calendly.com/antod/call-30min"
               target="_blank"
               rel="noreferrer noopener"
               className="cursor-pointer bg-white/10 hover:bg-white/20 px-5 py-3 rounded-xl border border-white/20 text-white font-medium group overflow-hidden inline-flex items-center justify-center h-12"
