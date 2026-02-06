@@ -91,7 +91,6 @@ const Footer = () => {
           <div>
             <div className="text-white font-semibold text-xs md:text-sm mb-2 md:mb-3">Free tools</div>
             <ul className="space-y-1.5">
-              <li><a href="/freetools" title="Free tools" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Free Tools</a></li>
               <li><a href="/freetools/break-even-roas-calculator" title="Break-even ROAS calculator" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Break-even ROAS</a></li>
               <li><a href="/freetools/customer-lifetime-value-calculator" title="Customer lifetime value calculator" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Customer LTV</a></li>
               <li><a href="/freetools/shopify-theme-detector" title="Shopify theme detector" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Shopify Theme Detector</a></li>
