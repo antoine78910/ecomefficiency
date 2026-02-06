@@ -47,7 +47,56 @@ function decodeJsStringLiteral(s: string) {
   }
 }
 
-function extractSyncLoadUrls(html: string): { urls: string[]; evidence?: string } {
+function normalizeMaybeUrl(raw: string): string {
+  const s = String(raw || "").trim();
+  if (!s) return "";
+  if (s.startsWith("//")) return `https:${s}`;
+  if (/^https?:\/\//i.test(s)) return s;
+  return "";
+}
+
+function isProbablyNoiseHost(host: string) {
+  const h = (host || "").toLowerCase();
+  if (!h) return true;
+
+  // Shopify core / CDNs (not app vendors)
+  if (h === "cdn.shopify.com" || h.endsWith(".myshopify.com") || h.endsWith(".shopify.com")) return true;
+  if (h.endsWith(".shopifycloud.com")) return true;
+
+  // Common analytics/pixels (not Shopify apps)
+  const noise = [
+    "googletagmanager.com",
+    "google-analytics.com",
+    "doubleclick.net",
+    "gstatic.com",
+    "connect.facebook.net",
+    "facebook.com",
+    "facebook.net",
+    "analytics.tiktok.com",
+    "tiktok.com",
+    "snapchat.com",
+    "sc-static.net",
+    "licdn.com",
+    "hotjar.com",
+    "clarity.ms",
+  ];
+  return noise.some((x) => h === x || h.endsWith(`.${x}`));
+}
+
+function uniqueUrls(urls: string[]) {
+  const out: string[] = [];
+  const seen = new Set<string>();
+  for (const u of urls) {
+    const s = String(u || "").trim();
+    if (!s) continue;
+    if (seen.has(s)) continue;
+    seen.add(s);
+    out.push(s);
+  }
+  return out;
+}
+
+function extractSyncLoadUrls(html: string): { urls: string[]; methods: string[] } {
   const text = String(html || "");
 
   // Find <script> blocks that contain "syncload"
@@ -77,7 +126,41 @@ function extractSyncLoadUrls(html: string): { urls: string[]; evidence?: string 
   }
 
   const uniq = Array.from(new Set(allUrls));
-  return { urls: uniq, evidence: scripts.length ? "syncload" : undefined };
+  return { urls: uniq, methods: scripts.length ? ["syncload"] : [] };
+}
+
+function extractExternalScriptUrls(html: string): { urls: string[]; methods: string[] } {
+  const text = String(html || "");
+  const out: string[] = [];
+
+  // <script src="...">
+  const scriptRe = /<script\b[^>]*\bsrc=["']([^"']+)["'][^>]*>/gi;
+  for (let m = scriptRe.exec(text); m; m = scriptRe.exec(text)) {
+    const u = normalizeMaybeUrl(m[1] || "");
+    if (u) out.push(u);
+  }
+
+  // <link rel="preload" as="script" href="..."> and modulepreload
+  const linkRe = /<link\b[^>]*\bhref=["']([^"']+)["'][^>]*>/gi;
+  for (let m = linkRe.exec(text); m; m = linkRe.exec(text)) {
+    const tag = m[0] || "";
+    if (!/rel=["'][^"']*(preload|modulepreload)[^"']*["']/i.test(tag)) continue;
+    if (!(/as=["']script["']/i.test(tag) || /\.m?js(\?|#|$)/i.test(m[1] || ""))) continue;
+    const u = normalizeMaybeUrl(m[1] || "");
+    if (u) out.push(u);
+  }
+
+  // Keep only external vendor scripts; drop Shopify CDNs and generic pixels.
+  const filtered = out.filter((u) => {
+    try {
+      const host = new URL(u).hostname.toLowerCase();
+      return !isProbablyNoiseHost(host);
+    } catch {
+      return false;
+    }
+  });
+
+  return { urls: uniqueUrls(filtered), methods: filtered.length ? ["script_src"] : [] };
 }
 
 function inferAppLabelFromUrl(url: string) {
@@ -117,8 +200,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "Unable to fetch this site. It may block automated requests." }, { status: 502 });
     }
 
-    const extracted = extractSyncLoadUrls(home.text);
-    const apps = extracted.urls.map((u) => ({ url: u, label: inferAppLabelFromUrl(u) }));
+    const sync = extractSyncLoadUrls(home.text);
+    const scripts = extractExternalScriptUrls(home.text);
+    const urls = uniqueUrls([...sync.urls, ...scripts.urls]);
+
+    const methods = uniqueUrls([...sync.methods, ...scripts.methods]);
+    const apps = urls.map((u) => ({ url: u, label: inferAppLabelFromUrl(u) }));
 
     return NextResponse.json(
       {
@@ -127,11 +214,11 @@ export async function GET(req: NextRequest) {
         hostname,
         fetchedUrl: home.url,
         status: home.status,
-        evidence: extracted.evidence || null,
-        urls: extracted.urls,
+        evidence: methods.length ? methods.join(", ") : null,
+        urls,
         apps,
         detectedAt: new Date().toISOString(),
-        warnings: extracted.urls.length ? [] : ["No syncload script found (or it contained no URLs)."],
+        warnings: urls.length ? [] : ["No external app scripts were detected on the homepage HTML."],
       },
       { status: 200 },
     );

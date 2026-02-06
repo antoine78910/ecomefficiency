@@ -202,8 +202,7 @@ export default function ShopifyAppDetector() {
     <div className="rounded-3xl border border-white/10 bg-gray-900/20 p-5 md:p-6">
       <div className="text-white font-semibold">Detect Shopify apps</div>
       <div className="text-xs text-gray-400 mt-1">
-        Paste a Shopify store URL or domain. We’ll search the storefront HTML for <span className="text-gray-200 font-medium">syncload</span> and extract
-        the embedded script URLs.
+        Paste a Shopify store URL or domain. We’ll scan the public storefront HTML and try to match script domains to official Shopify App Store pages.
       </div>
 
       <div className="mt-5 flex flex-col sm:flex-row gap-3">
@@ -264,11 +263,6 @@ export default function ShopifyAppDetector() {
           <div className="mt-3 text-xs text-gray-300">
             <span className="text-gray-400">Fetched:</span>{" "}
             <span className="text-white/90 font-medium">{result.fetchedUrl}</span>
-          </div>
-
-          <div className="mt-1 text-xs text-gray-300">
-            <span className="text-gray-400">Evidence:</span>{" "}
-            <span className="text-white/90 font-medium">{result.evidence ? result.evidence : "none"}</span>
           </div>
 
           {result.warnings?.length ? (
@@ -337,7 +331,7 @@ export default function ShopifyAppDetector() {
               ))
             ) : (
               <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-gray-200">
-                No app URLs detected. Try another store, or the store may not use <span className="font-semibold">syncload</span>.
+                No app scripts detected on the homepage. Try another store, or try again later (some sites block automated requests).
               </div>
             )}
           </div>
