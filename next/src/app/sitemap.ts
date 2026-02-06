@@ -81,6 +81,12 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.6,
   }));
 
+  const freeAlternativeRoutes: MetadataRoute.Sitemap = Array.from(allToolSlugs).map((slug) => ({
+    url: `${BASE_URL}/free-alternative/${slug}`,
+    changeFrequency: "monthly",
+    priority: 0.6,
+  }));
+
   const staticRoutes: MetadataRoute.Sitemap = [
     { url: `${BASE_URL}/`, changeFrequency: "weekly", priority: 1 },
     { url: `${BASE_URL}/pricing`, changeFrequency: "weekly", priority: 0.9 },
@@ -105,6 +111,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...discountRoutes,
     ...cheaperAlternativeRoutes,
     ...freeTrialRoutes,
+    ...freeAlternativeRoutes,
   ].filter((u) => shouldIncludeUrl(u.url));
   if (!supabaseAdmin) return base;
 
