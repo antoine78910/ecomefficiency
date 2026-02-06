@@ -26,37 +26,37 @@ const tools = [
     slug: "break-even-roas-calculator",
     title: "Break even ROAS calculator",
     description: "Calculate break-even ROAS and max CPA using VAT, fees, shipping, and product cost.",
-    illustration: "/freetools/roas.svg",
+    illustration: "/freetools/roas.png",
   },
   {
     slug: "tiktok-comment-generator",
     title: "TikTok comment generator",
     description: "Generate unlimited TikTok comments and replies for free (single or bulk).",
-    illustration: "/freetools/tiktok.svg",
+    illustration: "/freetools/tiktok.png",
   },
   {
     slug: "instagram-comment-generator",
     title: "Instagram comment generator",
     description: "Generate unlimited Instagram comments for free (AI-style, export as image).",
-    illustration: "/freetools/instagram.svg",
+    illustration: "/freetools/instagram.png",
   },
   {
     slug: "shopify-app-detector",
     title: "Shopify app detector",
     description: "Detect apps used by a Shopify store by parsing syncload script URLs (best effort).",
-    illustration: "/freetools/theme.svg",
+    illustration: "/freetools/shopify-detector.png",
   },
   {
     slug: "shopify-theme-detector",
     title: "Shopify theme detector",
     description: "Detect the Shopify theme name used by a store (best effort), including themes like Dawn.",
-    illustration: "/freetools/theme.svg",
+    illustration: "/freetools/shopify-detector.png",
   },
   {
     slug: "customer-lifetime-value-calculator",
     title: "Customer lifetime value calculator",
     description: "Estimate customer LTV, LTV:CAC ratio, and net profit per customer after marketing costs.",
-    illustration: "/freetools/ltv.svg",
+    illustration: "/freetools/ltv.png",
   },
 ] as const;
 
@@ -86,8 +86,8 @@ export default function FreeToolsPage() {
               className="rounded-2xl border border-white/10 bg-gray-900/20 p-5 hover:border-purple-500/30 transition-colors"
             >
               <div className="flex items-center gap-3">
-                <div className="shrink-0 rounded-2xl border border-white/10 bg-black/20 p-2.5">
-                  <Image src={t.illustration} alt="" width={44} height={44} className="opacity-95" />
+                <div className="shrink-0 rounded-2xl border border-white/10 bg-black/20 p-3">
+                  <Image src={t.illustration} alt="" width={56} height={56} className="opacity-95" />
                 </div>
                 <div className="min-w-0">
                   <div className="text-white font-semibold leading-snug">{t.title}</div>
