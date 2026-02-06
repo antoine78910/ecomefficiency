@@ -3,11 +3,12 @@
 import * as React from "react";
 import { TrendingUp } from "lucide-react";
 
-type Currency = "EUR" | "USD";
+type Currency = "EUR" | "USD" | "GBP";
 
 function formatCurrency(value: number, currency: Currency) {
   const safe = Number.isFinite(value) ? value : 0;
-  return new Intl.NumberFormat(currency === "EUR" ? "fr-FR" : "en-US", {
+  const locale = currency === "EUR" ? "fr-FR" : currency === "GBP" ? "en-GB" : "en-US";
+  return new Intl.NumberFormat(locale, {
     style: "currency",
     currency,
     maximumFractionDigits: 2,
@@ -22,6 +23,10 @@ function formatRoas(value: number) {
 function parseNumber(input: string) {
   const n = Number(String(input || "").replace(",", "."));
   return Number.isFinite(n) ? n : 0;
+}
+
+function currencyPrefix(currency: Currency) {
+  return currency === "EUR" ? "€" : currency === "GBP" ? "£" : "$";
 }
 
 function Field({
@@ -138,6 +143,7 @@ export default function BreakEvenRoasCalculator() {
               >
                 <option value="EUR">€ Euro</option>
                 <option value="USD">$ USD</option>
+                <option value="GBP">£ GBP</option>
               </select>
               <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-400 text-sm">▾</div>
             </div>
@@ -145,12 +151,12 @@ export default function BreakEvenRoasCalculator() {
         </div>
 
         <div className="grid gap-4 md:grid-cols-2">
-          <Field label="Selling price / Average cart" prefix={currency === "EUR" ? "€" : "$"} value={sellingPrice} onChange={setSellingPrice} />
+          <Field label="Selling price / Average cart" prefix={currencyPrefix(currency)} value={sellingPrice} onChange={setSellingPrice} />
           <Field label="Applicable VAT" suffix="%" step="0.1" value={vatPct} onChange={setVatPct} />
-          <Field label="Product purchase price" prefix={currency === "EUR" ? "€" : "$"} value={productCost} onChange={setProductCost} />
-          <Field label="Shipping costs" prefix={currency === "EUR" ? "€" : "$"} value={shippingCost} onChange={setShippingCost} />
+          <Field label="Product purchase price" prefix={currencyPrefix(currency)} value={productCost} onChange={setProductCost} />
+          <Field label="Shipping costs" prefix={currencyPrefix(currency)} value={shippingCost} onChange={setShippingCost} />
           <Field label="Shopify + payment fees" suffix="%" step="0.1" value={feesPct} onChange={setFeesPct} />
-          <Field label="Other miscellaneous costs" prefix={currency === "EUR" ? "€" : "$"} value={otherCost} onChange={setOtherCost} />
+          <Field label="Other miscellaneous costs" prefix={currencyPrefix(currency)} value={otherCost} onChange={setOtherCost} />
         </div>
 
         <div className="mt-6 flex flex-wrap gap-3 items-center justify-between">

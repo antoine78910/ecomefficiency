@@ -2,7 +2,7 @@
 
 import * as React from "react";
 
-type Currency = "USD" | "EUR";
+type Currency = "USD" | "EUR" | "GBP";
 
 function parseNumber(input: string) {
   const n = Number(String(input || "").replace(",", "."));
@@ -11,11 +11,16 @@ function parseNumber(input: string) {
 
 function formatCurrency(value: number, currency: Currency) {
   const safe = Number.isFinite(value) ? value : 0;
-  return new Intl.NumberFormat(currency === "EUR" ? "fr-FR" : "en-US", {
+  const locale = currency === "EUR" ? "fr-FR" : currency === "GBP" ? "en-GB" : "en-US";
+  return new Intl.NumberFormat(locale, {
     style: "currency",
     currency,
     maximumFractionDigits: 2,
   }).format(safe);
+}
+
+function currencyPrefix(currency: Currency) {
+  return currency === "EUR" ? "€" : currency === "GBP" ? "£" : "$";
 }
 
 function formatRatio(value: number) {
@@ -144,6 +149,7 @@ export default function LtvCalculator() {
                 >
                   <option value="USD">$ USD</option>
                   <option value="EUR">€ Euro</option>
+                  <option value="GBP">£ GBP</option>
                 </select>
                 <div className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-gray-400 text-sm">▾</div>
               </div>
@@ -168,14 +174,14 @@ export default function LtvCalculator() {
           <Field
             label="Average Order Value (AOV)"
             helper="Average amount a customer spends per order."
-            prefix={currency === "EUR" ? "€" : "$"}
+            prefix={currencyPrefix(currency)}
             value={aov}
             onChange={setAov}
           />
           <Field
             label="Profit per order"
             helper="Profit after variable costs per order."
-            prefix={currency === "EUR" ? "€" : "$"}
+            prefix={currencyPrefix(currency)}
             value={profitPerOrder}
             onChange={setProfitPerOrder}
           />
@@ -198,7 +204,7 @@ export default function LtvCalculator() {
             <Field
               label="Customer acquisition cost (CAC)"
               helper="Ad spend / new customers."
-              prefix={currency === "EUR" ? "€" : "$"}
+              prefix={currencyPrefix(currency)}
               value={cac}
               onChange={setCac}
             />
