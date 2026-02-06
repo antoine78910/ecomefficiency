@@ -43,7 +43,13 @@ const tools = [
   {
     slug: "shopify-app-detector",
     title: "Shopify app detector",
-    description: "Detect Shopify apps and the Shopify theme used by a store (best effort), including theme names like Dawn.",
+    description: "Detect apps used by a Shopify store by parsing syncload script URLs (best effort).",
+    illustration: "/freetools/theme.svg",
+  },
+  {
+    slug: "shopify-theme-detector",
+    title: "Shopify theme detector",
+    description: "Detect the Shopify theme name used by a store (best effort), including themes like Dawn.",
     illustration: "/freetools/theme.svg",
   },
   {

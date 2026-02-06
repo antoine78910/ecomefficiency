@@ -7,21 +7,21 @@ import Footer from "@/components/Footer";
 import NewNavbar from "@/components/NewNavbar";
 import ToolToc, { type TocItem } from "@/components/ToolToc";
 
-import ShopifyAppDetector from "./ShopifyAppDetector";
+import ShopifyThemeDetector from "./ShopifyThemeDetector";
 
-const CANONICAL = "/freetools/shopify-app-detector";
+const CANONICAL = "/freetools/shopify-theme-detector";
 
 export const metadata: Metadata = {
-  title: "Shopify App Detector",
+  title: "Shopify Theme Detector",
   description:
-    "Free Shopify app detector (Shopify apps detector). Detect apps used by a Shopify store by finding a syncload script and extracting its embedded URL list.",
+    "Free Shopify theme detector. Detect the Shopify theme name (best effort), including themes like Dawn, and confirm Shopify from public storefront signals.",
   alternates: { canonical: CANONICAL },
   openGraph: {
     type: "website",
     url: CANONICAL,
-    title: "Shopify App Detector",
-    description: "Shopify app detector: detect apps used by a Shopify store by parsing syncload script URLs.",
-    images: [{ url: "/header_ee.png?v=8", width: 1200, height: 630, alt: "Shopify app detector" }],
+    title: "Shopify Theme Detector",
+    description: "Shopify theme detector: detect Shopify theme names like Dawn (best effort) and confirm if a store is Shopify.",
+    images: [{ url: "/header_ee.png?v=8", width: 1200, height: 630, alt: "Shopify theme detector" }],
   },
 };
 
@@ -33,7 +33,7 @@ function SectionTitle({ id, children }: { id: string; children: React.ReactNode 
   );
 }
 
-export default function ShopifyAppDetectorPage() {
+export default function ShopifyThemeDetectorPage() {
   const toc: TocItem[] = [
     { id: "detector", label: "Detector", level: 2 },
     { id: "what-it-finds", label: "What it finds", level: 2 },
@@ -45,27 +45,27 @@ export default function ShopifyAppDetectorPage() {
   const publishedIso = new Date("2026-02-05T00:00:00.000Z").toISOString();
   const faqItems = [
     {
-      q: "What is a Shopify app detector?",
-      a: "A Shopify app detector attempts to infer installed apps by analyzing public storefront code. This version searches for a syncload loader script and extracts the embedded list of script URLs.",
+      q: "What is a Shopify theme detector?",
+      a: "A Shopify theme detector checks a store’s public storefront code and endpoints to infer the most likely theme name. Results are best effort.",
     },
     {
-      q: "Does this show all apps used by a Shopify store?",
-      a: "It shows the apps that appear in the syncload URL list (when present). If a store doesn’t use syncload (or hides app scripts), the result can be empty.",
+      q: "Can you detect the Shopify theme name (like Dawn)?",
+      a: "Often, yes. Many stores expose theme metadata in public storefront HTML (for example via Shopify.theme). Some stores hide it, so it may be unavailable.",
     },
     {
-      q: "Why can app detection fail?",
-      a: "Some stores block automated requests, load scripts dynamically, or don’t use syncload. In those cases, the app list may be incomplete or empty.",
+      q: "Why can theme detection fail?",
+      a: "Some stores block automated requests, remove theme metadata, or rely on JavaScript-rendered storefront code that isn’t visible to a simple HTML fetch.",
     },
     {
       q: "Does this work for any website?",
-      a: "This detector is designed for Shopify storefronts. Non‑Shopify sites usually won’t have the syncload pattern, so results will be empty.",
+      a: "This detector is designed for Shopify stores. If a site is not Shopify, we won’t be able to return a meaningful theme name.",
     },
   ];
 
   const jsonLdWebPage = {
     "@context": "https://schema.org",
     "@type": "WebPage",
-    name: "Shopify App Detector",
+    name: "Shopify Theme Detector",
     description: metadata.description,
     datePublished: publishedIso,
     dateModified: publishedIso,
@@ -111,10 +111,10 @@ export default function ShopifyAppDetectorPage() {
             <span className="text-xs text-gray-500">Read time: ~4 min</span>
           </div>
 
-          <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">Shopify app detector</h1>
+          <h1 className="text-4xl md:text-5xl font-bold text-white mb-4">Shopify theme detector</h1>
           <p className="text-gray-300 text-lg leading-relaxed">
-            This <strong>shopify app detector</strong> (also searched as <strong>shopify apps detector</strong>) helps you detect apps used by a Shopify store
-            by extracting URLs from a <strong>syncload</strong> script loader (when present).
+            This <strong>shopify theme detector</strong> helps you detect the Shopify theme name (best effort) and confirm whether a website is Shopify, based
+            on public storefront signals.
           </p>
         </header>
 
@@ -135,45 +135,35 @@ export default function ShopifyAppDetectorPage() {
 
           <div className="min-w-0 max-w-none">
             <SectionTitle id="detector">Detector</SectionTitle>
-            <ShopifyAppDetector />
+            <ShopifyThemeDetector />
 
             <SectionTitle id="what-it-finds">What it finds</SectionTitle>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-2xl border border-white/10 bg-gray-900/20 p-5">
-                <div className="text-white font-semibold mb-2">Apps (inferred from script URLs)</div>
+                <div className="text-white font-semibold mb-2">Theme name (best effort)</div>
                 <p className="text-gray-300 leading-relaxed text-sm">
-                  We list unique “apps” by grouping the extracted script URLs by domain. This often surfaces providers like chat widgets, tracking pixels,
-                  and app backends.
+                  If the theme name is exposed in public storefront code, we display it (for example: Dawn). If not, we will show “Not found”.
                 </p>
               </div>
               <div className="rounded-2xl border border-white/10 bg-gray-900/20 p-5">
-                <div className="text-white font-semibold mb-2">Evidence + raw URLs</div>
+                <div className="text-white font-semibold mb-2">Shopify confirmation</div>
                 <p className="text-gray-300 leading-relaxed text-sm">
-                  We show whether a <span className="font-medium text-gray-200">syncload</span> script was found and provide the raw extracted URLs so you can
-                  validate them.
+                  We also show whether we could confirm the site is running on Shopify using public endpoints and storefront signals.
                 </p>
               </div>
             </div>
 
             <SectionTitle id="how-it-works">How it works</SectionTitle>
             <p className="text-gray-300 leading-relaxed mb-4">
-              The detector fetches the store homepage server-side, finds <code className="text-gray-200">syncload</code> inside script tags, then extracts the
-              <code className="text-gray-200">urls = ["..."]</code> array and decodes its JavaScript string literals (including{" "}
-              <code className="text-gray-200">{"\\u0026"}</code>).
-            </p>
-            <p className="text-gray-300 leading-relaxed mb-4">
-              Looking for the theme instead? Use the{" "}
-              <Link href="/freetools/shopify-theme-detector" className="text-white underline underline-offset-4">
-                Shopify theme detector
-              </Link>
-              .
+              The detector fetches the store homepage server-side and checks for Shopify signals (Shopify assets, public endpoints like cart.js, and global
+              variables). It then extracts theme hints when they are visible.
             </p>
 
             <SectionTitle id="limitations">Limitations</SectionTitle>
             <ul className="list-disc list-inside space-y-2 text-gray-300">
-              <li>Not all stores use syncload, so the detector can return an empty list even if the store uses many apps.</li>
-              <li>Some stores block automated requests or rely on JavaScript-rendered content.</li>
-              <li>Apps can be loaded from Shopify CDN paths, making attribution imperfect (we group by URL domains).</li>
+              <li>Some stores block automated requests or require JavaScript to render critical parts of the page.</li>
+              <li>Theme name is not always publicly exposed, even on Shopify stores.</li>
+              <li>Stores can customize or remove theme signals, which lowers detection confidence.</li>
             </ul>
 
             <SectionTitle id="faq">FAQ</SectionTitle>

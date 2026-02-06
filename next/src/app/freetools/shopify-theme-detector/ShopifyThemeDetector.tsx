@@ -11,11 +11,12 @@ type ApiResponse =
       hostname: string;
       fetchedUrl: string;
       status: number;
+      isShopify: boolean;
+      theme: { name: string | null; internalName?: string | null; confidence: "high" | "medium" | "low"; evidence?: string };
+      apps: Array<{ name: string; confidence: "high" | "medium"; evidence: string }>;
+      signals: { cartJsOk: boolean; productsJsonOk: boolean };
       detectedAt: string;
       warnings: string[];
-      evidence: string | null;
-      urls: string[];
-      apps: Array<{ url: string; label: string }>;
     };
 
 function normalizeDisplay(input: string) {
@@ -24,7 +25,22 @@ function normalizeDisplay(input: string) {
   return raw.replace(/^https?:\/\//i, "").replace(/^www\./i, "").split("/")[0]!;
 }
 
-export default function ShopifyAppDetector() {
+function ThemeBadge({ theme }: { theme: { name: string | null; confidence: "high" | "medium" | "low" } }) {
+  const label = theme.name || "Not found";
+  const tone =
+    theme.confidence === "high"
+      ? "border-purple-500/35 bg-purple-500/15 text-purple-100"
+      : theme.confidence === "medium"
+        ? "border-white/15 bg-white/5 text-gray-200"
+        : "border-white/10 bg-black/20 text-gray-300";
+  return (
+    <div className={`inline-flex items-center rounded-full border px-3 py-1.5 text-sm ${tone}`}>
+      <span className="font-semibold">{label}</span>
+    </div>
+  );
+}
+
+export default function ShopifyThemeDetector() {
   const [domain, setDomain] = React.useState("");
   const [loading, setLoading] = React.useState(false);
   const [result, setResult] = React.useState<ApiResponse | null>(null);
@@ -39,7 +55,7 @@ export default function ShopifyAppDetector() {
     setLoading(true);
     setResult(null);
     try {
-      const r = await fetch(`/api/freetools/shopify-app-detect?domain=${encodeURIComponent(d)}`, { cache: "no-store" });
+      const r = await fetch(`/api/freetools/shopify-detect?domain=${encodeURIComponent(d)}`, { cache: "no-store" });
       const j = (await r.json()) as ApiResponse;
       setResult(j);
     } catch {
@@ -49,25 +65,10 @@ export default function ShopifyAppDetector() {
     }
   }, [domain]);
 
-  const byLabel = React.useMemo(() => {
-    if (!result || !result.ok) return [];
-    const map = new Map<string, { label: string; urls: string[] }>();
-    for (const a of result.apps || []) {
-      const label = a.label || a.url;
-      const entry = map.get(label) || { label, urls: [] as string[] };
-      entry.urls.push(a.url);
-      map.set(label, entry);
-    }
-    return Array.from(map.values()).sort((a, b) => a.label.localeCompare(b.label));
-  }, [result]);
-
   return (
     <div className="rounded-3xl border border-white/10 bg-gray-900/20 p-5 md:p-6">
-      <div className="text-white font-semibold">Detect Shopify apps</div>
-      <div className="text-xs text-gray-400 mt-1">
-        Paste a Shopify store URL or domain. We’ll search the storefront HTML for <span className="text-gray-200 font-medium">syncload</span> and extract
-        the embedded script URLs.
-      </div>
+      <div className="text-white font-semibold">Analyze a Shopify store</div>
+      <div className="text-xs text-gray-400 mt-1">Paste a store URL or domain. We will return the theme name (best effort).</div>
 
       <div className="mt-5 flex flex-col sm:flex-row gap-3">
         <div className="flex-1">
@@ -116,64 +117,25 @@ export default function ShopifyAppDetector() {
       {result && result.ok ? (
         <div className="mt-6 rounded-3xl border border-purple-500/25 bg-gradient-to-b from-purple-500/18 to-transparent p-6 text-white shadow-[0_12px_40px_rgba(0,0,0,0.35)]">
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="text-sm font-semibold tracking-wide text-purple-100">APPS</div>
+            <div className="text-sm font-semibold tracking-wide text-purple-100">THEME</div>
             <span className="text-[11px] text-gray-300 border border-white/10 rounded-full px-2.5 py-1 bg-white/5">
-              Found: {byLabel.length}
+              Shopify: {result.isShopify ? "Yes" : "No"}
             </span>
           </div>
 
-          <div className="mt-3 text-xs text-gray-300">
-            <span className="text-gray-400">Fetched:</span>{" "}
-            <span className="text-white/90 font-medium">{result.fetchedUrl}</span>
+          <div className="mt-4">
+            {result.isShopify ? <ThemeBadge theme={result.theme} /> : <ThemeBadge theme={{ name: "Not a Shopify store", confidence: "low" }} />}
           </div>
 
-          <div className="mt-1 text-xs text-gray-300">
-            <span className="text-gray-400">Evidence:</span>{" "}
-            <span className="text-white/90 font-medium">{result.evidence ? result.evidence : "none"}</span>
-          </div>
-
-          {result.warnings?.length ? (
-            <div className="mt-4 rounded-2xl border border-white/10 bg-white/5 p-4 text-sm text-gray-200">
-              <div className="font-semibold text-white mb-2">Notes</div>
-              <ul className="list-disc list-inside space-y-1">
-                {result.warnings.map((w) => (
-                  <li key={w}>{w}</li>
-                ))}
-              </ul>
+          {result.isShopify && result.theme?.internalName ? (
+            <div className="mt-3 text-xs text-gray-300">
+              <span className="text-gray-400">Internal name:</span>{" "}
+              <span className="text-white/90 font-medium">{result.theme.internalName}</span>
             </div>
           ) : null}
 
-          <div className="mt-5 grid gap-3">
-            {byLabel.length ? (
-              byLabel.map((app) => (
-                <div key={app.label} className="rounded-2xl border border-white/10 bg-black/20 p-4">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="font-semibold text-white">{app.label}</div>
-                    <div className="text-[11px] text-gray-300 border border-white/10 rounded-full px-2.5 py-1 bg-white/5">
-                      URLs: {app.urls.length}
-                    </div>
-                  </div>
-                  <div className="mt-2 space-y-1">
-                    {app.urls.slice(0, 5).map((u) => (
-                      <a
-                        key={u}
-                        href={u}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="block text-xs text-gray-300 hover:text-white underline underline-offset-4 break-all"
-                      >
-                        {u}
-                      </a>
-                    ))}
-                    {app.urls.length > 5 ? <div className="text-xs text-gray-400">…and {app.urls.length - 5} more</div> : null}
-                  </div>
-                </div>
-              ))
-            ) : (
-              <div className="rounded-2xl border border-white/10 bg-black/20 p-4 text-sm text-gray-200">
-                No app URLs detected. Try another store, or the store may not use <span className="font-semibold">syncload</span>.
-              </div>
-            )}
+          <div className="mt-3 text-xs text-gray-300">
+            Theme detection is best effort. Some stores hide theme info or load it dynamically.
           </div>
         </div>
       ) : null}
