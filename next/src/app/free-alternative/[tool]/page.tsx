@@ -76,6 +76,107 @@ function buildToc(toolName: string): TocItem[] {
   ];
 }
 
+function fallbackFreeAlternativesForCategory(tool: ToolEntity) {
+  const cat = tool.category || "Other";
+  const safeTool = tool.name;
+
+  const base = [
+    {
+      name: "Manual workflow (spreadsheets + checklists)",
+      type: "Free" as const,
+      bestFor: "learning the process and validating a workflow",
+      limitations: "time-consuming and not scalable",
+    },
+    { name: "Google Trends", type: "Free" as const, bestFor: "macro demand and trend direction checks", limitations: "not tool-specific depth" },
+    {
+      name: "YouTube tutorials + public docs",
+      type: "Free" as const,
+      bestFor: `learning ${safeTool}-like workflows before paying`,
+      limitations: "no data, no automation, and no exports",
+    },
+  ];
+
+  if (cat === "SEO") {
+    return [
+      { name: "Google Search Console", type: "Free" as const, bestFor: "real SEO performance data for your site", limitations: "no competitor data" },
+      { name: "Google Keyword Planner", type: "Free" as const, bestFor: "keyword ideas and planning baselines", limitations: "not a full SEO suite" },
+      { name: "Google Trends", type: "Free" as const, bestFor: "trend direction and seasonality checks", limitations: "no SERP depth or backlink data" },
+    ];
+  }
+  if (cat === "Ads & Spy") {
+    return [
+      { name: "Meta Ads Library", type: "Free" as const, bestFor: "manual competitor ad research (real ads)", limitations: "no scoring or automation" },
+      { name: "TikTok Creative Center", type: "Free" as const, bestFor: "TikTok ad discovery and trends", limitations: "limited filtering and depth" },
+      { name: "Google Trends", type: "Free" as const, bestFor: "macro demand checks before testing", limitations: "not ad-level performance data" },
+    ];
+  }
+  if (cat === "Product Research") {
+    return [
+      { name: "Google Trends", type: "Free" as const, bestFor: "macro demand signal checks", limitations: "not product-level profitability" },
+      { name: "TikTok Creative Center", type: "Free" as const, bestFor: "spotting product trends via creatives", limitations: "not store-level validation" },
+      { name: "Manual competitor store audit", type: "Free" as const, bestFor: "spot-checking what real stores sell", limitations: "slow and not scalable" },
+    ];
+  }
+  if (cat === "Creative") {
+    return [
+      { name: "Canva (free tier)", type: "Freemium" as const, bestFor: "quick marketing visuals and ad tests", limitations: "free tier limits on premium assets" },
+      { name: "Photopea", type: "Free" as const, bestFor: "advanced manual image edits in the browser", limitations: "manual work and learning curve" },
+      { name: "Pexels / Unsplash", type: "Free" as const, bestFor: "free photos for blogs and socials", limitations: "less branded/ad-ready than premium libraries" },
+    ];
+  }
+  if (cat === "Video") {
+    return [
+      { name: "CapCut (free)", type: "Free" as const, bestFor: "short-form editing with templates", limitations: "less automation than dedicated AI repurposers" },
+      { name: "DaVinci Resolve", type: "Free" as const, bestFor: "professional editing at zero cost", limitations: "steeper learning curve" },
+      { name: "Shotcut / Kdenlive", type: "Free" as const, bestFor: "basic editing on a free stack", limitations: "more manual and fewer short-form helpers" },
+    ];
+  }
+  if (cat === "AI Writing") {
+    return [
+      { name: "LanguageTool", type: "Freemium" as const, bestFor: "grammar and clarity improvements", limitations: "free tier limits" },
+      { name: "Grammarly (free)", type: "Freemium" as const, bestFor: "tone + clarity fixes", limitations: "advanced controls are paid" },
+      { name: "Hemingway Editor", type: "Free" as const, bestFor: "simplifying readability", limitations: "no advanced rewriting automation" },
+    ];
+  }
+  if (cat === "AI (LLM)") {
+    return [
+      { name: "Google Gemini", type: "Free" as const, bestFor: "general assistant usage", limitations: "not always consistent across long workflows" },
+      { name: "Perplexity", type: "Free" as const, bestFor: "research with sources", limitations: "less flexible for copywriting-style outputs" },
+      { name: "Open-source local LLMs", type: "Open-source" as const, bestFor: "power users who want local control", limitations: "setup and quality vary" },
+    ];
+  }
+  if (cat === "AI (Image/Video)") {
+    return [
+      { name: "Stable Diffusion", type: "Open-source" as const, bestFor: "local image generation with control", limitations: "setup required; model quality varies" },
+      { name: "Canva (free tier)", type: "Freemium" as const, bestFor: "fast visuals without setup", limitations: "less control and realism than specialized tools" },
+      { name: "CapCut (free)", type: "Free" as const, bestFor: "editing + captions for UGC-style content", limitations: "not equivalent AI generation depth" },
+    ];
+  }
+  if (cat === "Email & Outreach") {
+    return [
+      { name: "Manual prospecting (Google + LinkedIn)", type: "Free" as const, bestFor: "small-volume outreach", limitations: "slow and not scalable" },
+      { name: "Google Sheets CRM", type: "Free" as const, bestFor: "simple pipeline tracking", limitations: "no enrichment/verification automation" },
+      { name: "Free email verification (limited tools)", type: "Freemium" as const, bestFor: "basic checks on small lists", limitations: "caps and inconsistent coverage" },
+    ];
+  }
+  if (cat === "Stock Assets") {
+    return [
+      { name: "Pexels", type: "Free" as const, bestFor: "free photos for content", limitations: "less premium selection vs paid libraries" },
+      { name: "Pixabay", type: "Free" as const, bestFor: "general free assets", limitations: "less ad-ready, more generic" },
+      { name: "Unsplash", type: "Free" as const, bestFor: "high-quality free photos", limitations: "not always ecommerce/ad oriented" },
+    ];
+  }
+  if (cat === "Productivity") {
+    return [
+      { name: "Pomodoro timers", type: "Free" as const, bestFor: "focus sprints", limitations: "no personalization to your workflow" },
+      { name: "YouTube focus music", type: "Free" as const, bestFor: "zero-friction background audio", limitations: "variable quality; no personalization" },
+      { name: "Notion (free)", type: "Freemium" as const, bestFor: "simple SOPs and task lists", limitations: "not a dedicated focus tool" },
+    ];
+  }
+
+  return base;
+}
+
 export async function generateStaticParams(): Promise<Array<{ tool: string }>> {
   const slugs = new Set<string>();
   for (const t of toolsCatalog) slugs.add(t.slug);
@@ -135,7 +236,7 @@ export default async function FreeAlternativeToolPage({ params }: { params: Prom
   const publishedIso = new Date(`${YEAR}-02-06T00:00:00.000Z`).toISOString();
 
   const alt = getFreeAlternatives(t.slug);
-  const alternatives = alt?.alternatives?.slice(0, 3) || [];
+  const alternatives = alt?.alternatives?.slice(0, 3) || fallbackFreeAlternativesForCategory(t);
 
   const introVariants = [
     `Searching for a ${t.name} free alternative doesn’t always mean you want something cheap at all costs. Most users simply want to test workflows or avoid committing too early.`,
