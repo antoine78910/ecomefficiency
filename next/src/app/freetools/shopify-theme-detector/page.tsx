@@ -25,9 +25,9 @@ export const metadata: Metadata = {
   },
 };
 
-function SectionTitle({ id, children }: { id: string; children: React.ReactNode }) {
+function SectionTitle({ id, children, className }: { id: string; children: React.ReactNode; className?: string }) {
   return (
-    <h2 id={id} className="scroll-mt-28 text-2xl md:text-3xl font-bold text-white mt-12 mb-4">
+    <h2 id={id} className={["scroll-mt-28 text-2xl md:text-3xl font-bold text-white mt-12 mb-4", className].filter(Boolean).join(" ")}>
       {children}
     </h2>
   );
@@ -137,7 +137,9 @@ export default function ShopifyThemeDetectorPage() {
             <SectionTitle id="detector">Detector</SectionTitle>
             <ShopifyThemeDetector />
 
-            <SectionTitle id="what-it-finds">What it finds</SectionTitle>
+            <SectionTitle id="what-it-finds" className="mt-16">
+              What it finds
+            </SectionTitle>
             <div className="grid gap-4 sm:grid-cols-2">
               <div className="rounded-2xl border border-white/10 bg-gray-900/20 p-5">
                 <div className="text-white font-semibold mb-2">Theme name (best effort)</div>

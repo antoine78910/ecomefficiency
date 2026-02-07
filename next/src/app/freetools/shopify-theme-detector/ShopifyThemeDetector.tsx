@@ -46,9 +46,10 @@ export default function ShopifyThemeDetector() {
   const [result, setResult] = React.useState<ApiResponse | null>(null);
 
   const run = React.useCallback(async () => {
+    if (loading) return;
     const d = normalizeDisplay(domain);
     if (!d) {
-      setResult({ ok: false, error: "Please enter a domain (example: brand.com)." });
+      setResult({ ok: false, error: "Please enter a domain (example: theoodie.com)." });
       return;
     }
 
@@ -63,7 +64,7 @@ export default function ShopifyThemeDetector() {
     } finally {
       setLoading(false);
     }
-  }, [domain]);
+  }, [domain, loading]);
 
   return (
     <div className="rounded-3xl border border-white/10 bg-gray-900/20 p-5 md:p-6">
@@ -72,15 +73,21 @@ export default function ShopifyThemeDetector() {
 
       <div className="mt-5 flex flex-col sm:flex-row gap-3">
         <div className="flex-1">
+          <div className="relative">
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute -inset-1 rounded-2xl bg-gradient-to-r from-purple-500/35 via-fuchsia-500/25 to-indigo-500/30 blur-xl opacity-80"
+            />
           <input
             value={domain}
             onChange={(e) => setDomain(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter") run();
             }}
-            placeholder="example: brand.com"
-            className="w-full h-11 rounded-xl border border-white/10 bg-black/30 text-white px-4 text-sm outline-none focus:border-purple-400/60 focus:ring-2 focus:ring-purple-500/20"
+            placeholder="theoodie.com"
+            className="relative z-10 w-full h-11 rounded-xl border border-white/10 bg-black/40 text-white px-4 text-sm outline-none placeholder:text-gray-500 focus:border-purple-400/70 focus:ring-2 focus:ring-purple-500/25 shadow-[0_0_0_1px_rgba(255,255,255,0.03),0_16px_60px_rgba(124,48,199,0.18)]"
           />
+          </div>
         </div>
 
         <button
@@ -96,19 +103,9 @@ export default function ShopifyThemeDetector() {
           ].join(" ")}
         >
           {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
-          Analyze
+          {loading ? "Analyzing…" : "Analyze"}
         </button>
       </div>
-
-      {loading ? (
-        <div className="mt-4">
-          <div className="h-2 rounded-full bg-white/10 overflow-hidden">
-            <div className="h-full w-1/3 bg-purple-400/80 animate-[loading_1.2s_ease-in-out_infinite]" />
-          </div>
-          <style>{`@keyframes loading{0%{transform:translateX(-50%)}50%{transform:translateX(70%)}100%{transform:translateX(220%)}}`}</style>
-          <div className="mt-2 text-[11px] text-gray-400">Analyzing…</div>
-        </div>
-      ) : null}
 
       {result && !result.ok ? (
         <div className="mt-5 rounded-2xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">{result.error}</div>

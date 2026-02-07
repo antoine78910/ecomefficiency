@@ -29,24 +29,6 @@ const tools = [
     illustration: "/freetools/roas.png",
   },
   {
-    slug: "tiktok-comment-generator",
-    title: "TikTok comment generator",
-    description: "Generate unlimited TikTok comments and replies for free (single or bulk).",
-    illustration: "/freetools/tiktok.png",
-  },
-  {
-    slug: "instagram-comment-generator",
-    title: "Instagram comment generator",
-    description: "Generate unlimited Instagram comments for free (AI-style, export as image).",
-    illustration: "/freetools/instagram.png",
-  },
-  {
-    slug: "shopify-app-detector",
-    title: "Shopify app detector",
-    description: "Detect apps used by a Shopify store by parsing syncload script URLs (best effort).",
-    illustration: "/freetools/shopify-detector.png",
-  },
-  {
     slug: "shopify-theme-detector",
     title: "Shopify theme detector",
     description: "Detect the Shopify theme name used by a store (best effort), including themes like Dawn.",

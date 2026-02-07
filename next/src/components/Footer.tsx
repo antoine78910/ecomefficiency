@@ -94,9 +94,6 @@ const Footer = () => {
               <li><a href="/freetools/break-even-roas-calculator" title="Break-even ROAS calculator" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Break-even ROAS</a></li>
               <li><a href="/freetools/customer-lifetime-value-calculator" title="Customer lifetime value calculator" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Customer LTV</a></li>
               <li><a href="/freetools/shopify-theme-detector" title="Shopify theme detector" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Shopify Theme Detector</a></li>
-              <li><a href="/freetools/shopify-app-detector" title="Shopify app detector" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Shopify App Detector</a></li>
-              <li><a href="/freetools/tiktok-comment-generator" title="TikTok comment generator" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">TikTok Comment Generator</a></li>
-              <li><a href="/freetools/instagram-comment-generator" title="Instagram comment generator" className="text-gray-400 hover:text-white transition-colors text-xs md:text-sm">Instagram Comment Generator</a></li>
             </ul>
           </div>
 
