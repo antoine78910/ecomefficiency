@@ -32,16 +32,14 @@ export default function ProToolsHubPage() {
         className="absolute inset-0 z-0"
         style={{
           backgroundColor: "#f4f4f4",
-          backgroundImage: "radial-gradient(circle, rgba(0, 0, 0, 0.10) 1px, transparent 1px)",
-          backgroundSize: "20px 20px",
         }}
       />
 
-      <main className="relative z-10 px-4 py-10">
+      <main className="relative z-10 px-4 pb-10">
         <h1
           className={[
-            "text-center text-4xl font-black tracking-tight",
-            "text-[#333] mb-8",
+            "text-center font-black",
+            "text-[#333] mb-6 mt-[50px] text-[40px]",
             kanit.className,
           ].join(" ")}
         >
