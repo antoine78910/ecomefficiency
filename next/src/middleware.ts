@@ -188,11 +188,6 @@ export async function middleware(req: NextRequest) {
       const r = url.clone(); r.pathname = '/startertools';
       return NextResponse.rewrite(r)
     }
-    // /pro => marketing pro tools page
-    if (pathname === '/pro') {
-      const r = url.clone(); r.pathname = '/protools';
-      return NextResponse.rewrite(r)
-    }
     // Serve dedicated tools subdomain landing (keep root only)
     if (pathname === '/' || pathname === '' || pathname === '/tools' || pathname === '/tools/') {
       const r = url.clone(); r.pathname = '/tools-subdomain';
