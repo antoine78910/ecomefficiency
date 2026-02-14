@@ -290,7 +290,7 @@ button {
 
           <a href="https://chatgpt.com/" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-images/gpt.png" alt="Adspy" className="w-16 h-16 object-contain" />
+              <img src="/tools-images/chatgpt.png" alt="Adspy" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">Chat GPT Pro</div>
             <div className="tool-description">
@@ -300,7 +300,7 @@ button {
 
           <a href="https://www.midjourney.com/explore?tab=top" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-images/mid.png" alt="Midjourney" className="w-16 h-16 object-contain" />
+              <img src="/tools-images/midjourney.png" alt="Midjourney" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">Midjourney</div>
             <div className="tool-description">
@@ -310,7 +310,7 @@ button {
 
           <a href="https://www.semrush.com/app/exploding-topics/" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-images/exp.png" alt="Exploding Topics" className="w-16 h-16 object-contain" />
+              <img src="/tools-images/exploding.png" alt="Exploding Topics" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">Exploding Topics</div>
             <div className="tool-description">Tracks and identifies emerging trends using search data and online insights</div>
@@ -318,7 +318,7 @@ button {
 
           <a href="https://www.pipiads.com/login" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-images/pipi.png" alt="Adspy" className="w-16 h-16 object-contain" />
+              <img src="/tools-images/pipiads.png" alt="Adspy" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">Pipiads</div>
             <div className="tool-description">
@@ -328,7 +328,7 @@ button {
 
           <a href="https://www.kalodata.com/login" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-images/kalo.png" alt="Adspy" className="w-16 h-16 object-contain" />
+              <img src="/tools-images/kalodata.png" alt="Adspy" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">Kalodata</div>
             <div className="tool-description">Data analysis platform specialized in TikTok ecommerce.</div>
@@ -336,7 +336,7 @@ button {
 
           <a href="https://app.winninghunter.com/login" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-images/win1.png" alt="Adspy" className="w-16 h-16 object-contain" />
+              <img src="/tools-images/winninghunter.png" alt="Adspy" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">Winning Hunter</div>
             <div className="tool-description">Spy tool for finding top-performing Facebook and TikTok ads.</div>
@@ -344,7 +344,7 @@ button {
 
           <a href="https://www.capcut.com/fr-fr/login" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-images/cap.png" alt="Adspy" className="w-16 h-16 object-contain" />
+              <img src="/tools-images/capcut.png" alt="Adspy" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">Capcut</div>
             <div className="tool-description">
@@ -354,7 +354,7 @@ button {
 
           <a href="https://app.sendshort.ai/en/home" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-images/send.png" alt="Exploding Topics" className="w-16 h-16 object-contain" />
+              <img src="/tools-images/sendshort.png" alt="Exploding Topics" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">SendShort</div>
             <div className="tool-description">An AI tool for automatically generating and translating video subtitles</div>
@@ -362,7 +362,7 @@ button {
 
           <a href="https://noxtools.com/secure/page/Helium10" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-images/h.png" alt="Adspy" className="w-16 h-16 object-contain" />
+              <img src="/tools-images/helium10.png" alt="Adspy" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">Helium 10</div>
             <div className="tool-description">Amazon seller tools for product research and optimization.</div>
@@ -426,7 +426,7 @@ button {
 
           <a href="https://elevenlabs.io/app/sign-in" className="tool-card group" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-images/11.png" alt="ElevenLabs" className="w-16 h-16 object-contain" />
+              <img src="/tools-images/elevenlabs.png" alt="ElevenLabs" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">ElevenLabs</div>
             <div className="tool-description">
