@@ -282,15 +282,15 @@ export default function ProToolsGrid({
             {/* Bottom: title then description */}
             <div className="flex-[1] w-full">
               <div
-                className="text-2xl font-extrabold mb-2 text-[#111] text-left"
-                style={{ fontFamily: "'Montserrat', sans-serif" }}
+                className="text-[22px] font-bold mb-2 text-left"
+                style={{ fontFamily: "'Montserrat', sans-serif", color: "#333333" }}
               >
                 {tool.name}
               </div>
 
               {tool.name === "+30 SEO Tools" ? (
                 <div>
-                  <div className="text-sm text-[#464646] mb-1" style={{ fontFamily: "'Open Sans', sans-serif" }}>
+                  <div className="text-sm mb-1" style={{ fontFamily: "'Open Sans', sans-serif", color: "#333333" }}>
                     Includes:
                   </div>
                   <div className="flex flex-wrap justify-center items-center gap-2">
@@ -327,12 +327,12 @@ export default function ProToolsGrid({
                       errorTextClassName="text-[10px] font-black text-black/50 leading-none"
                     />
                   </div>
-                  <div className="text-sm text-[#464646] mt-2" style={{ fontFamily: "'Open Sans', sans-serif" }}>
+                  <div className="text-sm mt-2" style={{ fontFamily: "'Open Sans', sans-serif", color: "#333333" }}>
                     And more ...
                   </div>
                 </div>
               ) : (
-                <div className="text-sm text-[#464646] leading-relaxed" style={{ fontFamily: "'Open Sans', sans-serif" }}>
+                <div className="text-sm leading-relaxed" style={{ fontFamily: "'Open Sans', sans-serif", color: "#333333" }}>
                   {tool.description}
                 </div>
               )}
