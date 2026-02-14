@@ -32,6 +32,8 @@ export default function ProToolsHubPage() {
         className="absolute inset-0 z-0"
         style={{
           backgroundColor: "#f4f4f4",
+          backgroundImage: "radial-gradient(circle, rgba(0, 0, 0, 0.10) 1px, transparent 1px)",
+          backgroundSize: "20px 20px",
         }}
       />
 

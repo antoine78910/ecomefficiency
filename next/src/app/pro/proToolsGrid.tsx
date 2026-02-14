@@ -7,7 +7,8 @@ type Tool = {
   name: string;
   description: string;
   href: string;
-  imageSrc: string; // from /tools-images/*
+  imageSrc: string; // primary: from /tools-images/*
+  fallbackSrc?: string; // fallback: from /tools-logos/*
   badge?: { label: string; tone?: "blue" | "orange" };
 };
 
@@ -17,107 +18,141 @@ const TOOLS: Tool[] = [
     description: "",
     href: "https://rankerfox.com/login/",
     imageSrc: "/tools-images/seo.png",
+    fallbackSrc: "/tools-logos/seo.png",
   },
   {
     name: "Flair AI",
     description: "An AI-powered visual editor for product photography.",
     href: "https://app.flair.ai/explore",
     imageSrc: "/tools-images/flair.png",
+    fallbackSrc: "/tools-logos/flair.png",
   },
   {
     name: "Chat GPT Pro",
     description: "Chat helps you answer questions, write texts, provide advice and automate conversations.",
     href: "https://chatgpt.com/",
     imageSrc: "/tools-images/gpt.png",
+    fallbackSrc: "/tools-logos/chatgpt.png",
   },
   {
     name: "Midjourney",
     description: "AI-driven platform that generates high-quality images from text prompts.",
     href: "https://www.midjourney.com/explore?tab=top",
     imageSrc: "/tools-images/mid.png",
+    fallbackSrc: "/tools-logos/midjourney.png",
   },
   {
     name: "Exploding Topics",
     description: "Tracks and identifies emerging trends using search data and online insights.",
     href: "https://www.semrush.com/app/exploding-topics/",
     imageSrc: "/tools-images/exp.png",
+    fallbackSrc: "/tools-logos/exploding.png",
   },
   {
     name: "Pipiads",
     description: "The largest TikTok & Facebook ad library and powerful ad spy.",
     href: "https://www.pipiads.com/login",
     imageSrc: "/tools-images/pipi.png",
+    fallbackSrc: "/tools-logos/pipiads.png",
   },
   {
     name: "Kalodata",
     description: "Data analysis platform specialized in TikTok ecommerce.",
     href: "https://www.kalodata.com/login",
     imageSrc: "/tools-images/kalo.png",
+    fallbackSrc: "/tools-logos/kalodata.png",
   },
   {
     name: "Winning Hunter",
     description: "Spy tool for finding top-performing Facebook and TikTok ads.",
     href: "https://app.winninghunter.com/login",
     imageSrc: "/tools-images/win.png",
+    fallbackSrc: "/tools-logos/winninghunter.png",
   },
   {
     name: "Capcut",
     description: "Create and edit stunning videos for social media.",
     href: "https://www.capcut.com/fr-fr/login",
     imageSrc: "/tools-images/cap.png",
+    fallbackSrc: "/tools-logos/capcut.png",
   },
   {
     name: "SendShort",
     description: "AI tool for automatically generating and translating video subtitles.",
     href: "https://app.sendshort.ai/en/home",
     imageSrc: "/tools-images/send.png",
+    fallbackSrc: "/tools-logos/sendshort.png",
   },
   {
     name: "Helium 10",
     description: "Amazon seller tools for product research and optimization.",
     href: "https://noxtools.com/secure/page/Helium10",
     imageSrc: "/tools-images/h.png",
+    fallbackSrc: "/tools-logos/helium10.png",
   },
   {
     name: "Dropship.io",
     description: "All-in-one Shopify tool to find winning products and track competitors.",
     href: "https://app.dropship.io/login",
     imageSrc: "/tools-images/dropship.png",
+    fallbackSrc: "/tools-logos/dropship.png",
   },
   {
     name: "Shophunter",
     description: "Sales Tracker Spy & Product Research Tool. Spy on Competitor Sales.",
     href: "https://app.shophunter.io/login",
     imageSrc: "/tools-images/shophunter.png",
+    fallbackSrc: "/tools-logos/shophunter.png",
   },
   {
     name: "Atria",
     description: "Discover winning products, ad creatives, store funnels, and market insights.",
     href: "https://app.tryatria.com/login",
     imageSrc: "/tools-images/atria.png",
+    fallbackSrc: "/tools-logos/atria.png",
   },
   {
     name: "ForePlay",
     description: "Save ads, build briefs and produce high converting Facebook & TikTok ads.",
     href: "https://app.foreplay.co/login",
     imageSrc: "/tools-images/foreplay.png",
+    fallbackSrc: "/tools-logos/foreplay.png",
   },
   {
     name: "ElevenLabs",
     description: "AI-powered voice synthesis technology that creates realistic speech.",
     href: "https://elevenlabs.io/app/sign-in",
     imageSrc: "/tools-images/11.png",
+    fallbackSrc: "/tools-logos/elevenlabs.png",
   },
   {
     name: "Vmake",
     description: "AI talking-head videos, background removal, subtitles, upscaling.",
     href: "https://vmake.ai/workspace",
     imageSrc: "/tools-images/vmake.png",
+    fallbackSrc: "/tools-logos/vmake.png",
   },
 ];
 
-function ToolImage({ src, alt, className }: { src: string; alt: string; className: string }) {
+function ToolImage({
+  src,
+  fallbackSrc,
+  alt,
+  className,
+}: {
+  src: string;
+  fallbackSrc?: string;
+  alt: string;
+  className: string;
+}) {
+  const [currentSrc, setCurrentSrc] = React.useState(src);
   const [errored, setErrored] = React.useState(false);
+
+  React.useEffect(() => {
+    setCurrentSrc(src);
+    setErrored(false);
+  }, [src]);
+
   if (errored) {
     return (
       <div
@@ -130,7 +165,21 @@ function ToolImage({ src, alt, className }: { src: string; alt: string; classNam
     );
   }
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src={src} alt={alt} className={className} loading="lazy" onError={() => setErrored(true)} />;
+  return (
+    <img
+      src={currentSrc}
+      alt={alt}
+      className={className}
+      loading="lazy"
+      onError={() => {
+        if (fallbackSrc && currentSrc !== fallbackSrc) {
+          setCurrentSrc(fallbackSrc);
+          return;
+        }
+        setErrored(true);
+      }}
+    />
+  );
 }
 
 function Badge({ label, tone = "blue" }: { label: string; tone?: "blue" | "orange" }) {
@@ -172,7 +221,12 @@ export default function ProToolsGrid({
             ) : null}
 
             <div className="mb-2">
-              <ToolImage src={tool.imageSrc} alt={tool.name} className="w-[180px] h-[180px] object-contain" />
+              <ToolImage
+                src={tool.imageSrc}
+                fallbackSrc={tool.fallbackSrc}
+                alt={tool.name}
+                className="w-[180px] h-[180px] object-contain"
+              />
             </div>
 
             <div className={["text-2xl font-extrabold mb-2 text-[#111] text-left self-stretch", montserratClassName].join(" ")}>{tool.name}</div>
@@ -181,10 +235,30 @@ export default function ProToolsGrid({
               <div className="mt-2">
                 <div className={["text-sm text-[#464646] mb-2", openSansClassName].join(" ")}>Includes:</div>
                 <div className="flex flex-wrap justify-center items-center gap-2">
-                  <ToolImage src="/tools-images/sem.png" alt="Semrush" className="w-10 h-10 object-contain" />
-                  <ToolImage src="/tools-images/uber.png" alt="Ubersuggest" className="w-10 h-10 object-contain" />
-                  <ToolImage src="/tools-images/js.png" alt="JungleScout" className="w-10 h-10 object-contain" />
-                  <ToolImage src="/tools-images/canv.png" alt="Canva" className="w-10 h-10 object-contain" />
+                  <ToolImage
+                    src="/tools-images/sem.png"
+                    fallbackSrc="/tools-logos/semrush.png"
+                    alt="Semrush"
+                    className="w-10 h-10 object-contain"
+                  />
+                  <ToolImage
+                    src="/tools-images/uber.png"
+                    fallbackSrc="/tools-logos/ubersuggest.png"
+                    alt="Ubersuggest"
+                    className="w-10 h-10 object-contain"
+                  />
+                  <ToolImage
+                    src="/tools-images/js.png"
+                    fallbackSrc="/tools-logos/seo.png"
+                    alt="JungleScout"
+                    className="w-10 h-10 object-contain"
+                  />
+                  <ToolImage
+                    src="/tools-images/canv.png"
+                    fallbackSrc="/tools-logos/canva.png"
+                    alt="Canva"
+                    className="w-10 h-10 object-contain"
+                  />
                 </div>
                 <div className={["text-sm text-[#464646] mt-2", openSansClassName].join(" ")}>And more ...</div>
               </div>
