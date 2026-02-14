@@ -61,6 +61,13 @@ h1 {
   box-sizing: border-box;
 }
 
+/* 6 cards per row on large screens (zoomed-out feel) */
+@media (min-width: 1280px) {
+  .tools-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
 .tool-icon img {
   width: 180px;
   height: 180px;
@@ -398,7 +405,7 @@ button {
 
           <a href="https://app.heygen.com/login" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-logos/heygen.png" alt="Grammarly" className="w-16 h-16 object-contain" />
+              <img src="/tools-images/heygen.png" alt="Grammarly" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">Heygen</div>
             <div className="tool-description">
@@ -408,7 +415,7 @@ button {
 
           <a href="https://www.fotor.com/fr/" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-logos/fotor.png" alt="Fotor" className="w-16 h-16 object-contain" />
+              <img src="/tools-images/fotor.png" alt="Fotor" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">Fotor</div>
             <div className="tool-description">
@@ -434,9 +441,9 @@ button {
             </div>
           </a>
 
-          <a href="https://noxtools.com/secure/page/Runwayml" className="tool-card" target="_blank" rel="noopener noreferrer">
+          <a href="https://app.runwayml.com/login" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-logos/runway.png" alt="Grammarly" className="w-16 h-16 object-contain" />
+              <img src="/tools-images/runway.png" alt="Grammarly" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">Runway</div>
             <div className="tool-description">
@@ -444,9 +451,42 @@ button {
             </div>
           </a>
 
+          <a href="https://higgsfield.ai/auth/login" className="tool-card" target="_blank" rel="noopener noreferrer">
+            <div className="tool-icon">
+              <img src="/tools-images/higgsfield.png" alt="Grammarly" className="w-16 h-16 object-contain" />
+            </div>
+            <div className="tool-name">Higgsfield</div>
+            <div className="tool-description">AI tool for generating product images and videos.</div>
+          </a>
+
+          <a href="https://vmake.ai/workspace" className="tool-card" target="_blank" rel="noopener noreferrer">
+            <div className="tool-icon">
+              <img src="/tools-images/vmake.png" alt="Grammarly" className="w-16 h-16 object-contain" />
+            </div>
+            <div className="tool-name">Vmake</div>
+            <div className="tool-description">AI talking-head videos, background removal, subtitles, upscaling</div>
+          </a>
+
+          <a href="https://www.freepik.com/log-in?client_id=freepik&lang=en" className="tool-card" target="_blank" rel="noopener noreferrer">
+            <div className="tool-icon">
+              <img src="/tools-images/freepik.png" alt="Freepik" className="w-16 h-16 object-contain" />
+            </div>
+            <div className="tool-name">Freepik</div>
+            <div className="tool-description">AI tools, smart features, and high-quality stock assets to design and create without ever leaving Freepik</div>
+          </a>
+
+          <a href="https://turboscribe.ai/login" className="tool-card" target="_blank" rel="noopener noreferrer">
+            <div className="tool-icon">
+              <img src="/tools-images/turboscribe.png" alt="Turboscribe" className="w-16 h-16 object-contain" />
+            </div>
+            <div className="tool-name">Turboscribe</div>
+            <div className="tool-description">AI audio &amp; video transcription, fast summaries, speaker detection, and export-ready text.</div>
+            <div className="tool-badge">Newly Added !</div>
+          </a>
+
           <a href="https://app.trendtrack.io/en/login" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-logos/trendtrack.png" alt="Grammarly" className="w-16 h-16 object-contain" />
+              <img src="/tools-images/trendtrack.png" alt="Grammarly" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">Trendtrack</div>
             <div className="tool-description">Track emerging e-commerce trends in real time and spot winning products before they go mainstream.</div>
@@ -454,7 +494,7 @@ button {
 
           <a href="https://app.brandsearch.co/" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-logos/brandsearch.png" alt="Grammarly" className="w-16 h-16 object-contain" />
+              <img src="/tools-images/brandsearch.png" alt="Grammarly" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">Brandsearch</div>
             <div className="tool-description">
