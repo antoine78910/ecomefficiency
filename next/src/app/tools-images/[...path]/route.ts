@@ -9,11 +9,11 @@ type ToolsImagesParams = { path?: string[] | string };
 
 export async function GET(
   req: Request,
-  ctx: { params: Promise<ToolsImagesParams> | ToolsImagesParams }
+  { params }: { params: Promise<ToolsImagesParams> }
 ) {
-  // Next 15 may type `params` as a Promise; handle both sync + async.
-  const params = await Promise.resolve(ctx?.params as ToolsImagesParams);
-  const p = Array.isArray(params?.path) ? params.path.join("/") : typeof params?.path === "string" ? params.path : "";
+  // Next 15 expects `params` to be a Promise in route handlers.
+  const resolved = await params;
+  const p = Array.isArray(resolved?.path) ? resolved.path.join("/") : typeof resolved?.path === "string" ? resolved.path : "";
   const url = new URL(req.url);
   url.pathname = `/tools-logos/${p}`;
 
