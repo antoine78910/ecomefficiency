@@ -65,6 +65,7 @@ h1 {
   width: 180px;
   height: 180px;
   object-fit: contain;
+  display: block;
 }
 
 .tool-image {
@@ -113,6 +114,10 @@ h1 {
   font-size: 40px;
   margin-bottom: 10px;
   color: #007bff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
 }
 
 .tool-name {
@@ -130,10 +135,21 @@ h1 {
   color: #464646;
 }
 
+.tool-includes {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: nowrap;
+}
+
 .tool-includes img {
   width: 18px;
   height: 18px;
-  margin: 4px;
+  margin: 0 0 0 -7px; /* overlap horizontally */
+}
+
+.tool-includes img:first-child {
+  margin-left: 0;
 }
 
 .tool-badge {
