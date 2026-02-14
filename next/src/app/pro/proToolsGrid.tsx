@@ -209,18 +209,20 @@ export default function ProToolsGrid({
               "border border-black shadow-[0_4px_8px_rgba(0,0,0,0.1),0_6px_20px_rgba(0,0,0,0.2)]",
               "transition-transform transition-shadow duration-300",
               "hover:-translate-y-2.5 hover:shadow-[0_8px_16px_rgba(0,0,0,0.2),0_12px_24px_rgba(0,0,0,0.4)] hover:border-black/70",
-              "aspect-square",
+              // Slightly taller than wide (not perfectly square)
+              "aspect-[6/7]",
               "focus:outline-none focus-visible:ring-2 focus-visible:ring-black/40",
             ].join(" ")}
           >
-            <div className="absolute inset-0 p-5 flex flex-col items-center text-center">
+            <div className="absolute inset-0 p-5 flex flex-col">
             {tool.badge ? (
               <div className="absolute top-3 right-3">
                 <Badge label={tool.badge.label} tone={tool.badge.tone} />
               </div>
             ) : null}
 
-            <div className="mb-2 w-full flex items-center justify-center">
+            {/* Top ~3/4: centered logo */}
+            <div className="flex-[3] w-full flex items-center justify-center">
               <ToolImage
                 src={tool.imageSrc}
                 fallbackSrc={tool.fallbackSrc}
@@ -229,61 +231,64 @@ export default function ProToolsGrid({
               />
             </div>
 
-            <div
-              className="text-2xl font-extrabold mb-2 text-[#111] text-left self-stretch"
-              style={{ fontFamily: "'Montserrat', sans-serif" }}
-            >
-              {tool.name}
-            </div>
+            {/* Bottom: title then description */}
+            <div className="flex-[1] w-full">
+              <div
+                className="text-2xl font-extrabold mb-2 text-[#111] text-left"
+                style={{ fontFamily: "'Montserrat', sans-serif" }}
+              >
+                {tool.name}
+              </div>
 
-            {tool.name === "+30 SEO Tools" ? (
-              <div className="mt-2 w-full">
-                <div className="text-sm text-[#464646] mb-1" style={{ fontFamily: "'Open Sans', sans-serif" }}>
-                  Includes:
+              {tool.name === "+30 SEO Tools" ? (
+                <div>
+                  <div className="text-sm text-[#464646] mb-1" style={{ fontFamily: "'Open Sans', sans-serif" }}>
+                    Includes:
+                  </div>
+                  <div className="flex flex-wrap justify-center items-center gap-2">
+                    <ToolImage
+                      src="/tools-images/sem.png"
+                      fallbackSrc="/tools-logos/semrush.png"
+                      alt="Semrush"
+                      className="w-[18px] h-[18px] object-contain"
+                      errorContainerClassName="w-[18px] h-[18px] rounded-sm bg-black/5 border border-black/10 flex items-center justify-center"
+                      errorTextClassName="text-[10px] font-black text-black/50 leading-none"
+                    />
+                    <ToolImage
+                      src="/tools-images/uber.png"
+                      fallbackSrc="/tools-logos/ubersuggest.png"
+                      alt="Ubersuggest"
+                      className="w-[18px] h-[18px] object-contain"
+                      errorContainerClassName="w-[18px] h-[18px] rounded-sm bg-black/5 border border-black/10 flex items-center justify-center"
+                      errorTextClassName="text-[10px] font-black text-black/50 leading-none"
+                    />
+                    <ToolImage
+                      src="/tools-images/js.png"
+                      fallbackSrc="/tools-logos/seo.png"
+                      alt="JungleScout"
+                      className="w-[18px] h-[18px] object-contain"
+                      errorContainerClassName="w-[18px] h-[18px] rounded-sm bg-black/5 border border-black/10 flex items-center justify-center"
+                      errorTextClassName="text-[10px] font-black text-black/50 leading-none"
+                    />
+                    <ToolImage
+                      src="/tools-images/canv.png"
+                      fallbackSrc="/tools-logos/canva.png"
+                      alt="Canva"
+                      className="w-[18px] h-[18px] object-contain"
+                      errorContainerClassName="w-[18px] h-[18px] rounded-sm bg-black/5 border border-black/10 flex items-center justify-center"
+                      errorTextClassName="text-[10px] font-black text-black/50 leading-none"
+                    />
+                  </div>
+                  <div className="text-sm text-[#464646] mt-2" style={{ fontFamily: "'Open Sans', sans-serif" }}>
+                    And more ...
+                  </div>
                 </div>
-                <div className="flex flex-wrap justify-center items-center gap-2">
-                  <ToolImage
-                    src="/tools-images/sem.png"
-                    fallbackSrc="/tools-logos/semrush.png"
-                    alt="Semrush"
-                    className="w-[18px] h-[18px] object-contain"
-                    errorContainerClassName="w-[18px] h-[18px] rounded-sm bg-black/5 border border-black/10 flex items-center justify-center"
-                    errorTextClassName="text-[10px] font-black text-black/50 leading-none"
-                  />
-                  <ToolImage
-                    src="/tools-images/uber.png"
-                    fallbackSrc="/tools-logos/ubersuggest.png"
-                    alt="Ubersuggest"
-                    className="w-[18px] h-[18px] object-contain"
-                    errorContainerClassName="w-[18px] h-[18px] rounded-sm bg-black/5 border border-black/10 flex items-center justify-center"
-                    errorTextClassName="text-[10px] font-black text-black/50 leading-none"
-                  />
-                  <ToolImage
-                    src="/tools-images/js.png"
-                    fallbackSrc="/tools-logos/seo.png"
-                    alt="JungleScout"
-                    className="w-[18px] h-[18px] object-contain"
-                    errorContainerClassName="w-[18px] h-[18px] rounded-sm bg-black/5 border border-black/10 flex items-center justify-center"
-                    errorTextClassName="text-[10px] font-black text-black/50 leading-none"
-                  />
-                  <ToolImage
-                    src="/tools-images/canv.png"
-                    fallbackSrc="/tools-logos/canva.png"
-                    alt="Canva"
-                    className="w-[18px] h-[18px] object-contain"
-                    errorContainerClassName="w-[18px] h-[18px] rounded-sm bg-black/5 border border-black/10 flex items-center justify-center"
-                    errorTextClassName="text-[10px] font-black text-black/50 leading-none"
-                  />
+              ) : (
+                <div className="text-sm text-[#464646] leading-relaxed" style={{ fontFamily: "'Open Sans', sans-serif" }}>
+                  {tool.description}
                 </div>
-                <div className="text-sm text-[#464646] mt-2" style={{ fontFamily: "'Open Sans', sans-serif" }}>
-                  And more ...
-                </div>
-              </div>
-            ) : (
-              <div className="text-sm text-[#464646] leading-relaxed" style={{ fontFamily: "'Open Sans', sans-serif" }}>
-                {tool.description}
-              </div>
-            )}
+              )}
+            </div>
             </div>
           </a>
         ))}
