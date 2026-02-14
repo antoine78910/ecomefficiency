@@ -1,11 +1,6 @@
 import type { Metadata } from "next";
-import { Kanit, Montserrat, Open_Sans } from "next/font/google";
 
 import ProToolsGrid from "./proToolsGrid";
-
-const kanit = Kanit({ subsets: ["latin"], weight: ["400", "700", "800", "900"] });
-const montserrat = Montserrat({ subsets: ["latin"], weight: ["500", "600", "700", "800", "900"] });
-const openSans = Open_Sans({ subsets: ["latin"], weight: ["300", "400", "600", "700"] });
 
 export const dynamic = "force-static";
 export const revalidate = 86400; // 1 day
@@ -25,7 +20,7 @@ export const metadata: Metadata = {
 
 export default function ProToolsHubPage() {
   return (
-    <div className="relative min-h-screen overflow-hidden">
+    <div className="relative min-h-screen overflow-hidden" style={{ fontFamily: "Arial, sans-serif" }}>
       {/* Background */}
       <div
         aria-hidden="true"
@@ -38,16 +33,10 @@ export default function ProToolsHubPage() {
       />
 
       <main className="relative z-10 px-4 pb-10">
-        <h1
-          className={[
-            "text-center font-black",
-            "text-[#333] mb-6 mt-[50px] text-[40px]",
-            kanit.className,
-          ].join(" ")}
-        >
+        <h1 className="text-center font-black text-[#333] mb-6 mt-[50px] text-[40px]" style={{ fontFamily: "'Kanit', sans-serif" }}>
           Ecom Efficiency
         </h1>
-        <ProToolsGrid montserratClassName={montserrat.className} openSansClassName={openSans.className} />
+        <ProToolsGrid />
       </main>
     </div>
   );

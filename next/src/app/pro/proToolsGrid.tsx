@@ -192,12 +192,7 @@ function Badge({ label, tone = "blue" }: { label: string; tone?: "blue" | "orang
 }
 
 export default function ProToolsGrid({
-  montserratClassName,
-  openSansClassName,
-}: {
-  montserratClassName: string;
-  openSansClassName: string;
-}) {
+}: Record<string, never>) {
   return (
     <>
       <Script src="https://t.contentsquare.net/uxa/af705d190c606.js" strategy="afterInteractive" />
@@ -234,11 +229,18 @@ export default function ProToolsGrid({
               />
             </div>
 
-            <div className={["text-2xl font-extrabold mb-2 text-[#111] text-left self-stretch", montserratClassName].join(" ")}>{tool.name}</div>
+            <div
+              className="text-2xl font-extrabold mb-2 text-[#111] text-left self-stretch"
+              style={{ fontFamily: "'Montserrat', sans-serif" }}
+            >
+              {tool.name}
+            </div>
 
             {tool.name === "+30 SEO Tools" ? (
               <div className="mt-2 w-full">
-                <div className={["text-sm text-[#464646] mb-1", openSansClassName].join(" ")}>Includes:</div>
+                <div className="text-sm text-[#464646] mb-1" style={{ fontFamily: "'Open Sans', sans-serif" }}>
+                  Includes:
+                </div>
                 <div className="flex flex-wrap justify-center items-center gap-2">
                   <ToolImage
                     src="/tools-images/sem.png"
@@ -273,10 +275,14 @@ export default function ProToolsGrid({
                     errorTextClassName="text-[10px] font-black text-black/50 leading-none"
                   />
                 </div>
-                <div className={["text-sm text-[#464646] mt-2", openSansClassName].join(" ")}>And more ...</div>
+                <div className="text-sm text-[#464646] mt-2" style={{ fontFamily: "'Open Sans', sans-serif" }}>
+                  And more ...
+                </div>
               </div>
             ) : (
-              <div className={["text-sm text-[#464646] leading-relaxed", openSansClassName].join(" ")}>{tool.description}</div>
+              <div className="text-sm text-[#464646] leading-relaxed" style={{ fontFamily: "'Open Sans', sans-serif" }}>
+                {tool.description}
+              </div>
             )}
             </div>
           </a>
