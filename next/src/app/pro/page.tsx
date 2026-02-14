@@ -29,7 +29,7 @@ export default function ProToolsHubPage() {
 
 body {
   font-family: Arial, sans-serif;
-  background-color: #f4f4f4;
+  background-color: #ffffff;
   margin: 0;
   padding: 0;
   text-align: center;
@@ -131,9 +131,9 @@ h1 {
 }
 
 .tool-includes img {
-  width: 40px;
-  height: 40px;
-  margin: 5px;
+  width: 18px;
+  height: 18px;
+  margin: 4px;
 }
 
 .tool-badge {
@@ -228,16 +228,6 @@ button {
       `}</style>
 
       <div className="relative overflow-hidden">
-        {/* Background */}
-        <div className="absolute top-0 z-0 h-screen w-screen custom-background" />
-        <style>{`
-          .custom-background {
-            background-color: #000000;
-            background-image: radial-gradient(circle, rgba(255, 255, 255, 0.2) 1px, #00091d 1px);
-            background-size: 20px 20px;
-          }
-        `}</style>
-
         {/* Popup confirmation (as provided) */}
         <div id="confirmationModal" className="modal">
           <div className="modal-content">
@@ -258,21 +248,23 @@ button {
 
         <div className="tools-grid grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 p-4 relative z-10">
           <a href="https://rankerfox.com/login/" className="tool-card" target="_blank" rel="noopener noreferrer">
-            <img src="/tools-images/seo.png" alt="seo" className="tool-image seo-image" />
+            <div className="tool-icon">
+              <img src="/tools-images/seo.png" alt="seo" />
+            </div>
             <div className="tool-name">+30 SEO Tools</div>
             <div className="tool-description">Includes:</div>
             <div className="tool-includes">
-              <img src="/tools-images/sem.png" alt="Semrush" className="tool-image seo-image" />
-              <img src="/tools-images/uber.png" alt="Ubersuggest" className="tool-image seo-image" />
-              <img src="/tools-images/js.png" alt="JungleScout" className="tool-image seo-image" />
-              <img src="/tools-images/canv.png" alt="Canva" className="tool-image seo-image" />
+              <img src="/tools-images/sem.png" alt="Semrush" />
+              <img src="/tools-images/uber.png" alt="Ubersuggest" />
+              <img src="/tools-images/js.png" alt="JungleScout" />
+              <img src="/tools-images/canv.png" alt="Canva" />
             </div>
             <div className="tool-description">And more ...</div>
           </a>
 
           <a href="https://app.flair.ai/explore" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-images/flair.png" alt="Flair AI" className="w-16 h-16 object-contain" />
+              <img src="/tools-images/flair.png" alt="Adspy" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">Flair AI</div>
             <div className="tool-description">
@@ -282,7 +274,7 @@ button {
 
           <a href="https://chatgpt.com/" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-images/gpt.png" alt="Chat GPT Pro" className="w-16 h-16 object-contain" />
+              <img src="/tools-images/gpt.png" alt="Adspy" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">Chat GPT Pro</div>
             <div className="tool-description">
@@ -310,7 +302,7 @@ button {
 
           <a href="https://www.pipiads.com/login" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-images/pipi.png" alt="Pipiads" className="w-16 h-16 object-contain" />
+              <img src="/tools-images/pipi.png" alt="Adspy" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">Pipiads</div>
             <div className="tool-description">
@@ -320,7 +312,7 @@ button {
 
           <a href="https://www.kalodata.com/login" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-images/kalo.png" alt="Kalodata" className="w-16 h-16 object-contain" />
+              <img src="/tools-images/kalo.png" alt="Adspy" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">Kalodata</div>
             <div className="tool-description">Data analysis platform specialized in TikTok ecommerce.</div>
@@ -328,7 +320,7 @@ button {
 
           <a href="https://app.winninghunter.com/login" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-images/win.png" alt="Winning Hunter" className="w-16 h-16 object-contain" />
+              <img src="/tools-images/win1.png" alt="Adspy" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">Winning Hunter</div>
             <div className="tool-description">Spy tool for finding top-performing Facebook and TikTok ads.</div>
@@ -336,7 +328,7 @@ button {
 
           <a href="https://www.capcut.com/fr-fr/login" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-images/cap.png" alt="Capcut" className="w-16 h-16 object-contain" />
+              <img src="/tools-images/cap.png" alt="Adspy" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">Capcut</div>
             <div className="tool-description">
@@ -346,7 +338,7 @@ button {
 
           <a href="https://app.sendshort.ai/en/home" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-images/send.png" alt="SendShort" className="w-16 h-16 object-contain" />
+              <img src="/tools-images/send.png" alt="Exploding Topics" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">SendShort</div>
             <div className="tool-description">An AI tool for automatically generating and translating video subtitles</div>
@@ -354,7 +346,7 @@ button {
 
           <a href="https://noxtools.com/secure/page/Helium10" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-images/h.png" alt="Helium 10" className="w-16 h-16 object-contain" />
+              <img src="/tools-images/h.png" alt="Adspy" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">Helium 10</div>
             <div className="tool-description">Amazon seller tools for product research and optimization.</div>
@@ -362,7 +354,7 @@ button {
 
           <a href="https://app.dropship.io/login" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-images/dropship.png" alt="Dropship.io" className="w-16 h-16 object-contain" />
+              <img src="/tools-images/dropship.png" alt="Adspy" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">Dropship.io</div>
             <div className="tool-description">
@@ -372,7 +364,7 @@ button {
 
           <a href="https://app.shophunter.io/login" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-images/shophunter.png" alt="Shophunter" className="w-16 h-16 object-contain" />
+              <img src="/tools-images/shophunter.png" alt="Adspy" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">Shophunter</div>
             <div className="tool-description">Sales Tracker Spy &amp; Product Research Tool. Spy on Competitor Sales.</div>
@@ -380,7 +372,7 @@ button {
 
           <a href="https://app.tryatria.com/login" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-images/atria.png" alt="Atria" className="w-16 h-16 object-contain" />
+              <img src="/tools-images/atria.png" alt="Grammarly" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">Atria</div>
             <div className="tool-description">
@@ -390,7 +382,7 @@ button {
 
           <a href="https://app.heygen.com/login" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-logos/heygen.png" alt="Heygen" className="w-16 h-16 object-contain" />
+              <img src="/tools-logos/heygen.png" alt="Grammarly" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">Heygen</div>
             <div className="tool-description">
@@ -410,7 +402,7 @@ button {
 
           <a href="https://app.foreplay.co/login" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-images/foreplay.png" alt="ForePlay" className="w-16 h-16 object-contain" />
+              <img src="/tools-images/foreplay.png" alt="Grammarly" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">ForePlay</div>
             <div className="tool-description">Save ads, build briefs and produce high converting Facebook stamp, TikTok ads at scale.</div>
@@ -428,7 +420,7 @@ button {
 
           <a href="https://noxtools.com/secure/page/Runwayml" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-logos/runway.png" alt="Runway" className="w-16 h-16 object-contain" />
+              <img src="/tools-logos/runway.png" alt="Grammarly" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">Runway</div>
             <div className="tool-description">
@@ -438,7 +430,7 @@ button {
 
           <a href="https://app.trendtrack.io/en/login" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-logos/trendtrack.png" alt="Trendtrack" className="w-16 h-16 object-contain" />
+              <img src="/tools-logos/trendtrack.png" alt="Grammarly" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">Trendtrack</div>
             <div className="tool-description">Track emerging e-commerce trends in real time and spot winning products before they go mainstream.</div>
@@ -446,7 +438,7 @@ button {
 
           <a href="https://app.brandsearch.co/" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-logos/brandsearch.png" alt="Brandsearch" className="w-16 h-16 object-contain" />
+              <img src="/tools-logos/brandsearch.png" alt="Grammarly" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">Brandsearch</div>
             <div className="tool-description">
