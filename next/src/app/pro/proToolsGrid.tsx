@@ -22,35 +22,37 @@ const TOOLS: Tool[] = [
   },
   {
     name: "Flair AI",
-    description: "An AI-powered visual editor for product photography.",
+    description: "An AI-powered visual editor for product photography. Drag and drop to create high-quality ecommerce photoshoots in seconds.",
     href: "https://app.flair.ai/explore",
     imageSrc: "/tools-images/flair.png",
     fallbackSrc: "/tools-logos/flair.png",
   },
   {
     name: "Chat GPT Pro",
-    description: "Chat helps you answer questions, write texts, provide advice and automate conversations.",
+    description: "Chat helps you answer questions, write texts, provide advice and automate conversations in a variety of fields.",
     href: "https://chatgpt.com/",
     imageSrc: "/tools-images/gpt.png",
     fallbackSrc: "/tools-logos/chatgpt.png",
   },
   {
     name: "Midjourney",
-    description: "AI-driven platform that generates high-quality images from text prompts.",
+    description:
+      "MidJourney is an AI-driven platform that generates high-quality images from text prompts, enabling users to create unique visuals quickly",
     href: "https://www.midjourney.com/explore?tab=top",
     imageSrc: "/tools-images/mid.png",
     fallbackSrc: "/tools-logos/midjourney.png",
   },
   {
     name: "Exploding Topics",
-    description: "Tracks and identifies emerging trends using search data and online insights.",
+    description: "Tracks and identifies emerging trends using search data and online insights",
     href: "https://www.semrush.com/app/exploding-topics/",
     imageSrc: "/tools-images/exp.png",
     fallbackSrc: "/tools-logos/exploding.png",
   },
   {
     name: "Pipiads",
-    description: "The largest TikTok & Facebook ad library and powerful ad spy.",
+    description:
+      "The largest TikTok & Facebook ad library, and the most powerful tiktok ad spy, facebook adspy, tiktok shop data tool",
     href: "https://www.pipiads.com/login",
     imageSrc: "/tools-images/pipi.png",
     fallbackSrc: "/tools-logos/pipiads.png",
@@ -71,14 +73,15 @@ const TOOLS: Tool[] = [
   },
   {
     name: "Capcut",
-    description: "Create and edit stunning videos for social media.",
+    description:
+      "Create and edit stunning videos for social media and personal projects using CapCut's intuitive interface and advanced editing features.",
     href: "https://www.capcut.com/fr-fr/login",
     imageSrc: "/tools-images/cap.png",
     fallbackSrc: "/tools-logos/capcut.png",
   },
   {
     name: "SendShort",
-    description: "AI tool for automatically generating and translating video subtitles.",
+    description: "An AI tool for automatically generating and translating video subtitles",
     href: "https://app.sendshort.ai/en/home",
     imageSrc: "/tools-images/send.png",
     fallbackSrc: "/tools-logos/sendshort.png",
@@ -92,7 +95,7 @@ const TOOLS: Tool[] = [
   },
   {
     name: "Dropship.io",
-    description: "All-in-one Shopify tool to find winning products and track competitors.",
+    description: "All-in-one Shopify tool to find winning products and track competitors with real-time sales and ad data.",
     href: "https://app.dropship.io/login",
     imageSrc: "/tools-images/dropship.png",
     fallbackSrc: "/tools-logos/dropship.png",
@@ -106,10 +109,25 @@ const TOOLS: Tool[] = [
   },
   {
     name: "Atria",
-    description: "Discover winning products, ad creatives, store funnels, and market insights.",
+    description: "A tool to discover winning products, ad creatives, store funnels, and market insights — all in one place.",
     href: "https://app.tryatria.com/login",
     imageSrc: "/tools-images/atria.png",
     fallbackSrc: "/tools-logos/atria.png",
+  },
+  {
+    name: "Heygen",
+    description: "AI video creation platform to generate talking avatars, product demos, and multilingual videos from text in minutes.",
+    href: "https://app.heygen.com/login",
+    imageSrc: "/tools-images/heygen.png",
+    fallbackSrc: "/tools-logos/heygen.png",
+  },
+  {
+    name: "Fotor",
+    description:
+      "Create any image you want in real time with our AI image creator. Type your description and turn text into images and AI art",
+    href: "https://www.fotor.com/fr/",
+    imageSrc: "/tools-images/fotor.png",
+    fallbackSrc: "/tools-logos/fotor.png",
   },
   {
     name: "ForePlay",
@@ -120,10 +138,25 @@ const TOOLS: Tool[] = [
   },
   {
     name: "ElevenLabs",
-    description: "AI-powered voice synthesis technology that creates realistic speech.",
+    description:
+      "AI-powered voice synthesis technology that creates realistic and customizable human-like speech for various applications",
     href: "https://elevenlabs.io/app/sign-in",
     imageSrc: "/tools-images/11.png",
     fallbackSrc: "/tools-logos/elevenlabs.png",
+  },
+  {
+    name: "Runway",
+    description: "AI-driven platform for creating, editing, and enhancing multimedia content, including images and videos.",
+    href: "https://app.runwayml.com/login",
+    imageSrc: "/tools-images/runway.png",
+    fallbackSrc: "/tools-logos/runway.png",
+  },
+  {
+    name: "Higgsfield",
+    description: "AI tool for generating product images and videos.",
+    href: "https://higgsfield.ai/auth/login",
+    imageSrc: "/tools-images/higgsfield.png",
+    fallbackSrc: "/tools-logos/higgsfield.png",
   },
   {
     name: "Vmake",
@@ -131,6 +164,21 @@ const TOOLS: Tool[] = [
     href: "https://vmake.ai/workspace",
     imageSrc: "/tools-images/vmake.png",
     fallbackSrc: "/tools-logos/vmake.png",
+  },
+  {
+    name: "Freepik",
+    description: "AI tools, smart features, and high-quality stock assets to design and create without ever leaving Freepik",
+    href: "https://www.freepik.com/log-in?client_id=freepik&lang=en",
+    imageSrc: "/tools-images/freepik.png",
+    fallbackSrc: "https://logo.clearbit.com/freepik.com",
+  },
+  {
+    name: "Turboscribe",
+    description: "AI audio & video transcription, fast summaries, speaker detection, and export-ready text.",
+    href: "https://turboscribe.ai/login",
+    imageSrc: "/tools-images/turboscribe.png",
+    fallbackSrc: "https://logo.clearbit.com/turboscribe.ai",
+    badge: { label: "Newly Added !", tone: "blue" },
   },
 ];
 
