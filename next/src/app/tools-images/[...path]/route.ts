@@ -1,5 +1,3 @@
-import type { NextRequest } from "next/server";
-
 /**
  * Fallback handler for /tools-images/* on the tools subdomain.
  *
@@ -7,8 +5,15 @@ import type { NextRequest } from "next/server";
  * This route only runs when the file is missing, and proxies the request to
  * /tools-logos/* with the same filename so the URL stays /tools-images/*.
  */
-export async function GET(req: NextRequest, { params }: { params: { path: string[] } }) {
-  const p = Array.isArray(params?.path) ? params.path.join("/") : "";
+type ToolsImagesParams = { path?: string[] | string };
+
+export async function GET(
+  req: Request,
+  ctx: { params: Promise<ToolsImagesParams> | ToolsImagesParams }
+) {
+  // Next 15 may type `params` as a Promise; handle both sync + async.
+  const params = await Promise.resolve(ctx?.params as ToolsImagesParams);
+  const p = Array.isArray(params?.path) ? params.path.join("/") : typeof params?.path === "string" ? params.path : "";
   const url = new URL(req.url);
   url.pathname = `/tools-logos/${p}`;
 
