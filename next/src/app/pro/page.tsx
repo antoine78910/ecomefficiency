@@ -395,7 +395,7 @@ button {
 
           <a href="https://app.tryatria.com/login" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-images/atria.png" alt="Grammarly" className="w-16 h-16 object-contain" />
+              <img src="/tools-images/atria.png" alt="Atria" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">Atria</div>
             <div className="tool-description">
@@ -405,7 +405,7 @@ button {
 
           <a href="https://app.heygen.com/login" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-images/heygen.png" alt="Grammarly" className="w-16 h-16 object-contain" />
+              <img src="/tools-images/heygen.png" alt="Heygen" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">Heygen</div>
             <div className="tool-description">
@@ -443,7 +443,7 @@ button {
 
           <a href="https://app.runwayml.com/login" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-images/runway.png" alt="Grammarly" className="w-16 h-16 object-contain" />
+              <img src="/tools-images/runway.png" alt="Runway" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">Runway</div>
             <div className="tool-description">
@@ -453,7 +453,7 @@ button {
 
           <a href="https://higgsfield.ai/auth/login" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-images/higgsfield.png" alt="Grammarly" className="w-16 h-16 object-contain" />
+              <img src="/tools-images/higgsfield.png" alt="Higgsfield" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">Higgsfield</div>
             <div className="tool-description">AI tool for generating product images and videos.</div>
