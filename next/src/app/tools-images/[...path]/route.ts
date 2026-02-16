@@ -17,10 +17,14 @@ export async function GET(
   const url = new URL(req.url);
   url.pathname = `/tools-logos/${p}`;
 
-  const upstream = await fetch(url, { cache: "force-cache" });
+  // NOTE:
+  // This route is a fallback when /public/tools-images/* is missing.
+  // We must NOT cache it as "immutable", otherwise browsers will keep the fallback
+  // (/tools-logos/*) for a very long time even after you later add the PNG to /tools-images/.
+  const upstream = await fetch(url, { cache: "no-store" });
   const headers = new Headers(upstream.headers);
-  // Ensure long-lived caching for static-like assets
-  if (!headers.has("Cache-Control")) headers.set("Cache-Control", "public, max-age=31536000, immutable");
+  // Keep fallback caching short and revalidatable.
+  headers.set("Cache-Control", "public, max-age=300, s-maxage=3600, stale-while-revalidate=86400");
 
   return new Response(upstream.body, { status: upstream.status, headers });
 }
