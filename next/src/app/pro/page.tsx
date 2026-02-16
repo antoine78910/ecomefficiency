@@ -58,10 +58,9 @@ h1 {
   /* Smaller cards, more per row */
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
-  padding: 16px;
+  /* Remove side margins to use full width */
+  padding: 16px 0;
   box-sizing: border-box;
-  max-width: 1400px;
-  margin: 0 auto;
 }
 
 @media (min-width: 640px) {
@@ -90,10 +89,13 @@ h1 {
 }
 
 .tool-icon img {
-  width: 72px;
-  height: 72px;
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
   object-fit: contain;
   display: block;
+  padding: 6px;
 }
 
 .tool-image {
@@ -131,6 +133,9 @@ h1 {
   transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
   border: 1px solid black;
   will-change: transform;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
 }
 
 .tool-card:hover {
@@ -149,29 +154,32 @@ h1 {
 }
 
 .tool-icon {
-  font-size: 40px;
-  margin-bottom: 10px;
-  color: #007bff;
+  margin-bottom: 6px;
   display: flex;
   align-items: center;
   justify-content: center;
   width: 100%;
+  height: 120px;
 }
 
 .tool-name {
-  font-size: 16px;
-  margin-bottom: 6px;
+  font-size: 14px;
+  margin-bottom: 4px;
   text-align: left;
   font-family: 'Montserrat', sans-serif;
   font-weight: 800;
 }
 
 .tool-description {
-  font-size: 13px;
-  line-height: 1.35;
-  margin-bottom: 8px;
+  font-size: 11px;
+  line-height: 1.25;
+  margin-bottom: 6px;
   font-family: 'Open Sans', sans-serif;
   color: #464646;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
 }
 
 .tool-includes {
@@ -501,7 +509,7 @@ button {
 
           <a href="https://www.freepik.com/log-in?client_id=freepik&lang=en" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-images/free.png" alt="Freepik" className="w-16 h-16 object-contain" />
+              <img src="/tools-images/freepik.png" alt="Freepik" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">Freepik</div>
             <div className="tool-description">AI tools, smart features, and high-quality stock assets to design and create without ever leaving Freepik</div>
