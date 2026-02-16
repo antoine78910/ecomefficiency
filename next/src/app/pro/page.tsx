@@ -82,7 +82,9 @@ h1 {
 /* Ultra-wide / zoomed out: allow more columns */
 @media (min-width: 1700px) {
   .tools-grid {
-    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+    /* Avoid stretching cards: keep a fixed max column width */
+    grid-template-columns: repeat(auto-fit, minmax(170px, 240px));
+    justify-content: center;
   }
 }
 
