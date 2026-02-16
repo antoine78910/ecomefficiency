@@ -57,7 +57,8 @@ h1 {
 .tools-grid {
   display: grid;
   /* Responsive: add/remove columns as space changes (incl. zoom) */
-  grid-template-columns: repeat(auto-fit, minmax(180px, 240px));
+  /* Tuned so normal desktop fits 6 per row more often */
+  grid-template-columns: repeat(auto-fit, minmax(170px, 210px));
   justify-content: center;
   gap: 14px;
   /* Small side gutter so cards don't touch edges */
