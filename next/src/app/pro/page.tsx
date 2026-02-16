@@ -56,8 +56,9 @@ h1 {
 
 .tools-grid {
   display: grid;
-  /* Smaller cards, more per row */
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  /* Responsive: add/remove columns as space changes (incl. zoom) */
+  grid-template-columns: repeat(auto-fit, minmax(180px, 240px));
+  justify-content: center;
   gap: 14px;
   /* Small side gutter so cards don't touch edges */
   padding: 16px 12px;
@@ -67,26 +68,6 @@ h1 {
 @media (min-width: 640px) {
   .tools-grid {
     padding: 16px 16px;
-    grid-template-columns: repeat(3, 1fr);
-  }
-}
-
-@media (min-width: 768px) {
-  .tools-grid {
-    grid-template-columns: repeat(4, 1fr);
-  }
-}
-
-@media (min-width: 1024px) {
-  .tools-grid {
-    grid-template-columns: repeat(6, 1fr);
-  }
-}
-
-/* 6 cards per row on large screens */
-@media (min-width: 1280px) {
-  .tools-grid {
-    grid-template-columns: repeat(6, 1fr);
   }
 }
 
