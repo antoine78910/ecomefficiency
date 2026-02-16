@@ -50,8 +50,8 @@ h1 {
   color: #333;
   margin-top: 50px;
   font-family: 'Kanit', sans-serif;
-  font-weight: 1000;
-  font-size: 40px;
+  font-weight: 700;
+  font-size: 30px;
 }
 
 .tools-grid {
@@ -97,6 +97,7 @@ h1 {
   max-height: 100%;
   object-fit: contain;
   display: block;
+  transform-origin: center;
 }
 
 .tool-image {
@@ -138,7 +139,9 @@ h1 {
   flex-direction: column;
   align-items: stretch;
   gap: 6px;
-  min-height: 220px; /* keeps cards visually consistent without cropping */
+  position: relative;
+  height: 230px; /* keep cards the same height */
+  overflow: hidden;
 }
 
 .tool-card:hover {
@@ -164,6 +167,14 @@ h1 {
   flex: 0 0 auto;
   height: 150px; /* consistent logo area across cards */
   padding: 10px;
+}
+
+.logo-small {
+  transform: scale(0.88);
+}
+
+.logo-large {
+  transform: scale(1.12);
 }
 
 .tool-name {
@@ -194,26 +205,27 @@ h1 {
   align-items: center;
   justify-content: center;
   flex-wrap: nowrap;
+  gap: 6px;
 }
 
 .tool-includes img {
-  width: 16px;
-  height: 16px;
-  margin: 0 0 0 -7px; /* overlap horizontally */
-}
-
-.tool-includes img:first-child {
-  margin-left: 0;
+  width: 18px;
+  height: 18px;
+  margin: 0; /* no overlap */
 }
 
 .tool-badge {
   background-color: #007bff;
   color: white;
-  padding: 5px 10px;
-  border-radius: 5px;
-  font-size: 12px;
-  margin-top: 10px;
-  display: inline-block;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  line-height: 1;
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  width: fit-content;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
 }
 
 .tool-building {
@@ -314,7 +326,7 @@ button {
           </div>
         </div>
 
-        <h1 className="text-center text-4xl font-bold mt-8">Ecom Efficiency</h1>
+        <h1 className="text-center mt-8">Ecom Efficiency</h1>
 
         <div className="tools-grid relative z-10">
           <a href="https://rankerfox.com/login/" className="tool-card" target="_blank" rel="noopener noreferrer">
@@ -416,7 +428,7 @@ button {
 
           <a href="https://noxtools.com/secure/page/Helium10" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src={`/tools-images/helium10.png?v=${ASSET_VERSION}`} alt="Helium 10" />
+              <img src={`/tools-images/helium10.png?v=${ASSET_VERSION}`} alt="Helium 10" className="logo-small" />
             </div>
             <div className="tool-name">Helium 10</div>
             <div className="tool-description">Amazon seller tools for product research and optimization.</div>
@@ -480,7 +492,7 @@ button {
 
           <a href="https://elevenlabs.io/app/sign-in" className="tool-card group" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src={`/tools-images/elevenlabs.png?v=${ASSET_VERSION}`} alt="ElevenLabs" />
+              <img src={`/tools-images/elevenlabs.png?v=${ASSET_VERSION}`} alt="ElevenLabs" className="logo-small" />
             </div>
             <div className="tool-name">ElevenLabs</div>
             <div className="tool-description">
@@ -500,7 +512,7 @@ button {
 
           <a href="https://higgsfield.ai/auth/login" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src={`/tools-images/higgsfield.png?v=${ASSET_VERSION}`} alt="Higgsfield" />
+              <img src={`/tools-images/higgsfield.png?v=${ASSET_VERSION}`} alt="Higgsfield" className="logo-large" />
             </div>
             <div className="tool-name">Higgsfield</div>
             <div className="tool-description">AI tool for generating product images and videos.</div>
@@ -508,7 +520,7 @@ button {
 
           <a href="https://vmake.ai/workspace" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src={`/tools-images/vmake.png?v=${ASSET_VERSION}`} alt="Vmake" />
+              <img src={`/tools-images/vmake.png?v=${ASSET_VERSION}`} alt="Vmake" className="logo-small" />
             </div>
             <div className="tool-name">Vmake</div>
             <div className="tool-description">AI talking-head videos, background removal, subtitles, upscaling</div>
