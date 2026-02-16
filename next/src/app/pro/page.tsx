@@ -55,13 +55,34 @@ h1 {
 
 .tools-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 20px;
-  padding: 20px;
+  /* Smaller cards, more per row */
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+  padding: 16px;
   box-sizing: border-box;
+  max-width: 1400px;
+  margin: 0 auto;
 }
 
-/* 6 cards per row on large screens (zoomed-out feel) */
+@media (min-width: 640px) {
+  .tools-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+}
+
+@media (min-width: 768px) {
+  .tools-grid {
+    grid-template-columns: repeat(4, 1fr);
+  }
+}
+
+@media (min-width: 1024px) {
+  .tools-grid {
+    grid-template-columns: repeat(6, 1fr);
+  }
+}
+
+/* 6 cards per row on large screens */
 @media (min-width: 1280px) {
   .tools-grid {
     grid-template-columns: repeat(6, 1fr);
@@ -69,8 +90,8 @@ h1 {
 }
 
 .tool-icon img {
-  width: 180px;
-  height: 180px;
+  width: 72px;
+  height: 72px;
   object-fit: contain;
   display: block;
 }
@@ -102,19 +123,29 @@ h1 {
 
 .tool-card {
   background-color: #fff;
-  border-radius: 10px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1), 0 6px 20px rgba(0, 0, 0, 0.2);
-  padding: 20px;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.10);
+  padding: 12px;
   text-decoration: none;
   color: #333;
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
   border: 1px solid black;
+  will-change: transform;
 }
 
 .tool-card:hover {
-  transform: translateY(-10px);
-  box-shadow: 0 8px 16px rgba(0, 0, 0, 0.2), 0 12px 24px rgba(0, 0, 0, 0.4);
+  transform: translateY(-4px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.16);
   border-color: #333;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tool-card {
+    transition: none;
+  }
+  .tool-card:hover {
+    transform: none;
+  }
 }
 
 .tool-icon {
@@ -128,16 +159,17 @@ h1 {
 }
 
 .tool-name {
-  font-size: 24px;
-  margin-bottom: 10px;
+  font-size: 16px;
+  margin-bottom: 6px;
   text-align: left;
   font-family: 'Montserrat', sans-serif;
   font-weight: 800;
 }
 
 .tool-description {
-  font-size: 14px;
-  margin-bottom: 10px;
+  font-size: 13px;
+  line-height: 1.35;
+  margin-bottom: 8px;
   font-family: 'Open Sans', sans-serif;
   color: #464646;
 }
@@ -150,8 +182,8 @@ h1 {
 }
 
 .tool-includes img {
-  width: 18px;
-  height: 18px;
+  width: 16px;
+  height: 16px;
   margin: 0 0 0 -7px; /* overlap horizontally */
 }
 
@@ -269,7 +301,7 @@ button {
 
         <h1 className="text-center text-4xl font-bold mt-8">Ecom Efficiency</h1>
 
-        <div className="tools-grid grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 p-4 relative z-10">
+        <div className="tools-grid relative z-10">
           <a href="https://rankerfox.com/login/" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
               <img src="/tools-images/seo.png" alt="seo" />
@@ -469,7 +501,7 @@ button {
 
           <a href="https://www.freepik.com/log-in?client_id=freepik&lang=en" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-images/freepik.png" alt="Freepik" className="w-16 h-16 object-contain" />
+              <img src="/tools-images/free.png" alt="Freepik" className="w-16 h-16 object-contain" />
             </div>
             <div className="tool-name">Freepik</div>
             <div className="tool-description">AI tools, smart features, and high-quality stock assets to design and create without ever leaving Freepik</div>
@@ -484,24 +516,7 @@ button {
             <div className="tool-badge">Newly Added !</div>
           </a>
 
-          <a href="https://app.trendtrack.io/en/login" className="tool-card" target="_blank" rel="noopener noreferrer">
-            <div className="tool-icon">
-              <img src="/tools-images/trendtrack.png" alt="Grammarly" className="w-16 h-16 object-contain" />
-            </div>
-            <div className="tool-name">Trendtrack</div>
-            <div className="tool-description">Track emerging e-commerce trends in real time and spot winning products before they go mainstream.</div>
-          </a>
-
-          <a href="https://app.brandsearch.co/" className="tool-card" target="_blank" rel="noopener noreferrer">
-            <div className="tool-icon">
-              <img src="/tools-images/brandsearch.png" alt="Grammarly" className="w-16 h-16 object-contain" />
-            </div>
-            <div className="tool-name">Brandsearch</div>
-            <div className="tool-description">
-              Discover and analyze top-performing e-commerce brands to uncover strategies, products, and growth opportunities.
-            </div>
-            <div className="tool-badge">Newly Added</div>
-          </a>
+         
         </div>
       </div>
     </>
