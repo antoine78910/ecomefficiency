@@ -63,11 +63,26 @@ h1 {
   /* Small side gutter so cards don't touch edges */
   padding: 16px 12px;
   box-sizing: border-box;
+  justify-items: center;
 }
 
 @media (min-width: 640px) {
   .tools-grid {
     padding: 16px 16px;
+  }
+}
+
+/* Default desktop: keep 6 per row (no 8) */
+@media (min-width: 1024px) {
+  .tools-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+/* Ultra-wide / zoomed out: allow more columns */
+@media (min-width: 1700px) {
+  .tools-grid {
+    grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   }
 }
 
@@ -123,6 +138,8 @@ h1 {
   position: relative;
   height: 260px; /* keep cards the same height (a bit taller) */
   overflow: hidden;
+  width: 100%;
+  max-width: 240px; /* prevents overly wide/elongated cards */
 }
 
 .tool-card:hover {
