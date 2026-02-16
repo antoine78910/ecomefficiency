@@ -58,8 +58,7 @@ h1 {
   display: grid;
   /* Responsive: add/remove columns as space changes (incl. zoom) */
   /* Tuned so normal desktop fits 6 per row more often */
-  grid-template-columns: repeat(auto-fit, minmax(170px, 210px));
-  justify-content: center;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
   gap: 14px;
   /* Small side gutter so cards don't touch edges */
   padding: 16px 12px;
