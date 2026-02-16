@@ -140,7 +140,7 @@ h1 {
   align-items: stretch;
   gap: 6px;
   position: relative;
-  height: 230px; /* keep cards the same height */
+  height: 260px; /* keep cards the same height (a bit taller) */
   overflow: hidden;
 }
 
@@ -198,6 +198,13 @@ h1 {
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
+}
+
+/* Ensure SEO card shows "Includes" + "And more" fully */
+.tool-card.seo-card .tool-description {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
 }
 
 .tool-includes {
@@ -329,7 +336,7 @@ button {
         <h1 className="text-center mt-8">Ecom Efficiency</h1>
 
         <div className="tools-grid relative z-10">
-          <a href="https://rankerfox.com/login/" className="tool-card" target="_blank" rel="noopener noreferrer">
+          <a href="https://rankerfox.com/login/" className="tool-card seo-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
               <img src={`/tools-images/seo.png?v=${ASSET_VERSION}`} alt="seo" />
             </div>
@@ -384,7 +391,7 @@ button {
 
           <a href="https://www.pipiads.com/login" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src={`/tools-images/pipiads.png?v=${ASSET_VERSION}`} alt="Pipiads" />
+              <img src={`/tools-images/pipiads.png?v=${ASSET_VERSION}`} alt="Pipiads" className="logo-small" />
             </div>
             <div className="tool-name">Pipiads</div>
             <div className="tool-description">
@@ -474,7 +481,7 @@ button {
 
           <a href="https://www.fotor.com/fr/" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src={`/tools-images/fotor.png?v=${ASSET_VERSION}`} alt="Fotor" />
+              <img src={`/tools-images/fotor.png?v=${ASSET_VERSION}`} alt="Fotor" className="logo-small" />
             </div>
             <div className="tool-name">Fotor</div>
             <div className="tool-description">
@@ -484,7 +491,7 @@ button {
 
           <a href="https://app.foreplay.co/login" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src={`/tools-images/foreplay.png?v=${ASSET_VERSION}`} alt="ForePlay" />
+              <img src={`/tools-images/foreplay.png?v=${ASSET_VERSION}`} alt="ForePlay" className="logo-small" />
             </div>
             <div className="tool-name">ForePlay</div>
             <div className="tool-description">Save ads, build briefs and produce high converting Facebook stamp, TikTok ads at scale.</div>
