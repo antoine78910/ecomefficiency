@@ -2,9 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Shield, Users, Activity, BarChart3, LayoutTemplate, ClipboardList } from 'lucide-react'
+import { Shield, Users, Activity, BarChart3, LayoutTemplate, ClipboardList, Star } from 'lucide-react'
 
 const adminRoutes = [
+  {
+    href: '/admin/reviews',
+    label: 'Reviews',
+    icon: Star,
+    description: 'Notes + feedback + Trustpilot clicks'
+  },
   {
     href: '/admin/onboarding',
     label: 'Onboarding',
