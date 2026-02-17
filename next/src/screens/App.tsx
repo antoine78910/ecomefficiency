@@ -10,6 +10,7 @@ import TrendTrackStatus from "@/components/TrendTrackStatus";
 import { bestTextColorOn, hexWithAlpha, mixHex, normalizeHex } from "@/lib/color";
 import WhiteLabelPricingModal from "@/components/WhiteLabelPricingModal";
 import { CheckoutSuccessEffects } from "@/components/CheckoutSuccessEffects";
+import { ReviewPromptModal } from "@/components/ReviewPromptModal";
 
 const App = ({
   showAffiliateCta = true,
@@ -27,6 +28,17 @@ const App = ({
   const [appPlan, setAppPlan] = React.useState<'free'|'starter'|'pro'>('free')
   const [checkoutSuccessActive, setCheckoutSuccessActive] = React.useState(false)
   const checkoutTriggeredRef = React.useRef(false)
+  const [reviewPromptOpen, setReviewPromptOpen] = React.useState(false)
+  const reviewPromptTriggeredRef = React.useRef(false)
+
+  const isEcomEfficiencyAppOrLocalHost = React.useMemo(() => {
+    try {
+      const h = String(window.location.hostname || '').toLowerCase()
+      return h === 'app.ecomefficiency.com' || h === 'app.localhost' || h === 'localhost'
+    } catch {
+      return false
+    }
+  }, [])
 
   // Dev-only: allow testing confetti without Stripe/Supabase configured
   React.useEffect(() => {
@@ -337,6 +349,7 @@ const App = ({
         const mod = await import("@/integrations/supabase/client")
         const { data } = await mod.supabase.auth.getUser()
         const email = data.user?.email || ''
+        const userId = data.user?.id || ''
         const customerId = ((data.user?.user_metadata as any) || {}).stripe_customer_id || ''
         
         // White-label: detect partnerSlug from prop or global variable
@@ -359,6 +372,43 @@ const App = ({
         // Check for checkout=success and force plan refresh with retry
         const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
         const isCheckoutSuccess = urlParams?.get('checkout') === 'success';
+        const sessionId = String(urlParams?.get('session_id') || '');
+        const hasStripeReturnParams =
+          Boolean(urlParams?.get('session_id') || urlParams?.get('payment_intent') || urlParams?.get('redirect_status'));
+
+        // Trigger confetti ASAP on return from Stripe (do NOT wait for plan verification).
+        // This avoids missing confetti when Supabase session isn't ready on first load.
+        try {
+          const pendingRaw = typeof window !== 'undefined' ? window.localStorage.getItem('__ee_pending_checkout') : null
+          let pendingAt = 0
+          if (pendingRaw) {
+            try { pendingAt = Number(JSON.parse(pendingRaw)?.at || 0) } catch { pendingAt = Number(pendingRaw) || 0 }
+          }
+          const pendingFresh = pendingAt > 0 && (Date.now() - pendingAt) < 1000 * 60 * 60 * 6 // 6h
+          const fromStripe = (() => {
+            try {
+              const ref = String(document.referrer || '').toLowerCase()
+              return ref.includes('checkout.stripe.com') || ref.includes('pay.stripe.com') || ref.includes('stripe.com')
+            } catch { return false }
+          })()
+
+          const confettiKey =
+            userId ? `__ee_confetti_shown_${userId}` :
+            (email ? `__ee_confetti_shown_${email}` :
+            (sessionId ? `__ee_confetti_shown_session_${sessionId}` : '__ee_confetti_shown_anon'))
+
+          const alreadyShown = confettiKey ? Boolean(localStorage.getItem(confettiKey)) : false
+          const shouldCelebrate = (isCheckoutSuccess || hasStripeReturnParams || pendingFresh || fromStripe) && !alreadyShown
+
+          if (shouldCelebrate && !checkoutTriggeredRef.current) {
+            checkoutTriggeredRef.current = true
+            try {
+              if (confettiKey) localStorage.setItem(confettiKey, String(Date.now()))
+              localStorage.removeItem('__ee_pending_checkout')
+            } catch {}
+            setCheckoutSuccessActive(true)
+          }
+        } catch {}
         
         // Determine user plan at app level - SECURITY: Only trust active subscriptions
         const verifyPlan = async (attempt = 0): Promise<void> => {
@@ -368,24 +418,24 @@ const App = ({
             if (customerId) verifyHeaders['x-stripe-customer-id'] = customerId
             // White-label: subscription is on partner's Stripe Connect account
             if (!showAffiliateCta && detectedPartnerSlug) verifyHeaders['x-partner-slug'] = String(detectedPartnerSlug)
-            const vr = await fetch('/api/stripe/verify', { method: 'POST', headers: verifyHeaders, body: JSON.stringify({ email }) }).catch(() => null)
+            const vr = await fetch('/api/stripe/verify', {
+              method: 'POST',
+              headers: verifyHeaders,
+              body: JSON.stringify({ email, session_id: sessionId || undefined })
+            }).catch(() => null)
             if (vr) {
               const vj = await vr.json().catch(() => ({}))
               const p = (vj?.plan as string)?.toLowerCase()
               // SECURITY: Only allow access if subscription is both OK and ACTIVE
               if (vj?.ok && vj?.active === true && (p === 'starter' || p === 'pro')) {
                 setAppPlan(p as any)
-                // Payment is confirmed (server-side) — celebrate once, then ask attribution once.
-                if (isCheckoutSuccess) {
-                  if (!checkoutTriggeredRef.current) {
-                    checkoutTriggeredRef.current = true
-                    setCheckoutSuccessActive(true)
-                  }
-                }
                 // If checkout success, clean URL after successful verification
-                if (isCheckoutSuccess && typeof window !== 'undefined') {
+                if ((isCheckoutSuccess || hasStripeReturnParams) && typeof window !== 'undefined') {
                   const url = new URL(window.location.href);
                   url.searchParams.delete('checkout');
+                  url.searchParams.delete('session_id');
+                  url.searchParams.delete('payment_intent');
+                  url.searchParams.delete('redirect_status');
                   window.history.replaceState({}, '', url.toString());
                 }
                 return;
@@ -401,8 +451,8 @@ const App = ({
             setAppPlan('free')
           }
           
-          // Retry logic for checkout=success (up to 5 attempts with 500ms delay)
-          if (isCheckoutSuccess && attempt < 5) {
+          // Retry logic for Stripe return (covers checkout=success + session_id/pending flag)
+          if ((isCheckoutSuccess || hasStripeReturnParams) && attempt < 10) {
             await new Promise(r => setTimeout(r, 500));
             return verifyPlan(attempt + 1);
           }
@@ -415,6 +465,99 @@ const App = ({
     })()
   }, [showAffiliateCta, partnerSlug])
 
+  // Review popup:
+  // - Local/dev: show for any valid subscription (to test the flow easily).
+  // - Prod: show once subscription age >= 15 days.
+  React.useEffect(() => {
+    if (reviewPromptTriggeredRef.current) return
+    if (!isEcomEfficiencyAppOrLocalHost) return
+    if (!showAffiliateCta) return // never ask on white-label surfaces
+    if (partnerSlug) return // avoid asking partners users to review EcomEfficiency
+    if (reviewPromptOpen) return
+
+    let cancelled = false
+    ;(async () => {
+      try {
+        let debug = false
+        try {
+          const url = new URL(window.location.href)
+          debug = url.searchParams.get('debug_review') === '1'
+        } catch {}
+
+        if (!debug && (appPlan === 'free' || !appPlan)) return
+
+        const mod = await import("@/integrations/supabase/client")
+        const { data } = await mod.supabase.auth.getUser()
+        const user = data.user
+        if (!user) return
+
+        const meta = (user.user_metadata as any) || {}
+        const alreadyShown =
+          Boolean(meta?.review_prompt_shown_at) ||
+          Boolean(meta?.review_prompt_submitted_at) ||
+          Boolean(meta?.review_prompt_dismissed_at)
+
+        const lsKey = `ee_review_prompt_shown_${user.id}`
+        let alreadyLocal = false
+        try { alreadyLocal = Boolean(localStorage.getItem(lsKey)) } catch {}
+        if (alreadyShown || alreadyLocal) {
+          reviewPromptTriggeredRef.current = true
+          return
+        }
+
+        const isProd = process.env.NODE_ENV === 'production'
+        const minDays = isProd ? 15 : 0
+
+        // Verify Stripe + subscription age
+        let eligible = debug
+        if (!eligible) {
+          let sessionId = ''
+          try {
+            const sp = new URLSearchParams(window.location.search || '')
+            sessionId = String(sp.get('session_id') || '')
+          } catch {}
+
+          const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+          if (user.email) headers['x-user-email'] = String(user.email)
+          const r = await fetch('/api/stripe/verify', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ email: user.email || '', session_id: sessionId || undefined }),
+          }).catch(() => null as any)
+          const j = r ? await r.json().catch(() => ({} as any)) : ({} as any)
+          if (j?.active !== true) return
+          if (minDays > 0) {
+            const createdAt = j?.subscription_created_at ? new Date(String(j.subscription_created_at)).getTime() : 0
+            if (!createdAt || Number.isNaN(createdAt)) return
+            const ageDays = (Date.now() - createdAt) / (1000 * 60 * 60 * 24)
+            if (ageDays < minDays) return
+          }
+          eligible = true
+        }
+
+        if (!eligible) return
+        if (cancelled) return
+
+        reviewPromptTriggeredRef.current = true
+        setReviewPromptOpen(true)
+
+        // Mark as shown (single global prompt)
+        try {
+          const t = new Date().toISOString()
+          await mod.supabase.auth.updateUser({ data: { review_prompt_shown_at: t } } as any)
+          try { localStorage.setItem(lsKey, '1') } catch {}
+          try { postGoal('review_prompt_shown', { ...(user.email ? { email: String(user.email) } : {}) }) } catch {}
+        } catch {
+          try { localStorage.setItem(lsKey, '1') } catch {}
+        }
+      } catch {}
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [appPlan, isEcomEfficiencyAppOrLocalHost, partnerSlug, reviewPromptOpen, showAffiliateCta])
+
   // Bottom-right server country/currency badge for debugging currency decision
 
   return (
@@ -425,6 +568,7 @@ const App = ({
         onAskSourceClose={() => {}}
         onConfettiDone={() => setCheckoutSuccessActive(false)}
       />
+      <ReviewPromptModal open={reviewPromptOpen} onClose={() => setReviewPromptOpen(false)} />
       <div className="max-w-6xl mx-auto px-6 py-8">
         {showAffiliateCta ? (
           <div className="mb-4">
@@ -670,8 +814,9 @@ function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'sta
 
   const formatPrice = (amount: number, c: 'USD' | 'EUR') => {
     if (c === 'EUR') {
-      // user requested English only, so we use English formatting even for EUR
-      return new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR' }).format(amount);
+      // EU formatting: show € on the RIGHT (e.g. 19,99€), not as a prefix.
+      const formatted = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
+      return formatted.replace(/\s/g, '\u00A0') + '€';
     }
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   }
@@ -1178,6 +1323,9 @@ function CredentialsPanel({
     ;(async () => {
       const tryVerify = async () => {
         try {
+          const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
+          const checkoutSessionId = String(urlParams?.get('session_id') || '')
+
           const mod = await import("@/integrations/supabase/client")
           const { data } = await mod.supabase.auth.getUser()
           const user = data.user
@@ -1194,7 +1342,7 @@ function CredentialsPanel({
               ...(meta.stripe_customer_id ? { 'x-stripe-customer-id': meta.stripe_customer_id } : {}),
               ...(whiteLabel && partnerSlug ? { 'x-partner-slug': String(partnerSlug) } : {}),
             },
-            body: JSON.stringify({ email })
+            body: JSON.stringify({ email, session_id: checkoutSessionId || undefined })
           })
           const json = await res.json().catch(() => ({}))
           if (json?.ok && json?.active) {
@@ -1214,7 +1362,17 @@ function CredentialsPanel({
         const h = (typeof window !== 'undefined' ? window.location.hash : '') || ''
         const s = (typeof window !== 'undefined' ? new URL(window.location.href).searchParams : null)
         justSignedIn = (/just_signed_in=1/.test(h) || (s && s.get('just') === '1')) || false
-        justPaid = Boolean(s && (s.get('checkout') === 'success'))
+        const hasStripeReturnParams = Boolean(s && (s.get('checkout') === 'success' || s.get('session_id') || s.get('payment_intent') || s.get('redirect_status')))
+        let pendingFresh = false
+        try {
+          const pendingRaw = typeof window !== 'undefined' ? window.localStorage.getItem('__ee_pending_checkout') : null
+          let pendingAt = 0
+          if (pendingRaw) {
+            try { pendingAt = Number(JSON.parse(pendingRaw)?.at || 0) } catch { pendingAt = Number(pendingRaw) || 0 }
+          }
+          pendingFresh = pendingAt > 0 && (Date.now() - pendingAt) < 1000 * 60 * 60 * 6
+        } catch {}
+        justPaid = Boolean(hasStripeReturnParams || pendingFresh)
       } catch {}
 
       const maxAttempts = (justSignedIn || justPaid) ? 15 : 3
@@ -1304,6 +1462,11 @@ function CredentialsPanel({
     // console.log('[App startCheckout] ✅ Safe currency:', safeCurrency);
     
     try {
+      // Mark that a checkout was initiated so confetti can fire even if success URL loses `checkout=success`.
+      try {
+        localStorage.setItem('__ee_pending_checkout', JSON.stringify({ at: Date.now(), tier, billing, currency: safeCurrency }))
+      } catch {}
+
       // Get user info for checkout
       const mod = await import("@/integrations/supabase/client");
       const { data } = await mod.supabase.auth.getUser();

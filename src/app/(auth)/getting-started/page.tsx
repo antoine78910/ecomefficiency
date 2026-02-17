@@ -256,6 +256,11 @@ export default function GettingStartedPage() {
     setSaving(true);
     setCheckoutTier(tier);
     try {
+      // Mark that a checkout was initiated so confetti can fire even if success URL loses `checkout=success`.
+      try {
+        localStorage.setItem("__ee_pending_checkout", JSON.stringify({ at: Date.now(), tier, billing, currency }));
+      } catch {}
+
       const user = await getCurrentUser();
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       // Optional: if we have an authenticated user, prefill email + attach reference id

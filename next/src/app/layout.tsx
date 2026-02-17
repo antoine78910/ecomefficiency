@@ -1,5 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import DataFastScript from "@/components/DataFastScript";
+import GlobalGetStartedClickTracker from "@/components/GlobalGetStartedClickTracker";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.ecomefficiency.com"),
@@ -81,6 +83,8 @@ export default function RootLayout({
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }} />
       </head>
       <body className="min-h-screen bg-background text-foreground overflow-x-hidden" suppressHydrationWarning>
+        <DataFastScript />
+        <GlobalGetStartedClickTracker />
         {children}
       </body>
     </html>

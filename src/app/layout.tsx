@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import { Providers } from "./providers";
 import Script from "next/script";
+import GlobalGetStartedClickTracker from "@/components/GlobalGetStartedClickTracker";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://ecomefficiency.com"),
@@ -81,6 +82,7 @@ var startOpts = {};
         </Script>
         <Script id="crisp-loader" strategy="afterInteractive" src="https://client.crisp.chat/l.js" />
         <Providers>
+          <GlobalGetStartedClickTracker />
           {children}
         </Providers>
       </body>

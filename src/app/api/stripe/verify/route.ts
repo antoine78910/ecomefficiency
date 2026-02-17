@@ -64,7 +64,18 @@ export async function POST(req: NextRequest) {
       } catch {}
     }
 
-    const result = { ok: true, active, status, plan: (plan==='growth' ? 'pro' : plan) };
+    const result = {
+      ok: true,
+      active,
+      status,
+      plan: (plan === 'growth' ? 'pro' : plan),
+      customer_id: customerId || null,
+      subscription_id: latest.id,
+      subscription_created_at: latest.created ? new Date(latest.created * 1000).toISOString() : null,
+      subscription_current_period_start_at: (latest as any)?.current_period_start
+        ? new Date(((latest as any).current_period_start as number) * 1000).toISOString()
+        : null,
+    };
     return NextResponse.json(result);
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || "unknown_error" }, { status: 500 });

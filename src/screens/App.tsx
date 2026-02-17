@@ -9,6 +9,7 @@ import { postGoal } from "@/lib/analytics";
 import TrendTrackStatus from "@/components/TrendTrackStatus";
 import { bestTextColorOn, hexWithAlpha, mixHex, normalizeHex } from "@/lib/color";
 import WhiteLabelPricingModal from "@/components/WhiteLabelPricingModal";
+import { ReviewPromptModal } from "@/components/ReviewPromptModal";
 
 const App = ({
   showAffiliateCta = true,
@@ -24,6 +25,17 @@ const App = ({
   // no docker launch on this page anymore
   const [canvaInvite, setCanvaInvite] = React.useState<string | null>(null)
   const [appPlan, setAppPlan] = React.useState<'free'|'starter'|'pro'>('free')
+  const [reviewPromptOpen, setReviewPromptOpen] = React.useState(false)
+  const reviewPromptTriggeredRef = React.useRef(false)
+
+  const isEcomEfficiencyAppOrLocalHost = React.useMemo(() => {
+    try {
+      const h = String(window.location.hostname || '').toLowerCase()
+      return h === 'app.ecomefficiency.com' || h === 'app.localhost' || h === 'localhost'
+    } catch {
+      return false
+    }
+  }, [])
 
   // Expose brand colors for a few deep child components (white-label logos tinting)
   React.useEffect(() => {
@@ -355,10 +367,100 @@ const App = ({
     })()
   }, [showAffiliateCta, partnerSlug])
 
+  // Review popup:
+  // - Local/dev: show for any valid subscription (to test the flow easily).
+  // - Prod: show once subscription age >= 15 days.
+  React.useEffect(() => {
+    if (reviewPromptTriggeredRef.current) return
+    if (!isEcomEfficiencyAppOrLocalHost) return
+    if (!showAffiliateCta) return
+    if (partnerSlug) return
+    if (reviewPromptOpen) return
+
+    let cancelled = false
+    ;(async () => {
+      try {
+        let debug = false
+        try {
+          const url = new URL(window.location.href)
+          debug = url.searchParams.get('debug_review') === '1'
+        } catch {}
+
+        if (!debug && (appPlan === 'free' || !appPlan)) return
+
+        const mod = await import("@/integrations/supabase/client")
+        const { data } = await mod.supabase.auth.getUser()
+        const user = data.user
+        if (!user) return
+
+        const meta = (user.user_metadata as any) || {}
+        const alreadyShown =
+          Boolean(meta?.review_prompt_shown_at) ||
+          Boolean(meta?.review_prompt_submitted_at) ||
+          Boolean(meta?.review_prompt_dismissed_at)
+
+        const lsKey = `ee_review_prompt_shown_${user.id}`
+        let alreadyLocal = false
+        try { alreadyLocal = Boolean(localStorage.getItem(lsKey)) } catch {}
+        if (alreadyShown || alreadyLocal) {
+          reviewPromptTriggeredRef.current = true
+          return
+        }
+
+        const isProd = process.env.NODE_ENV === 'production'
+        const minDays = isProd ? 15 : 0
+
+        let eligible = debug
+        if (!eligible) {
+          let sessionId = ''
+          try {
+            const sp = new URLSearchParams(window.location.search || '')
+            sessionId = String(sp.get('session_id') || '')
+          } catch {}
+
+          const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+          if (user.email) headers['x-user-email'] = String(user.email)
+          const r = await fetch('/api/stripe/verify', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ email: user.email || '', session_id: sessionId || undefined }),
+          }).catch(() => null as any)
+          const j = r ? await r.json().catch(() => ({} as any)) : ({} as any)
+          if (j?.active !== true) return
+          if (minDays > 0) {
+            const createdAt = j?.subscription_created_at ? new Date(String(j.subscription_created_at)).getTime() : 0
+            if (!createdAt || Number.isNaN(createdAt)) return
+            const ageDays = (Date.now() - createdAt) / (1000 * 60 * 60 * 24)
+            if (ageDays < minDays) return
+          }
+          eligible = true
+        }
+
+        if (!eligible) return
+        if (cancelled) return
+
+        reviewPromptTriggeredRef.current = true
+        setReviewPromptOpen(true)
+
+        try {
+          const t = new Date().toISOString()
+          await mod.supabase.auth.updateUser({ data: { review_prompt_shown_at: t } } as any)
+          try { localStorage.setItem(lsKey, '1') } catch {}
+          try { postGoal('review_prompt_shown', { ...(user.email ? { email: String(user.email) } : {}) }) } catch {}
+        } catch {
+          try { localStorage.setItem(lsKey, '1') } catch {}
+        }
+      } catch {}
+    })()
+
+    return () => { cancelled = true }
+  }, [appPlan, isEcomEfficiencyAppOrLocalHost, partnerSlug, reviewPromptOpen, showAffiliateCta])
+
   // Bottom-right server country/currency badge for debugging currency decision
 
   return (
     <div>
+      <ReviewPromptModal open={reviewPromptOpen} onClose={() => setReviewPromptOpen(false)} />
       <div className="max-w-6xl mx-auto px-6 py-8">
         {showAffiliateCta ? (
           <div className="mb-4">
@@ -593,8 +695,9 @@ function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'sta
 
   const formatPrice = (amount: number, c: 'USD' | 'EUR') => {
     if (c === 'EUR') {
-      // user requested English only, so we use English formatting even for EUR
-      return new Intl.NumberFormat('en-IE', { style: 'currency', currency: 'EUR' }).format(amount);
+      // EU formatting: show € on the RIGHT (e.g. 19,99€), not as a prefix.
+      const formatted = new Intl.NumberFormat('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(amount);
+      return formatted.replace(/\s/g, '\u00A0') + '€';
     }
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(amount);
   }

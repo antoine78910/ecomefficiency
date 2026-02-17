@@ -86,11 +86,12 @@ export async function POST(req: NextRequest) {
     }
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-08-27.basil" });
 
-    const body = await req.json().catch(() => ({})) as { email?: string };
+    const body = await req.json().catch(() => ({})) as { email?: string; session_id?: string };
     const emailHeader = req.headers.get("x-user-email") || undefined;
     const customerHeader = req.headers.get("x-stripe-customer-id") || undefined;
     const partnerSlugHeader = cleanSlug(req.headers.get("x-partner-slug") || "");
     const email = body.email || emailHeader;
+    const sessionId = String(body.session_id || "").trim();
 
     // White-label / partner domains: subscription lives on the partner Stripe Connect account.
     if (partnerSlugHeader) {
@@ -162,10 +163,161 @@ export async function POST(req: NextRequest) {
         }
       } catch {}
 
-      return NextResponse.json({ ok: true, active: true, status: latest.status, plan });
+      return NextResponse.json({
+        ok: true,
+        active: true,
+        status: latest.status,
+        plan,
+        customer_id: customerId,
+        subscription_id: latest.id,
+        subscription_created_at: latest.created ? new Date(latest.created * 1000).toISOString() : null,
+        subscription_current_period_start_at: (latest as any)?.current_period_start
+          ? new Date(((latest as any).current_period_start as number) * 1000).toISOString()
+          : null,
+      });
     }
 
     let customerId = customerHeader || undefined;
+    // If we have a checkout session id, prefer verifying from it (works even if user isn't logged in on return).
+    if (sessionId) {
+      try {
+        const session = await stripe.checkout.sessions.retrieve(sessionId);
+        const subId =
+          typeof (session as any).subscription === "string"
+            ? ((session as any).subscription as string)
+            : (session as any).subscription?.id;
+        const sessCustomerId =
+          typeof (session as any).customer === "string" ? ((session as any).customer as string) : (session as any).customer?.id;
+
+        if (!subId) {
+          return NextResponse.json({ ok: true, active: false, status: "no_subscription", plan: null });
+        }
+
+        // Retrieve subscription with expanded price/product for plan detection
+        const sub = await stripe.subscriptions.retrieve(subId, {
+          expand: ["items.data.price.product", "latest_invoice"],
+        } as any);
+
+        // Determine if we should grant access
+        let latest: any = sub;
+        let invoiceStatus: string | undefined;
+        if (sub.status === "active" || sub.status === "trialing") {
+          invoiceStatus = "active_sub";
+        } else if (sub.status === "incomplete" && (sub as any).latest_invoice) {
+          try {
+            const invoiceId =
+              typeof (sub as any).latest_invoice === "string" ? (sub as any).latest_invoice : (sub as any).latest_invoice?.id;
+            if (invoiceId) {
+              const invoice = await stripe.invoices.retrieve(String(invoiceId));
+              if (invoice.status === "paid") {
+                invoiceStatus = "paid_invoice";
+              }
+            }
+          } catch {}
+        }
+
+        if (!invoiceStatus) {
+          return NextResponse.json({ ok: true, active: false, status: sub.status || "inactive", plan: null });
+        }
+
+        customerId = sessCustomerId || (typeof (sub as any).customer === "string" ? (sub as any).customer : undefined) || customerId;
+
+        // Map price IDs to plan name (reuse existing logic below by setting latest)
+        const status = sub.status;
+        const active = true;
+
+        // Map price IDs to plan name; with robust fallbacks
+        const price = (latest.items?.data?.[0]?.price || undefined) as Stripe.Price | undefined;
+        const priceId = price?.id;
+        let plan: "starter" | "pro" | null = null;
+        const env = process.env;
+
+        if (priceId) {
+          const starterIds = [
+            env.STRIPE_PRICE_ID_STARTER_MONTHLY_EUR,
+            env.STRIPE_PRICE_ID_STARTER_YEARLY_EUR,
+            env.STRIPE_PRICE_ID_STARTER_MONTHLY_USD,
+            env.STRIPE_PRICE_ID_STARTER_YEARLY_USD,
+            env.NEXT_PUBLIC_STRIPE_PRICE_ID_STARTER_MONTHLY,
+            env.NEXT_PUBLIC_STRIPE_PRICE_ID_STARTER_YEARLY
+          ].filter(Boolean);
+
+          const proIds = [
+            env.STRIPE_PRICE_ID_PRO_MONTHLY_EUR,
+            env.STRIPE_PRICE_ID_PRO_YEARLY_EUR,
+            env.STRIPE_PRICE_ID_PRO_MONTHLY_USD,
+            env.STRIPE_PRICE_ID_PRO_YEARLY_USD,
+            env.NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_MONTHLY,
+            env.NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_YEARLY
+          ].filter(Boolean);
+
+          if (starterIds.includes(priceId)) plan = "starter";
+          if (proIds.includes(priceId)) plan = "pro";
+        }
+
+        // Fallbacks when env mapping not provided: check lookup_key, nickname, product name
+        if (!plan && price) {
+          const lookup = (price.lookup_key || "").toString().toLowerCase();
+          const nickname = (price.nickname || "").toString().toLowerCase();
+          if (lookup.includes("pro") || nickname.includes("pro")) plan = "pro";
+          if (lookup.includes("starter") || nickname.includes("starter")) plan = plan || "starter";
+
+          const amount = price.unit_amount || 0;
+          if (!plan && amount > 0) {
+            if (amount >= 2500) plan = "pro";
+            else if (amount >= 1000) plan = "starter";
+          }
+
+          try {
+            const prodId = typeof price.product === "string" ? price.product : (price.product as any)?.id;
+            if (prodId) {
+              const product = await stripe.products.retrieve(prodId);
+              const name = (product?.name || "").toLowerCase();
+              if (!plan && name.includes("pro")) plan = "pro";
+              if (!plan && name.includes("starter")) plan = "starter";
+            }
+          } catch {}
+        }
+
+        let finalPlan = plan;
+        if (!finalPlan && active) finalPlan = "starter";
+
+        // Best-effort: if checkout used client_reference_id (user id), sync metadata so future verifications are instant.
+        try {
+          const refUserId = (session as any).client_reference_id || (session as any)?.metadata?.userId;
+          if (refUserId && supabaseAdmin) {
+            const { data: user } = await supabaseAdmin.auth.admin.getUserById(String(refUserId));
+            const meta = (user as any)?.user?.user_metadata || {};
+            await supabaseAdmin.auth.admin.updateUserById(String(refUserId), {
+              user_metadata: {
+                ...meta,
+                plan: finalPlan,
+                tier: finalPlan,
+                stripe_customer_id: customerId || meta?.stripe_customer_id,
+              },
+            });
+          }
+        } catch {}
+
+        return NextResponse.json({
+          ok: true,
+          active,
+          status,
+          plan: finalPlan,
+          customer_id: customerId || null,
+          subscription_id: latest.id,
+          subscription_created_at: latest.created ? new Date(latest.created * 1000).toISOString() : null,
+          subscription_current_period_start_at: (latest as any)?.current_period_start
+            ? new Date(((latest as any).current_period_start as number) * 1000).toISOString()
+            : null,
+          verify_source: "session_id",
+          invoice_status: invoiceStatus || null,
+        });
+      } catch (e: any) {
+        // Fall through to email/customer based verification
+      }
+    }
+
     if (!customerId && email) {
       try {
         const search = await stripe.customers.search({ query: `email:'${email}'`, limit: 1 });
@@ -375,7 +527,18 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const result = { ok: true, active, status, plan: finalPlan };
+    const result = {
+      ok: true,
+      active,
+      status,
+      plan: finalPlan,
+      customer_id: customerId,
+      subscription_id: latest.id,
+      subscription_created_at: latest.created ? new Date(latest.created * 1000).toISOString() : null,
+      subscription_current_period_start_at: (latest as any)?.current_period_start
+        ? new Date(((latest as any).current_period_start as number) * 1000).toISOString()
+        : null,
+    };
     console.log('[VERIFY] Subscription check:', { customerId, status, active, plan: finalPlan });
     return NextResponse.json(result);
   } catch (e: any) {

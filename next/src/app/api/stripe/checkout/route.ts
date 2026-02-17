@@ -91,7 +91,8 @@ export async function POST(req: NextRequest) {
     const basePayload: Stripe.Checkout.SessionCreateParams = {
       mode: "subscription",
       // After payment, come back to /app (usually app.ecomefficiency.com) and let the app verify the subscription (then celebrate)
-      success_url: `${successOrigin}/app?checkout=success`,
+      // Include Stripe session id so we can verify access even if auth cookies/session are missing on return.
+      success_url: `${successOrigin}/app?checkout=success&session_id={CHECKOUT_SESSION_ID}`,
       // If the user cancels/backs out, just return to app root without auto-opening any popup
       cancel_url: `${requestOrigin}/`,
       line_items: [ { price: priceId, quantity: 1 } ],
