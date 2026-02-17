@@ -355,23 +355,36 @@ export default function GettingStartedPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white px-4 py-6">
-      <div className={`w-full mx-auto ${step === "setup" ? "max-w-6xl" : "max-w-2xl"}`}>
-        <div className="flex items-center justify-between mb-5">
-          <Link href="/app" className="inline-flex items-center">
-            <Image
-              src="/ecomefficiency.png"
-              alt="Ecom Efficiency"
-              width={160}
-              height={64}
-              className="h-14 w-auto object-contain mix-blend-screen"
-              priority
-            />
-          </Link>
-          {debug ? <div className="text-[11px] text-gray-500">Debug mode</div> : null}
-        </div>
+    <div className="min-h-screen bg-black text-white">
+      {/* Header aligned like LP navbar */}
+      <div className="w-full mx-auto px-0 relative border-b border-white/10 bg-black/90 backdrop-blur-sm">
+        <div className="w-full px-0">
+          <div className="grid grid-cols-[auto_1fr] items-center h-14 md:h-16">
+            {/* Logo (flush-left like LP navbar) */}
+            <div className="flex items-center justify-start space-x-3 pl-2 md:pl-3">
+              <Link href="/app" className="inline-flex items-center">
+                <Image
+                  src="/ecomefficiency.png"
+                  alt="Ecom Efficiency"
+                  width={160}
+                  height={64}
+                  className="h-14 w-auto object-contain mix-blend-screen"
+                  priority
+                />
+              </Link>
+            </div>
 
-        <div className="flex items-center justify-center gap-2 text-xs text-gray-500 mb-6 select-none">
+            {/* Right side */}
+            <div className="flex items-center justify-end pr-2 md:pr-3">
+              {debug ? <div className="text-[11px] text-gray-500">Debug mode</div> : null}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="px-4 py-6">
+        <div className={`w-full mx-auto ${step === "setup" ? "max-w-6xl" : "max-w-2xl"}`}>
+          <div className="flex items-center justify-center gap-2 text-xs text-gray-500 mb-6 select-none">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-green-500/70" />
             <span>Register</span>
@@ -733,7 +746,7 @@ export default function GettingStartedPage() {
                       href="https://partners.ecomefficiency.com/"
                       target="_blank"
                       rel="noreferrer noopener"
-                      className="inline-flex items-center justify-center px-5 h-12 rounded-full text-sm font-semibold bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] text-white border border-[#9541e0] shadow-[0_4px_24px_rgba(149,65,224,0.35)] hover:shadow-[0_6px_28px_rgba(149,65,224,0.5)] hover:brightness-110 transition-[box-shadow,filter]"
+                      className="inline-flex items-center justify-center px-7 h-12 min-w-[180px] rounded-full text-base font-semibold border border-white/10 bg-[#2b2b2f]/70 text-white/90 hover:bg-white/10 transition-colors"
                     >
                       Get Started
                     </a>
@@ -744,6 +757,7 @@ export default function GettingStartedPage() {
           </div>
           </div>
         )}
+        </div>
       </div>
     </div>
   );

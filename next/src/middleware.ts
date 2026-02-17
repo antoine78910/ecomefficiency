@@ -215,6 +215,16 @@ export async function middleware(req: NextRequest) {
     bareHostname.endsWith('.ecomefficiency.com') ||
     bareHostname.endsWith('localhost')
 
+  // ✅ Always keep /app on the app subdomain.
+  // Fixes Stripe success redirect landing on www.ecomefficiency.com/app?checkout=success (no auth + wrong styling).
+  if (bareHostname === 'ecomefficiency.com' && !hostname.startsWith('app.') && (pathname === '/app' || pathname.startsWith('/app/'))) {
+    const target = new URL(req.nextUrl.toString())
+    target.protocol = 'https:'
+    target.hostname = 'app.ecomefficiency.com'
+    target.port = ''
+    return NextResponse.redirect(target, 308)
+  }
+
   // Pretty aliases to proxy routes
   if (pathname === '/pipiads' || pathname === '/pipiads/') {
     const r = url.clone(); r.pathname = '/proxy/pipiads/dashboard';

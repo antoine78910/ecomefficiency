@@ -102,6 +102,16 @@ export function middleware(req: NextRequest) {
 
   const url = req.nextUrl
   const host = req.headers.get('host') || ''
+  const bareHost = host.toLowerCase().split(':')[0].replace(/^www\./, '')
+
+  // ✅ Always keep /app on the app subdomain (prevents checkout success landing on marketing host)
+  if (bareHost === 'ecomefficiency.com' && !host.toLowerCase().startsWith('app.') && (url.pathname === '/app' || url.pathname.startsWith('/app/'))) {
+    const target = url.clone()
+    target.protocol = 'https:'
+    target.hostname = 'app.ecomefficiency.com'
+    target.port = ''
+    return NextResponse.redirect(target, 308)
+  }
 
   // partners portal should not expose /app (reserved for app.* and custom domains)
   if (host.startsWith('partners.') && (url.pathname === '/app' || url.pathname.startsWith('/app/'))) {

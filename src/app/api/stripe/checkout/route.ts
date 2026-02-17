@@ -81,9 +81,20 @@ export async function POST(req: NextRequest) {
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-08-27.basil" });
 
-    // `origin` can be the marketing site; for success redirects, prefer APP_URL (app subdomain).
+    // `origin` can be the marketing site; for success redirects, prefer the app subdomain.
     const requestOrigin = req.headers.get("origin") || "http://localhost:3000";
-    const successOrigin = process.env.APP_URL || requestOrigin;
+    let successOrigin = process.env.APP_URL || requestOrigin;
+    // Hard safety: if checkout started on www.ecomefficiency.com, still return to app.ecomefficiency.com
+    try {
+      const u = new URL(successOrigin);
+      const bare = u.hostname.toLowerCase().replace(/^www\./, "");
+      if (bare === "ecomefficiency.com" && !u.hostname.toLowerCase().startsWith("app.")) {
+        u.protocol = "https:";
+        u.hostname = "app.ecomefficiency.com";
+        u.port = "";
+        successOrigin = u.origin;
+      }
+    } catch {}
     const userId = req.headers.get("x-user-id") || undefined;
     const userEmail = req.headers.get("x-user-email") || undefined;
 
