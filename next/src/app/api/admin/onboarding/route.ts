@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { supabaseAdmin } from '@/integrations/supabase/server'
+import Stripe from 'stripe'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -37,7 +38,22 @@ function pickMeta(meta: any) {
     acquisition_paid_at_answer: typeof m.acquisition_paid_at_answer === 'boolean' ? Boolean(m.acquisition_paid_at_answer) : null,
     acquisition_plan_at_answer: m.acquisition_plan_at_answer ? String(m.acquisition_plan_at_answer) : null,
     stripe_customer_id: m.stripe_customer_id ? String(m.stripe_customer_id) : null,
+    plan_meta: m.plan ? String(m.plan) : null,
   }
+}
+
+async function mapWithLimit<T, R>(items: T[], limit: number, fn: (item: T, idx: number) => Promise<R>): Promise<R[]> {
+  const out: R[] = new Array(items.length)
+  let next = 0
+  const workers = Array.from({ length: Math.max(1, limit) }).map(async () => {
+    while (true) {
+      const idx = next++
+      if (idx >= items.length) break
+      out[idx] = await fn(items[idx], idx)
+    }
+  })
+  await Promise.all(workers)
+  return out
 }
 
 export async function GET(req: NextRequest) {
@@ -52,6 +68,9 @@ export async function GET(req: NextRequest) {
 
     const url = new URL(req.url)
     const limit = Math.max(1, Math.min(2000, Number(url.searchParams.get('limit') || 500)))
+
+    const stripeKey = process.env.STRIPE_SECRET_KEY || ''
+    const stripe = stripeKey ? new Stripe(stripeKey, { apiVersion: '2025-08-27.basil' }) : null
 
     // Supabase Auth Admin list users is paginated.
     const perPage = Math.min(1000, limit)
@@ -73,7 +92,7 @@ export async function GET(req: NextRequest) {
 
     out = out.slice(0, limit)
 
-    const users = out
+    const baseUsers = out
       .map((u: any) => {
         const meta = pickMeta(u.user_metadata)
         return {
@@ -86,6 +105,58 @@ export async function GET(req: NextRequest) {
       })
       // Only keep users who actually answered onboarding
       .filter((u: any) => Boolean(u.acquisition_source || u.acquisition_work_type || u.acquisition_onboarding_completed_at))
+
+    const users = await mapWithLimit(baseUsers, 6, async (u) => {
+      // Current payment status (Stripe) — fixes "unpaid" after user pays later.
+      let paid_current: boolean | null = null
+      let plan_current: string | null = null
+      let sub_status: string | null = null
+      let customer_id: string | null = u.stripe_customer_id || null
+
+      if (stripe) {
+        // If no customer id in metadata, try to find it by email (best effort)
+        if (!customer_id && u.email) {
+          try {
+            const search = await stripe.customers.search({ query: `email:'${String(u.email)}'`, limit: 1 })
+            const found = (search.data || [])[0]
+            if (found?.id) customer_id = found.id
+          } catch {}
+        }
+
+        if (customer_id) {
+          try {
+            const subs = await stripe.subscriptions.list({ customer: customer_id, status: 'all', limit: 3 })
+            const latest = (subs.data || []).sort((a, b) => (b.created || 0) - (a.created || 0))[0]
+            if (latest) {
+              sub_status = latest.status || null
+              paid_current = latest.status === 'active' || latest.status === 'trialing'
+              // Prefer explicit metadata plan if present
+              const metaPlan = String(u.plan_meta || '').toLowerCase()
+              if (metaPlan) plan_current = metaPlan
+            } else {
+              paid_current = false
+            }
+          } catch {
+            paid_current = null
+          }
+        }
+      }
+
+      // Fallback to snapshot at answer time
+      const paid_effective = paid_current !== null ? paid_current : u.acquisition_paid_at_answer
+      const plan_effective = plan_current || u.acquisition_plan_at_answer || null
+
+      return {
+        ...u,
+        stripe_customer_id: customer_id || u.stripe_customer_id || null,
+        paid_current,
+        paid_effective,
+        plan_current,
+        plan_effective,
+        sub_status,
+        paid_source: paid_current !== null ? 'stripe' : 'snapshot',
+      }
+    })
       // Most recent first
       .sort((a: any, b: any) => {
         const aAt = a.acquisition_onboarding_completed_at || a.created_at || ''
@@ -99,6 +170,9 @@ export async function GET(req: NextRequest) {
     let paidTrue = 0
     let paidFalse = 0
     let paidUnknown = 0
+    let paidCurrentTrue = 0
+    let paidCurrentFalse = 0
+    let paidCurrentUnknown = 0
     for (const u of users) {
       const s = (u.acquisition_source || 'unknown').toLowerCase()
       bySource[s] = (bySource[s] || 0) + 1
@@ -107,6 +181,10 @@ export async function GET(req: NextRequest) {
       if (u.acquisition_paid_at_answer === true) paidTrue += 1
       else if (u.acquisition_paid_at_answer === false) paidFalse += 1
       else paidUnknown += 1
+
+      if (u.paid_current === true) paidCurrentTrue += 1
+      else if (u.paid_current === false) paidCurrentFalse += 1
+      else paidCurrentUnknown += 1
     }
 
     return NextResponse.json({
@@ -116,6 +194,10 @@ export async function GET(req: NextRequest) {
         paid_snapshot_true: paidTrue,
         paid_snapshot_false: paidFalse,
         paid_snapshot_unknown: paidUnknown,
+        paid_current_true: paidCurrentTrue,
+        paid_current_false: paidCurrentFalse,
+        paid_current_unknown: paidCurrentUnknown,
+        stripe_enabled: Boolean(stripe),
       },
       bySource,
       byWorkType,

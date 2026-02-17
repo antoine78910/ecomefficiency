@@ -16,6 +16,11 @@ type Row = {
   acquisition_paid_at_answer: boolean | null
   acquisition_plan_at_answer: string | null
   stripe_customer_id: string | null
+  paid_current?: boolean | null
+  paid_effective?: boolean | null
+  plan_effective?: string | null
+  sub_status?: string | null
+  paid_source?: "stripe" | "snapshot" | string
 }
 
 export default function AdminOnboardingPage() {
@@ -86,7 +91,7 @@ export default function AdminOnboardingPage() {
         </div>
 
         {totals && (
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-7 gap-4 mb-6">
             <div className="bg-gradient-to-r from-purple-600 to-purple-700 rounded-xl p-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -97,16 +102,28 @@ export default function AdminOnboardingPage() {
               </div>
             </div>
             <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-xl p-4">
-              <p className="text-green-200 text-sm">Paid snapshot</p>
-              <p className="text-2xl font-bold">{Number(totals.paid_snapshot_true || 0).toLocaleString()}</p>
+              <p className="text-green-200 text-sm">Paid (current)</p>
+              <p className="text-2xl font-bold">{Number(totals.paid_current_true ?? totals.paid_snapshot_true || 0).toLocaleString()}</p>
             </div>
             <div className="bg-gradient-to-r from-red-600 to-red-700 rounded-xl p-4">
-              <p className="text-red-200 text-sm">Unpaid snapshot</p>
-              <p className="text-2xl font-bold">{Number(totals.paid_snapshot_false || 0).toLocaleString()}</p>
+              <p className="text-red-200 text-sm">Unpaid (current)</p>
+              <p className="text-2xl font-bold">{Number(totals.paid_current_false ?? totals.paid_snapshot_false || 0).toLocaleString()}</p>
             </div>
             <div className="bg-gradient-to-r from-gray-700 to-gray-800 rounded-xl p-4">
-              <p className="text-gray-200 text-sm">Unknown snapshot</p>
-              <p className="text-2xl font-bold">{Number(totals.paid_snapshot_unknown || 0).toLocaleString()}</p>
+              <p className="text-gray-200 text-sm">Unknown (current)</p>
+              <p className="text-2xl font-bold">{Number(totals.paid_current_unknown ?? totals.paid_snapshot_unknown || 0).toLocaleString()}</p>
+            </div>
+            <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-4">
+              <p className="text-blue-200 text-sm">Paid (snapshot)</p>
+              <p className="text-2xl font-bold">{Number(totals.paid_snapshot_true || 0).toLocaleString()}</p>
+            </div>
+            <div className="bg-gradient-to-r from-orange-600 to-orange-700 rounded-xl p-4">
+              <p className="text-orange-200 text-sm">Unpaid (snapshot)</p>
+              <p className="text-2xl font-bold">{Number(totals.paid_snapshot_false || 0).toLocaleString()}</p>
+            </div>
+            <div className="bg-gradient-to-r from-gray-600 to-gray-700 rounded-xl p-4">
+              <p className="text-gray-200 text-sm">Stripe enabled</p>
+              <p className="text-2xl font-bold">{totals.stripe_enabled ? "yes" : "no"}</p>
             </div>
           </div>
         )}
@@ -121,6 +138,7 @@ export default function AdminOnboardingPage() {
                 <th className="p-4 text-left">Work</th>
                 <th className="p-4 text-left">Paid?</th>
                 <th className="p-4 text-left">Plan</th>
+                <th className="p-4 text-left">Stripe</th>
                 <th className="p-4 text-left">Context</th>
                 <th className="p-4 text-left">User id</th>
               </tr>
@@ -135,22 +153,28 @@ export default function AdminOnboardingPage() {
                   <td className="p-4 whitespace-nowrap text-gray-200">{u.acquisition_source || "—"}</td>
                   <td className="p-4 whitespace-nowrap text-gray-200">{u.acquisition_work_type || "—"}</td>
                   <td className="p-4 whitespace-nowrap">
-                    {u.acquisition_paid_at_answer === true ? (
+                    {u.paid_effective === true ? (
                       <span className="text-green-400 font-semibold">paid</span>
-                    ) : u.acquisition_paid_at_answer === false ? (
+                    ) : u.paid_effective === false ? (
                       <span className="text-red-400 font-semibold">unpaid</span>
                     ) : (
                       <span className="text-gray-400">unknown</span>
-                    )}
+                    )}{" "}
+                    <span className="text-[11px] text-gray-500">
+                      ({u.paid_source === "stripe" ? "stripe" : "snapshot"})
+                    </span>
                   </td>
-                  <td className="p-4 whitespace-nowrap text-gray-200">{u.acquisition_plan_at_answer || "—"}</td>
+                  <td className="p-4 whitespace-nowrap text-gray-200">{u.plan_effective || u.acquisition_plan_at_answer || "—"}</td>
+                  <td className="p-4 whitespace-nowrap text-gray-400">
+                    {u.sub_status ? <span className="font-mono">{u.sub_status}</span> : "—"}
+                  </td>
                   <td className="p-4 whitespace-nowrap text-gray-400">{u.acquisition_source_context || "—"}</td>
                   <td className="p-4 whitespace-nowrap text-gray-500 font-mono">{u.id}</td>
                 </tr>
               ))}
               {!users.length && (
                 <tr>
-                  <td colSpan={8} className="p-10 text-center text-gray-400">
+                  <td colSpan={9} className="p-10 text-center text-gray-400">
                     No onboarding data yet.
                   </td>
                 </tr>
