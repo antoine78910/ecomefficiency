@@ -376,35 +376,43 @@ const App = ({
         const hasStripeReturnParams =
           Boolean(urlParams?.get('session_id') || urlParams?.get('payment_intent') || urlParams?.get('redirect_status'));
 
-        // Trigger confetti ASAP on return from Stripe (do NOT wait for plan verification).
-        // This avoids missing confetti when Supabase session isn't ready on first load.
+        // Detect recent checkout even when return URL has no params (e.g. /checkout/success redirects to app.*).
+        // IMPORTANT: do NOT clear the pending flag until plan verification succeeds, otherwise the paywall
+        // may re-open and the user can appear "free" until a manual reload.
+        let pendingFresh = false
         try {
           const pendingRaw = typeof window !== 'undefined' ? window.localStorage.getItem('__ee_pending_checkout') : null
           let pendingAt = 0
           if (pendingRaw) {
             try { pendingAt = Number(JSON.parse(pendingRaw)?.at || 0) } catch { pendingAt = Number(pendingRaw) || 0 }
           }
-          const pendingFresh = pendingAt > 0 && (Date.now() - pendingAt) < 1000 * 60 * 60 * 6 // 6h
-          const fromStripe = (() => {
-            try {
-              const ref = String(document.referrer || '').toLowerCase()
-              return ref.includes('checkout.stripe.com') || ref.includes('pay.stripe.com') || ref.includes('stripe.com')
-            } catch { return false }
-          })()
+          pendingFresh = pendingAt > 0 && (Date.now() - pendingAt) < 1000 * 60 * 60 * 6 // 6h
+        } catch {}
 
+        const fromStripe = (() => {
+          try {
+            const ref = String(document.referrer || '').toLowerCase()
+            return ref.includes('checkout.stripe.com') || ref.includes('pay.stripe.com') || ref.includes('stripe.com')
+          } catch { return false }
+        })()
+
+        const isStripeReturn = Boolean(isCheckoutSuccess || hasStripeReturnParams || pendingFresh || fromStripe)
+
+        // Trigger confetti ASAP on return from Stripe (do NOT wait for plan verification).
+        // This avoids missing confetti when Supabase session isn't ready on first load.
+        try {
           const confettiKey =
             userId ? `__ee_confetti_shown_${userId}` :
             (email ? `__ee_confetti_shown_${email}` :
             (sessionId ? `__ee_confetti_shown_session_${sessionId}` : '__ee_confetti_shown_anon'))
 
           const alreadyShown = confettiKey ? Boolean(localStorage.getItem(confettiKey)) : false
-          const shouldCelebrate = (isCheckoutSuccess || hasStripeReturnParams || pendingFresh || fromStripe) && !alreadyShown
+          const shouldCelebrate = isStripeReturn && !alreadyShown
 
           if (shouldCelebrate && !checkoutTriggeredRef.current) {
             checkoutTriggeredRef.current = true
             try {
               if (confettiKey) localStorage.setItem(confettiKey, String(Date.now()))
-              localStorage.removeItem('__ee_pending_checkout')
             } catch {}
             setCheckoutSuccessActive(true)
           }
@@ -429,6 +437,8 @@ const App = ({
               // SECURITY: Only allow access if subscription is both OK and ACTIVE
               if (vj?.ok && vj?.active === true && (p === 'starter' || p === 'pro')) {
                 setAppPlan(p as any)
+                // Clear the pending checkout flag only once the plan is verified.
+                try { localStorage.removeItem('__ee_pending_checkout') } catch {}
                 // If checkout success, clean URL after successful verification
                 if ((isCheckoutSuccess || hasStripeReturnParams) && typeof window !== 'undefined') {
                   const url = new URL(window.location.href);
@@ -452,7 +462,7 @@ const App = ({
           }
           
           // Retry logic for Stripe return (covers checkout=success + session_id/pending flag)
-          if ((isCheckoutSuccess || hasStripeReturnParams) && attempt < 10) {
+          if (isStripeReturn && attempt < 10) {
             await new Promise(r => setTimeout(r, 500));
             return verifyPlan(attempt + 1);
           }
