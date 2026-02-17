@@ -2,9 +2,21 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Shield, Users, Activity, BarChart3, LayoutTemplate } from 'lucide-react'
+import { Shield, Users, Activity, BarChart3, LayoutTemplate, ClipboardList } from 'lucide-react'
 
 const adminRoutes = [
+  {
+    href: '/admin/onboarding',
+    label: 'Onboarding',
+    icon: ClipboardList,
+    description: 'Emails + réponses (source, work type, paid snapshot)'
+  },
+  {
+    href: '/admin/attribution',
+    label: 'Attribution',
+    icon: BarChart3,
+    description: 'Signup source → Paid/Unpaid (Stripe)'
+  },
   {
     href: '/admin/partners',
     label: 'Partners',

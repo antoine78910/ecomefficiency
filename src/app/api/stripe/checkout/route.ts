@@ -4,30 +4,71 @@ import Stripe from "stripe";
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json().catch(() => ({})) as { priceId?: string; promotionCode?: string; tier?: 'starter'|'growth'; billing?: 'monthly'|'yearly' };
+    const body = await req.json().catch(() => ({})) as {
+      priceId?: string;
+      promotionCode?: string;
+      tier?: 'starter'|'growth'|'pro';
+      billing?: 'monthly'|'yearly';
+      currency?: 'USD'|'EUR';
+    };
 
     // Resolve priceId either from body or from server env by tier/billing
     let priceId = body.priceId;
     if (!priceId) {
-      const tier = (body.tier || 'growth').toLowerCase();
+      const tierRaw = (body.tier || 'growth').toLowerCase();
+      const tier = (tierRaw === 'pro' ? 'growth' : tierRaw);
       const billing = (body.billing || 'monthly').toLowerCase();
+      const currency = (body.currency || '').toUpperCase();
       const env = process.env as Record<string, string | undefined>;
+
+      // First try currency-specific envs if provided (non-breaking: fallback to non-currency envs)
+      if (currency === 'EUR' || currency === 'USD') {
+        const serverCurrencyMap: Record<string, string | undefined> = {
+          // EUR
+          'starter_monthly_EUR': env.STRIPE_PRICE_ID_STARTER_MONTHLY_EUR,
+          'starter_yearly_EUR': env.STRIPE_PRICE_ID_STARTER_YEARLY_EUR,
+          'growth_monthly_EUR': env.STRIPE_PRICE_ID_GROWTH_MONTHLY_EUR,
+          'growth_yearly_EUR': env.STRIPE_PRICE_ID_GROWTH_YEARLY_EUR,
+          // USD
+          'starter_monthly_USD': env.STRIPE_PRICE_ID_STARTER_MONTHLY_USD,
+          'starter_yearly_USD': env.STRIPE_PRICE_ID_STARTER_YEARLY_USD,
+          'growth_monthly_USD': env.STRIPE_PRICE_ID_GROWTH_MONTHLY_USD,
+          'growth_yearly_USD': env.STRIPE_PRICE_ID_GROWTH_YEARLY_USD,
+        };
+        priceId = serverCurrencyMap[`${tier}_${billing}_${currency}`];
+      }
+
       const serverMap: Record<string, string | undefined> = {
         'starter_monthly': env.STRIPE_PRICE_ID_STARTER_MONTHLY,
         'starter_yearly': env.STRIPE_PRICE_ID_STARTER_YEARLY,
         'growth_monthly': env.STRIPE_PRICE_ID_GROWTH_MONTHLY,
         'growth_yearly': env.STRIPE_PRICE_ID_GROWTH_YEARLY,
       };
-      priceId = serverMap[`${tier}_${billing}`];
+      priceId = priceId || serverMap[`${tier}_${billing}`];
+
       // Fallback to public envs if server envs are missing
       if (!priceId) {
+        if (currency === 'EUR' || currency === 'USD') {
+          const pubCurrencyMap: Record<string, string | undefined> = {
+            'starter_monthly_EUR': env.NEXT_PUBLIC_STRIPE_PRICE_ID_STARTER_MONTHLY_EUR,
+            'starter_yearly_EUR': env.NEXT_PUBLIC_STRIPE_PRICE_ID_STARTER_YEARLY_EUR,
+            'growth_monthly_EUR': env.NEXT_PUBLIC_STRIPE_PRICE_ID_GROWTH_MONTHLY_EUR,
+            'growth_yearly_EUR': env.NEXT_PUBLIC_STRIPE_PRICE_ID_GROWTH_YEARLY_EUR,
+            'starter_monthly_USD': env.NEXT_PUBLIC_STRIPE_PRICE_ID_STARTER_MONTHLY_USD,
+            'starter_yearly_USD': env.NEXT_PUBLIC_STRIPE_PRICE_ID_STARTER_YEARLY_USD,
+            'growth_monthly_USD': env.NEXT_PUBLIC_STRIPE_PRICE_ID_GROWTH_MONTHLY_USD,
+            'growth_yearly_USD': env.NEXT_PUBLIC_STRIPE_PRICE_ID_GROWTH_YEARLY_USD,
+          };
+          priceId = pubCurrencyMap[`${tier}_${billing}_${currency}`];
+        }
+
         const pubMap: Record<string, string | undefined> = {
           'starter_monthly': env.NEXT_PUBLIC_STRIPE_PRICE_ID_STARTER_MONTHLY,
           'starter_yearly': env.NEXT_PUBLIC_STRIPE_PRICE_ID_STARTER_YEARLY,
           'growth_monthly': env.NEXT_PUBLIC_STRIPE_PRICE_ID_GROWTH_MONTHLY,
           'growth_yearly': env.NEXT_PUBLIC_STRIPE_PRICE_ID_GROWTH_YEARLY,
         };
-        priceId = pubMap[`${tier}_${billing}`];
+        priceId = priceId || pubMap[`${tier}_${billing}`];
       }
     }
 
@@ -40,7 +81,9 @@ export async function POST(req: NextRequest) {
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-08-27.basil" });
 
-    const origin = req.headers.get("origin") || process.env.APP_URL || "http://localhost:3000";
+    // `origin` can be the marketing site; for success redirects, prefer APP_URL (app subdomain).
+    const requestOrigin = req.headers.get("origin") || "http://localhost:3000";
+    const successOrigin = process.env.APP_URL || requestOrigin;
     const userId = req.headers.get("x-user-id") || undefined;
     const userEmail = req.headers.get("x-user-email") || undefined;
 
@@ -54,8 +97,10 @@ export async function POST(req: NextRequest) {
     let session: Stripe.Checkout.Session | null = null;
     const basePayload: Stripe.Checkout.SessionCreateParams = {
       mode: "subscription",
-      success_url: `${origin}/app`,
-      cancel_url: `${origin}/pricing`,
+      // After payment, come back to /app (usually app.ecomefficiency.com) and let the app verify the subscription (then celebrate)
+      success_url: `${successOrigin}/app?checkout=success`,
+      // If user cancels, return to the site where checkout started (typically pricing page)
+      cancel_url: `${requestOrigin}/pricing`,
       line_items: [ { price: priceId, quantity: 1 } ],
       allow_promotion_codes: true,
       client_reference_id: userId || undefined,
@@ -68,7 +113,8 @@ export async function POST(req: NextRequest) {
     };
 
     // Build discounts logic
-    const isGrowthMonthly = (String((body.tier || '').toLowerCase()) === 'growth') && (String((body.billing || 'monthly').toLowerCase()) === 'monthly');
+    const tierNorm = (String((body.tier || '').toLowerCase()) === 'pro') ? 'growth' : String((body.tier || '').toLowerCase());
+    const isGrowthMonthly = (tierNorm === 'growth') && (String((body.billing || 'monthly').toLowerCase()) === 'monthly');
     const autoPromoInput = process.env.STRIPE_PROMOTION_CODE_GROWTH_10 || 'promo_1S1ZqOLCLqnM14mK1IXSV2Zl';
 
     const resolvePromotionCodeId = async (input?: string | null): Promise<string | null> => {

@@ -12,6 +12,72 @@ export async function middleware(req: NextRequest) {
     /googlebot|google-inspectiontool|googleother|google-extended|adsbot-google|mediapartners-google|storebot-google|apis-google|feedfetcher-google|bingbot|duckduckbot|baiduspider|yandexbot|slurp|facebookexternalhit|twitterbot|linkedinbot|gptbot|chatgpt-user/i.test(
       userAgent
     )
+
+  // 🔐 Admin token gate (protects /admin and /api/admin)
+  // - Access with /admin?token=Zjhfc82005ad once, it sets a httpOnly cookie.
+  // - Afterwards, navigation + API calls are allowed via cookie.
+  const expectedAdminToken = process.env.ADMIN_PANEL_TOKEN || 'Zjhfc82005ad'
+  const isAdminSurface =
+    pathname === '/admin' ||
+    pathname.startsWith('/admin/') ||
+    pathname === '/api/admin' ||
+    pathname.startsWith('/api/admin/')
+
+  if (isAdminSurface) {
+    const queryToken = String(req.nextUrl.searchParams.get('token') || '')
+    const cookieToken = String(req.cookies.get('ee_admin_token')?.value || '')
+    const provided = queryToken || cookieToken
+
+    if (!expectedAdminToken || provided !== expectedAdminToken) {
+      return new NextResponse(
+        `<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Unauthorized</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#000;color:#fff;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial} .card{max-width:520px;padding:28px;border:1px solid rgba(255,255,255,.12);border-radius:14px;background:rgba(255,255,255,.04)} .muted{color:rgba(255,255,255,.65);font-size:14px;line-height:1.5} code{background:rgba(255,255,255,.08);padding:.12rem .35rem;border-radius:.4rem}</style></head><body><div class="card"><h1 style="margin:0 0 10px;font-size:22px">Unauthorized</h1><p class="muted" style="margin:0 0 14px">This area is protected.</p><p class="muted" style="margin:0">Open <code>/admin?token=…</code> with the correct token.</p></div></body></html>`,
+        {
+          status: 401,
+          headers: {
+            'Content-Type': 'text/html; charset=utf-8',
+            'Cache-Control': 'no-store',
+            'X-Robots-Tag': 'noindex, nofollow',
+          },
+        }
+      )
+    }
+
+    // If token is provided via query, store it once as cookie.
+    const shouldSetCookie = queryToken && queryToken === expectedAdminToken && cookieToken !== expectedAdminToken
+
+    // For page routes, clean the URL (remove token) after setting cookie.
+    if (pathname.startsWith('/admin') && queryToken) {
+      const clean = req.nextUrl.clone()
+      clean.searchParams.delete('token')
+      const res = NextResponse.redirect(clean, 302)
+      if (shouldSetCookie) {
+        res.cookies.set('ee_admin_token', expectedAdminToken, {
+          httpOnly: true,
+          sameSite: 'lax',
+          secure: req.nextUrl.protocol === 'https:',
+          path: '/',
+          maxAge: 60 * 60 * 24 * 30, // 30 days
+        })
+      }
+      res.headers.set('X-Robots-Tag', 'noindex, nofollow')
+      res.headers.set('Cache-Control', 'no-store')
+      return res
+    }
+
+    const res = NextResponse.next({ request: { headers: req.headers } })
+    if (shouldSetCookie) {
+      res.cookies.set('ee_admin_token', expectedAdminToken, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: req.nextUrl.protocol === 'https:',
+        path: '/',
+        maxAge: 60 * 60 * 24 * 30, // 30 days
+      })
+    }
+    res.headers.set('X-Robots-Tag', 'noindex, nofollow')
+    res.headers.set('Cache-Control', 'no-store')
+    return res
+  }
   
   // 🔒 SÉCURITÉ : Vérification des blocages IP et pays
   // Skip security check for admin routes and static assets

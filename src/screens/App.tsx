@@ -749,6 +749,10 @@ function HowToAccess({ renderTrigger = true }: { renderTrigger?: boolean }) {
   const wlMain = normalizeHex(String(wlMainRaw || '#9541e0'), '#9541e0')
   const wlAccent = normalizeHex(String(wlAccentRaw || '#7c30c7'), '#7c30c7')
   const wlText = bestTextColorOn(mixHex(wlMain, wlAccent, 0.5))
+  const isEcomEfficiencyAppHost = React.useMemo(() => {
+    if (typeof window === 'undefined') return false
+    try { return String(window.location.hostname || '').toLowerCase() === 'app.ecomefficiency.com' } catch { return false }
+  }, [])
   const next = () => setStep((s) => Math.min(3, s + 1))
   const prev = () => setStep((s) => Math.max(1, s - 1))
   React.useEffect(() => {
@@ -765,7 +769,7 @@ function HowToAccess({ renderTrigger = true }: { renderTrigger?: boolean }) {
           <button
             onClick={() => { setOpen(true); setStep(1) }}
             className="underline cursor-pointer"
-            style={isWhiteLabel ? { color: wlAccent } : { color: "#7c30c7" }}
+            style={isWhiteLabel ? { color: wlAccent } : { color: isEcomEfficiencyAppHost ? "#9541e0" : "#7c30c7" }}
           >
             Open the 3‑step demo
           </button>
@@ -983,6 +987,10 @@ function CredentialsPanel({
   const wlMain = isWhiteLabel ? normalizeHex(String(brandColors?.main || '#9541e0'), '#9541e0') : '#9541e0'
   const wlAccent = isWhiteLabel ? normalizeHex(String(brandColors?.accent || '#7c30c7'), '#7c30c7') : '#7c30c7'
   const wlText = bestTextColorOn(mixHex(wlMain, wlAccent, 0.5))
+  const isEcomEfficiencyAppHost = React.useMemo(() => {
+    if (typeof window === 'undefined') return false
+    try { return String(window.location.hostname || '').toLowerCase() === 'app.ecomefficiency.com' } catch { return false }
+  }, [])
   const [creds, setCreds] = useState<ToolCredentials | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -1302,7 +1310,18 @@ function CredentialsPanel({
                       <button
                         onClick={() => setShowBilling(true)}
                         className="px-3 py-1 rounded-md text-sm font-semibold"
-                        style={isWhiteLabel ? { background: wlAccent, color: wlText } : { background: "#9541e0", color: "#ffffff" }}
+                        style={
+                          isWhiteLabel
+                            ? { background: wlAccent, color: wlText }
+                            : isEcomEfficiencyAppHost
+                              ? {
+                                  background: 'linear-gradient(to bottom, #9541e0, #7c30c7)',
+                                  border: '1px solid #9541e0',
+                                  color: '#ffffff',
+                                  boxShadow: '0 4px 24px rgba(149,65,224,0.45)',
+                                }
+                              : { background: "#9541e0", color: "#ffffff" }
+                        }
                       >
                         Subscribe
                       </button>
@@ -1368,7 +1387,7 @@ function CredentialsPanel({
                         } catch {} 
                       }} 
                       className="underline cursor-pointer"
-                    style={isWhiteLabel ? { color: wlAccent } : { color: "#7c30c7" }}
+                    style={isWhiteLabel ? { color: wlAccent } : { color: isEcomEfficiencyAppHost ? "#9541e0" : "#7c30c7" }}
                     >
                       Open the 3‑step demo
                     </button>
@@ -1486,7 +1505,7 @@ function CredentialsPanel({
                     } catch {} 
                   }} 
                   className="underline cursor-pointer"
-                  style={isWhiteLabel ? { color: wlAccent } : { color: "#7c30c7" }}
+                  style={isWhiteLabel ? { color: wlAccent } : { color: isEcomEfficiencyAppHost ? "#9541e0" : "#7c30c7" }}
                 >
                   Open the 3‑step demo
                 </button>

@@ -53,6 +53,40 @@ export default function AppPage() {
         const m = hash.match(/access_token=([^&]+).*refresh_token=([^&]+)/);
         const code = url.searchParams.get('code');
         const just = url.searchParams.get('just') === '1';
+
+        const isUserNew = (user: any) => {
+          try {
+            const createdAt = user?.created_at ? new Date(user.created_at).getTime() : 0;
+            if (!createdAt) return false;
+            return Date.now() - createdAt < 60 * 60 * 1000; // 1h
+          } catch {
+            return false;
+          }
+        };
+
+        const maybeRedirectGettingStarted = async (reason: 'hash_tokens'|'code'|'just') => {
+          try {
+            const { data } = await supabase.auth.getUser();
+            const user = data.user;
+            if (!user) return false;
+            const meta = (user.user_metadata as any) || {};
+            const already = Boolean(meta?.acquisition_source);
+            if (already) return false;
+            if (!isUserNew(user)) return false; // only for fresh signups
+            const storageKey = `__ee_gs_redirected_${user.id}`;
+            try {
+              if (localStorage.getItem(storageKey)) return false;
+              localStorage.setItem(storageKey, '1');
+            } catch {}
+            const dest = new URL('/getting-started', window.location.origin);
+            dest.searchParams.set('from', 'verify');
+            dest.searchParams.set('r', reason);
+            window.location.href = dest.toString();
+            return true;
+          } catch {
+            return false;
+          }
+        };
         if (m && m[1] && m[2]) {
           // Set Supabase session on app domain from tokens passed in hash
           try {
@@ -67,6 +101,8 @@ export default function AppPage() {
             const userId = data.user?.id;
             // if (email || userId) await postGoal('complete_signup', { ...(email?{email:String(email)}:{}), ...(userId?{user_id:String(userId)}:{}) });
           } catch {}
+          // After email verify/signup, ask attribution once (new users only)
+          if (await maybeRedirectGettingStarted('hash_tokens')) return;
         } else if (code) {
           // Magic link/email verification flow: exchange code and mark complete_signup
           try {
@@ -80,6 +116,8 @@ export default function AppPage() {
           } catch {}
           // Clean URL (remove code/state)
           try { history.replaceState(null, '', window.location.pathname); } catch {}
+          // After email verify/signup, ask attribution once (new users only)
+          if (await maybeRedirectGettingStarted('code')) return;
         } else if (just) {
           // As a last-resort fallback: after being redirected with ?just=1 and session already present
           try {
@@ -88,6 +126,7 @@ export default function AppPage() {
             const userId = data.user?.id;
             // if (email || userId) await postGoal('complete_signup', { ...(email?{email:String(email)}:{}), ...(userId?{user_id:String(userId)}:{}) });
           } catch {}
+          if (await maybeRedirectGettingStarted('just')) return;
         } else {
           // Final safeguard removed
         }

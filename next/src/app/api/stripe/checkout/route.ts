@@ -63,7 +63,9 @@ export async function POST(req: NextRequest) {
 
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-08-27.basil" });
 
-    const origin = req.headers.get("origin") || process.env.APP_URL || "http://localhost:3000";
+    // `origin` can be the marketing site; for success redirects, prefer APP_URL (app subdomain).
+    const requestOrigin = req.headers.get("origin") || "http://localhost:3000";
+    const successOrigin = process.env.APP_URL || requestOrigin;
     const userId = req.headers.get("x-user-id") || undefined;
     const userEmail = req.headers.get("x-user-email") || undefined;
 
@@ -77,10 +79,10 @@ export async function POST(req: NextRequest) {
     let session: Stripe.Checkout.Session | null = null;
     const basePayload: Stripe.Checkout.SessionCreateParams = {
       mode: "subscription",
-      // Return to the app root; on success, the app will detect plan and unlock.
-      success_url: `${origin}/`,
+      // After payment, come back to /app (usually app.ecomefficiency.com) and let the app verify the subscription (then celebrate)
+      success_url: `${successOrigin}/app?checkout=success`,
       // If the user cancels/backs out, just return to app root without auto-opening any popup
-      cancel_url: `${origin}/`,
+      cancel_url: `${requestOrigin}/`,
       line_items: [ { price: priceId, quantity: 1 } ],
       allow_promotion_codes: true,
       client_reference_id: userId || undefined,

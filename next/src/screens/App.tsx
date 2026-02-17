@@ -9,6 +9,7 @@ import { postGoal } from "@/lib/analytics";
 import TrendTrackStatus from "@/components/TrendTrackStatus";
 import { bestTextColorOn, hexWithAlpha, mixHex, normalizeHex } from "@/lib/color";
 import WhiteLabelPricingModal from "@/components/WhiteLabelPricingModal";
+import { CheckoutSuccessEffects } from "@/components/CheckoutSuccessEffects";
 
 const App = ({
   showAffiliateCta = true,
@@ -24,6 +25,22 @@ const App = ({
   // no docker launch on this page anymore
   const [canvaInvite, setCanvaInvite] = React.useState<string | null>(null)
   const [appPlan, setAppPlan] = React.useState<'free'|'starter'|'pro'>('free')
+  const [checkoutSuccessActive, setCheckoutSuccessActive] = React.useState(false)
+  const checkoutTriggeredRef = React.useRef(false)
+
+  // Dev-only: allow testing confetti without Stripe/Supabase configured
+  React.useEffect(() => {
+    try {
+      if (typeof window === 'undefined') return
+      if (process.env.NODE_ENV === 'production') return
+      const url = new URL(window.location.href)
+      if (url.searchParams.get('debug_confetti') === '1') {
+        setCheckoutSuccessActive(true)
+        url.searchParams.delete('debug_confetti')
+        window.history.replaceState({}, '', url.toString())
+      }
+    } catch {}
+  }, [])
 
   // Expose brand colors for a few deep child components (white-label logos tinting)
   React.useEffect(() => {
@@ -72,6 +89,29 @@ const App = ({
       const now = new Date().getTime();
       return (now - created) < 60 * 60 * 1000; // 1 heure
     };
+
+    const maybeGoGettingStarted = (user: any) => {
+      try {
+        if (!user) return false
+        const meta = (user.user_metadata as any) || {}
+        if (meta?.acquisition_source) return false
+        if (!isUserNew(user)) return false
+        const key = `ee_getting_started_shown_${user.id}`
+        try {
+          if (localStorage.getItem(key)) return false
+          localStorage.setItem(key, '1')
+        } catch {}
+
+        const protocol = window.location.protocol
+        const hostname = window.location.hostname
+        const port = window.location.port ? `:${window.location.port}` : ''
+        const baseHost = hostname === 'localhost' ? `app.localhost${port}` : window.location.host
+        window.location.href = `${protocol}//${baseHost}/getting-started?from=verify`
+        return true
+      } catch {
+        return false
+      }
+    }
 
     // Fonction centralisée pour tracker le Signup de manière unique
     const trackUniqueSignup = (user: any) => {
@@ -151,6 +191,8 @@ const App = ({
               // Tracking Unique du Signup
               if (data.user) {
                   trackUniqueSignup(data.user);
+                  // After email verification: short onboarding (once) to capture source
+                  if (maybeGoGettingStarted(data.user)) return;
               }
 
               // FirstPromoter referral (only once per browser)
@@ -173,6 +215,11 @@ const App = ({
 
             // If on plain localhost after OAuth, redirect to app.localhost
             if (hostname === 'localhost') {
+              // If the user is new and hasn't answered onboarding yet, go to /getting-started on app.localhost
+              try {
+                const { data } = await mod.supabase.auth.getUser()
+                if (data.user && maybeGoGettingStarted(data.user)) return
+              } catch {}
               window.location.href = `${protocol}//app.localhost${port}/`
               return
             }
@@ -210,6 +257,8 @@ const App = ({
            // Tracking Unique du Signup
            if (data.user) {
                 trackUniqueSignup(data.user);
+                // After email verification: short onboarding (once) to capture source
+                if (maybeGoGettingStarted(data.user)) return;
            }
            
            // FirstPromoter referral (only once per browser)
@@ -233,6 +282,10 @@ const App = ({
           const port = window.location.port ? `:${window.location.port}` : ''
 
           if (hostname === 'localhost') {
+            try {
+              const { data } = await mod.supabase.auth.getUser()
+              if (data.user && maybeGoGettingStarted(data.user)) return
+            } catch {}
             window.location.href = `${protocol}//app.localhost${port}/`
             return
           }
@@ -322,6 +375,13 @@ const App = ({
               // SECURITY: Only allow access if subscription is both OK and ACTIVE
               if (vj?.ok && vj?.active === true && (p === 'starter' || p === 'pro')) {
                 setAppPlan(p as any)
+                // Payment is confirmed (server-side) — celebrate once, then ask attribution once.
+                if (isCheckoutSuccess) {
+                  if (!checkoutTriggeredRef.current) {
+                    checkoutTriggeredRef.current = true
+                    setCheckoutSuccessActive(true)
+                  }
+                }
                 // If checkout success, clean URL after successful verification
                 if (isCheckoutSuccess && typeof window !== 'undefined') {
                   const url = new URL(window.location.href);
@@ -359,6 +419,12 @@ const App = ({
 
   return (
     <div>
+      <CheckoutSuccessEffects
+        active={checkoutSuccessActive}
+        askSource={false}
+        onAskSourceClose={() => {}}
+        onConfettiDone={() => setCheckoutSuccessActive(false)}
+      />
       <div className="max-w-6xl mx-auto px-6 py-8">
         {showAffiliateCta ? (
           <div className="mb-4">
@@ -757,6 +823,10 @@ function HowToAccess({ renderTrigger = true }: { renderTrigger?: boolean }) {
   const wlMain = normalizeHex(String((typeof window !== 'undefined' ? (window as any).__wl_main : '') || '#9541e0'), '#9541e0')
   const wlAccent = normalizeHex(String((typeof window !== 'undefined' ? (window as any).__wl_accent : '') || '#7c30c7'), '#7c30c7')
   const wlText = bestTextColorOn(mixHex(wlMain, wlAccent, 0.5))
+  const isEcomEfficiencyAppHost = React.useMemo(() => {
+    if (typeof window === 'undefined') return false
+    try { return String(window.location.hostname || '').toLowerCase() === 'app.ecomefficiency.com' } catch { return false }
+  }, [])
   const next = () => setStep((s) => Math.min(3, s + 1))
   const prev = () => setStep((s) => Math.max(1, s - 1))
   React.useEffect(() => {
@@ -773,7 +843,7 @@ function HowToAccess({ renderTrigger = true }: { renderTrigger?: boolean }) {
           <button
             onClick={() => { setOpen(true); setStep(1) }}
             className="underline cursor-pointer"
-            style={{ color: wlAccent }}
+            style={{ color: isEcomEfficiencyAppHost ? "#9541e0" : wlAccent }}
           >
             Open the 3‑step demo
           </button>
@@ -989,6 +1059,10 @@ function CredentialsPanel({
   const wlMain = normalizeHex(String(brandColors?.main || (typeof window !== 'undefined' ? (window as any).__wl_main : '') || '#9541e0'), '#9541e0')
   const wlAccent = normalizeHex(String(brandColors?.accent || (typeof window !== 'undefined' ? (window as any).__wl_accent : '') || '#7c30c7'), '#7c30c7')
   const wlText = bestTextColorOn(mixHex(wlMain, wlAccent, 0.5))
+  const isEcomEfficiencyAppHost = React.useMemo(() => {
+    if (typeof window === 'undefined') return false
+    try { return String(window.location.hostname || '').toLowerCase() === 'app.ecomefficiency.com' } catch { return false }
+  }, [])
   const [creds, setCreds] = useState<ToolCredentials | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -1323,7 +1397,16 @@ function CredentialsPanel({
                       <button
                         onClick={() => setShowBilling(true)}
                         className="px-3 py-1 rounded-md text-sm font-semibold"
-                        style={{ background: "rgb(141, 7, 7)", color: "rgb(255, 255, 255)" }}
+                        style={
+                          isEcomEfficiencyAppHost
+                            ? {
+                                background: 'linear-gradient(to bottom, #9541e0, #7c30c7)',
+                                border: '1px solid #9541e0',
+                                color: '#ffffff',
+                                boxShadow: '0 4px 24px rgba(149,65,224,0.45)',
+                              }
+                            : { background: "rgb(141, 7, 7)", color: "rgb(255, 255, 255)" }
+                        }
                       >
                         Subscribe
                       </button>
@@ -1410,7 +1493,7 @@ function CredentialsPanel({
                         } catch {} 
                       }} 
                       className="underline cursor-pointer"
-                    style={{ color: wlAccent }}
+                    style={{ color: isEcomEfficiencyAppHost ? "#9541e0" : wlAccent }}
                     >
                       Open the 3‑step demo
                     </button>
@@ -1528,7 +1611,7 @@ function CredentialsPanel({
                     } catch {} 
                   }} 
                   className="underline cursor-pointer"
-                  style={{ color: wlAccent }}
+                  style={{ color: isEcomEfficiencyAppHost ? "#9541e0" : wlAccent }}
                 >
                   Open the 3‑step demo
                 </button>
