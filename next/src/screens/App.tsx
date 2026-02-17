@@ -30,6 +30,13 @@ const App = ({
   const checkoutTriggeredRef = React.useRef(false)
   const [reviewPromptOpen, setReviewPromptOpen] = React.useState(false)
   const reviewPromptTriggeredRef = React.useRef(false)
+  const reviewPromptTimerRef = React.useRef<number | null>(null)
+  const [reviewPromptTick, setReviewPromptTick] = React.useState(0)
+
+  // Keep stable callbacks so confetti isn't interrupted by re-renders (e.g. credentials loading).
+  const handleConfettiDone = React.useCallback(() => {
+    setCheckoutSuccessActive(false)
+  }, [])
 
   const isEcomEfficiencyAppOrLocalHost = React.useMemo(() => {
     try {
@@ -477,7 +484,7 @@ const App = ({
 
   // Review popup:
   // - Local/dev: show for any valid subscription (to test the flow easily).
-  // - Prod: show once subscription age >= 15 days.
+  // - Prod: show once subscription age >= 14 days.
   React.useEffect(() => {
     if (reviewPromptTriggeredRef.current) return
     if (!isEcomEfficiencyAppOrLocalHost) return
@@ -486,6 +493,11 @@ const App = ({
     if (reviewPromptOpen) return
 
     let cancelled = false
+    // Clear any previous timer when this effect runs
+    try {
+      if (reviewPromptTimerRef.current) window.clearTimeout(reviewPromptTimerRef.current)
+      reviewPromptTimerRef.current = null
+    } catch {}
     ;(async () => {
       try {
         let debug = false
@@ -502,21 +514,29 @@ const App = ({
         if (!user) return
 
         const meta = (user.user_metadata as any) || {}
-        const alreadyShown =
-          Boolean(meta?.review_prompt_shown_at) ||
-          Boolean(meta?.review_prompt_submitted_at) ||
-          Boolean(meta?.review_prompt_dismissed_at)
-
-        const lsKey = `ee_review_prompt_shown_${user.id}`
-        let alreadyLocal = false
-        try { alreadyLocal = Boolean(localStorage.getItem(lsKey)) } catch {}
-        if (alreadyShown || alreadyLocal) {
+        // If the user already submitted, never show again.
+        if (Boolean(meta?.review_prompt_submitted_at)) {
           reviewPromptTriggeredRef.current = true
           return
         }
 
+        // If user closed / clicked "later" recently, wait until next visit (cooldown).
+        // This enables re-prompting on the next session without spamming on refresh/navigation.
+        try {
+          const lastAtRaw =
+            (typeof meta?.review_prompt_last_action_at === 'string' && meta.review_prompt_last_action_at) ||
+            (typeof meta?.review_prompt_dismissed_at === 'string' && meta.review_prompt_dismissed_at) ||
+            ''
+          const lastMs = lastAtRaw ? new Date(String(lastAtRaw)).getTime() : 0
+          const cooldownMs = 1000 * 60 * 30 // 30 minutes
+          if (lastMs && !Number.isNaN(lastMs) && (Date.now() - lastMs) < cooldownMs) {
+            reviewPromptTriggeredRef.current = true
+            return
+          }
+        } catch {}
+
         const isProd = process.env.NODE_ENV === 'production'
-        const minDays = isProd ? 15 : 0
+        const minDays = isProd ? 14 : 0
 
         // Verify Stripe + subscription age
         let eligible = debug
@@ -540,7 +560,20 @@ const App = ({
             const createdAt = j?.subscription_created_at ? new Date(String(j.subscription_created_at)).getTime() : 0
             if (!createdAt || Number.isNaN(createdAt)) return
             const ageDays = (Date.now() - createdAt) / (1000 * 60 * 60 * 24)
-            if (ageDays < minDays) return
+            if (ageDays < minDays) {
+              // Auto-trigger when maturity is reached (even if user stays logged in).
+              try {
+                const targetMs = createdAt + minDays * 24 * 60 * 60 * 1000
+                const delayMs = Math.max(0, targetMs - Date.now() + 1500) // small buffer
+                // Avoid setTimeout overflow (max ~24.8 days).
+                const safeDelay = Math.min(delayMs, 2147483647)
+                reviewPromptTimerRef.current = window.setTimeout(() => {
+                  if (cancelled) return
+                  setReviewPromptTick((t) => t + 1)
+                }, safeDelay)
+              } catch {}
+              return
+            }
           }
           eligible = true
         }
@@ -551,22 +584,34 @@ const App = ({
         reviewPromptTriggeredRef.current = true
         setReviewPromptOpen(true)
 
-        // Mark as shown (single global prompt)
+        // Mark as shown (attempt counter). We want to re-prompt on later visits if no submission.
         try {
           const t = new Date().toISOString()
-          await mod.supabase.auth.updateUser({ data: { review_prompt_shown_at: t } } as any)
-          try { localStorage.setItem(lsKey, '1') } catch {}
-          try { postGoal('review_prompt_shown', { ...(user.email ? { email: String(user.email) } : {}) }) } catch {}
+          const prevCount = Number(meta?.review_prompt_shown_count || 0) || 0
+          const nextCount = prevCount + 1
+          await mod.supabase.auth.updateUser({
+            data: {
+              review_prompt_shown_at: t,
+              review_prompt_shown_count: nextCount,
+              review_prompt_last_action: 'shown',
+              review_prompt_last_action_at: t,
+              review_prompt_last_attempt: nextCount,
+            }
+          } as any)
+          try { postGoal('review_prompt_shown', { ...(user.email ? { email: String(user.email) } : {}), attempt: String(nextCount) }) } catch {}
         } catch {
-          try { localStorage.setItem(lsKey, '1') } catch {}
         }
       } catch {}
     })()
 
     return () => {
       cancelled = true
+      try {
+        if (reviewPromptTimerRef.current) window.clearTimeout(reviewPromptTimerRef.current)
+        reviewPromptTimerRef.current = null
+      } catch {}
     }
-  }, [appPlan, isEcomEfficiencyAppOrLocalHost, partnerSlug, reviewPromptOpen, showAffiliateCta])
+  }, [appPlan, isEcomEfficiencyAppOrLocalHost, partnerSlug, reviewPromptOpen, showAffiliateCta, reviewPromptTick])
 
   // Bottom-right server country/currency badge for debugging currency decision
 
@@ -576,7 +621,7 @@ const App = ({
         active={checkoutSuccessActive}
         askSource={false}
         onAskSourceClose={() => {}}
-        onConfettiDone={() => setCheckoutSuccessActive(false)}
+        onConfettiDone={handleConfettiDone}
       />
       <ReviewPromptModal open={reviewPromptOpen} onClose={() => setReviewPromptOpen(false)} />
       <div className="max-w-6xl mx-auto px-6 py-8">
@@ -1222,11 +1267,36 @@ function CredentialsPanel({
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [wlMeta, setWlMeta] = React.useState<any>(null)
+  const [debugAdsPowerLoading, setDebugAdsPowerLoading] = React.useState(false)
 
   useEffect(() => {
     let active = true;
     const fetchCreds = async () => {
       try {
+        // Local trigger to simulate "AdsPower logs loading" without stopping confetti.
+        // Use: /app?debug_confetti=1&debug_adspower_loading=1
+        let simulateSlow = false
+        try {
+          if (process.env.NODE_ENV !== 'production' && typeof window !== 'undefined') {
+            const url = new URL(window.location.href)
+            simulateSlow = url.searchParams.get('debug_adspower_loading') === '1'
+          }
+        } catch {}
+        if (simulateSlow) {
+          try { setDebugAdsPowerLoading(true) } catch {}
+          // Force a few extra re-renders during the "loading" window (mirrors heavy UI updates).
+          try {
+            let pulses = 0
+            const id = window.setInterval(() => {
+              pulses += 1
+              try { setLoading(true) } catch {}
+              if (pulses >= 16) {
+                try { window.clearInterval(id) } catch {}
+              }
+            }, 250)
+          } catch {}
+        }
+
         const mod = await import("@/integrations/supabase/client");
         const { data } = await mod.supabase.auth.getUser();
         const email = data.user?.email || '';
@@ -1251,6 +1321,11 @@ function CredentialsPanel({
           throw new Error('Failed to load');
         }
         const json = await res.json();
+
+        // If simulating, keep loading visible a bit longer.
+        if (simulateSlow) {
+          try { await new Promise((r) => setTimeout(r, 4500)) } catch {}
+        }
         // Debug in browser console (no secrets). Helps confirm whether WL partner creds are being used.
         try {
           const wl = (json as any)?._wl
@@ -1281,6 +1356,7 @@ function CredentialsPanel({
         // console.error('[CREDENTIALS] Error:', e);
         if (active) setError(e.message);
       } finally {
+        try { setDebugAdsPowerLoading(false) } catch {}
         if (active) setLoading(false);
       }
     };
@@ -1608,6 +1684,11 @@ function CredentialsPanel({
             return null
           }
         })()}
+        {debugAdsPowerLoading ? (
+          <div className="text-xs text-yellow-200 border border-yellow-500/30 bg-yellow-500/10 rounded-md px-3 py-2">
+            Debug: simulating AdsPower logs loading…
+          </div>
+        ) : null}
         {(() => {
           if (error) {
             return <p className="text-red-400 text-sm">{error}</p>;

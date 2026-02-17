@@ -39,19 +39,38 @@ export function ReviewPromptModal({
 
   if (!open) return null
 
-  const closeAndMarkDismissed = async () => {
+  const markDismiss = async (reason: "close" | "later") => {
     try {
       setSaving(true)
       const t = nowIso()
+
+      // Read current metadata to increment counters safely.
+      let closeCount = 0
+      let laterCount = 0
+      let shownCount = 0
+      try {
+        const { data } = await supabase.auth.getUser()
+        const meta = (data.user?.user_metadata as any) || {}
+        closeCount = Number(meta?.review_prompt_close_count || 0) || 0
+        laterCount = Number(meta?.review_prompt_later_count || 0) || 0
+        shownCount = Number(meta?.review_prompt_shown_count || 0) || 0
+      } catch {}
+
       await supabase.auth.updateUser({
         data: {
           review_prompt_dismissed_at: t,
+          review_prompt_dismissed_reason: reason,
+          review_prompt_last_action: reason,
+          review_prompt_last_action_at: t,
+          review_prompt_close_count: reason === "close" ? closeCount + 1 : closeCount,
+          review_prompt_later_count: reason === "later" ? laterCount + 1 : laterCount,
+          review_prompt_last_attempt: shownCount || null,
         },
       } as any)
       try {
         const { data } = await supabase.auth.getUser()
         const email = data.user?.email || undefined
-        postGoal("review_prompt_dismissed", { ...(email ? { email } : {}) })
+        postGoal(reason === "later" ? "review_prompt_later" : "review_prompt_closed", { ...(email ? { email } : {}) })
       } catch {}
     } catch {
       // ignore
@@ -61,15 +80,27 @@ export function ReviewPromptModal({
     }
   }
 
+  const closeAndMarkClosed = () => markDismiss("close")
+  const closeAndMarkLater = () => markDismiss("later")
+
   const submitRating = async () => {
     if (!rating) return
     if (saving) return
     setSaving(true)
     try {
       const t = nowIso()
+      let shownCount = 0
+      try {
+        const { data } = await supabase.auth.getUser()
+        const meta = (data.user?.user_metadata as any) || {}
+        shownCount = Number(meta?.review_prompt_shown_count || 0) || 0
+      } catch {}
       await supabase.auth.updateUser({
         data: {
           review_prompt_submitted_at: t,
+          review_prompt_last_action: "submitted",
+          review_prompt_last_action_at: t,
+          review_prompt_submitted_attempt: shownCount || null,
           review_rating: rating,
           review_feedback: feedback || null,
         },
@@ -147,7 +178,7 @@ export function ReviewPromptModal({
       <button
         type="button"
         aria-label="Close"
-        onClick={closeAndMarkDismissed}
+        onClick={closeAndMarkClosed}
         className="absolute inset-0 bg-black/70"
       />
 
@@ -161,7 +192,7 @@ export function ReviewPromptModal({
           <div className="text-white font-semibold">Feedback</div>
           <button
             type="button"
-            onClick={closeAndMarkDismissed}
+            onClick={closeAndMarkClosed}
             className="h-9 w-9 inline-flex items-center justify-center rounded-full border border-white/10 bg-white/5 hover:bg-white/10 transition-colors"
             disabled={saving}
           >
@@ -210,7 +241,7 @@ export function ReviewPromptModal({
               <div className="flex items-center justify-between gap-3 pt-2">
                 <button
                   type="button"
-                  onClick={closeAndMarkDismissed}
+                  onClick={closeAndMarkLater}
                   className="px-4 h-11 rounded-full border border-white/10 bg-white/5 text-white/90 hover:bg-white/10 transition-colors text-sm font-semibold"
                   disabled={saving}
                 >

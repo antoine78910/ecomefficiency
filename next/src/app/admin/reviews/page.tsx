@@ -9,7 +9,14 @@ type Row = {
   email: string | null
   review_prompt_shown_at: string | null
   review_prompt_dismissed_at: string | null
+  review_prompt_dismissed_reason?: string | null
   review_prompt_submitted_at: string | null
+  review_prompt_shown_count?: number | null
+  review_prompt_last_action?: string | null
+  review_prompt_last_action_at?: string | null
+  review_prompt_close_count?: number | null
+  review_prompt_later_count?: number | null
+  review_prompt_submitted_attempt?: number | null
   review_rating: number | null
   review_feedback: string | null
   review_trustpilot_clicked_at: string | null
@@ -21,6 +28,8 @@ export default function AdminReviewsPage() {
   const [error, setError] = React.useState<string | undefined>()
   const [rows, setRows] = React.useState<Row[]>([])
   const [totals, setTotals] = React.useState<any>(null)
+  const [filter, setFilter] = React.useState<"all" | "responded" | "not_responded">("all")
+  const [sort, setSort] = React.useState<"shown" | "submitted" | "attempts">("shown")
 
   const load = async () => {
     setLoading(true)
@@ -41,6 +50,28 @@ export default function AdminReviewsPage() {
   React.useEffect(() => {
     load()
   }, [])
+
+  const viewRows = React.useMemo(() => {
+    const filtered = rows.filter((r) => {
+      const responded = Boolean(r.review_prompt_submitted_at)
+      if (filter === "responded") return responded
+      if (filter === "not_responded") return !responded
+      return true
+    })
+    const sorted = [...filtered].sort((a, b) => {
+      if (sort === "attempts") {
+        const aa = Number(a.review_prompt_shown_count || 0)
+        const bb = Number(b.review_prompt_shown_count || 0)
+        return bb - aa
+      }
+      if (sort === "submitted") {
+        return String(b.review_prompt_submitted_at || "").localeCompare(String(a.review_prompt_submitted_at || ""))
+      }
+      // shown
+      return String(b.review_prompt_shown_at || "").localeCompare(String(a.review_prompt_shown_at || ""))
+    })
+    return sorted
+  }, [rows, filter, sort])
 
   return (
     <div className="min-h-screen bg-black text-white p-6">
@@ -67,6 +98,35 @@ export default function AdminReviewsPage() {
             </button>
             {loading && <span className="text-gray-400">Chargement…</span>}
             {error && <span className="text-red-400">{error}</span>}
+            <div className="ml-auto flex flex-wrap items-center gap-3">
+              <label className="text-xs text-gray-400">
+                Filter{" "}
+                <select
+                  value={filter}
+                  onChange={(e) => setFilter(e.target.value as any)}
+                  className="ml-2 bg-black/40 border border-white/10 rounded px-2 py-1 text-white"
+                >
+                  <option value="all">All</option>
+                  <option value="responded">Responded</option>
+                  <option value="not_responded">No response</option>
+                </select>
+              </label>
+              <label className="text-xs text-gray-400">
+                Sort{" "}
+                <select
+                  value={sort}
+                  onChange={(e) => setSort(e.target.value as any)}
+                  className="ml-2 bg-black/40 border border-white/10 rounded px-2 py-1 text-white"
+                >
+                  <option value="shown">Last shown</option>
+                  <option value="submitted">Submitted</option>
+                  <option value="attempts">Attempts</option>
+                </select>
+              </label>
+              <div className="text-xs text-gray-400">
+                Showing <span className="text-white font-semibold">{viewRows.length}</span>
+              </div>
+            </div>
           </div>
         </div>
 
@@ -122,6 +182,8 @@ export default function AdminReviewsPage() {
             <thead className="bg-gray-800/50">
               <tr>
                 <th className="p-4 text-left">Email</th>
+                <th className="p-4 text-left">Attempts</th>
+                <th className="p-4 text-left">Last action</th>
                 <th className="p-4 text-left">Rating</th>
                 <th className="p-4 text-left">Feedback</th>
                 <th className="p-4 text-left">Shown</th>
@@ -131,9 +193,35 @@ export default function AdminReviewsPage() {
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => (
+              {viewRows.map((r) => {
+                const responded = Boolean(r.review_prompt_submitted_at)
+                const reason = String(r.review_prompt_dismissed_reason || "")
+                const lastAction =
+                  responded ? "submitted" : (r.review_prompt_last_action || reason || (r.review_prompt_dismissed_at ? "dismissed" : (r.review_prompt_shown_at ? "shown" : "—")))
+                const pill = (label: string, cls: string) => (
+                  <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs border ${cls}`}>{label}</span>
+                )
+                const actionPill =
+                  lastAction === "submitted"
+                    ? pill("submitted", "border-green-500/30 text-green-200 bg-green-500/10")
+                    : lastAction === "later"
+                      ? pill("another time", "border-yellow-500/30 text-yellow-200 bg-yellow-500/10")
+                      : lastAction === "close"
+                        ? pill("closed", "border-red-500/30 text-red-200 bg-red-500/10")
+                        : pill(String(lastAction), "border-white/10 text-gray-200 bg-white/5")
+                return (
                 <tr key={r.id} className="odd:bg-gray-900/20 hover:bg-gray-800/30 align-top">
                   <td className="p-4 whitespace-nowrap">{r.email || "—"}</td>
+                  <td className="p-4 whitespace-nowrap text-gray-200">
+                    <span className="font-semibold">{Number(r.review_prompt_shown_count || (r.review_prompt_shown_at ? 1 : 0))}</span>
+                    {r.review_prompt_later_count ? <span className="ml-2 text-xs text-yellow-300">later×{Number(r.review_prompt_later_count)}</span> : null}
+                  </td>
+                  <td className="p-4 whitespace-nowrap">
+                    {actionPill}
+                    <div className="text-xs text-gray-500 mt-1">
+                      {r.review_prompt_last_action_at ? new Date(r.review_prompt_last_action_at).toLocaleString() : "—"}
+                    </div>
+                  </td>
                   <td className="p-4 whitespace-nowrap">
                     {r.review_rating ? <span className="font-semibold text-yellow-300">{r.review_rating}★</span> : <span className="text-gray-500">—</span>}
                   </td>
@@ -145,10 +233,10 @@ export default function AdminReviewsPage() {
                   <td className="p-4 whitespace-nowrap text-gray-400">{r.review_prompt_dismissed_at ? new Date(r.review_prompt_dismissed_at).toLocaleString() : "—"}</td>
                   <td className="p-4 whitespace-nowrap text-gray-400">{r.review_trustpilot_clicked_at ? "clicked" : "—"}</td>
                 </tr>
-              ))}
+              )})}
               {!rows.length ? (
                 <tr>
-                  <td colSpan={7} className="p-10 text-center text-gray-400">
+                  <td colSpan={9} className="p-10 text-center text-gray-400">
                     No review popup data yet.
                   </td>
                 </tr>

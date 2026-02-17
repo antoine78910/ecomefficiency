@@ -24,7 +24,15 @@ function pick(meta: any) {
   return {
     review_prompt_shown_at: typeof m.review_prompt_shown_at === "string" ? m.review_prompt_shown_at : null,
     review_prompt_dismissed_at: typeof m.review_prompt_dismissed_at === "string" ? m.review_prompt_dismissed_at : null,
+    review_prompt_dismissed_reason: typeof m.review_prompt_dismissed_reason === "string" ? m.review_prompt_dismissed_reason : null,
     review_prompt_submitted_at: typeof m.review_prompt_submitted_at === "string" ? m.review_prompt_submitted_at : null,
+    review_prompt_shown_count: typeof m.review_prompt_shown_count === "number" ? m.review_prompt_shown_count : m.review_prompt_shown_count ? Number(m.review_prompt_shown_count) : null,
+    review_prompt_last_action: typeof m.review_prompt_last_action === "string" ? m.review_prompt_last_action : null,
+    review_prompt_last_action_at: typeof m.review_prompt_last_action_at === "string" ? m.review_prompt_last_action_at : null,
+    review_prompt_last_attempt: typeof m.review_prompt_last_attempt === "number" ? m.review_prompt_last_attempt : m.review_prompt_last_attempt ? Number(m.review_prompt_last_attempt) : null,
+    review_prompt_close_count: typeof m.review_prompt_close_count === "number" ? m.review_prompt_close_count : m.review_prompt_close_count ? Number(m.review_prompt_close_count) : null,
+    review_prompt_later_count: typeof m.review_prompt_later_count === "number" ? m.review_prompt_later_count : m.review_prompt_later_count ? Number(m.review_prompt_later_count) : null,
+    review_prompt_submitted_attempt: typeof m.review_prompt_submitted_attempt === "number" ? m.review_prompt_submitted_attempt : m.review_prompt_submitted_attempt ? Number(m.review_prompt_submitted_attempt) : null,
     review_rating: typeof m.review_rating === "number" ? m.review_rating : m.review_rating ? Number(m.review_rating) : null,
     review_feedback: typeof m.review_feedback === "string" ? m.review_feedback : null,
     review_trustpilot_clicked_at: typeof m.review_trustpilot_clicked_at === "string" ? m.review_trustpilot_clicked_at : null,
@@ -70,7 +78,14 @@ export async function GET(req: NextRequest) {
           ...meta,
         }
       })
-      .filter((u: any) => Boolean(u.review_prompt_shown_at || u.review_prompt_submitted_at || u.review_prompt_dismissed_at))
+      .filter((u: any) =>
+        Boolean(
+          u.review_prompt_shown_at ||
+            u.review_prompt_submitted_at ||
+            u.review_prompt_dismissed_at ||
+            (u.review_prompt_shown_count && Number(u.review_prompt_shown_count) > 0)
+        )
+      )
       .sort((a: any, b: any) => String(b.review_prompt_shown_at || "").localeCompare(String(a.review_prompt_shown_at || "")))
 
     const totals = {
@@ -78,6 +93,8 @@ export async function GET(req: NextRequest) {
       submitted: 0,
       dismissed: 0,
       no_response: 0,
+      closed: 0,
+      later: 0,
       trustpilot_clicked: 0,
       trustpilot_redirected: 0,
       promo_step: 0,
@@ -88,11 +105,13 @@ export async function GET(req: NextRequest) {
       totals.shown += r.review_prompt_shown_at ? 1 : 0
       totals.submitted += r.review_prompt_submitted_at ? 1 : 0
       totals.dismissed += r.review_prompt_dismissed_at ? 1 : 0
+      totals.closed += (r.review_prompt_dismissed_reason === "close") ? 1 : 0
+      totals.later += (r.review_prompt_dismissed_reason === "later") ? 1 : 0
       totals.trustpilot_clicked += r.review_trustpilot_clicked_at ? 1 : 0
       totals.trustpilot_redirected += (r as any).review_trustpilot_redirected_at ? 1 : 0
       totals.promo_step += r.review_promo_step_reached_at ? 1 : 0
-      const hasResponse = Boolean(r.review_prompt_submitted_at || r.review_prompt_dismissed_at)
-      if (r.review_prompt_shown_at && !hasResponse) totals.no_response += 1
+      const responded = Boolean(r.review_prompt_submitted_at)
+      if (r.review_prompt_shown_at && !responded) totals.no_response += 1
       const rr = Number(r.review_rating || 0)
       if (rr >= 1 && rr <= 5) totals.ratings[String(rr)] = (totals.ratings[String(rr)] || 0) + 1
     }
