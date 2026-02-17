@@ -103,15 +103,21 @@ export default function AdminOnboardingPage() {
             </div>
             <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-xl p-4">
               <p className="text-green-200 text-sm">Paid (current)</p>
-              <p className="text-2xl font-bold">{Number(totals.paid_current_true ?? totals.paid_snapshot_true || 0).toLocaleString()}</p>
+              <p className="text-2xl font-bold">
+                {Number((totals.paid_current_true ?? totals.paid_snapshot_true) || 0).toLocaleString()}
+              </p>
             </div>
             <div className="bg-gradient-to-r from-red-600 to-red-700 rounded-xl p-4">
               <p className="text-red-200 text-sm">Unpaid (current)</p>
-              <p className="text-2xl font-bold">{Number(totals.paid_current_false ?? totals.paid_snapshot_false || 0).toLocaleString()}</p>
+              <p className="text-2xl font-bold">
+                {Number((totals.paid_current_false ?? totals.paid_snapshot_false) || 0).toLocaleString()}
+              </p>
             </div>
             <div className="bg-gradient-to-r from-gray-700 to-gray-800 rounded-xl p-4">
               <p className="text-gray-200 text-sm">Unknown (current)</p>
-              <p className="text-2xl font-bold">{Number(totals.paid_current_unknown ?? totals.paid_snapshot_unknown || 0).toLocaleString()}</p>
+              <p className="text-2xl font-bold">
+                {Number((totals.paid_current_unknown ?? totals.paid_snapshot_unknown) || 0).toLocaleString()}
+              </p>
             </div>
             <div className="bg-gradient-to-r from-blue-600 to-blue-700 rounded-xl p-4">
               <p className="text-blue-200 text-sm">Paid (snapshot)</p>
