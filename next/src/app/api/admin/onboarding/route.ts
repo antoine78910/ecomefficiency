@@ -106,7 +106,7 @@ export async function GET(req: NextRequest) {
       // Only keep users who actually answered onboarding
       .filter((u: any) => Boolean(u.acquisition_source || u.acquisition_work_type || u.acquisition_onboarding_completed_at))
 
-    const users = await mapWithLimit(baseUsers, 6, async (u) => {
+    let users = await mapWithLimit(baseUsers, 6, async (u) => {
       // Current payment status (Stripe) — fixes "unpaid" after user pays later.
       let paid_current: boolean | null = null
       let plan_current: string | null = null
@@ -157,12 +157,13 @@ export async function GET(req: NextRequest) {
         paid_source: paid_current !== null ? 'stripe' : 'snapshot',
       }
     })
-      // Most recent first
-      .sort((a: any, b: any) => {
-        const aAt = a.acquisition_onboarding_completed_at || a.created_at || ''
-        const bAt = b.acquisition_onboarding_completed_at || b.created_at || ''
-        return String(bAt).localeCompare(String(aAt))
-      })
+
+    // Most recent first
+    users = users.sort((a: any, b: any) => {
+      const aAt = a.acquisition_onboarding_completed_at || a.created_at || ''
+      const bAt = b.acquisition_onboarding_completed_at || b.created_at || ''
+      return String(bAt).localeCompare(String(aAt))
+    })
 
     // quick aggregation
     const bySource: Record<string, number> = {}
