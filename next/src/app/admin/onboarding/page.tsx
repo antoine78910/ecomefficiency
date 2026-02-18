@@ -9,7 +9,9 @@ type Row = {
   email: string | null
   created_at: string | null
   last_sign_in_at: string | null
+  auth_provider?: string | null
   acquisition_source: string | null
+  acquisition_source_other?: string | null
   acquisition_work_type: string | null
   acquisition_source_context: string | null
   acquisition_onboarding_completed_at: string | null
@@ -140,6 +142,7 @@ export default function AdminOnboardingPage() {
               <tr>
                 <th className="p-4 text-left">Answered</th>
                 <th className="p-4 text-left">Email</th>
+                <th className="p-4 text-left">Auth</th>
                 <th className="p-4 text-left">Source</th>
                 <th className="p-4 text-left">Work</th>
                 <th className="p-4 text-left">Paid?</th>
@@ -156,7 +159,23 @@ export default function AdminOnboardingPage() {
                     {u.acquisition_onboarding_completed_at ? new Date(u.acquisition_onboarding_completed_at).toLocaleString() : "—"}
                   </td>
                   <td className="p-4 whitespace-nowrap">{u.email || "—"}</td>
-                  <td className="p-4 whitespace-nowrap text-gray-200">{u.acquisition_source || "—"}</td>
+                  <td className="p-4 whitespace-nowrap text-gray-200">
+                    {u.auth_provider ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded-full bg-white/5 border border-white/10 text-[12px]">
+                        {String(u.auth_provider).toLowerCase() === "google" ? "google" : String(u.auth_provider).toLowerCase() === "email" ? "email" : u.auth_provider}
+                      </span>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
+                  <td className="p-4 whitespace-nowrap text-gray-200">
+                    {u.acquisition_source || "—"}
+                    {String(u.acquisition_source || "").toLowerCase() === "other" && u.acquisition_source_other ? (
+                      <div className="text-[11px] text-gray-400 mt-1 max-w-[260px] truncate" title={u.acquisition_source_other}>
+                        {u.acquisition_source_other}
+                      </div>
+                    ) : null}
+                  </td>
                   <td className="p-4 whitespace-nowrap text-gray-200">{u.acquisition_work_type || "—"}</td>
                   <td className="p-4 whitespace-nowrap">
                     {u.paid_effective === true ? (
@@ -180,7 +199,7 @@ export default function AdminOnboardingPage() {
               ))}
               {!users.length && (
                 <tr>
-                  <td colSpan={9} className="p-10 text-center text-gray-400">
+                  <td colSpan={10} className="p-10 text-center text-gray-400">
                     No onboarding data yet.
                   </td>
                 </tr>

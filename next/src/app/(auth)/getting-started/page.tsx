@@ -59,8 +59,6 @@ const COMMUNITY_FEATURES = [
 
 // Same list as PricingSection (tools)
 const PRO_EXTRAS = [
-  "Pipiads",
-  "ElevenLabs",
   "Higgsfield",
   "Vmake",
   "Atria",
@@ -73,6 +71,11 @@ const PRO_EXTRAS = [
   "Fotor",
   "Foreplay",
   "Kalodata",
+] as const;
+
+const COMMON_CREDIT_BULLETS = [
+  "+1 100k credits ElevenLabs account (refill every 3 days)",
+  "+1 100k credits Pipiads account (refill every 3 days)",
 ] as const;
 
 function detectCurrencyFromLocale(): Currency {
@@ -106,6 +109,7 @@ export default function GettingStartedPage() {
   const [checkoutTier, setCheckoutTier] = React.useState<"starter" | "pro" | null>(null);
   const [workType, setWorkType] = React.useState<WorkType | null>(null);
   const [source, setSource] = React.useState<AcquisitionSource | null>(null);
+  const [sourceOther, setSourceOther] = React.useState<string>("");
   const [email, setEmail] = React.useState<string>("");
   const [userId, setUserId] = React.useState<string>("");
   const [alreadySet, setAlreadySet] = React.useState(false);
@@ -299,6 +303,12 @@ export default function GettingStartedPage() {
       } catch {}
       return;
     }
+    if (source === "other" && !String(sourceOther || "").trim()) {
+      try {
+        toast({ title: "Missing info", description: "Please specify the marketing channel.", variant: "destructive" });
+      } catch {}
+      return;
+    }
     setSaving(true);
     try {
       const nowIso = new Date().toISOString();
@@ -320,6 +330,7 @@ export default function GettingStartedPage() {
             acquisition_source: source,
             acquisition_source_set_at: nowIso,
             acquisition_source_context: "signup_email_verify",
+            ...(source === "other" ? { acquisition_source_other: String(sourceOther || "").trim().slice(0, 80) } : {}),
             acquisition_work_type: workType,
             acquisition_onboarding_completed_at: nowIso,
             acquisition_paid_at_answer: paid,
@@ -332,6 +343,7 @@ export default function GettingStartedPage() {
       try {
         postGoal("getting_started_source_set", {
           source,
+          ...(source === "other" && String(sourceOther || "").trim() ? { source_other: String(sourceOther || "").trim().slice(0, 80) } : {}),
           ...(workType ? { work_type: workType } : {}),
           ...(email ? { email } : {}),
           ...(userId ? { user_id: userId } : {}),
@@ -451,7 +463,10 @@ export default function GettingStartedPage() {
                         key={s.id}
                         type="button"
                         disabled={disabled}
-                        onClick={() => setSource(s.id)}
+                        onClick={() => {
+                          setSource(s.id);
+                          if (s.id !== "other") setSourceOther("");
+                        }}
                         className={[
                           "px-4 py-2 rounded-lg border text-sm",
                           "transition-all duration-200 ease-out",
@@ -467,6 +482,21 @@ export default function GettingStartedPage() {
                     );
                   })}
                 </div>
+
+                {source === "other" ? (
+                  <div className="mt-4 max-w-md mx-auto">
+                    <label className="block text-left text-xs text-gray-400 mb-2">Please specify</label>
+                    <input
+                      value={sourceOther}
+                      onChange={(e) => setSourceOther(e.target.value)}
+                      placeholder="Example: newsletter, partner, community…"
+                      className="w-full h-11 rounded-lg border border-white/15 bg-black/30 text-white px-4 text-sm outline-none focus:border-purple-400/60 focus:ring-2 focus:ring-purple-500/20"
+                      maxLength={80}
+                      disabled={alreadySet || saving}
+                    />
+                    <div className="mt-2 text-[11px] text-gray-500">We’ll use this only for internal attribution.</div>
+                  </div>
+                ) : null}
 
                 <div className="mt-10 flex flex-col items-center justify-center gap-2">
                   <button
@@ -591,6 +621,17 @@ export default function GettingStartedPage() {
                       </button>
                       <div className="my-5 h-px bg-white/10" />
 
+                      <div className="mb-5 rounded-xl border border-purple-500/25 bg-purple-500/10 px-3 py-2">
+                        <div className="space-y-1.5">
+                          {COMMON_CREDIT_BULLETS.map((b) => (
+                            <div key={b} className="flex items-center gap-2 text-xs text-purple-200">
+                              <Check className="w-4 h-4 text-purple-300 drop-shadow-[0_0_12px_rgba(171,99,255,0.55)]" />
+                              <span className="font-semibold">{b}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+
                       {/* Same "tools" bullets as PricingSection */}
                       <div className="mt-0 mb-6 space-y-2">
                         <button
@@ -706,6 +747,17 @@ export default function GettingStartedPage() {
                         )}
                       </button>
                       <div className="my-5 h-px bg-white/10" />
+
+                      <div className="mb-5 rounded-xl border border-purple-500/25 bg-purple-500/10 px-3 py-2">
+                        <div className="space-y-1.5">
+                          {COMMON_CREDIT_BULLETS.map((b) => (
+                            <div key={b} className="flex items-center gap-2 text-xs text-purple-200">
+                              <Check className="w-4 h-4 text-purple-300 drop-shadow-[0_0_12px_rgba(171,99,255,0.55)]" />
+                              <span className="font-semibold">{b}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
 
                       {/* Same "tools" bullets as PricingSection */}
                       <div className="mt-0 mb-6 space-y-1.5 text-gray-300 text-sm">

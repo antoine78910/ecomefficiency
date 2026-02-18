@@ -32,6 +32,7 @@ function pickMeta(meta: any) {
 
   return {
     acquisition_source: m.acquisition_source ? String(m.acquisition_source) : null,
+    acquisition_source_other: m.acquisition_source_other ? String(m.acquisition_source_other) : null,
     acquisition_work_type: m.acquisition_work_type ? String(m.acquisition_work_type) : null,
     acquisition_source_context: m.acquisition_source_context ? String(m.acquisition_source_context) : null,
     acquisition_onboarding_completed_at: answeredAt,
@@ -39,6 +40,25 @@ function pickMeta(meta: any) {
     acquisition_plan_at_answer: m.acquisition_plan_at_answer ? String(m.acquisition_plan_at_answer) : null,
     stripe_customer_id: m.stripe_customer_id ? String(m.stripe_customer_id) : null,
     plan_meta: m.plan ? String(m.plan) : null,
+  }
+}
+
+function normalizeAuthProvider(u: any): string | null {
+  try {
+    const app = (u?.app_metadata || {}) as any
+    const provider = String(app?.provider || '').trim().toLowerCase()
+    if (provider) return provider
+    const providers = Array.isArray(app?.providers) ? app.providers.map((p: any) => String(p || '').toLowerCase()) : []
+    if (providers.includes('google')) return 'google'
+    if (providers.includes('email')) return 'email'
+    // fallback: identities list
+    const identities = Array.isArray(u?.identities) ? u.identities : []
+    const idp = identities.map((i: any) => String(i?.provider || '').toLowerCase()).filter(Boolean)
+    if (idp.includes('google')) return 'google'
+    if (idp.includes('email')) return 'email'
+    return null
+  } catch {
+    return null
   }
 }
 
@@ -100,6 +120,7 @@ export async function GET(req: NextRequest) {
           email: u.email || null,
           created_at: u.created_at || null,
           last_sign_in_at: u.last_sign_in_at || null,
+          auth_provider: normalizeAuthProvider(u),
           ...meta,
         }
       })

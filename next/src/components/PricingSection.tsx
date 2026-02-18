@@ -72,8 +72,6 @@ function detectCurrencyFromLocale(): Currency {
 ];
 
 const proExtras = [
-  "Pipiads",
-  "ElevenLabs",
   "Higgsfield",
   "Vmake",
   "Atria",
@@ -88,7 +86,16 @@ const proExtras = [
   "Kalodata",
 ];
 
-const PricingSection = () => {
+const COMMON_CREDIT_BULLETS = [
+  "+1 100k credits ElevenLabs account (refill every 3 days)",
+  "+1 100k credits Pipiads account (refill every 3 days)",
+] as const;
+
+type PricingSectionProps = {
+  proBonusBullets?: string[];
+};
+
+const PricingSection = ({ proBonusBullets = [] }: PricingSectionProps) => {
   const [billing, setBilling] = React.useState<'monthly' | 'yearly'>('monthly');
   const { toast } = useToast();
   const [currency, setCurrency] = React.useState<Currency>('USD');
@@ -329,6 +336,16 @@ const PricingSection = () => {
                         </li>
                       </ul>
 								</div>
+                    <div className="mt-2 mb-2 rounded-xl border border-purple-500/25 bg-purple-500/10 px-3 py-2">
+                      <div className="space-y-1.5">
+                        {COMMON_CREDIT_BULLETS.map((b) => (
+                          <div key={b} className="flex items-center gap-2 text-xs text-purple-200">
+                            <Check className="w-4 h-4 text-purple-300 drop-shadow-[0_0_12px_rgba(171,99,255,0.55)]" />
+                            <span className="font-semibold">{b}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
                     <ul className="space-y-1">
                       {proExtras.map((t) => (
                         <li key={t} className="flex items-center gap-2 text-gray-500 text-xs">
@@ -343,6 +360,18 @@ const PricingSection = () => {
                 {plan.name === 'Pro' && (
                   <div className="mt-0 mb-8 space-y-1.5 text-gray-300 text-sm">
                     <div className="flex items-center gap-2 text-xs"><Check className="w-4 h-4 text-purple-400" /><span>Starter tools, plus:</span></div>
+                    {[...COMMON_CREDIT_BULLETS, ...proBonusBullets].length ? (
+                      <div className="mt-2 mb-2 rounded-xl border border-purple-500/25 bg-purple-500/10 px-3 py-2">
+                        <div className="space-y-1.5">
+                          {[...COMMON_CREDIT_BULLETS, ...proBonusBullets].map((b) => (
+                            <div key={b} className="flex items-center gap-2 text-xs text-purple-200">
+                              <Check className="w-4 h-4 text-purple-300 drop-shadow-[0_0_12px_rgba(171,99,255,0.55)]" />
+                              <span className="font-semibold">{b}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    ) : null}
                     <ul className="space-y-1.5">
                       {proExtras.map((t) => (
                         <li key={t} className="flex items-center gap-2 text-xs">
