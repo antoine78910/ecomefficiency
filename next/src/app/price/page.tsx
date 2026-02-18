@@ -33,8 +33,8 @@ function PriceClient() {
       <NewNavbar />
       <PricingSection
         proBonusBullets={[
-          "+ 1 500k credits Eleven labs account",
-          "+1 200k pipiads account",
+          "500k credits ElevenLabs account",
+          "200k credits Pipiads account",
         ]}
       />
 

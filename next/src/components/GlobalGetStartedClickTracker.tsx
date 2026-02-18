@@ -1,7 +1,6 @@
 "use client"
 
 import React from "react"
-import { postGoal } from "@/lib/analytics"
 
 function isTrackableHost(hostname: string) {
   const h = String(hostname || "").toLowerCase()
@@ -90,7 +89,8 @@ export default function GlobalGetStartedClickTracker() {
         // Optional: include href when available (helps debugging)
         if (href) meta.href = String(href).slice(0, 255)
 
-        postGoal("get_started_click", meta)
+        // Tracking disabled: we only keep review-related goals in DataFast.
+        void meta
       } catch {
         // ignore
       }

@@ -5,7 +5,6 @@ import Image from "next/image";
 import Link from "next/link";
 import { supabase, SUPABASE_CONFIG_OK } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
-import { postGoal } from "@/lib/analytics";
 import { Check, ChevronDown, X } from "lucide-react";
 
 type AcquisitionSource =
@@ -73,9 +72,9 @@ const PRO_EXTRAS = [
   "Kalodata",
 ] as const;
 
-const COMMON_CREDIT_BULLETS = [
-  "+1 100k credits ElevenLabs account (refill every 3 days)",
-  "+1 100k credits Pipiads account (refill every 3 days)",
+const PRO_CREDIT_BULLETS = [
+  "Pipiads (100k account)",
+  "ElevenLabs (100k account / credits reset every 3 days)",
 ] as const;
 
 function detectCurrencyFromLocale(): Currency {
@@ -108,6 +107,7 @@ export default function GettingStartedPage() {
   const [saving, setSaving] = React.useState(false);
   const [checkoutTier, setCheckoutTier] = React.useState<"starter" | "pro" | null>(null);
   const [workType, setWorkType] = React.useState<WorkType | null>(null);
+  const [workTypeOther, setWorkTypeOther] = React.useState<string>("");
   const [source, setSource] = React.useState<AcquisitionSource | null>(null);
   const [sourceOther, setSourceOther] = React.useState<string>("");
   const [email, setEmail] = React.useState<string>("");
@@ -303,6 +303,12 @@ export default function GettingStartedPage() {
       } catch {}
       return;
     }
+    if (workType === "other" && !String(workTypeOther || "").trim()) {
+      try {
+        toast({ title: "Missing info", description: "Please specify your work type.", variant: "destructive" });
+      } catch {}
+      return;
+    }
     if (source === "other" && !String(sourceOther || "").trim()) {
       try {
         toast({ title: "Missing info", description: "Please specify the marketing channel.", variant: "destructive" });
@@ -332,6 +338,7 @@ export default function GettingStartedPage() {
             acquisition_source_context: "signup_email_verify",
             ...(source === "other" ? { acquisition_source_other: String(sourceOther || "").trim().slice(0, 80) } : {}),
             acquisition_work_type: workType,
+            ...(workType === "other" ? { acquisition_work_type_other: String(workTypeOther || "").trim().slice(0, 80) } : {}),
             acquisition_onboarding_completed_at: nowIso,
             acquisition_paid_at_answer: paid,
             acquisition_plan_at_answer: plan,
@@ -340,18 +347,7 @@ export default function GettingStartedPage() {
         if (error) throw error;
       }
 
-      try {
-        postGoal("getting_started_source_set", {
-          source,
-          ...(source === "other" && String(sourceOther || "").trim() ? { source_other: String(sourceOther || "").trim().slice(0, 80) } : {}),
-          ...(workType ? { work_type: workType } : {}),
-          ...(email ? { email } : {}),
-          ...(userId ? { user_id: userId } : {}),
-          ...(paid !== null ? { paid: String(paid) } : {}),
-          ...(plan ? { plan } : {}),
-          ...(debug ? { debug: "1" } : {}),
-        });
-      } catch {}
+      // Tracking disabled: we only keep review-related goals in DataFast.
 
       goSetup();
     } catch (e: any) {
@@ -437,7 +433,10 @@ export default function GettingStartedPage() {
                         key={t.id}
                         type="button"
                         disabled={disabled}
-                        onClick={() => setWorkType(t.id)}
+                        onClick={() => {
+                          setWorkType(t.id);
+                          if (t.id !== "other") setWorkTypeOther("");
+                        }}
                         className={[
                           "px-4 py-2 rounded-lg border text-sm",
                           "transition-all duration-200 ease-out",
@@ -452,6 +451,20 @@ export default function GettingStartedPage() {
                     );
                   })}
                 </div>
+
+                {workType === "other" ? (
+                  <div className="mt-2 mb-8 max-w-md mx-auto">
+                    <label className="block text-left text-xs text-gray-400 mb-2">Please specify your work</label>
+                    <input
+                      value={workTypeOther}
+                      onChange={(e) => setWorkTypeOther(e.target.value)}
+                      placeholder="Example: creator, affiliate, media buyer…"
+                      className="w-full h-11 rounded-lg border border-white/15 bg-black/30 text-white px-4 text-sm outline-none focus:border-purple-400/60 focus:ring-2 focus:ring-purple-500/20"
+                      maxLength={80}
+                      disabled={alreadySet || saving}
+                    />
+                  </div>
+                ) : null}
 
                 <div className="text-sm text-gray-400 mb-4">Where did you hear about us? *</div>
                 <div className="flex flex-wrap justify-center gap-2">
@@ -621,17 +634,6 @@ export default function GettingStartedPage() {
                       </button>
                       <div className="my-5 h-px bg-white/10" />
 
-                      <div className="mb-5 rounded-xl border border-purple-500/25 bg-purple-500/10 px-3 py-2">
-                        <div className="space-y-1.5">
-                          {COMMON_CREDIT_BULLETS.map((b) => (
-                            <div key={b} className="flex items-center gap-2 text-xs text-purple-200">
-                              <Check className="w-4 h-4 text-purple-300 drop-shadow-[0_0_12px_rgba(171,99,255,0.55)]" />
-                              <span className="font-semibold">{b}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
                       {/* Same "tools" bullets as PricingSection */}
                       <div className="mt-0 mb-6 space-y-2">
                         <button
@@ -750,7 +752,7 @@ export default function GettingStartedPage() {
 
                       <div className="mb-5 rounded-xl border border-purple-500/25 bg-purple-500/10 px-3 py-2">
                         <div className="space-y-1.5">
-                          {COMMON_CREDIT_BULLETS.map((b) => (
+                          {PRO_CREDIT_BULLETS.map((b) => (
                             <div key={b} className="flex items-center gap-2 text-xs text-purple-200">
                               <Check className="w-4 h-4 text-purple-300 drop-shadow-[0_0_12px_rgba(171,99,255,0.55)]" />
                               <span className="font-semibold">{b}</span>

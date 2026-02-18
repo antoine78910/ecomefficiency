@@ -13,6 +13,7 @@ type Row = {
   acquisition_source: string | null
   acquisition_source_other?: string | null
   acquisition_work_type: string | null
+  acquisition_work_type_other?: string | null
   acquisition_source_context: string | null
   acquisition_onboarding_completed_at: string | null
   acquisition_paid_at_answer: boolean | null
@@ -176,7 +177,14 @@ export default function AdminOnboardingPage() {
                       </div>
                     ) : null}
                   </td>
-                  <td className="p-4 whitespace-nowrap text-gray-200">{u.acquisition_work_type || "—"}</td>
+                  <td className="p-4 whitespace-nowrap text-gray-200">
+                    {u.acquisition_work_type || "—"}
+                    {String(u.acquisition_work_type || "").toLowerCase() === "other" && u.acquisition_work_type_other ? (
+                      <div className="text-[11px] text-gray-400 mt-1 max-w-[260px] truncate" title={u.acquisition_work_type_other}>
+                        {u.acquisition_work_type_other}
+                      </div>
+                    ) : null}
+                  </td>
                   <td className="p-4 whitespace-nowrap">
                     {u.paid_effective === true ? (
                       <span className="text-green-400 font-semibold">paid</span>

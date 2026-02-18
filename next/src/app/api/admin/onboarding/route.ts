@@ -34,6 +34,7 @@ function pickMeta(meta: any) {
     acquisition_source: m.acquisition_source ? String(m.acquisition_source) : null,
     acquisition_source_other: m.acquisition_source_other ? String(m.acquisition_source_other) : null,
     acquisition_work_type: m.acquisition_work_type ? String(m.acquisition_work_type) : null,
+    acquisition_work_type_other: m.acquisition_work_type_other ? String(m.acquisition_work_type_other) : null,
     acquisition_source_context: m.acquisition_source_context ? String(m.acquisition_source_context) : null,
     acquisition_onboarding_completed_at: answeredAt,
     acquisition_paid_at_answer: typeof m.acquisition_paid_at_answer === 'boolean' ? Boolean(m.acquisition_paid_at_answer) : null,

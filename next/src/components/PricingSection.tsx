@@ -86,9 +86,9 @@ const proExtras = [
   "Kalodata",
 ];
 
-const COMMON_CREDIT_BULLETS = [
-  "+1 100k credits ElevenLabs account (refill every 3 days)",
-  "+1 100k credits Pipiads account (refill every 3 days)",
+const PRO_CREDIT_BULLETS = [
+  "Pipiads (100k account)",
+  "ElevenLabs (100k account / credits reset every 3 days)",
 ] as const;
 
 type PricingSectionProps = {
@@ -336,16 +336,6 @@ const PricingSection = ({ proBonusBullets = [] }: PricingSectionProps) => {
                         </li>
                       </ul>
 								</div>
-                    <div className="mt-2 mb-2 rounded-xl border border-purple-500/25 bg-purple-500/10 px-3 py-2">
-                      <div className="space-y-1.5">
-                        {COMMON_CREDIT_BULLETS.map((b) => (
-                          <div key={b} className="flex items-center gap-2 text-xs text-purple-200">
-                            <Check className="w-4 h-4 text-purple-300 drop-shadow-[0_0_12px_rgba(171,99,255,0.55)]" />
-                            <span className="font-semibold">{b}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
                     <ul className="space-y-1">
                       {proExtras.map((t) => (
                         <li key={t} className="flex items-center gap-2 text-gray-500 text-xs">
@@ -360,19 +350,19 @@ const PricingSection = ({ proBonusBullets = [] }: PricingSectionProps) => {
                 {plan.name === 'Pro' && (
                   <div className="mt-0 mb-8 space-y-1.5 text-gray-300 text-sm">
                     <div className="flex items-center gap-2 text-xs"><Check className="w-4 h-4 text-purple-400" /><span>Starter tools, plus:</span></div>
-                    {[...COMMON_CREDIT_BULLETS, ...proBonusBullets].length ? (
-                      <div className="mt-2 mb-2 rounded-xl border border-purple-500/25 bg-purple-500/10 px-3 py-2">
-                        <div className="space-y-1.5">
-                          {[...COMMON_CREDIT_BULLETS, ...proBonusBullets].map((b) => (
-                            <div key={b} className="flex items-center gap-2 text-xs text-purple-200">
-                              <Check className="w-4 h-4 text-purple-300 drop-shadow-[0_0_12px_rgba(171,99,255,0.55)]" />
-                              <span className="font-semibold">{b}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-                    ) : null}
                     <ul className="space-y-1.5">
+                      {proBonusBullets.map((b) => (
+                        <li key={b} className="flex items-center gap-2 text-xs text-[#ab63ff] drop-shadow-[0_0_14px_rgba(171,99,255,0.55)]">
+                          <Check className="w-4 h-4 text-[#ab63ff] drop-shadow-[0_0_14px_rgba(171,99,255,0.55)]" />
+                          <span className="font-semibold">{b}</span>
+                        </li>
+                      ))}
+                      {PRO_CREDIT_BULLETS.map((b) => (
+                        <li key={b} className="flex items-center gap-2 text-xs text-gray-200">
+                          <Check className="w-4 h-4 text-purple-400" />
+                          <span>{b}</span>
+                        </li>
+                      ))}
                       {proExtras.map((t) => (
                         <li key={t} className="flex items-center gap-2 text-xs">
                           <Check className="w-4 h-4 text-purple-400" />
