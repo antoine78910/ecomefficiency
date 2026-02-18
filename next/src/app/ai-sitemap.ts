@@ -9,6 +9,7 @@ export default function aiSitemap(): MetadataRoute.Sitemap {
   const urls: Array<{ path: string; priority: number; changeFrequency: MetadataRoute.Sitemap[number]["changeFrequency"] }> = [
     { path: "/", priority: 1.0, changeFrequency: "weekly" },
     { path: "/pricing", priority: 0.9, changeFrequency: "weekly" },
+    { path: "/price", priority: 0.85, changeFrequency: "weekly" },
     { path: "/tools", priority: 0.9, changeFrequency: "weekly" },
     { path: "/blog", priority: 0.8, changeFrequency: "daily" },
     { path: "/articles", priority: 0.8, changeFrequency: "weekly" },
@@ -17,6 +18,7 @@ export default function aiSitemap(): MetadataRoute.Sitemap {
     { path: "/freetools/break-even-roas-calculator", priority: 0.7, changeFrequency: "monthly" },
     { path: "/freetools/tiktok-comment-generator", priority: 0.7, changeFrequency: "weekly" },
     { path: "/freetools/instagram-comment-generator", priority: 0.7, changeFrequency: "weekly" },
+    { path: "/freetools/facebook-comments-generator", priority: 0.7, changeFrequency: "weekly" },
     { path: "/freetools/shopify-app-detector", priority: 0.7, changeFrequency: "weekly" },
     { path: "/freetools/shopify-theme-detector", priority: 0.7, changeFrequency: "weekly" },
     { path: "/freetools/customer-lifetime-value-calculator", priority: 0.7, changeFrequency: "weekly" },
