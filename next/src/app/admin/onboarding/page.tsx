@@ -37,7 +37,7 @@ export default function AdminOnboardingPage() {
     setLoading(true)
     setError(undefined)
     try {
-      const r = await fetch(`/api/admin/onboarding?limit=${encodeURIComponent(String(limit))}`, { cache: "no-store" })
+      const r = await fetch(`/api/admin/onboarding?limit=${encodeURIComponent(String(limit))}&includeSkipped=1`, { cache: "no-store" })
       const j = await r.json().catch(() => ({} as any))
       if (!j?.ok) throw new Error(j?.error || "Failed to load")
       setUsers(j.users || [])
@@ -94,15 +94,23 @@ export default function AdminOnboardingPage() {
         </div>
 
         {totals && (
-          <div className="grid grid-cols-1 md:grid-cols-7 gap-4 mb-6">
+          <div className="grid grid-cols-1 md:grid-cols-9 gap-4 mb-6">
             <div className="bg-gradient-to-r from-purple-600 to-purple-700 rounded-xl p-4">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-purple-200 text-sm">Onboarded</p>
-                  <p className="text-2xl font-bold">{Number(totals.onboarded || 0).toLocaleString()}</p>
+                  <p className="text-purple-200 text-sm">Users</p>
+                  <p className="text-2xl font-bold">{Number(totals.users || 0).toLocaleString()}</p>
                 </div>
                 <Users className="h-8 w-8 text-purple-200" />
               </div>
+            </div>
+            <div className="bg-gradient-to-r from-indigo-600 to-indigo-700 rounded-xl p-4">
+              <p className="text-indigo-200 text-sm">Answered</p>
+              <p className="text-2xl font-bold">{Number(totals.answered || 0).toLocaleString()}</p>
+            </div>
+            <div className="bg-gradient-to-r from-gray-700 to-gray-800 rounded-xl p-4">
+              <p className="text-gray-200 text-sm">Skipped</p>
+              <p className="text-2xl font-bold">{Number(totals.skipped || 0).toLocaleString()}</p>
             </div>
             <div className="bg-gradient-to-r from-green-600 to-green-700 rounded-xl p-4">
               <p className="text-green-200 text-sm">Paid (current)</p>

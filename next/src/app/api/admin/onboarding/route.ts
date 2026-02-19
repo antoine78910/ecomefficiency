@@ -89,6 +89,7 @@ export async function GET(req: NextRequest) {
 
     const url = new URL(req.url)
     const limit = Math.max(1, Math.min(2000, Number(url.searchParams.get('limit') || 500)))
+    const includeSkipped = String(url.searchParams.get('includeSkipped') || '1') !== '0'
 
     const stripeKey = process.env.STRIPE_SECRET_KEY || ''
     const stripe = stripeKey ? new Stripe(stripeKey, { apiVersion: '2025-08-27.basil' }) : null
@@ -125,8 +126,11 @@ export async function GET(req: NextRequest) {
           ...meta,
         }
       })
-      // Only keep users who actually answered onboarding
-      .filter((u: any) => Boolean(u.acquisition_source || u.acquisition_work_type || u.acquisition_onboarding_completed_at))
+      // Optionally filter users who actually answered onboarding
+      .filter((u: any) => {
+        if (includeSkipped) return true
+        return Boolean(u.acquisition_source || u.acquisition_work_type || u.acquisition_onboarding_completed_at)
+      })
 
     let users = await mapWithLimit(baseUsers, 6, async (u) => {
       // Current payment status (Stripe) — fixes "unpaid" after user pays later.
@@ -190,6 +194,8 @@ export async function GET(req: NextRequest) {
     // quick aggregation
     const bySource: Record<string, number> = {}
     const byWorkType: Record<string, number> = {}
+    let answeredCount = 0
+    let skippedCount = 0
     let paidTrue = 0
     let paidFalse = 0
     let paidUnknown = 0
@@ -197,6 +203,10 @@ export async function GET(req: NextRequest) {
     let paidCurrentFalse = 0
     let paidCurrentUnknown = 0
     for (const u of users) {
+      const answered = Boolean(u.acquisition_source || u.acquisition_work_type || u.acquisition_onboarding_completed_at)
+      if (answered) answeredCount += 1
+      else skippedCount += 1
+
       const s = (u.acquisition_source || 'unknown').toLowerCase()
       bySource[s] = (bySource[s] || 0) + 1
       const w = (u.acquisition_work_type || 'unknown').toLowerCase()
@@ -213,7 +223,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       totals: {
-        onboarded: users.length,
+        users: users.length,
+        answered: answeredCount,
+        skipped: skippedCount,
         paid_snapshot_true: paidTrue,
         paid_snapshot_false: paidFalse,
         paid_snapshot_unknown: paidUnknown,
