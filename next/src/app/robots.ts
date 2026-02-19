@@ -22,12 +22,10 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
   const isApp = host === "app.localhost" || host.startsWith("app.");
   const isPartners = host === "partners.localhost" || host.startsWith("partners.");
 
-  // Advertise both hosts to reduce GSC "redirected" noise if the property is non-www vs www.
+  // Advertise only the canonical host (non-www). www is redirected to non-www in middleware.
   const mainSitemaps = [
     "https://ecomefficiency.com/sitemap.xml",
     "https://ecomefficiency.com/ai-sitemap.xml",
-    "https://www.ecomefficiency.com/sitemap.xml",
-    "https://www.ecomefficiency.com/ai-sitemap.xml",
   ];
 
   // Private surfaces: prevent crawling entirely (avoids lots of "Excluded: 401/403/redirect/noindex" noise).

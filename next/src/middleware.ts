@@ -187,6 +187,16 @@ export async function middleware(req: NextRequest) {
   const hostname = hostHeader.toLowerCase().split(':')[0]
   const bareHostname = hostname.replace(/^www\./, '')
 
+  // Canonicalize www -> non-www for the main marketing domain.
+  // This prevents duplicate indexing between https://www.ecomefficiency.com and https://ecomefficiency.com.
+  if (hostname === 'www.ecomefficiency.com') {
+    const target = new URL(req.nextUrl.toString())
+    target.protocol = 'https:'
+    target.hostname = 'ecomefficiency.com'
+    target.port = ''
+    return NextResponse.redirect(target, 308)
+  }
+
   // Marketing host should be canonicalized at the platform layer (Vercel/DNS),
   // not in middleware (prevents redirect loops showing up as "redirect errors" in Search Console).
   const MARKETING_HOST = 'ecomefficiency.com'
