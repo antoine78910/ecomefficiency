@@ -15,14 +15,14 @@ function PriceClient() {
     description:
       "Pricing for legacy customers upgrading to the new Pro plan. Includes additional credit accounts for Pro: +500k ElevenLabs credits and +200k Pipiads credits.",
     brand: { "@type": "Brand", name: "Ecom Efficiency" },
-    url: "https://www.ecomefficiency.com/price",
+    url: "https://ecomefficiency.com/price",
     offers: {
       "@type": "AggregateOffer",
       priceCurrency: "USD",
       lowPrice: "19.99",
       highPrice: "29.99",
       availability: "https://schema.org/InStock",
-      url: "https://www.ecomefficiency.com/price",
+      url: "https://ecomefficiency.com/price",
     },
   };
 

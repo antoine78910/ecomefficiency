@@ -15,14 +15,14 @@ function PricingClient() {
     name: "Ecom Efficiency",
     description: "Access 45+ premium SEO / SPY / AI tools and save $4000+ every month.",
     brand: { "@type": "Brand", name: "Ecom Efficiency" },
-    url: "https://www.ecomefficiency.com/pricing",
+    url: "https://ecomefficiency.com/pricing",
     offers: {
       "@type": "AggregateOffer",
       priceCurrency: "USD",
       lowPrice: "19.99",
       highPrice: "29.99",
       availability: "https://schema.org/InStock",
-      url: "https://www.ecomefficiency.com/pricing",
+      url: "https://ecomefficiency.com/pricing",
     },
   };
 

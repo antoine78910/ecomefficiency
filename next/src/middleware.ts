@@ -189,7 +189,7 @@ export async function middleware(req: NextRequest) {
 
   // Marketing host should be canonicalized at the platform layer (Vercel/DNS),
   // not in middleware (prevents redirect loops showing up as "redirect errors" in Search Console).
-  const MARKETING_HOST = 'www.ecomefficiency.com'
+  const MARKETING_HOST = 'ecomefficiency.com'
 
   // Keep marketing content (/blog, /articles) on the main domain only
   // This prevents duplicate indexing across subdomains like app.* and tools.*
