@@ -147,7 +147,7 @@ export default async function SeoToolPage({ params }: { params: Promise<{ slug: 
     description: tool.shortDescription,
     applicationCategory: "SEO Tool",
     operatingSystem: "Web",
-    url: `https://ecomefficiency.com/tools/seo/${tool.slug}`,
+    url: `https://www.ecomefficiency.com/tools/seo/${tool.slug}`,
     creator: { "@type": "Organization", name: "Ecom Efficiency" },
   };
 

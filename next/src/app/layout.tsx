@@ -4,7 +4,7 @@ import DataFastScript from "@/components/DataFastScript";
 import GlobalGetStartedClickTracker from "@/components/GlobalGetStartedClickTracker";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://ecomefficiency.com"),
+  metadataBase: new URL("https://www.ecomefficiency.com"),
   title: {
     default: "EcomEfficiency - All-in-One Access to 50+ SEO, Spy & AI Tools for Ecommerce",
     template: "EcomEfficiency - %s",

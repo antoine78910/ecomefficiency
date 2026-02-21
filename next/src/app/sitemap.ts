@@ -5,7 +5,7 @@ import { seoToolsCatalog } from "@/data/seoToolsCatalog";
 
 // Use the primary public host so Google Search Console can attribute discovery.
 // (This project’s GSC property is https://ecomefficiency.com)
-const BASE_URL = "https://ecomefficiency.com";
+const BASE_URL = "https://www.ecomefficiency.com";
 
 // Pages that should NOT be discoverable via sitemap (no SEO value / private/legal).
 const SITEMAP_EXCLUDE_PATHS = new Set<string>([
