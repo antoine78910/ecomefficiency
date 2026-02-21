@@ -78,6 +78,28 @@ export default function AppTopNav({
         const meta = (user?.user_metadata as any) || {};
         setFirstName((meta.first_name as string) || null);
         setAvatarUrl(meta.avatar_url || null);
+
+        // Silent affiliate provisioning (FirstPromoter) after email verification/login.
+        // This is triggered only when signup stored a pending flag (e.g. /sign-up?affiliates=1).
+        try {
+          if (user && typeof window !== "undefined") {
+            const pending = localStorage.getItem("ee_affiliate_pending") === "1";
+            if (pending) {
+              const { data: { session } } = await supabase.auth.getSession();
+              const token = session?.access_token;
+              if (token) {
+                const r = await fetch("/api/firstpromoter/promoter", {
+                  method: "GET",
+                  headers: { Authorization: `Bearer ${token}` },
+                  cache: "no-store",
+                });
+                if (r.ok) {
+                  try { localStorage.removeItem("ee_affiliate_pending"); } catch {}
+                }
+              }
+            }
+          }
+        } catch {}
       } catch {}
       await refreshPlan();
     })();

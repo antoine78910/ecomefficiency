@@ -86,16 +86,17 @@ const proExtras = [
   "Kalodata",
 ];
 
-const PRO_CREDIT_BULLETS = [
-  "Pipiads (100k account)",
-  "ElevenLabs (100k account / credits reset every 3 days)",
-] as const;
+const DEFAULT_PRO_CREDIT_BULLETS = ["Pipiads", "ElevenLabs"] as const;
 
 type PricingSectionProps = {
   proBonusBullets?: string[];
+  proCreditBullets?: string[];
 };
 
-const PricingSection = ({ proBonusBullets = [] }: PricingSectionProps) => {
+const PricingSection = ({
+  proBonusBullets = [],
+  proCreditBullets = [...DEFAULT_PRO_CREDIT_BULLETS],
+}: PricingSectionProps) => {
   const [billing, setBilling] = React.useState<'monthly' | 'yearly'>('monthly');
   const { toast } = useToast();
   const [currency, setCurrency] = React.useState<Currency>('USD');
@@ -357,7 +358,7 @@ const PricingSection = ({ proBonusBullets = [] }: PricingSectionProps) => {
                           <span className="font-semibold">{b}</span>
                         </li>
                       ))}
-                      {PRO_CREDIT_BULLETS.map((b) => (
+                      {proCreditBullets.map((b) => (
                         <li key={b} className="flex items-center gap-2 text-xs text-gray-200">
                           <Check className="w-4 h-4 text-purple-400" />
                           <span>{b}</span>

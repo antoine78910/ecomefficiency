@@ -66,58 +66,6 @@ async function getRelatedPosts(post: BlogPost): Promise<RelatedPost[]> {
   return ((recent as any as RelatedPost[]) || []).slice(0, 3);
 }
 
-type FaqPair = { q: string; a: string };
-
-function extractFaqPairsFromMarkdown(md: string | null | undefined): FaqPair[] {
-  const s = String(md || "");
-  if (!s) return [];
-  const lines = s.split("\n");
-  const out: FaqPair[] = [];
-
-  let inFaq = false;
-  let currentQ = "";
-  let currentA: string[] = [];
-
-  const flush = () => {
-    const q = currentQ.trim();
-    const a = currentA.join(" ").replace(/\s+/g, " ").trim();
-    if (q && a) out.push({ q, a });
-    currentQ = "";
-    currentA = [];
-  };
-
-  for (const raw of lines) {
-    const line = raw.trim();
-    if (/^##\s+FAQ\s*$/i.test(line)) {
-      flush();
-      inFaq = true;
-      continue;
-    }
-    if (!inFaq) continue;
-
-    // New section stops FAQ
-    if (/^##\s+/.test(line) && !/^##\s+FAQ\s*$/i.test(line)) {
-      flush();
-      break;
-    }
-
-    const q = line.match(/^###\s+(.+?)\s*$/)?.[1]?.trim();
-    if (q) {
-      flush();
-      currentQ = q;
-      continue;
-    }
-
-    // Collect answer text (skip headings/empty lines)
-    if (!line) continue;
-    if (/^#{1,6}\s+/.test(line)) continue;
-    currentA.push(line);
-  }
-
-  flush();
-  return out.slice(0, 10);
-}
-
 type RecommendedTool = { href: string; title: string; description: string };
 
 function normalizeKey(input: string): string {
@@ -324,20 +272,8 @@ function enforceBlogPromptHtml(input: string | null | undefined): { html: string
     }
   );
 
-  // Ensure FAQ section exists (append if missing).
-  if (!/<h2[^>]*>\s*FAQ\s*<\/h2>/i.test(html)) {
-    html += `
-<h2>FAQ</h2>
-<h3>What is Ecom Efficiency?</h3>
-<h4>Ecom Efficiency is a SaaS that gives you access to a curated stack of SPY, SEO and AI tools in one place.</h4>
-<h3>Who is it for?</h3>
-<h4>It’s built for e-commerce founders and marketers who want a practical tool stack without paying for each tool separately.</h4>
-<h3>Can I cancel anytime?</h3>
-<h4>Yes. You can cancel at any time from your account area.</h4>
-<h3>Does it replace individual subscriptions?</h3>
-<h4>For many workflows it can, because you get broad access in one dashboard—your exact fit depends on your stack and usage.</h4>
-`;
-  }
+  // Blog pages should not show the generic LP FAQ. If a FAQ section exists, strip it.
+  html = html.replace(/<h2[^>]*>\s*FAQ\s*<\/h2>[\s\S]*?(?=<h2\b|$)/i, "");
 
   return { html, keptLinks };
 }
@@ -372,9 +308,8 @@ function enforceBlogPromptMarkdown(input: string | null | undefined): { markdown
     return `[${String(text || "")}](${normalizeHref(h)})`;
   });
 
-  if (!/^##\s*FAQ\s*$/im.test(md)) {
-    md += `\n\n## FAQ\n\n### What is Ecom Efficiency?\n#### Ecom Efficiency is a SaaS that gives you access to a curated stack of SPY, SEO and AI tools in one place.\n\n### Who is it for?\n#### It’s built for e-commerce founders and marketers who want a practical tool stack without paying for each tool separately.\n\n### Can I cancel anytime?\n#### Yes. You can cancel at any time from your account area.\n\n### Does it replace individual subscriptions?\n#### For many workflows it can, because you get broad access in one dashboard—your exact fit depends on your stack and usage.\n`;
-  }
+  // Blog pages should not show the generic LP FAQ. If a FAQ section exists, strip it.
+  md = md.replace(/(^|\n)##\s*FAQ\s*\n[\s\S]*?(?=\n##\s+|\s*$)/im, "\n");
 
   return { markdown: md, keptLinks };
 }
@@ -512,8 +447,8 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     datePublished: publishedIso,
     dateModified: publishedIso,
     author: { "@type": "Organization", name: post.author || "Ecom Efficiency Team" },
-    publisher: { "@type": "Organization", name: "Ecom Efficiency", logo: { "@type": "ImageObject", url: "https://www.ecomefficiency.com/ecomefficiency.png" } },
-    mainEntityOfPage: { "@type": "WebPage", "@id": `https://www.ecomefficiency.com/blog/${post.slug}` },
+    publisher: { "@type": "Organization", name: "Ecom Efficiency", logo: { "@type": "ImageObject", url: "https://ecomefficiency.com/ecomefficiency.png" } },
+    mainEntityOfPage: { "@type": "WebPage", "@id": `https://ecomefficiency.com/blog/${post.slug}` },
     image: post.cover_image ? [post.cover_image] : undefined,
     description,
   };
@@ -534,7 +469,6 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
       : null;
 
   const relatedPosts = await getRelatedPosts(post);
-  const faqPairs = extractFaqPairsFromMarkdown(enforcedMd?.markdown || post.content_markdown);
   const recommendedTools = pickRecommendedTools(post);
 
   return (
@@ -697,19 +631,6 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
               )}
             </div>
 
-            {/* SEO-only FAQ structure (H2/H3/H4) for Q/A ranking */}
-            {faqPairs.length ? (
-              <div className="sr-only">
-                <h2>FAQ</h2>
-                {faqPairs.map((f) => (
-                  <div key={f.q}>
-                    <h3>{f.q}</h3>
-                    <h4>{f.a}</h4>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-            
             {/* Recommended tools (internal linking for stronger topical clusters) */}
             {recommendedTools.length ? (
               <section className="pt-10">

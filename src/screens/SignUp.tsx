@@ -24,6 +24,10 @@ const SignUp = () => {
   const [lastName, setLastName] = useState('');
   const { toast } = useToast();
   const { trackSession } = useSessionTracking();
+  const wantsAffiliate =
+    typeof window !== "undefined" &&
+    (new URLSearchParams(window.location.search).get("affiliates") === "1" ||
+      new URLSearchParams(window.location.search).get("affiliate") === "1");
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -68,7 +72,7 @@ const SignUp = () => {
         options: {
           // After email verification, open the app directly
           emailRedirectTo: `${window.location.origin}/app`,
-          data: { first_name: firstName, last_name: lastName, plan: 'free' }
+          data: { first_name: firstName, last_name: lastName, plan: 'free', affiliate_requested: wantsAffiliate ? true : undefined }
         }
       });
 
@@ -90,6 +94,18 @@ const SignUp = () => {
             firstName || undefined,
             lastName || undefined,
           );
+        }
+        // If user came from /affiliate flow, try to create their FirstPromoter promoter silently.
+        // If email confirmation is enabled, there may be no session yet: store a flag and handle later after login.
+        if (wantsAffiliate) {
+          try {
+            const token = (data as any)?.session?.access_token as string | undefined;
+            if (token) {
+              await fetch("/api/firstpromoter/promoter", { method: "GET", headers: { Authorization: `Bearer ${token}` }, cache: "no-store" });
+            } else {
+              try { localStorage.setItem("ee_affiliate_pending", "1"); } catch {}
+            }
+          } catch {}
         }
         // Redirect to persistent verification page
         window.location.href = `/verify-email?email=${encodeURIComponent(email)}`;
