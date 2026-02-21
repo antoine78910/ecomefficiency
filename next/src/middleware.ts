@@ -187,6 +187,43 @@ export async function middleware(req: NextRequest) {
   const hostname = hostHeader.toLowerCase().split(':')[0]
   const bareHostname = hostname.replace(/^www\./, '')
 
+  // ✅ Canonical host/protocol for the public marketing domain.
+  // This prevents duplicate indexing across:
+  // - http vs https
+  // - www vs non-www
+  // Search Console should then show the non-canonical variants as "Page with redirect".
+  //
+  // We also fold in a few "junk URL" cleanups so Google sees a single hop redirect.
+  const xfProto = String(req.headers.get('x-forwarded-proto') || '').split(',')[0].trim().toLowerCase()
+  const isHttp = xfProto === 'http' || req.nextUrl.protocol === 'http:'
+  const isWww = hostname.startsWith('www.')
+  const isEeProdHost = bareHostname === 'ecomefficiency.com' || bareHostname.endsWith('.ecomefficiency.com')
+  const isVercelHost = bareHostname.endsWith('.vercel.app')
+
+  let cleanedPathname = pathname
+  if (cleanedPathname === '/fr' || cleanedPathname.startsWith('/fr/')) cleanedPathname = '/'
+  if (cleanedPathname === '/&' || cleanedPathname.includes('&')) {
+    cleanedPathname = cleanedPathname.replace(/&+/g, '').replace(/\/{2,}/g, '/') || '/'
+    if (!cleanedPathname.startsWith('/')) cleanedPathname = `/${cleanedPathname}`
+  }
+  if (cleanedPathname === '/tools/veo-3' || cleanedPathname === '/tools/gemini-nanobanana') cleanedPathname = '/tools'
+
+  if (!isVercelHost && isEeProdHost && (isHttp || isWww)) {
+    const target = new URL(req.nextUrl.toString())
+    target.protocol = 'https:'
+    target.hostname = bareHostname
+    target.port = ''
+    target.pathname = cleanedPathname
+    return NextResponse.redirect(target, 308)
+  }
+
+  // ✅ Cleanup redirects for known junk URLs seen in GSC.
+  // These should never be indexed; redirecting removes noisy 404s.
+  if (cleanedPathname !== pathname) {
+    const r = url.clone(); r.pathname = cleanedPathname
+    return NextResponse.redirect(r, 308)
+  }
+
   // Marketing host should be canonicalized at the platform layer (Vercel/DNS),
   // not in middleware (prevents redirect loops showing up as "redirect errors" in Search Console).
   const MARKETING_HOST = 'ecomefficiency.com'

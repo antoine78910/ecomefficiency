@@ -490,7 +490,7 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
     description: tool.shortDescription,
     applicationCategory: tool.category,
     operatingSystem: "Web",
-    url: `https://www.ecomefficiency.com/tools/${tool.slug}`,
+    url: `https://ecomefficiency.com/tools/${tool.slug}`,
     creator: { "@type": "Organization", name: "Ecom Efficiency" },
   };
 
