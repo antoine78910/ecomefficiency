@@ -418,7 +418,7 @@ export default function GettingStartedPage() {
           <>
             <div className="text-center mb-6">
               <h1 className="text-xl md:text-2xl font-semibold">Personalize your Experience</h1>
-              <p className="text-gray-400 mt-2 text-sm">Quick question so we can better understand what’s working.</p>
+              <p className="text-gray-400 mt-2 text-sm">Let's start with what brought you here — tell us a bit about why you're using Ecom Efficiency and what you're hoping to get out of it.</p>
             </div>
 
             <div className="rounded-2xl border border-white/10 bg-white/5 p-5 md:p-6">
@@ -511,7 +511,7 @@ export default function GettingStartedPage() {
                   </div>
                 ) : null}
 
-                <div className="mt-10 flex flex-col items-center justify-center gap-2">
+                <div className="mt-10 flex flex-col items-center justify-center">
                   <button
                     type="button"
                     className={[
@@ -525,13 +525,6 @@ export default function GettingStartedPage() {
                     onClick={onNext}
                   >
                     {saving ? "Saving…" : "Next"}
-                  </button>
-                  <button
-                    type="button"
-                    className="px-3 py-1.5 rounded-md text-xs text-gray-500 bg-transparent transition-colors duration-200 ease-out hover:bg-white/5 hover:text-gray-300"
-                    onClick={() => (window.location.href = "/app")}
-                  >
-                    Skip
                   </button>
                 </div>
 
