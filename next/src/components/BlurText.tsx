@@ -87,8 +87,10 @@ export default function BlurText({
     [direction]
   );
 
-  const fromSnapshot = animationFrom ?? defaultFrom;
-  const toSnapshots = animationTo ?? defaultTo;
+  // `motion` typings are strict about keyframe/value shapes. We keep a permissive
+  // runtime shape (filter/opacity/y) and cast to avoid TS rejecting valid targets.
+  const fromSnapshot = (animationFrom ?? defaultFrom) as any;
+  const toSnapshots = (animationTo ?? defaultTo) as any[];
 
   const stepCount = toSnapshots.length + 1;
   const totalDuration = stepDuration * (stepCount - 1);
@@ -103,7 +105,7 @@ export default function BlurText({
         const animateKeyframes = buildKeyframes(
           fromSnapshot as Record<string, unknown>,
           toSnapshots as Record<string, unknown>[]
-        );
+        ) as any;
 
         const spanTransition = {
           duration: totalDuration,
@@ -116,8 +118,8 @@ export default function BlurText({
           <motion.span
             className="inline-block will-change-[transform,filter,opacity]"
             key={index}
-            initial={fromSnapshot}
-            animate={inView ? animateKeyframes : fromSnapshot}
+            initial={fromSnapshot as any}
+            animate={(inView ? animateKeyframes : fromSnapshot) as any}
             transition={spanTransition}
             onAnimationComplete={
               index === elements.length - 1 ? onAnimationComplete : undefined
