@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import "./globals.css";
 import DataFastScript from "@/components/DataFastScript";
 import GlobalGetStartedClickTracker from "@/components/GlobalGetStartedClickTracker";
+import FirstPromoterScript from "@/components/FirstPromoterScript";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://www.ecomefficiency.com"),
@@ -79,6 +80,7 @@ export default function RootLayout({
     <html lang="en" className="h-full" suppressHydrationWarning translate="no">
       <head>
         <meta name="google" content="notranslate" />
+        <FirstPromoterScript />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }} />
       </head>

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { trackBrevoEvent } from "@/lib/brevo";
 import { supabaseAdmin } from "@/integrations/supabase/server";
+import { fpTrackSale } from "@/lib/firstpromoterTracking";
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -322,6 +323,7 @@ export async function POST(req: NextRequest) {
         let userEmail = invoice.customer_email;
         let plan = 'pro'; // default
         let tier = 'pro';
+        let fpPlan: string | null = null;
 
         if (subscriptionId) {
           try {
@@ -330,6 +332,13 @@ export async function POST(req: NextRequest) {
             const clientRef = subscription?.metadata?.userId;
             const customerId = subscription?.customer;
             tier = subscription?.metadata?.tier || 'pro'; // 'starter' or 'pro'
+            // Use Stripe Price ID if available (best for plan-level rewards), fallback to tier.
+            try {
+              const priceId = (subscription as any)?.items?.data?.[0]?.price?.id;
+              fpPlan = priceId ? String(priceId) : (tier ? String(tier) : null);
+            } catch {
+              fpPlan = tier ? String(tier) : null;
+            }
             const partnerSlug = (subscription as any)?.metadata?.partner_slug || (subscription as any)?.metadata?.partnerSlug;
             
             // For partner subscriptions, if no userId in metadata, try to find by email
@@ -406,6 +415,39 @@ export async function POST(req: NextRequest) {
           } catch (err: any) {
             console.error('[webhook][invoice.payment_succeeded]', requestId, 'Error processing subscription:', err.message);
           }
+        }
+
+        // Track sale in FirstPromoter (server-side, idempotent via event_id).
+        // If the lead wasn't referred, FirstPromoter returns 204 (safe to ignore).
+        try {
+          const invoiceId = invoice?.id ? String(invoice.id) : "";
+          const eventId = invoiceId ? `stripe_invoice_${invoiceId}` : "";
+          // Prefer subtotal_excluding_tax/subtotal if available (FirstPromoter expects amount before taxes).
+          const amountCents =
+            Number(invoice?.subtotal_excluding_tax ?? invoice?.subtotal ?? invoice?.amount_paid ?? 0) || 0;
+          const currency = invoice?.currency ? String(invoice.currency).toUpperCase() : null;
+          if (eventId && userEmail && amountCents > 0) {
+            const fpRes = await fpTrackSale({
+              email: String(userEmail),
+              eventId,
+              amountCents,
+              currency,
+              plan: fpPlan || tier || plan,
+            });
+            console.log(
+              "[webhook][invoice.payment_succeeded]",
+              requestId,
+              "FirstPromoter sale tracked:",
+              { status: fpRes.status, ok: fpRes.ok, eventId }
+            );
+          }
+        } catch (e: any) {
+          console.error(
+            "[webhook][invoice.payment_succeeded]",
+            requestId,
+            "FirstPromoter sale tracking failed (non-fatal):",
+            e?.message || String(e)
+          );
         }
 
         // TRACK PURCHASE IN BREVO (Final Check)

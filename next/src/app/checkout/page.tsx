@@ -673,19 +673,7 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
           console.error('[Checkout] Failed to track payment_complete (non-fatal):', e?.message || String(e));
         }
 
-        // Track FirstPromoter conversion (best effort, only primitives)
-        try {
-          const amount = typeof paymentIntent.amount === 'number' ? (paymentIntent.amount / 100) : undefined;
-          const fprData: Record<string, string | undefined> = {};
-          if (userEmail) fprData.email = String(userEmail);
-          if (amount !== undefined) fprData.amount = String(amount);
-          if (currency) fprData.currency = String(currency);
-          if (tier) fprData.plan = String(tier);
-          (window as any)?.fpr && (window as any).fpr('conversion', fprData);
-        } catch (e: any) {
-          // Safe logging to prevent DataCloneError
-          console.error('[Checkout] Failed to track FirstPromoter conversion (non-fatal):', e?.message || String(e));
-        }
+        // Note: Sales are tracked server-side via Stripe webhooks + FirstPromoter Tracking API.
 
         // Redirect to success page
         sessionStorage.removeItem(sessionKey); // Clear lock on success
