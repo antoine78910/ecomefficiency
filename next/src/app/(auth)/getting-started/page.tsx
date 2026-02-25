@@ -6,6 +6,7 @@ import Link from "next/link";
 import { supabase, SUPABASE_CONFIG_OK } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Check, ChevronDown, X } from "lucide-react";
+import { seoToolsCatalog } from "@/data/seoToolsCatalog";
 
 type AcquisitionSource =
   | "instagram"
@@ -73,8 +74,8 @@ const PRO_EXTRAS = [
 ] as const;
 
 const PRO_CREDIT_BULLETS = [
-  "Pipiads (100k account)",
-  "ElevenLabs (100k account / credits reset every 3 days)",
+  "Pipiads",
+  "ElevenLabs",
 ] as const;
 
 function detectCurrencyFromLocale(): Currency {
@@ -118,6 +119,7 @@ export default function GettingStartedPage() {
   const [currency, setCurrency] = React.useState<Currency>("USD");
   const [pricingReady, setPricingReady] = React.useState(false);
   const [starterExpanded, setStarterExpanded] = React.useState(false);
+  const [seoModalOpen, setSeoModalOpen] = React.useState(false);
 
   const debug = React.useMemo(() => {
     try {
@@ -163,9 +165,31 @@ export default function GettingStartedPage() {
           setAlreadySet(Boolean(existingSource));
         }
 
-        // If already answered, skip onboarding.
+        // Only redirect to /app if they have completed setup (paid). Otherwise stay on onboarding to finish.
         if (user && existingSource) {
-          window.location.href = "/app";
+          try {
+            const res = await fetch("/api/stripe/verify", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ email: user.email ?? "" }),
+            });
+            const data = await res.json().catch(() => ({}));
+            if (data?.ok && data?.active && (data?.plan === "starter" || data?.plan === "pro")) {
+              window.location.href = "/app";
+              return;
+            }
+          } catch {
+            // ignore
+          }
+          // Has acquisition_source but no paid plan: show setup step so they can pay
+          if (!cancelled) {
+            setStep("setup");
+            try {
+              const url = new URL(window.location.href);
+              url.searchParams.set("step", "setup");
+              window.history.replaceState({}, "", url.toString());
+            } catch {}
+          }
         }
       } catch {
         // ignore
@@ -242,6 +266,15 @@ export default function GettingStartedPage() {
       cancelled = true;
     };
   }, [step]);
+
+  React.useEffect(() => {
+    if (!seoModalOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape") setSeoModalOpen(false);
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [seoModalOpen]);
 
   const getCurrentUser = async () => {
     try {
@@ -368,7 +401,8 @@ export default function GettingStartedPage() {
   }
 
   return (
-    <div className="min-h-screen bg-black text-white">
+    <>
+    <div className={`bg-black text-white ${step === "setup" ? "min-h-0" : "min-h-screen"}`}>
       {/* Header aligned like LP navbar */}
       <div className="w-full mx-auto px-0 relative border-b border-white/10 bg-black/90 backdrop-blur-sm">
         <div className="w-full px-0">
@@ -395,8 +429,8 @@ export default function GettingStartedPage() {
         </div>
       </div>
 
-      <div className="px-4 py-6">
-        <div className={`w-full mx-auto ${step === "setup" ? "max-w-6xl" : "max-w-2xl"}`}>
+      <div className={`px-4 overflow-visible ${step === "setup" ? "pt-6 pb-2" : "py-6"}`}>
+        <div className={`w-full mx-auto overflow-visible ${step === "setup" ? "max-w-6xl" : "max-w-2xl"}`}>
           <div className="flex items-center justify-center gap-2 text-xs text-gray-500 mb-6 select-none">
           <div className="flex items-center gap-2">
             <span className="w-2 h-2 rounded-full bg-green-500/70" />
@@ -533,15 +567,16 @@ export default function GettingStartedPage() {
             </div>
           </>
         ) : (
-          <div>
-            <div className="relative">
-              {/* subtle dark violet glow behind the panel (like /sign-in) */}
+          <div className="overflow-x-hidden overflow-y-visible">
+            {/* Clip gradient at bottom so no purple band appears below content */}
+            <div className="relative isolate overflow-y-hidden overflow-x-hidden">
+              {/* Violet glow behind panel only; does not extend below the block */}
               <div
-                className="pointer-events-none absolute -inset-10 bg-[radial-gradient(ellipse_at_center,rgba(88,28,135,0.35),transparent_65%)] blur-3xl opacity-60"
+                className="pointer-events-none absolute left-1/2 top-1/2 z-0 h-[140%] w-[185%] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(ellipse_85%_70%_at_50%_55%,rgba(128,56,194,0.44)_0%,rgba(128,56,194,0.20)_38%,rgba(128,56,194,0.07)_55%,transparent_75%)] opacity-90"
                 aria-hidden
               />
 
-              <div className="relative rounded-2xl border border-white/10 bg-[#0d0e12] p-5 md:p-6">
+              <div className="relative z-10 rounded-2xl border border-white/10 bg-[#0d0e12] p-5 md:p-6">
               <div className="text-center mb-6">
                 <h2 className="text-xl md:text-2xl font-semibold">Choose a plan</h2>
                 <p className="text-gray-400 mt-2 text-sm">Subscribe to unlock the tools.</p>
@@ -674,7 +709,13 @@ export default function GettingStartedPage() {
                                 <li className="flex items-center gap-2 text-gray-300"><Check className="w-3.5 h-3.5 text-purple-400" /><span>Ubersuggest</span></li>
                                 <li className="flex items-center gap-2 text-gray-300"><Check className="w-3.5 h-3.5 text-purple-400" /><span>Similarweb</span></li>
                                 <li>
-                                  <a href="/tools/seo" className="text-xs text-purple-300 hover:text-purple-200 underline decoration-purple-500/40">… see the other tools →</a>
+                                  <button
+                                    type="button"
+                                    onClick={() => setSeoModalOpen(true)}
+                                    className="text-xs text-purple-300 hover:text-purple-200 underline decoration-purple-500/40 cursor-pointer bg-transparent border-none p-0"
+                                  >
+                                    … see the other tools →
+                                  </button>
                                 </li>
                               </ul>
                             </li>
@@ -743,25 +784,13 @@ export default function GettingStartedPage() {
                       </button>
                       <div className="my-5 h-px bg-white/10" />
 
-                      <div className="mb-5 rounded-xl border border-purple-500/25 bg-purple-500/10 px-3 py-2">
-                        <div className="space-y-1.5">
-                          {PRO_CREDIT_BULLETS.map((b) => (
-                            <div key={b} className="flex items-center gap-2 text-xs text-purple-200">
-                              <Check className="w-4 h-4 text-purple-300 drop-shadow-[0_0_12px_rgba(171,99,255,0.55)]" />
-                              <span className="font-semibold">{b}</span>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Same "tools" bullets as PricingSection */}
                       <div className="mt-0 mb-6 space-y-1.5 text-gray-300 text-sm">
                         <div className="flex items-center gap-2 text-xs">
                           <Check className="w-4 h-4 text-purple-400" />
                           <span>Starter tools, plus:</span>
                         </div>
                         <ul className="space-y-1.5">
-                          {PRO_EXTRAS.map((t) => (
+                          {[...PRO_EXTRAS, ...PRO_CREDIT_BULLETS].map((t) => (
                             <li key={t} className="flex items-center gap-2 text-xs text-gray-200">
                               <Check className="w-4 h-4 text-purple-400" />
                               <span>{t}</span>
@@ -812,6 +841,38 @@ export default function GettingStartedPage() {
         </div>
       </div>
     </div>
+
+    {seoModalOpen && (
+      <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center">
+        <button
+          type="button"
+          aria-label="Close"
+          onClick={() => setSeoModalOpen(false)}
+          className="absolute inset-0 cursor-pointer"
+        />
+        <div
+          className="relative z-10 bg-gray-900 border border-white/10 rounded-2xl p-5 w-full max-w-3xl max-h-[80vh] overflow-auto mx-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="+30 SEO Tools"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-white font-semibold">+30 SEO Tools</h3>
+            <button type="button" onClick={() => setSeoModalOpen(false)} className="text-white/70 hover:text-white">✕</button>
+          </div>
+          <p className="text-gray-400 text-sm mb-3">Included tools with short descriptions.</p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {seoToolsCatalog.map((t) => (
+              <div key={t.slug} className="rounded-lg border border-white/10 p-3 bg-black/30">
+                <div className="text-white font-medium text-sm">{t.name}</div>
+                <div className="text-gray-400 text-xs">{t.shortDescription}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+    )}
+    </>
   );
 }
 

@@ -203,9 +203,9 @@ export function ReviewPromptModal({
         <div className="px-5 py-5 space-y-4">
           {step === "rate" ? (
             <>
-              <Title>Help us improve EcomEfficiency</Title>
+              <Title>Rate us & Get a 20% Off coupon</Title>
               <P>
-                We’d love to collect reviews to keep improving the product. How would you rate your experience?
+                Rate your experience with EcomEfficiency and help us improve the product.
               </P>
 
               <div className="flex items-center gap-1.5">

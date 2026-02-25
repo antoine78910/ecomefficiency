@@ -186,6 +186,10 @@ export async function middleware(req: NextRequest) {
   const hostHeader = (req.headers.get('host') || '')
   const hostname = hostHeader.toLowerCase().split(':')[0]
   const bareHostname = hostname.replace(/^www\./, '')
+  const isLocalhostHost =
+    hostname === 'localhost' ||
+    hostname === '127.0.0.1' ||
+    hostname.endsWith('.localhost')
 
   // ✅ Cleanup redirects for known junk URLs seen in GSC.
   // These should never be indexed; redirecting removes noisy 404s.
@@ -201,7 +205,8 @@ export async function middleware(req: NextRequest) {
   // Doing it in both places can create redirect loops.
   const xfProto = String(req.headers.get('x-forwarded-proto') || '').split(',')[0].trim().toLowerCase()
   const isHttp = xfProto === 'http' || req.nextUrl.protocol === 'http:'
-  if (isHttp) {
+  // Local dev must stay on http://localhost (otherwise it redirects to https://localhost and fails)
+  if (isHttp && !isLocalhostHost) {
     const target = new URL(req.nextUrl.toString())
     target.protocol = 'https:'
     target.port = ''
@@ -223,6 +228,26 @@ export async function middleware(req: NextRequest) {
   const isAppSubdomain = hostname === 'app.localhost' || bareHostname.startsWith('app.')
   const isToolsSubdomain = hostname === 'tools.localhost' || bareHostname.startsWith('tools.')
   const isPartnersSubdomain = hostname === 'partners.localhost' || bareHostname.startsWith('partners.')
+
+  // ✅ Partners portal isolation:
+  // Partners UI must live on partners.* only (not on app.*).
+  // This prevents browser back/refresh from landing users on app.ecomefficiency.com/dashboard?slug=...
+  // Note: do NOT redirect /signin (app auth relies on it in this codebase).
+  const isPartnersOnlyPath =
+    pathname === '/dashboard' ||
+    pathname.startsWith('/dashboard/') ||
+    pathname === '/configuration' ||
+    pathname.startsWith('/configuration/') ||
+    pathname === '/lp' ||
+    pathname.startsWith('/lp/')
+
+  if (isAppSubdomain && isPartnersOnlyPath && !isLocalhostHost) {
+    const target = new URL(req.nextUrl.toString())
+    target.protocol = 'https:'
+    target.hostname = 'partners.ecomefficiency.com'
+    target.port = ''
+    return NextResponse.redirect(target, 308)
+  }
   const isMarketingPath =
     pathname === '/blog' ||
     pathname.startsWith('/blog/') ||
@@ -320,7 +345,31 @@ export async function middleware(req: NextRequest) {
       pathname === '/configuration' ||
       pathname.startsWith('/configuration/');
 
-    if (isPartnersProd && !isAllowedPartnersPath) {
+    // Also allow public partner pages on partners.<domain>/<slug>
+    // This is the default URL shown in the partners dashboard.
+    const isPublicPartnerSlugPath = (() => {
+      try {
+        if (!pathname || pathname === '/' || pathname.includes('.') || pathname.includes('//')) return false;
+        if (!/^\/[a-z0-9-]{2,40}$/i.test(pathname)) return false;
+        const slug = pathname.slice(1).toLowerCase();
+        const reserved = new Set([
+          'lp',
+          'signin',
+          'signup',
+          'dashboard',
+          'configuration',
+          'api',
+          '_next',
+          'robots.txt',
+          'sitemap.xml',
+        ]);
+        return !reserved.has(slug);
+      } catch {
+        return false;
+      }
+    })();
+
+    if (isPartnersProd && !(isAllowedPartnersPath || isPublicPartnerSlugPath)) {
       const target = new URL(req.nextUrl.toString());
       target.protocol = 'https:';
       target.hostname = MARKETING_HOST;
@@ -441,25 +490,39 @@ export async function middleware(req: NextRequest) {
 
   // app subdomain => serve dashboard content directly on root (no rewrite to /app), protect it
   if (hostname === 'app.localhost' || bareHostname.startsWith('app.')) {
+    // Never expose partners portal pages on app.* (local + prod).
+    // This prevents duplicate surfaces like app.localhost/dashboard?slug=...
+    if (
+      pathname === '/dashboard' ||
+      pathname.startsWith('/dashboard/') ||
+      pathname === '/configuration' ||
+      pathname.startsWith('/configuration/') ||
+      pathname === '/lp' ||
+      pathname.startsWith('/lp/')
+    ) {
+      const r = url.clone();
+      r.pathname = '/app';
+      r.search = '';
+      return NextResponse.redirect(r, 308);
+    }
+
     // Serve the app at "/" via rewrite (keeps URL for auth hash flows, avoids redirects)
     if (pathname === '/' || pathname === '') {
       const r = url.clone();
       r.pathname = '/app';
       return NextResponse.rewrite(r, { request: { headers: req.headers } });
     }
-    // IMPORTANT: Allow unauthenticated access to root '/' so Supabase auth hash can be processed client-side.
-    // Otherwise we lose the #access_token fragment on redirect and the user can't be auto-logged in after email verification.
-    
-    // Explicitly handle /signin and /signup on app subdomain to prevent loop
-    if (pathname === '/signin' || pathname === '/signup') {
-      return response;
+
+    // On app.*, /signin and /signup always show the app page (avoid partners signin + redirect loop).
+    if (pathname === '/signin' || pathname.startsWith('/signin/') || pathname === '/signup' || pathname.startsWith('/signup/')) {
+      const r = url.clone();
+      r.pathname = '/app';
+      // keep search (e.g. callback=/app) so the app can redirect after login
+      return NextResponse.redirect(r, 302);
     }
 
-    if (!hasAuth && pathname !== '/' && pathname !== '' && pathname.startsWith('/app')) {
-      const r = url.clone(); r.pathname = '/signin';
-      r.searchParams.set('callback', pathname + (url.search ? url.search : ''))
-      return NextResponse.redirect(r)
-    }
+    // Do NOT redirect unauthenticated /app to /signin on app.* — serve /app and let the app show login.
+    // (Redirecting caused a loop: /signin -> /app -> /signin.)
     // Disallow marketing routes under app.* (but don't affect API or Next internals)
     if (!pathname.startsWith('/api') && !pathname.startsWith('/_next') && !pathname.startsWith('/public_app_assets') && !pathname.startsWith('/app_assets')) {
       // Allow static assets like /tools-logos/* under app.*

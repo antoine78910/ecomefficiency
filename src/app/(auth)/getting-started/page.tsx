@@ -507,7 +507,13 @@ export default function GettingStartedPage() {
                 aria-hidden
               />
 
-              <div className="relative rounded-2xl border border-white/10 bg-[#0d0e12] p-5 md:p-6">
+              <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-[#0d0e12] p-5 md:p-6">
+                {/* subtle inner violet gradient (panel only) */}
+                <div
+                  className="pointer-events-none absolute inset-0 rounded-2xl bg-[radial-gradient(ellipse_at_top,rgba(168,85,247,0.16),transparent_60%),radial-gradient(ellipse_at_bottom,rgba(88,28,135,0.10),transparent_55%)]"
+                  aria-hidden
+                />
+                <div className="relative">
               <div className="text-center mb-6">
                 <h2 className="text-xl md:text-2xl font-semibold">Choose a plan</h2>
                 <p className="text-gray-400 mt-2 text-sm">Subscribe to unlock the tools.</p>
@@ -769,6 +775,7 @@ export default function GettingStartedPage() {
                 </>
               )}
             </div>
+                </div>
             </div>
           </div>
         )}

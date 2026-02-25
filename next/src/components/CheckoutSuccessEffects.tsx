@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button";
 import { supabase } from "@/integrations/supabase/client";
 import { postGoal } from "@/lib/analytics";
 import { useToast } from "@/components/ui/use-toast";
+import BlurText from "@/components/BlurText";
+import { motion } from "motion/react";
 
 type AcquisitionSource = "instagram" | "tiktok" | "google" | "ai_llm" | "friends" | "twitter";
 
@@ -19,6 +21,9 @@ const SOURCE_OPTIONS: { id: AcquisitionSource; label: string }[] = [
   { id: "twitter", label: "Twitter / X" },
 ];
 
+// TEMPORARY (per request): disable confetti + welcome rendering.
+const DISABLE_CELEBRATION = true;
+
 export function CheckoutSuccessEffects({
   active,
   askSource,
@@ -30,81 +35,205 @@ export function CheckoutSuccessEffects({
   onAskSourceClose: () => void;
   onConfettiDone?: () => void;
 }) {
-  const confettiRef = React.useRef<ConfettiRef>(null);
-  const firedRef = React.useRef(false);
+  const confettiApiRef = React.useRef<ConfettiRef>(null);
+  const [confettiReady, setConfettiReady] = React.useState(false);
+  const setConfettiRef = React.useCallback((api: ConfettiRef) => {
+    confettiApiRef.current = api;
+    setConfettiReady(Boolean(api));
+  }, []);
+
   const [showCanvas, setShowCanvas] = React.useState(false);
+  const [messageExiting, setMessageExiting] = React.useState(false);
   const [open, setOpen] = React.useState(false);
   const [saving, setSaving] = React.useState<AcquisitionSource | null>(null);
   const { toast } = useToast();
+  const runIdRef = React.useRef(0);
+  const hideConfettiTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startedRunIdRef = React.useRef<number>(0);
+  const timersRef = React.useRef<ReturnType<typeof setTimeout>[]>([]);
 
   const close = React.useCallback(() => {
     setOpen(false);
     onAskSourceClose();
   }, [onAskSourceClose]);
 
+  // When celebration is disabled, immediately clear the "active" flag in parent
+  // so the app doesn't stay stuck in checkoutSuccessActive=true.
   React.useEffect(() => {
+    if (!DISABLE_CELEBRATION) return;
     if (!active) return;
-    if (firedRef.current) return;
-    firedRef.current = true;
-
-    setShowCanvas(true);
-
-    const fire = (opts: any) => {
-      try {
-        confettiRef.current?.fire(opts);
-      } catch {}
-    };
-
-    // Celebration: 3 center bursts. Keep particles alive long enough to reach the bottom.
-    const common = {
-      gravity: 1.25,
-      ticks: 720,
-      scalar: 1,
-      origin: { x: 0.5, y: 0.5 }, // centered
-    };
-
-    const burst = (particleCount: number, spread: number, startVelocity: number) => {
-      fire({
-        ...common,
-        particleCount,
-        spread,
-        startVelocity,
-      });
-    };
-
-    const timeouts: number[] = [];
-    timeouts.push(window.setTimeout(() => burst(160, 90, 52), 0));
-    timeouts.push(window.setTimeout(() => burst(130, 110, 46), 260));
-    timeouts.push(window.setTimeout(() => burst(190, 75, 58), 520));
-
-    // Don't remove the canvas immediately after the last burst; let particles fall.
-    const done = window.setTimeout(() => {
-      setShowCanvas(false);
+    const t = window.setTimeout(() => {
       try {
         onConfettiDone?.();
       } catch {}
-    }, 6800);
+    }, 0);
+    return () => {
+      try {
+        window.clearTimeout(t);
+      } catch {}
+    };
+  }, [active, onConfettiDone]);
 
-    // Open onboarding shortly after confetti starts (if requested)
-    const openOnboarding = window.setTimeout(() => {
+  React.useEffect(() => {
+    if (DISABLE_CELEBRATION) return;
+    return () => {
+      if (hideConfettiTimeoutRef.current != null) {
+        clearTimeout(hideConfettiTimeoutRef.current);
+        hideConfettiTimeoutRef.current = null;
+      }
+    };
+  }, []);
+
+  // Start/stop the celebration container (mount the canvas first).
+  React.useEffect(() => {
+    if (DISABLE_CELEBRATION) return;
+    if (!active) {
+      if (hideConfettiTimeoutRef.current != null) {
+        clearTimeout(hideConfettiTimeoutRef.current);
+        hideConfettiTimeoutRef.current = null;
+      }
+      timersRef.current.forEach((t) => clearTimeout(t));
+      timersRef.current = [];
+      startedRunIdRef.current = 0;
+      setShowCanvas(false);
+      setMessageExiting(false);
+      return;
+    }
+
+    runIdRef.current += 1;
+    setShowCanvas(true);
+    setMessageExiting(false);
+  }, [active]);
+
+  // Fire confetti only once the Confetti API is ready (prevents "no confetti" on first activation).
+  React.useEffect(() => {
+    if (DISABLE_CELEBRATION) return;
+    if (!active) return;
+    if (!showCanvas) return;
+    if (!confettiReady) return;
+
+    const runId = runIdRef.current;
+    if (startedRunIdRef.current === runId) return;
+    startedRunIdRef.current = runId;
+
+    const fire = (opts: any) => {
+      try {
+        confettiApiRef.current?.fire(opts);
+      } catch {}
+    };
+
+    // Keep visible confetti falling for ~20s:
+    // - a few initial bursts
+    // - then a light "rain" stream to keep particles on-screen
+    const CONFETTI_DISPLAY_MS = 20000;
+    const CONFETTI_RAIN_MS = 18500;
+
+    const burst = (opts: any) => fire(opts);
+
+    // Small delay to ensure canvas is laid out (even when React/Next is busy).
+    const t1 = window.setTimeout(() => {
+      burst({
+        particleCount: 160,
+        spread: 90,
+        startVelocity: 52,
+        origin: { x: 0.5, y: 0.55 },
+        gravity: 1.15,
+        drift: 0.35,
+        ticks: 1200,
+        scalar: 1,
+      });
+    }, 60);
+    const t2 = window.setTimeout(() => {
+      burst({
+        particleCount: 130,
+        spread: 110,
+        startVelocity: 46,
+        origin: { x: 0.5, y: 0.55 },
+        gravity: 1.15,
+        drift: 0.35,
+        ticks: 1200,
+        scalar: 1,
+      });
+    }, 320);
+    const t3 = window.setTimeout(() => {
+      burst({
+        particleCount: 190,
+        spread: 75,
+        startVelocity: 58,
+        origin: { x: 0.5, y: 0.55 },
+        gravity: 1.15,
+        drift: 0.35,
+        ticks: 1200,
+        scalar: 1,
+      });
+    }, 620);
+
+    const rainInterval = window.setInterval(() => {
+      const x = 0.05 + Math.random() * 0.9;
+      burst({
+        particleCount: 10,
+        spread: 55,
+        startVelocity: 22,
+        angle: 90,
+        origin: { x, y: 0 },
+        gravity: 0.9,
+        drift: (Math.random() - 0.5) * 0.6,
+        ticks: 1200,
+        scalar: 0.9,
+      });
+    }, 240);
+
+    const stopRain = window.setTimeout(() => {
+      try {
+        window.clearInterval(rainInterval);
+      } catch {}
+    }, CONFETTI_RAIN_MS);
+    const MESSAGE_EXIT_DURATION_MS = 4000;
+    const MESSAGE_GONE_BY_MS = 7000;
+    const messageExitStartMs = MESSAGE_GONE_BY_MS - MESSAGE_EXIT_DURATION_MS; // 3s -> 7s fade/blur
+
+    const onConfettiDoneRef = onConfettiDone;
+    if (hideConfettiTimeoutRef.current != null) clearTimeout(hideConfettiTimeoutRef.current);
+    hideConfettiTimeoutRef.current = window.setTimeout(() => {
+      hideConfettiTimeoutRef.current = null;
+      if (runIdRef.current !== runId) return;
+      setShowCanvas(false);
+      try {
+        onConfettiDoneRef?.();
+      } catch {}
+    }, CONFETTI_DISPLAY_MS);
+
+    const tMsg = window.setTimeout(() => {
+      if (runIdRef.current !== runId) return;
+      setMessageExiting(true);
+    }, messageExitStartMs);
+
+    const tOnb = window.setTimeout(() => {
+      if (runIdRef.current !== runId) return;
       if (askSource) setOpen(true);
     }, 650);
 
-    return () => {
-      timeouts.forEach((t) => window.clearTimeout(t));
-      window.clearTimeout(done);
-      window.clearTimeout(openOnboarding);
-    };
-  }, [active, askSource, onConfettiDone]);
+    timersRef.current = [t1, t2, t3, stopRain, tMsg, tOnb, rainInterval as any];
 
-  // If confetti already fired but askSource becomes true later, still open the modal.
+    return () => {
+      timersRef.current.forEach((t: any) => {
+        try {
+          clearTimeout(t);
+          clearInterval(t);
+        } catch {}
+      });
+      timersRef.current = [];
+    };
+  }, [active, showCanvas, confettiReady, askSource, onConfettiDone]);
+
   React.useEffect(() => {
+    if (DISABLE_CELEBRATION) return;
     if (!active) return;
     if (!askSource) return;
     if (open) return;
-    if (!firedRef.current) return;
+    if (!showCanvas) return;
     setOpen(true);
-  }, [active, askSource, open]);
+  }, [active, askSource, open, showCanvas]);
 
   const saveSource = async (source: AcquisitionSource) => {
     if (saving) return;
@@ -136,15 +265,37 @@ export function CheckoutSuccessEffects({
     }
   };
 
+  if (DISABLE_CELEBRATION) return null;
+
   return (
     <>
       {showCanvas ? (
-        <Confetti
-          ref={confettiRef}
-          manualstart
-          className="fixed inset-0 z-[9999] pointer-events-none w-screen h-screen"
-          aria-hidden
-        />
+        <>
+          <Confetti
+            ref={setConfettiRef}
+            manualstart
+            globalOptions={{ resize: true, useWorker: false }}
+            className="fixed inset-0 z-[9999] pointer-events-none w-screen h-screen"
+            aria-hidden
+          />
+          <motion.div
+            className="fixed inset-0 z-[9999] pointer-events-none flex items-center justify-center"
+            initial={false}
+            animate={{
+              opacity: messageExiting ? 0 : 1,
+              filter: messageExiting ? "blur(12px)" : "blur(0px)",
+            }}
+            transition={{ duration: 4, ease: "easeInOut" }}
+          >
+            <BlurText
+              text="Welcome to Ecom Efficiency"
+              delay={200}
+              animateBy="words"
+              direction="top"
+              className="text-2xl md:text-3xl font-semibold text-white text-center px-4 drop-shadow-lg"
+            />
+          </motion.div>
+        </>
       ) : null}
 
       {open ? (

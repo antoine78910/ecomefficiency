@@ -35,6 +35,7 @@ const App = ({
 
   // Keep stable callbacks so confetti isn't interrupted by re-renders (e.g. credentials loading).
   const handleConfettiDone = React.useCallback(() => {
+    console.log("[App] handleConfettiDone called -> setCheckoutSuccessActive(false)")
     setCheckoutSuccessActive(false)
   }, [])
 
@@ -45,6 +46,17 @@ const App = ({
     } catch {
       return false
     }
+  }, [])
+
+  // Simulate return (sim_*): trigger confetti immediately so it always runs on localhost.
+  React.useEffect(() => {
+    try {
+      if (typeof window === 'undefined') return
+      const url = new URL(window.location.href)
+      if (url.searchParams.get('checkout') !== 'success') return
+      const sessionId = String(url.searchParams.get('session_id') || '')
+      if (sessionId.startsWith('sim_')) setCheckoutSuccessActive(true)
+    } catch {}
   }, [])
 
   // Dev-only: allow testing confetti without Stripe/Supabase configured
@@ -491,6 +503,7 @@ const App = ({
     if (!showAffiliateCta) return // never ask on white-label surfaces
     if (partnerSlug) return // avoid asking partners users to review EcomEfficiency
     if (reviewPromptOpen) return
+    if (checkoutSuccessActive) return // never interrupt checkout celebration
 
     let cancelled = false
     // Clear any previous timer when this effect runs
@@ -611,7 +624,7 @@ const App = ({
         reviewPromptTimerRef.current = null
       } catch {}
     }
-  }, [appPlan, isEcomEfficiencyAppOrLocalHost, partnerSlug, reviewPromptOpen, showAffiliateCta, reviewPromptTick])
+  }, [appPlan, checkoutSuccessActive, isEcomEfficiencyAppOrLocalHost, partnerSlug, reviewPromptOpen, showAffiliateCta, reviewPromptTick])
 
   // Bottom-right server country/currency badge for debugging currency decision
 
