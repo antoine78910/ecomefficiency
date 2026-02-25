@@ -48,9 +48,11 @@ export function CheckoutSuccessEffects({
   const [saving, setSaving] = React.useState<AcquisitionSource | null>(null);
   const { toast } = useToast();
   const runIdRef = React.useRef(0);
-  const hideConfettiTimeoutRef = React.useRef<ReturnType<typeof setTimeout> | null>(null);
+  // In the browser, window.setTimeout returns a number.
+  // (Using ReturnType<typeof setTimeout> can become NodeJS.Timeout on Vercel typecheck.)
+  const hideConfettiTimeoutRef = React.useRef<number | null>(null);
   const startedRunIdRef = React.useRef<number>(0);
-  const timersRef = React.useRef<ReturnType<typeof setTimeout>[]>([]);
+  const timersRef = React.useRef<number[]>([]);
 
   const close = React.useCallback(() => {
     setOpen(false);
