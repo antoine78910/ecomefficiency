@@ -7,6 +7,7 @@ import PricingSection from "@/components/PricingSection";
 import VideoSection from "@/components/VideoSection";
 import FaqSection from "@/components/FaqSection";
 import JoinMembersSection from "@/components/JoinMembersSection";
+import GoalClient from "@/components/GoalClient";
 
 export const metadata: Metadata = {
   title: "EcomEfficiency - All-in-One Access to 50+ SEO, Spy & AI Tools for Ecommerce",
@@ -72,6 +73,7 @@ export default function Home() {
 
   return (
     <div className="min-h-screen bg-black">
+      <GoalClient name="view_home" metadata={{ path: "/" }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }} />
       <NewNavbar />
 

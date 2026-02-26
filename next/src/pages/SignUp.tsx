@@ -6,6 +6,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { motion, useMotionTemplate, useMotionValue } from 'framer-motion';
 import { Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { postGoal } from "@/lib/analytics";
 
 export default function SignUp() {
   const [name, setName] = React.useState("");
@@ -19,6 +20,7 @@ export default function SignUp() {
 
   const oauth = async () => {
     try { 
+      try { postGoal('click_continue_google', { surface: 'sign_up', provider: 'google' }); } catch {}
       setPending(true); 
       // Ensure we use a valid redirection URL authorized in Supabase
       const origin = window.location.origin;
@@ -46,6 +48,7 @@ export default function SignUp() {
     if (!canSubmit) return;
     try {
       setPending(true);
+      try { postGoal('click_sign_up', { surface: 'sign_up', method: 'email' }); } catch {}
       const { data, error } = await supabase.auth.signUp({
         email,
         password,

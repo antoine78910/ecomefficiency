@@ -160,13 +160,19 @@ const App = ({
 
         // 4. Tracking DataFast
         try {
+            const providerRaw =
+              (user?.app_metadata && (user.app_metadata.provider || (Array.isArray(user.app_metadata.providers) ? user.app_metadata.providers[0] : undefined))) ||
+              (user?.app_metadata && user.app_metadata?.provider_id) ||
+              undefined
+            const provider = providerRaw ? String(providerRaw) : 'unknown'
             (window as any)?.datafast?.('sign_up', {
                 email: user.email,
                 user_id: user.id,
-                verified_at: new Date().toISOString()
+                verified_at: new Date().toISOString(),
+                provider,
             });
             // Fallback via postGoal to ensure DataFast goal triggers alongside Brevo
-            try { postGoal('sign_up', { email: user.email }); } catch {}
+            try { postGoal('sign_up', { email: String(user.email), provider }); } catch {}
         } catch {}
 
         // 5. Tracking Brevo

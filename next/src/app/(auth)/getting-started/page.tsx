@@ -7,6 +7,7 @@ import { supabase, SUPABASE_CONFIG_OK } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Check, ChevronDown, X } from "lucide-react";
 import { seoToolsCatalog } from "@/data/seoToolsCatalog";
+import { postGoal } from "@/lib/analytics";
 
 type AcquisitionSource =
   | "instagram"
@@ -268,6 +269,15 @@ export default function GettingStartedPage() {
   }, [step]);
 
   React.useEffect(() => {
+    try { postGoal('view_getting_started'); } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  React.useEffect(() => {
+    try { postGoal('view_getting_started_step', { step: String(step) }); } catch {}
+  }, [step]);
+
+  React.useEffect(() => {
     if (!seoModalOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") setSeoModalOpen(false);
@@ -348,6 +358,13 @@ export default function GettingStartedPage() {
       } catch {}
       return;
     }
+    // Funnel tracking: clicked "Next" after answering the 2 questions
+    try {
+      postGoal('click_getting_started_next', {
+        work_type: String(workType),
+        source: String(source),
+      });
+    } catch {}
     setSaving(true);
     try {
       const nowIso = new Date().toISOString();
