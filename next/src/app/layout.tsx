@@ -5,7 +5,7 @@ import GlobalGetStartedClickTracker from "@/components/GlobalGetStartedClickTrac
 import FirstPromoterScript from "@/components/FirstPromoterScript";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://ecomefficiency.com"),
+  metadataBase: new URL("https://www.ecomefficiency.com"),
   title: {
     default: "EcomEfficiency - All-in-One Access to 50+ SEO, Spy & AI Tools for Ecommerce",
     template: "EcomEfficiency - %s",
@@ -14,7 +14,7 @@ export const metadata: Metadata = {
     "#1 group buy for ecommerce & online businesses – Save $4,000+ every month",
   openGraph: {
     type: "website",
-    url: "https://ecomefficiency.com/",
+    url: "https://www.ecomefficiency.com/",
     title: "EcomEfficiency - All-in-One Access to 50+ SEO, Spy & AI Tools for Ecommerce",
     description: "#1 group buy for ecommerce & online businesses – Save $4,000+ every month",
     siteName: "Ecom Efficiency",

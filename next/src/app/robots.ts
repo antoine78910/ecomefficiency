@@ -24,8 +24,8 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
 
   // Advertise only canonical host to avoid split indexing (www vs non-www).
   const mainSitemaps = [
-    "https://ecomefficiency.com/sitemap.xml",
-    "https://ecomefficiency.com/ai-sitemap.xml",
+    "https://www.ecomefficiency.com/sitemap.xml",
+    "https://www.ecomefficiency.com/ai-sitemap.xml",
   ];
 
   // Private surfaces: prevent crawling entirely (avoids lots of "Excluded: 401/403/redirect/noindex" noise).

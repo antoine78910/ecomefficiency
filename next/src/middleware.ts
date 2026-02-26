@@ -186,7 +186,6 @@ export async function middleware(req: NextRequest) {
   const hostHeader = (req.headers.get('host') || '')
   const hostname = hostHeader.toLowerCase().split(':')[0]
   const bareHostname = hostname.replace(/^www\./, '')
-  const isWwwMarketingHost = hostname === 'www.ecomefficiency.com'
   const isLocalhostHost =
     hostname === 'localhost' ||
     hostname === '127.0.0.1' ||
@@ -212,15 +211,6 @@ export async function middleware(req: NextRequest) {
     target.protocol = 'https:'
     target.port = ''
     target.pathname = cleanedPathname
-    return NextResponse.redirect(target, 308)
-  }
-
-  // Canonicalize marketing domain to non-www to prevent split indexing.
-  if (isWwwMarketingHost) {
-    const target = new URL(req.nextUrl.toString())
-    target.protocol = 'https:'
-    target.hostname = 'ecomefficiency.com'
-    target.port = ''
     return NextResponse.redirect(target, 308)
   }
 

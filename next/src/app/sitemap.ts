@@ -4,7 +4,7 @@ import { toolsCatalog, resolveToolSlug } from "@/data/toolsCatalog";
 import { seoToolsCatalog } from "@/data/seoToolsCatalog";
 
 // Canonical host for indexing.
-const BASE_URL = "https://ecomefficiency.com";
+const BASE_URL = "https://www.ecomefficiency.com";
 
 // Pages that should NOT be discoverable via sitemap (no SEO value / private/legal).
 const SITEMAP_EXCLUDE_PATHS = new Set<string>([
