@@ -163,8 +163,8 @@ const App = ({
             const providerRaw: unknown =
               (user?.app_metadata && (user.app_metadata.provider || (Array.isArray(user.app_metadata.providers) ? user.app_metadata.providers[0] : undefined))) ||
               (user?.app_metadata && user.app_metadata?.provider_id) ||
-              undefined
-            const provider: string = providerRaw != null ? `${providerRaw}` : 'unknown'
+              undefined;
+            const provider: string = providerRaw != null ? `${providerRaw}` : 'unknown';
             (window as any)?.datafast?.('sign_up', {
                 email: user.email,
                 user_id: user.id,
