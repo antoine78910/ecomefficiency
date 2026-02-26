@@ -5,7 +5,7 @@ import GlobalGetStartedClickTracker from "@/components/GlobalGetStartedClickTrac
 import FirstPromoterScript from "@/components/FirstPromoterScript";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.ecomefficiency.com"),
+  metadataBase: new URL("https://ecomefficiency.com"),
   title: {
     default: "EcomEfficiency - All-in-One Access to 50+ SEO, Spy & AI Tools for Ecommerce",
     template: "EcomEfficiency - %s",

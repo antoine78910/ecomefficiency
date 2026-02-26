@@ -22,13 +22,10 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
   const isApp = host === "app.localhost" || host.startsWith("app.");
   const isPartners = host === "partners.localhost" || host.startsWith("partners.");
 
-  // Advertise both hosts. Canonicalization may be handled at the platform layer (Vercel/DNS),
-  // and including both helps Search Console properties (www vs non-www) discover the sitemap.
+  // Advertise only canonical host to avoid split indexing (www vs non-www).
   const mainSitemaps = [
     "https://ecomefficiency.com/sitemap.xml",
     "https://ecomefficiency.com/ai-sitemap.xml",
-    "https://www.ecomefficiency.com/sitemap.xml",
-    "https://www.ecomefficiency.com/ai-sitemap.xml",
   ];
 
   // Private surfaces: prevent crawling entirely (avoids lots of "Excluded: 401/403/redirect/noindex" noise).
