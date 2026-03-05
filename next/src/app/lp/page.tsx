@@ -17,6 +17,7 @@ export const metadata: Metadata = {
   title: "White-Label — Launch your SaaS in days | Ecom Efficiency",
   description:
     "Launch your own SaaS in days. White-label a fully operational SaaS under your brand, your Stripe, your rules — without tech, support, or operational hell.",
+  alternates: { canonical: "/lp" },
 };
 
 function isPartnersHost(hostHeader: string) {

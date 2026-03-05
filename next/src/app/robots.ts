@@ -1,5 +1,6 @@
 import type { MetadataRoute } from "next";
 import { headers } from "next/headers";
+import { CANONICAL_ORIGIN } from "@/lib/canonicalOrigin";
 
 function cleanHost(input: string) {
   return String(input || "")
@@ -22,10 +23,10 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
   const isApp = host === "app.localhost" || host.startsWith("app.");
   const isPartners = host === "partners.localhost" || host.startsWith("partners.");
 
-  // Advertise only canonical host to avoid split indexing (www vs non-www).
+  // Single canonical origin (www). Sitemap URLs must match metadataBase so Google keeps one version.
   const mainSitemaps = [
-    "https://www.ecomefficiency.com/sitemap.xml",
-    "https://www.ecomefficiency.com/ai-sitemap.xml",
+    `${CANONICAL_ORIGIN}/sitemap.xml`,
+    `${CANONICAL_ORIGIN}/ai-sitemap.xml`,
   ];
 
   // Private surfaces: prevent crawling entirely (avoids lots of "Excluded: 401/403/redirect/noindex" noise).

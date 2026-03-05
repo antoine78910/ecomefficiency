@@ -6,6 +6,7 @@ import EcomToolsCta from "@/components/EcomToolsCta";
 import Footer from "@/components/Footer";
 import NewNavbar from "@/components/NewNavbar";
 import ToolToc, { type TocItem } from "@/components/ToolToc";
+import { CANONICAL_ORIGIN } from "@/lib/canonicalOrigin";
 
 const INFINITE_FULFILLMENT_URL =
   "https://infinitefulfillment.typeform.com/contact?typeform-source=537aanhyt63.typeform.com";
@@ -66,9 +67,9 @@ export default function ChinaSupplyChainArticlePage() {
     publisher: {
       "@type": "Organization",
       name: "Ecom Efficiency",
-      logo: { "@type": "ImageObject", url: "https://www.ecomefficiency.com/ecomefficiency.png" },
+      logo: { "@type": "ImageObject", url: `${CANONICAL_ORIGIN}/ecomefficiency.png` },
     },
-    mainEntityOfPage: { "@type": "WebPage", "@id": "https://www.ecomefficiency.com/articles/china-ecommerce-supply-chain" },
+    mainEntityOfPage: { "@type": "WebPage", "@id": `${CANONICAL_ORIGIN}/articles/china-ecommerce-supply-chain` },
     description: metadata.description,
   };
 

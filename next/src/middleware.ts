@@ -2,7 +2,7 @@ import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { updateSession } from './integrations/supabase/middleware'
 import { performSecurityCheck, getClientIP } from './lib/security'
-import { createServerClient, type CookieOptions } from '@supabase/ssr'
+import { getAdminPanelToken } from './lib/adminSecrets'
 
 export async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname
@@ -14,9 +14,9 @@ export async function middleware(req: NextRequest) {
     )
 
   // 🔐 Admin token gate (protects /admin and /api/admin)
-  // - Access with /admin?token=Zjhfc82005ad once, it sets a httpOnly cookie.
-  // - Afterwards, navigation + API calls are allowed via cookie.
-  const expectedAdminToken = process.env.ADMIN_PANEL_TOKEN || 'Zjhfc82005ad'
+  // In production, ADMIN_PANEL_TOKEN must be set in env (Vercel / .env.production).
+  // Access with /admin?token=<your_token> once, it sets a httpOnly cookie.
+  const expectedAdminToken = getAdminPanelToken()
   const isAdminSurface =
     pathname === '/admin' ||
     pathname.startsWith('/admin/') ||
@@ -24,11 +24,17 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith('/api/admin/')
 
   if (isAdminSurface) {
+    if (!expectedAdminToken) {
+      return new NextResponse(
+        `<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Configuration required</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#000;color:#fff;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial} .card{max-width:520px;padding:28px;border:1px solid rgba(255,255,255,.12);border-radius:14px;background:rgba(255,255,255,.04)} .muted{color:rgba(255,255,255,.65);font-size:14px;line-height:1.5} code{background:rgba(255,255,255,.08);padding:.12rem .35rem;border-radius:.4rem}</style></head><body><div class="card"><h1 style="margin:0 0 10px;font-size:22px">Configuration required</h1><p class="muted" style="margin:0 0 14px">Set <code>ADMIN_PANEL_TOKEN</code> in your environment (e.g. Vercel project settings).</p><p class="muted" style="margin:0">No hardcoded fallback in production.</p></div></body></html>`,
+        { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } }
+      )
+    }
     const queryToken = String(req.nextUrl.searchParams.get('token') || '')
     const cookieToken = String(req.cookies.get('ee_admin_token')?.value || '')
     const provided = queryToken || cookieToken
 
-    if (!expectedAdminToken || provided !== expectedAdminToken) {
+    if (provided !== expectedAdminToken) {
       return new NextResponse(
         `<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Unauthorized</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#000;color:#fff;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial} .card{max-width:520px;padding:28px;border:1px solid rgba(255,255,255,.12);border-radius:14px;background:rgba(255,255,255,.04)} .muted{color:rgba(255,255,255,.65);font-size:14px;line-height:1.5} code{background:rgba(255,255,255,.08);padding:.12rem .35rem;border-radius:.4rem}</style></head><body><div class="card"><h1 style="margin:0 0 10px;font-size:22px">Unauthorized</h1><p class="muted" style="margin:0 0 14px">This area is protected.</p><p class="muted" style="margin:0">Open <code>/admin?token=…</code> with the correct token.</p></div></body></html>`,
         {

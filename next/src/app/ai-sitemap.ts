@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
+import { CANONICAL_ORIGIN } from "@/lib/canonicalOrigin";
 
-const BASE_URL = "https://ecomefficiency.com";
+const BASE_URL = CANONICAL_ORIGIN;
 
 // Dedicated sitemap for high-value, AI-relevant pages.
 export default function aiSitemap(): MetadataRoute.Sitemap {

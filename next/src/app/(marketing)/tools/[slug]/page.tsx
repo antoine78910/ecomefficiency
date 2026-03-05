@@ -8,6 +8,7 @@ import NewNavbar from "@/components/NewNavbar";
 import ToolToc from "@/components/ToolToc";
 import { seoToolsCatalog } from "@/data/seoToolsCatalog";
 import { toolsCatalog } from "@/data/toolsCatalog";
+import { CANONICAL_ORIGIN } from "@/lib/canonicalOrigin";
 import AtriaChapters, { atriaFaq, atriaToc } from "./AtriaChapters";
 import DropshipIoChapters, { dropshipIoFaq, dropshipIoToc } from "./DropshipIoChapters";
 import ElevenLabsChapters, { elevenLabsFaq, elevenLabsToc } from "./ElevenLabsChapters";
@@ -490,7 +491,7 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
     description: tool.shortDescription,
     applicationCategory: tool.category,
     operatingSystem: "Web",
-    url: `https://www.ecomefficiency.com/tools/${tool.slug}`,
+    url: `${CANONICAL_ORIGIN}/tools/${tool.slug}`,
     creator: { "@type": "Organization", name: "Ecom Efficiency" },
   };
 

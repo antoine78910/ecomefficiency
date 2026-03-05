@@ -67,8 +67,9 @@ export default async function AdminActivityPage() {
   // Auth: allow either admin token cookie OR legacy admin_session cookie
   const cookieStore = await cookies()
   const tokenCookie = cookieStore.get('ee_admin_token')
-  const expectedToken = process.env.ADMIN_PANEL_TOKEN || 'Zjhfc82005ad'
-  const hasToken = Boolean(expectedToken && tokenCookie?.value === expectedToken)
+  const expectedToken = (await import('@/lib/adminSecrets')).getAdminPanelToken()
+  if (!expectedToken) redirect('/admin?config=missing')
+  const hasToken = Boolean(tokenCookie?.value === expectedToken)
   const sessionCookie = cookieStore.get('admin_session')
   
   if (!hasToken && !sessionCookie?.value) {

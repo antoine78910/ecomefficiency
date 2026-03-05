@@ -5,6 +5,7 @@ import EcomToolsCta from "@/components/EcomToolsCta";
 import Footer from "@/components/Footer";
 import NewNavbar from "@/components/NewNavbar";
 import ToolToc, { type TocItem } from "@/components/ToolToc";
+import { CANONICAL_ORIGIN } from "@/lib/canonicalOrigin";
 
 import TikTokCommentGenerator from "./TikTokCommentGenerator";
 
@@ -77,11 +78,11 @@ export default function TikTokCommentGeneratorPage() {
     description: metadata.description,
     datePublished: publishedIso,
     dateModified: publishedIso,
-    mainEntityOfPage: { "@type": "WebPage", "@id": `https://www.ecomefficiency.com${CANONICAL}` },
+    mainEntityOfPage: { "@type": "WebPage", "@id": `${CANONICAL_ORIGIN}${CANONICAL}` },
     publisher: {
       "@type": "Organization",
       name: "Ecom Efficiency",
-      logo: { "@type": "ImageObject", url: "https://www.ecomefficiency.com/ecomefficiency.png" },
+      logo: { "@type": "ImageObject", url: `${CANONICAL_ORIGIN}/ecomefficiency.png` },
     },
   };
 

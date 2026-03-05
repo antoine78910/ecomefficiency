@@ -9,6 +9,7 @@ import ToolToc, { type TocItem } from "@/components/ToolToc";
 import { toolsCatalog, type ToolCatalogItem, resolveToolSlug } from "@/data/toolsCatalog";
 import { seoToolsCatalog } from "@/data/seoToolsCatalog";
 import { getFreeTrialInfo } from "@/data/freeTrialStatus";
+import { CANONICAL_ORIGIN } from "@/lib/canonicalOrigin";
 
 const YEAR = 2026;
 
@@ -227,11 +228,11 @@ export default async function FreeTrialToolPage({ params }: { params: Promise<{ 
     description: metaDescription(t.name),
     datePublished: publishedIso,
     dateModified: publishedIso,
-    mainEntityOfPage: { "@type": "WebPage", "@id": `https://www.ecomefficiency.com/free-trial/${tool}` },
+    mainEntityOfPage: { "@type": "WebPage", "@id": `${CANONICAL_ORIGIN}/free-trial/${tool}` },
     publisher: {
       "@type": "Organization",
       name: "Ecom Efficiency",
-      logo: { "@type": "ImageObject", url: "https://www.ecomefficiency.com/ecomefficiency.png" },
+      logo: { "@type": "ImageObject", url: `${CANONICAL_ORIGIN}/ecomefficiency.png` },
     },
   };
 

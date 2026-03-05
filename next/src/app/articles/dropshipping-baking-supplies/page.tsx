@@ -3,6 +3,7 @@ import Image from "next/image";
 import Link from "next/link";
 import ToolToc, { type TocItem } from "@/components/ToolToc";
 import EcomToolsCta from "@/components/EcomToolsCta";
+import { CANONICAL_ORIGIN } from "@/lib/canonicalOrigin";
 
 import Footer from "@/components/Footer";
 import NewNavbar from "@/components/NewNavbar";
@@ -64,9 +65,9 @@ export default function DropshippingBakingSuppliesArticlePage() {
     publisher: {
       "@type": "Organization",
       name: "Ecom Efficiency",
-      logo: { "@type": "ImageObject", url: "https://www.ecomefficiency.com/ecomefficiency.png" },
+      logo: { "@type": "ImageObject", url: `${CANONICAL_ORIGIN}/ecomefficiency.png` },
     },
-    mainEntityOfPage: { "@type": "WebPage", "@id": "https://www.ecomefficiency.com/articles/dropshipping-baking-supplies" },
+    mainEntityOfPage: { "@type": "WebPage", "@id": `${CANONICAL_ORIGIN}/articles/dropshipping-baking-supplies` },
     description: metadata.description,
   };
 

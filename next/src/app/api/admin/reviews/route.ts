@@ -1,16 +1,13 @@
 import { NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { supabaseAdmin } from "@/integrations/supabase/server"
+import { getAdminPanelToken } from "@/lib/adminSecrets"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
-function expectedToken() {
-  return process.env.ADMIN_PANEL_TOKEN || "Zjhfc82005ad"
-}
-
 async function isAuthorized(req: NextRequest) {
-  const expected = expectedToken()
+  const expected = getAdminPanelToken()
   const url = new URL(req.url)
   const q = String(url.searchParams.get("token") || "")
   if (q && q === expected) return true
@@ -43,6 +40,9 @@ function pick(meta: any) {
 
 export async function GET(req: NextRequest) {
   try {
+    if (process.env.NODE_ENV === "production" && !getAdminPanelToken()) {
+      return NextResponse.json({ ok: false, error: "ADMIN_PANEL_TOKEN not set" }, { status: 503 })
+    }
     if (!(await isAuthorized(req))) {
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 })
     }

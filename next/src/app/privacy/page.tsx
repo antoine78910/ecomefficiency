@@ -1,6 +1,7 @@
 export const metadata = {
   title: "Privacy Policy | Ecom Efficiency",
   description: "How Ecom Efficiency collects, uses, and protects your personal data.",
+  alternates: { canonical: "/privacy" },
 };
 
 export default function PrivacyPage() {

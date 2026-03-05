@@ -8,14 +8,15 @@ import VideoSection from "@/components/VideoSection";
 import FaqSection from "@/components/FaqSection";
 import JoinMembersSection from "@/components/JoinMembersSection";
 import GoalClient from "@/components/GoalClient";
+import { CANONICAL_ORIGIN } from "@/lib/canonicalOrigin";
 
 export const metadata: Metadata = {
   title: "EcomEfficiency - All-in-One Access to 50+ SEO, Spy & AI Tools for Ecommerce",
   description:
     "#1 group buy for ecommerce & online businesses – Save $4,000+ every month",
-  alternates: { canonical: "/" },
+  alternates: { canonical: `${CANONICAL_ORIGIN}/` },
   openGraph: {
-    url: "/",
+    url: `${CANONICAL_ORIGIN}/`,
     title: "EcomEfficiency - All-in-One Access to 50+ SEO, Spy & AI Tools for Ecommerce",
     description:
       "#1 group buy for ecommerce & online businesses – Save $4,000+ every month",

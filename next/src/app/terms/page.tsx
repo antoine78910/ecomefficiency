@@ -1,6 +1,7 @@
 export const metadata = {
   title: "Terms of Service | Ecom Efficiency",
   description: "Terms governing the use of the Ecom Efficiency platform and subscriptions.",
+  alternates: { canonical: "/terms" },
 };
 
 export default function TermsPage() {

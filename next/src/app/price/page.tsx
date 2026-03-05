@@ -2,10 +2,16 @@ import NewNavbar from "@/components/NewNavbar";
 import PricingSection from "@/components/PricingSection";
 import Footer from "@/components/Footer";
 import GoalClient from "@/components/GoalClient";
+import { CANONICAL_ORIGIN } from "@/lib/canonicalOrigin";
+import type { Metadata } from "next";
 
 // Static marketing page to avoid runtime cost
 export const dynamic = "force-static";
 export const revalidate = 86400; // 1 day
+
+export const metadata: Metadata = {
+  alternates: { canonical: "/price" },
+};
 
 function PriceClient() {
   const productJsonLd = {
@@ -15,14 +21,14 @@ function PriceClient() {
     description:
       "Pricing for legacy customers upgrading to the new Pro plan. Includes additional credit accounts for Pro: +500k ElevenLabs credits and +200k Pipiads credits.",
     brand: { "@type": "Brand", name: "Ecom Efficiency" },
-    url: "https://ecomefficiency.com/price",
+    url: `${CANONICAL_ORIGIN}/price`,
     offers: {
       "@type": "AggregateOffer",
       priceCurrency: "USD",
       lowPrice: "19.99",
       highPrice: "29.99",
       availability: "https://schema.org/InStock",
-      url: "https://ecomefficiency.com/price",
+      url: `${CANONICAL_ORIGIN}/price`,
     },
   };
 

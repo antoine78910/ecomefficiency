@@ -6,6 +6,7 @@ import EcomToolsCta from "@/components/EcomToolsCta";
 import Footer from "@/components/Footer";
 import NewNavbar from "@/components/NewNavbar";
 import ToolToc, { type TocItem } from "@/components/ToolToc";
+import { CANONICAL_ORIGIN } from "@/lib/canonicalOrigin";
 
 export const metadata: Metadata = {
   title: "Dropshipping product research (2026): real method with PipiAds + Dropship.io | Ecom Efficiency",
@@ -93,9 +94,9 @@ export default function DropshippingProductResearch2026ArticlePage() {
     publisher: {
       "@type": "Organization",
       name: "Ecom Efficiency",
-      logo: { "@type": "ImageObject", url: "https://www.ecomefficiency.com/ecomefficiency.png" },
+      logo: { "@type": "ImageObject", url: `${CANONICAL_ORIGIN}/ecomefficiency.png` },
     },
-    mainEntityOfPage: { "@type": "WebPage", "@id": "https://www.ecomefficiency.com/articles/dropshipping-product-research-2026" },
+    mainEntityOfPage: { "@type": "WebPage", "@id": `${CANONICAL_ORIGIN}/articles/dropshipping-product-research-2026` },
     description: metadata.description,
   };
 

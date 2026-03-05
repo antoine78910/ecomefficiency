@@ -1,6 +1,7 @@
 export const metadata = {
   title: "Terms of Sale | Ecom Efficiency",
   description: "Subscription and billing terms for Ecom Efficiency memberships.",
+  alternates: { canonical: "/terms-of-sale" },
 };
 
 export default function TermsOfSalePage() {

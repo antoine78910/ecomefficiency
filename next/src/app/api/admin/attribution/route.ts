@@ -2,16 +2,13 @@ import { NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import Stripe from "stripe"
 import { supabaseAdmin } from "@/integrations/supabase/server"
+import { getAdminPanelToken } from "@/lib/adminSecrets"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
-function expectedToken() {
-  return process.env.ADMIN_PANEL_TOKEN || "Zjhfc82005ad"
-}
-
 async function isAuthorized(req: NextRequest) {
-  const expected = expectedToken()
+  const expected = getAdminPanelToken()
   if (!expected) return false
 
   const url = new URL(req.url)
@@ -49,6 +46,9 @@ async function mapWithLimit<T, R>(items: T[], limit: number, fn: (item: T, idx: 
 
 export async function GET(req: NextRequest) {
   try {
+    if (process.env.NODE_ENV === "production" && !getAdminPanelToken()) {
+      return NextResponse.json({ ok: false, error: "ADMIN_PANEL_TOKEN not set" }, { status: 503 })
+    }
     if (!(await isAuthorized(req))) {
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 })
     }

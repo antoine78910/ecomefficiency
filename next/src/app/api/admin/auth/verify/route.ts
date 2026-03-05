@@ -1,10 +1,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createHmac } from 'crypto'
-
-function getExpectedAdminToken() {
-  return process.env.ADMIN_PANEL_TOKEN || 'Zjhfc82005ad'
-}
+import { getAdminPanelToken } from '@/lib/adminSecrets'
 
 function getAdminSessionSecret() {
   return (
@@ -17,10 +14,16 @@ function getAdminSessionSecret() {
 
 export async function GET() {
   try {
+    const expectedToken = getAdminPanelToken()
+    if (!expectedToken) {
+      return NextResponse.json(
+        { success: false, authenticated: false, error: 'ADMIN_PANEL_TOKEN not set' },
+        { status: 503 }
+      )
+    }
     const cookieStore = await cookies()
     const tokenCookie = cookieStore.get('ee_admin_token')?.value || ''
-    const expectedToken = getExpectedAdminToken()
-    if (expectedToken && tokenCookie === expectedToken) {
+    if (tokenCookie === expectedToken) {
       return NextResponse.json({ success: true, authenticated: true })
     }
 

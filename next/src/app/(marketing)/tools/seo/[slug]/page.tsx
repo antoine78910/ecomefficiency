@@ -8,6 +8,7 @@ import NewNavbar from "@/components/NewNavbar";
 import ToolToc from "@/components/ToolToc";
 import type { TocItem } from "@/components/ToolToc";
 import { seoToolsCatalog, type SeoTool } from "@/data/seoToolsCatalog";
+import { CANONICAL_ORIGIN } from "@/lib/canonicalOrigin";
 
 export const dynamic = "force-static";
 export const revalidate = 86400; // 1 day
@@ -147,7 +148,7 @@ export default async function SeoToolPage({ params }: { params: Promise<{ slug: 
     description: tool.shortDescription,
     applicationCategory: "SEO Tool",
     operatingSystem: "Web",
-    url: `https://www.ecomefficiency.com/tools/seo/${tool.slug}`,
+    url: `${CANONICAL_ORIGIN}/tools/seo/${tool.slug}`,
     creator: { "@type": "Organization", name: "Ecom Efficiency" },
   };
 

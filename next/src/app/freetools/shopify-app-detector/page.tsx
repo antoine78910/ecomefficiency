@@ -1,6 +1,7 @@
 import * as React from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { CANONICAL_ORIGIN } from "@/lib/canonicalOrigin";
 
 import EcomToolsCta from "@/components/EcomToolsCta";
 import Footer from "@/components/Footer";
@@ -69,11 +70,11 @@ export default function ShopifyAppDetectorPage() {
     description: metadata.description,
     datePublished: publishedIso,
     dateModified: publishedIso,
-    mainEntityOfPage: { "@type": "WebPage", "@id": `https://www.ecomefficiency.com${CANONICAL}` },
+    mainEntityOfPage: { "@type": "WebPage", "@id": `${CANONICAL_ORIGIN}${CANONICAL}` },
     publisher: {
       "@type": "Organization",
       name: "Ecom Efficiency",
-      logo: { "@type": "ImageObject", url: "https://www.ecomefficiency.com/ecomefficiency.png" },
+      logo: { "@type": "ImageObject", url: `${CANONICAL_ORIGIN}/ecomefficiency.png` },
     },
   };
 

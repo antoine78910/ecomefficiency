@@ -6,6 +6,7 @@ import EcomToolsCta from "@/components/EcomToolsCta";
 import Footer from "@/components/Footer";
 import NewNavbar from "@/components/NewNavbar";
 import ToolToc, { type TocItem } from "@/components/ToolToc";
+import { CANONICAL_ORIGIN } from "@/lib/canonicalOrigin";
 
 export const metadata: Metadata = {
   title: "How to be profitable on saturated products (3 pillars) | Ecom Efficiency",
@@ -72,9 +73,9 @@ export default function ProfitableSaturatedProductsArticlePage() {
     publisher: {
       "@type": "Organization",
       name: "Ecom Efficiency",
-      logo: { "@type": "ImageObject", url: "https://www.ecomefficiency.com/ecomefficiency.png" },
+      logo: { "@type": "ImageObject", url: `${CANONICAL_ORIGIN}/ecomefficiency.png` },
     },
-    mainEntityOfPage: { "@type": "WebPage", "@id": "https://www.ecomefficiency.com/articles/profitable-saturated-products" },
+    mainEntityOfPage: { "@type": "WebPage", "@id": `${CANONICAL_ORIGIN}/articles/profitable-saturated-products` },
     description: metadata.description,
   };
 

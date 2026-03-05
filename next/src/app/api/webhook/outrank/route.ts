@@ -1,16 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/integrations/supabase/server";
 
-// SECURITY: This should match what you set in Outrank dashboard
-const ACCESS_TOKEN = process.env.OUTRANK_WEBHOOK_ACCESS_TOKEN || 'your_secure_token_here_change_me';
+function getOutrankWebhookToken(): string | null {
+  const token = process.env.OUTRANK_WEBHOOK_ACCESS_TOKEN?.trim();
+  if (process.env.NODE_ENV === "production") {
+    return token && token.length > 0 ? token : null;
+  }
+  return token || "your_secure_token_here_change_me";
+}
 
 function validateAccessToken(req: NextRequest): boolean {
+  const expected = getOutrankWebhookToken();
+  if (!expected) return false;
   const authHeader = req.headers.get('authorization');
   if (!authHeader || !authHeader.startsWith("Bearer ")) {
     return false;
   }
   const token = authHeader.split(" ")[1];
-  return token === ACCESS_TOKEN;
+  return token === expected;
 }
 
 type OutrankArticle = {
@@ -36,8 +43,12 @@ type OutrankWebhookPayload = {
 export async function POST(req: NextRequest) {
   try {
     console.log('[outrank-webhook] 🔔 Webhook received');
-    
-    // Validate access token
+    if (process.env.NODE_ENV === "production" && !getOutrankWebhookToken()) {
+      return NextResponse.json(
+        { error: 'OUTRANK_WEBHOOK_ACCESS_TOKEN not set in production' },
+        { status: 503 }
+      );
+    }
     if (!validateAccessToken(req)) {
       console.error('[outrank-webhook] ❌ Invalid access token');
       return NextResponse.json({ error: 'Invalid access token' }, { status: 401 });

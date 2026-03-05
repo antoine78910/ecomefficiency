@@ -6,6 +6,7 @@ import EcomToolsCta from "@/components/EcomToolsCta";
 import Footer from "@/components/Footer";
 import NewNavbar from "@/components/NewNavbar";
 import ToolToc, { type TocItem } from "@/components/ToolToc";
+import { CANONICAL_ORIGIN } from "@/lib/canonicalOrigin";
 
 export const metadata: Metadata = {
   title: "Dropship.io in 2026: why it’s #1 despite tracking limits | Ecom Efficiency",
@@ -76,11 +77,11 @@ export default function DropshipIo2026ProductResearchArticlePage() {
     publisher: {
       "@type": "Organization",
       name: "Ecom Efficiency",
-      logo: { "@type": "ImageObject", url: "https://www.ecomefficiency.com/ecomefficiency.png" },
+      logo: { "@type": "ImageObject", url: `${CANONICAL_ORIGIN}/ecomefficiency.png` },
     },
     mainEntityOfPage: {
       "@type": "WebPage",
-      "@id": "https://www.ecomefficiency.com/articles/dropship-io-2026-product-research",
+      "@id": `${CANONICAL_ORIGIN}/articles/dropship-io-2026-product-research`,
     },
     description: metadata.description,
   };

@@ -2,9 +2,9 @@ import type { MetadataRoute } from "next";
 import { supabaseAdmin } from "@/integrations/supabase/server";
 import { toolsCatalog, resolveToolSlug } from "@/data/toolsCatalog";
 import { seoToolsCatalog } from "@/data/seoToolsCatalog";
+import { CANONICAL_ORIGIN } from "@/lib/canonicalOrigin";
 
-// Canonical host for indexing.
-const BASE_URL = "https://www.ecomefficiency.com";
+const BASE_URL = CANONICAL_ORIGIN;
 
 // Pages that should NOT be discoverable via sitemap (no SEO value / private/legal).
 const SITEMAP_EXCLUDE_PATHS = new Set<string>([

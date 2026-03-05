@@ -5,7 +5,6 @@ export const dynamic = "force-static";
 export const revalidate = 86400; // 1 day
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://tools.ecomefficiency.com"),
   title: "Ecom Efficiency Tools",
   description: "Ecom Efficiency tools hub.",
   alternates: { canonical: "/pro" },

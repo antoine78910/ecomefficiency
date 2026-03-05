@@ -3,9 +3,10 @@ import "./globals.css";
 import DataFastScript from "@/components/DataFastScript";
 import GlobalGetStartedClickTracker from "@/components/GlobalGetStartedClickTracker";
 import FirstPromoterScript from "@/components/FirstPromoterScript";
+import { CANONICAL_ORIGIN } from "@/lib/canonicalOrigin";
 
 export const metadata: Metadata = {
-  metadataBase: new URL("https://www.ecomefficiency.com"),
+  metadataBase: new URL(CANONICAL_ORIGIN),
   title: {
     default: "EcomEfficiency - All-in-One Access to 50+ SEO, Spy & AI Tools for Ecommerce",
     template: "EcomEfficiency - %s",
@@ -14,7 +15,7 @@ export const metadata: Metadata = {
     "#1 group buy for ecommerce & online businesses – Save $4,000+ every month",
   openGraph: {
     type: "website",
-    url: "https://www.ecomefficiency.com/",
+    url: `${CANONICAL_ORIGIN}/`,
     title: "EcomEfficiency - All-in-One Access to 50+ SEO, Spy & AI Tools for Ecommerce",
     description: "#1 group buy for ecommerce & online businesses – Save $4,000+ every month",
     siteName: "Ecom Efficiency",
@@ -52,8 +53,8 @@ export default function RootLayout({
     name: "Ecom Efficiency",
     description:
       "#1 group buy for ecommerce & online businesses – Save $4,000+ every month",
-    url: "https://ecomefficiency.com",
-    logo: "https://ecomefficiency.com/ecomefficiency.png",
+    url: CANONICAL_ORIGIN,
+    logo: `${CANONICAL_ORIGIN}/ecomefficiency.png`,
     sameAs: [
       "https://x.com/EcomEfficiency",
       "https://www.instagram.com/ecom.efficiency/",
@@ -65,7 +66,7 @@ export default function RootLayout({
   const websiteJsonLd = {
     "@context": "https://schema.org",
     "@type": "WebSite",
-    url: "https://ecomefficiency.com/",
+    url: `${CANONICAL_ORIGIN}/`,
     name: "Ecom Efficiency",
     inLanguage: "en",
     description:

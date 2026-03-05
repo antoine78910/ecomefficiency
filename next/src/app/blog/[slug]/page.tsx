@@ -11,6 +11,7 @@ import { toolsCatalog } from "@/data/toolsCatalog";
 import { ArrowLeft, Clock, Calendar, User } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import { supabaseAdmin } from "@/integrations/supabase/server";
+import { CANONICAL_ORIGIN } from "@/lib/canonicalOrigin";
 
 export const revalidate = 3600;
 
@@ -447,8 +448,8 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     datePublished: publishedIso,
     dateModified: publishedIso,
     author: { "@type": "Organization", name: post.author || "Ecom Efficiency Team" },
-    publisher: { "@type": "Organization", name: "Ecom Efficiency", logo: { "@type": "ImageObject", url: "https://www.ecomefficiency.com/ecomefficiency.png" } },
-    mainEntityOfPage: { "@type": "WebPage", "@id": `https://www.ecomefficiency.com/blog/${post.slug}` },
+    publisher: { "@type": "Organization", name: "Ecom Efficiency", logo: { "@type": "ImageObject", url: `${CANONICAL_ORIGIN}/ecomefficiency.png` } },
+    mainEntityOfPage: { "@type": "WebPage", "@id": `${CANONICAL_ORIGIN}/blog/${post.slug}` },
     image: post.cover_image ? [post.cover_image] : undefined,
     description,
   };
