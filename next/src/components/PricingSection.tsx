@@ -5,6 +5,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { Check, X, ChevronDown, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { postGoal } from "@/lib/analytics";
+import { trackDatafastGoal } from "@/lib/datafastGoals";
 
 type Currency = 'USD' | 'EUR';
 
@@ -111,6 +112,8 @@ const PricingSection = ({
   }, [currency])
 
 	const handleCheckout = async (planName: string) => {
+    const planSlug = planName.toLowerCase().includes('community') ? 'community' : (planName.toLowerCase().includes('starter') ? 'starter' : 'pro');
+    try { trackDatafastGoal('subscribe_button_click', { plan: planSlug, billing: isYearly ? 'yearly' : 'monthly' }); } catch {}
     // Community plan shows message
     if (planName.toLowerCase().includes('community')) {
       try { postGoal('pricing_cta_click', { plan: 'community' }); } catch {}

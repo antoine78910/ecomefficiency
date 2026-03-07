@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Check, Clipboard, Crown, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { postGoal } from "@/lib/analytics";
+import { trackDatafastGoal } from "@/lib/datafastGoals";
 import TrendTrackStatus from "@/components/TrendTrackStatus";
 import { bestTextColorOn, hexWithAlpha, mixHex, normalizeHex } from "@/lib/color";
 import WhiteLabelPricingModal from "@/components/WhiteLabelPricingModal";
@@ -1908,6 +1909,7 @@ function CredentialsPanel({
 
           {!whiteLabel ? (
             <PricingCardsModal onSelect={(tier, billing, currency)=>{ 
+              try { trackDatafastGoal('subscribe_button_click', { plan: tier, billing }); } catch {}
               try { postGoal('pricing_cta_click', { plan: tier, billing }); } catch {}; 
               
               // Brevo Checkout Initiated
