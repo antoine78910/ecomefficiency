@@ -573,7 +573,6 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
   const [isProcessing, setIsProcessing] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
   const hasSubmitted = React.useRef(false);
-  const paymentTrackedForIntent = React.useRef<Set<string>>(new Set());
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -658,31 +657,7 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
           // Continue anyway, user can retry
         }
 
-        // Track DataFast goal: payment_complete — once per payment_intent_id (avoid double "Paid" in Datafast)
-        try {
-          const piId = String(paymentIntent.id || '');
-          const alreadySentRef = piId ? paymentTrackedForIntent.current.has(piId) : false;
-          const alreadySentStorage = piId ? sessionStorage.getItem(`datafast_paid_${piId}`) === '1' : false;
-          if (!alreadySentRef && !alreadySentStorage && (window as any)?.datafast) {
-            const trackingData = {
-              tier: String(tier),
-              billing: String(billing),
-              currency: String(currency),
-              amount_cents: typeof paymentIntent.amount === 'number' ? paymentIntent.amount : 0,
-              payment_intent_id: piId,
-              email: userEmail ? String(userEmail) : undefined
-            };
-            (window as any).datafast('payment_complete', trackingData);
-            if (piId) {
-              paymentTrackedForIntent.current.add(piId);
-              sessionStorage.setItem(`datafast_paid_${piId}`, '1');
-            }
-          }
-        } catch (e: any) {
-          // Safe logging to prevent DataCloneError
-          console.error('[Checkout] Failed to track payment_complete (non-fatal):', e?.message || String(e));
-        }
-
+        // Paiements trackés par DataFast via son module Stripe intégré (pas d’envoi côté app).
         // Note: Sales are tracked server-side via Stripe webhooks + FirstPromoter Tracking API.
 
         // Redirect to success page
