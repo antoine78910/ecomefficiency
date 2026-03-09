@@ -1,9 +1,12 @@
 import type { Metadata } from "next";
+import Script from "next/script";
 import "./globals.css";
 import DataFastScript from "@/components/DataFastScript";
 import GlobalGetStartedClickTracker from "@/components/GlobalGetStartedClickTracker";
 import FirstPromoterScript from "@/components/FirstPromoterScript";
 import { CANONICAL_ORIGIN } from "@/lib/canonicalOrigin";
+
+const GOOGLE_ADS_ID = "AW-18002488181";
 
 export const metadata: Metadata = {
   metadataBase: new URL(CANONICAL_ORIGIN),
@@ -81,6 +84,21 @@ export default function RootLayout({
     <html lang="en" className="h-full" suppressHydrationWarning translate="no">
       <head>
         <meta name="google" content="notranslate" />
+        {/* Google tag (gtag.js) - conversion measurement */}
+        <Script
+          src={`https://www.googletagmanager.com/gtag/js?id=${GOOGLE_ADS_ID}`}
+          strategy="beforeInteractive"
+        />
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `
+              window.dataLayer = window.dataLayer || [];
+              function gtag(){dataLayer.push(arguments);}
+              gtag('js', new Date());
+              gtag('config', '${GOOGLE_ADS_ID}');
+            `,
+          }}
+        />
         <FirstPromoterScript />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }} />

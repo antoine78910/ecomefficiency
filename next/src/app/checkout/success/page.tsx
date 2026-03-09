@@ -3,10 +3,49 @@ import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Check } from 'lucide-react';
 
+const GOOGLE_ADS_SEND_TO = process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_SEND_TO?.trim(); // e.g. "AW-123456789/AbCdEfGh"
+
 function CheckoutSuccessContent() {
   const searchParams = useSearchParams();
   const [redirecting, setRedirecting] = useState(false);
   const tier = searchParams?.get('tier') || 'pro';
+  const billing = searchParams?.get('billing') || 'monthly';
+
+  // Google Ads: fire "Purchase" conversion once per visit (manual code setup in Google Ads)
+  useEffect(() => {
+    if (!GOOGLE_ADS_SEND_TO || typeof window === 'undefined') return;
+    const sentKey = 'google_ads_purchase_conversion_sent';
+    if (sessionStorage.getItem(sentKey) === '1') return;
+
+    const scriptId = GOOGLE_ADS_SEND_TO.split('/')[0]; // AW-XXXXXXXX
+    if (!scriptId) return;
+
+    const loadAndFire = () => {
+      const w = window as any;
+      w.dataLayer = w.dataLayer || [];
+      function gtag(...args: any[]) {
+        w.dataLayer.push(args);
+      }
+      gtag('js', new Date());
+      gtag('config', scriptId);
+      gtag('event', 'conversion', {
+        send_to: GOOGLE_ADS_SEND_TO,
+        value: tier === 'pro' ? (billing === 'yearly' ? 215.28 : 29.99) : billing === 'yearly' ? 143.88 : 19.99,
+        currency: 'EUR',
+      });
+      sessionStorage.setItem(sentKey, '1');
+    };
+
+    if (document.querySelector(`script[src*="googletagmanager.com/gtag/js?id=${scriptId}"]`)) {
+      loadAndFire();
+      return;
+    }
+    const script = document.createElement('script');
+    script.async = true;
+    script.src = `https://www.googletagmanager.com/gtag/js?id=${scriptId}`;
+    script.onload = loadAndFire;
+    document.head.appendChild(script);
+  }, [tier, billing]);
 
   useEffect(() => {
     // Force plan activation immediately after payment
