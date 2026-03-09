@@ -3,7 +3,9 @@ import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Check } from 'lucide-react';
 
-const GOOGLE_ADS_SEND_TO = process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_SEND_TO?.trim(); // e.g. "AW-123456789/AbCdEfGh"
+// Achat conversion: send_to from Google Ads (env override optional)
+const GOOGLE_ADS_PURCHASE_SEND_TO =
+  process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_SEND_TO?.trim() || 'AW-18002488181/bNapCM2XloUcEPXWoIhD';
 
 function CheckoutSuccessContent() {
   const searchParams = useSearchParams();
@@ -11,40 +13,42 @@ function CheckoutSuccessContent() {
   const tier = searchParams?.get('tier') || 'pro';
   const billing = searchParams?.get('billing') || 'monthly';
 
-  // Google Ads: fire "Purchase" conversion once per visit (manual code setup in Google Ads)
+  // Google Ads: "Chargement de page" – conversion Achat au chargement de la page de confirmation
+  // (recommandé pour les achats: on compte uniquement quand l’utilisateur arrive après paiement)
   useEffect(() => {
-    if (!GOOGLE_ADS_SEND_TO || typeof window === 'undefined') return;
+    if (!GOOGLE_ADS_PURCHASE_SEND_TO || typeof window === 'undefined') return;
     const sentKey = 'google_ads_purchase_conversion_sent';
     if (sessionStorage.getItem(sentKey) === '1') return;
 
-    const scriptId = GOOGLE_ADS_SEND_TO.split('/')[0]; // AW-XXXXXXXX
+    const scriptId = GOOGLE_ADS_PURCHASE_SEND_TO.split('/')[0];
     if (!scriptId) return;
 
-    const loadAndFire = () => {
+    const value = tier === 'pro' ? (billing === 'yearly' ? 215.28 : 29.99) : billing === 'yearly' ? 143.88 : 19.99;
+
+    const fireConversion = () => {
       const w = window as any;
-      w.dataLayer = w.dataLayer || [];
-      function gtag(...args: any[]) {
-        w.dataLayer.push(args);
+      if (w.gtag) {
+        w.gtag('event', 'conversion', {
+          send_to: GOOGLE_ADS_PURCHASE_SEND_TO,
+          value,
+          currency: 'EUR',
+          transaction_id: '',
+        });
+        sessionStorage.setItem(sentKey, '1');
       }
-      gtag('js', new Date());
-      gtag('config', scriptId);
-      gtag('event', 'conversion', {
-        send_to: GOOGLE_ADS_SEND_TO,
-        value: tier === 'pro' ? (billing === 'yearly' ? 215.28 : 29.99) : billing === 'yearly' ? 143.88 : 19.99,
-        currency: 'EUR',
-      });
-      sessionStorage.setItem(sentKey, '1');
     };
 
-    if (document.querySelector(`script[src*="googletagmanager.com/gtag/js?id=${scriptId}"]`)) {
-      loadAndFire();
+    if (typeof (window as any).gtag === 'function') {
+      fireConversion();
       return;
     }
-    const script = document.createElement('script');
-    script.async = true;
-    script.src = `https://www.googletagmanager.com/gtag/js?id=${scriptId}`;
-    script.onload = loadAndFire;
-    document.head.appendChild(script);
+    let attempts = 0;
+    const maxAttempts = 50;
+    const checkGtag = () => {
+      if (typeof (window as any).gtag === 'function') fireConversion();
+      else if (attempts++ < maxAttempts) setTimeout(checkGtag, 100);
+    };
+    setTimeout(checkGtag, 100);
   }, [tier, billing]);
 
   useEffect(() => {
