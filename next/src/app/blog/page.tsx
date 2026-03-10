@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import Footer from "@/components/Footer";
 import NewNavbar from "@/components/NewNavbar";
 import { supabaseAdmin } from "@/integrations/supabase/server";
+import { CANONICAL_ORIGIN } from "@/lib/canonicalOrigin";
 
 export async function generateMetadata({
   searchParams,
@@ -18,13 +19,13 @@ export async function generateMetadata({
   return {
     title: "Blog | Ecom Efficiency",
     description: "E-commerce growth tactics, tool breakdowns, and actionable strategies from Ecom Efficiency.",
-    alternates: { canonical: "/blog" },
+    alternates: { canonical: `${CANONICAL_ORIGIN}/blog` },
     // Internal search pages should not be indexed (prevents duplicate/thin variants like /blog?q=...)
     robots: hasSearch ? { index: false, follow: true } : undefined,
     openGraph: {
       title: "Blog | Ecom Efficiency",
       description: "E-commerce growth tactics, tool breakdowns, and actionable strategies from Ecom Efficiency.",
-      url: "/blog",
+      url: `${CANONICAL_ORIGIN}/blog`,
       type: "website",
       images: [{ url: "/header_ee.png?v=8", width: 1200, height: 630, alt: "Ecom Efficiency Blog" }],
     },

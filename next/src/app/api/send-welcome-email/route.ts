@@ -106,7 +106,7 @@ export async function POST(req: NextRequest) {
               </p>
               <p style="margin: 0; font-size: 12px; color: #666666;">
                 <a href="https://app.ecomefficiency.com/subscription" style="color: #8b5cf6; text-decoration: none;">Manage subscription</a> · 
-                <a href="https://ecomefficiency.com" style="color: #8b5cf6; text-decoration: none;">Website</a>
+                <a href="https://www.ecomefficiency.com" style="color: #8b5cf6; text-decoration: none;">Website</a>
               </p>
             </td>
           </tr>

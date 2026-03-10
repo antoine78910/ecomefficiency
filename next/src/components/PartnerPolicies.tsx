@@ -50,7 +50,7 @@ export default function PartnerPolicies({
 
       <div className="mt-2 text-center text-[10px] text-gray-600">
         Last updated: {updated} • Powered by{" "}
-        <a className="underline hover:text-gray-300" href="https://ecomefficiency.com" target="_blank" rel="noreferrer">
+        <a className="underline hover:text-gray-300" href="https://www.ecomefficiency.com" target="_blank" rel="noreferrer">
           Ecom Efficiency
         </a>
         . The Service is operated by {name} and is responsible for customer support and billing.

@@ -68,7 +68,7 @@ export default async function DomainPrivacyPage({ params }: { params: Promise<{ 
             </p>
             <p className="mt-2 text-xs text-gray-500">
               {" "}
-              <a className="underline text-purple-300 hover:text-purple-200" href="https://ecomefficiency.com" target="_blank" rel="noreferrer">
+              <a className="underline text-purple-300 hover:text-purple-200" href="https://www.ecomefficiency.com" target="_blank" rel="noreferrer">
                 Ecom Efficiency
               </a>
               . The Service is operated by {name} and is responsible for support and billing.

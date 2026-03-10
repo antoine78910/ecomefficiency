@@ -406,10 +406,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   return {
     title: `${post.title} | Ecom Efficiency`,
     description,
-    alternates: { canonical: `/blog/${post.slug}` },
+    alternates: { canonical: `${CANONICAL_ORIGIN}/blog/${post.slug}` },
     openGraph: {
       type: "article",
-      url: `/blog/${post.slug}`,
+      url: `${CANONICAL_ORIGIN}/blog/${post.slug}`,
       title: post.title,
       description,
       images: [{ url: cover }],
