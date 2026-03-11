@@ -11,6 +11,7 @@ import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useSessionTracking } from "@/hooks/useSessionTracking";
 import GoogleButton from "@/components/GoogleButton";
+import { trackFirstPromoterReferral } from "@/lib/firstpromoterReferral";
 // Discord removed per request
 
 const SignUp = () => {
@@ -143,8 +144,8 @@ const SignUp = () => {
             lastName || undefined,
           );
         }
-        // Send lead to FirstPromoter for referral attribution (if available)
-        try { (window as any).fpr && (window as any).fpr('referral', { email }); } catch {}
+        // Send lead to FirstPromoter for referral attribution.
+        try { trackFirstPromoterReferral(email); } catch {}
 
         // Show success message
         toast({

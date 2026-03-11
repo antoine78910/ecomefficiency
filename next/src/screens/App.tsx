@@ -7,6 +7,7 @@ import { Check, Clipboard, Crown, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { postGoal } from "@/lib/analytics";
 import { trackDatafastGoal } from "@/lib/datafastGoals";
+import { trackFirstPromoterReferral } from "@/lib/firstpromoterReferral";
 import TrendTrackStatus from "@/components/TrendTrackStatus";
 import { bestTextColorOn, hexWithAlpha, mixHex, normalizeHex } from "@/lib/color";
 import WhiteLabelPricingModal from "@/components/WhiteLabelPricingModal";
@@ -233,16 +234,9 @@ const App = ({
                   if (maybeGoGettingStarted(data.user)) return;
               }
 
-              // FirstPromoter referral (only once per browser)
+              // FirstPromoter referral (deduped per email and retried until the script is ready)
               if (data.user?.email) {
-                  try {
-                    const sentKey = '__ee_fpr_referral_sent'
-                    const already = typeof window !== 'undefined' ? window.localStorage.getItem(sentKey) : '1'
-                    if (!already && (window as any)?.fpr) {
-                      (window as any).fpr('referral', { email: String(data.user.email) })
-                      try { window.localStorage.setItem(sentKey, '1') } catch {}
-                    }
-                  } catch {}
+                  try { trackFirstPromoterReferral(String(data.user.email)) } catch {}
               }
             } catch {}
 
@@ -299,16 +293,9 @@ const App = ({
                 if (maybeGoGettingStarted(data.user)) return;
            }
            
-           // FirstPromoter referral (only once per browser)
+           // FirstPromoter referral (deduped per email and retried until the script is ready)
             if (data.user?.email) {
-              try {
-                const sentKey = '__ee_fpr_referral_sent'
-                const already = typeof window !== 'undefined' ? window.localStorage.getItem(sentKey) : '1'
-                if (!already && (window as any)?.fpr) {
-                  (window as any).fpr('referral', { email: String(data.user.email) })
-                  try { window.localStorage.setItem(sentKey, '1') } catch {}
-                }
-              } catch {}
+              try { trackFirstPromoterReferral(String(data.user.email)) } catch {}
             }
           } catch (e) {
             // console.error('[App] Failed to track sign_up (non-fatal):', e);

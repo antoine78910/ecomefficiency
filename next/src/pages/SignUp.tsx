@@ -7,6 +7,7 @@ import { motion, useMotionTemplate, useMotionValue } from 'framer-motion';
 import { Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { postGoal } from "@/lib/analytics";
+import { trackFirstPromoterReferral } from "@/lib/firstpromoterReferral";
 
 export default function SignUp() {
   const [name, setName] = React.useState("");
@@ -94,9 +95,7 @@ export default function SignUp() {
 
       // Track referral with FirstPromoter (best effort, only primitives)
       try { 
-        if ((window as any)?.fpr && email) {
-          (window as any).fpr('referral', { email: String(email) }); 
-        }
+        if (email) trackFirstPromoterReferral(email);
       } catch {}
 
       // Safety: ensure we have a user (required for signup flow that sends verification)
