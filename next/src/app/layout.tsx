@@ -4,6 +4,7 @@ import "./globals.css";
 import DataFastScript from "@/components/DataFastScript";
 import GlobalGetStartedClickTracker from "@/components/GlobalGetStartedClickTracker";
 import FirstPromoterScript from "@/components/FirstPromoterScript";
+import FirstPromoterAttributionGuard from "@/components/FirstPromoterAttributionGuard";
 import { CANONICAL_ORIGIN } from "@/lib/canonicalOrigin";
 
 const GOOGLE_ADS_ID = "AW-18002488181";
@@ -105,6 +106,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-background text-foreground overflow-x-hidden" suppressHydrationWarning>
         <DataFastScript />
+        <FirstPromoterAttributionGuard />
         <GlobalGetStartedClickTracker />
         {children}
       </body>
