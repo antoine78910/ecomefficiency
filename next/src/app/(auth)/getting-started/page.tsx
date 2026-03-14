@@ -8,6 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Check, ChevronDown, X } from "lucide-react";
 import { seoToolsCatalog } from "@/data/seoToolsCatalog";
 import { postGoal } from "@/lib/analytics";
+import { trackFirstPromoterReferral } from "@/lib/firstpromoterReferral";
 
 type AcquisitionSource =
   | "instagram"
@@ -164,6 +165,13 @@ export default function GettingStartedPage() {
           setEmail(user?.email || "");
           setUserId(user?.id || "");
           setAlreadySet(Boolean(existingSource));
+        }
+
+        // FirstPromoter referral: attribute signup when user lands on get-started (after OAuth or email verify).
+        if (user?.email && typeof window !== "undefined") {
+          try {
+            trackFirstPromoterReferral(String(user.email));
+          } catch {}
         }
 
         // Only redirect to /app if they have completed setup (paid). Otherwise stay on onboarding to finish.

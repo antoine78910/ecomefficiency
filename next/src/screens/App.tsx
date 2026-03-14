@@ -228,16 +228,16 @@ const App = ({
               }
 
               // Tracking Unique du Signup
-              if (data.user) {
-                  trackUniqueSignup(data.user);
-                  // After email verification: short onboarding (once) to capture source
-                  if (maybeGoGettingStarted(data.user)) return;
+              if (data.user) trackUniqueSignup(data.user);
+
+              // FirstPromoter referral: send before any redirect so fpr script can process (must run on this page with ?fpr=)
+              if (data.user?.email) {
+                try { trackFirstPromoterReferral(String(data.user.email)); } catch {}
+                await new Promise((r) => setTimeout(r, 1800));
               }
 
-              // FirstPromoter referral (deduped per email and retried until the script is ready)
-              if (data.user?.email) {
-                  try { trackFirstPromoterReferral(String(data.user.email)) } catch {}
-              }
+              // After email verification: redirect to short onboarding (once) to capture source
+              if (data.user && maybeGoGettingStarted(data.user)) return;
             } catch {}
 
             // Redirect to app.localhost subdomain after OAuth
@@ -287,16 +287,16 @@ const App = ({
            }
            
            // Tracking Unique du Signup
-           if (data.user) {
-                trackUniqueSignup(data.user);
-                // After email verification: short onboarding (once) to capture source
-                if (maybeGoGettingStarted(data.user)) return;
+           if (data.user) trackUniqueSignup(data.user);
+
+           // FirstPromoter referral: send before any redirect so fpr script can process
+           if (data.user?.email) {
+             try { trackFirstPromoterReferral(String(data.user.email)); } catch {}
+             await new Promise((r) => setTimeout(r, 1800));
            }
-           
-           // FirstPromoter referral (deduped per email and retried until the script is ready)
-            if (data.user?.email) {
-              try { trackFirstPromoterReferral(String(data.user.email)) } catch {}
-            }
+
+           // After email verification: redirect to getting-started (once) to capture source
+           if (data.user && maybeGoGettingStarted(data.user)) return;
           } catch (e) {
             // console.error('[App] Failed to track sign_up (non-fatal):', e);
           }

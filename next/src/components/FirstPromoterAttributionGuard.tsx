@@ -33,7 +33,12 @@ function shouldCarryFpr(pathname: string) {
     p === "/sign-up" ||
     p.startsWith("/sign-up/") ||
     p === "/sign-in" ||
-    p.startsWith("/sign-in/")
+    p.startsWith("/sign-in/") ||
+    p === "/" ||
+    p === "/app" ||
+    p.startsWith("/app/") ||
+    p === "/getting-started" ||
+    p.startsWith("/getting-started/")
   );
 }
 
