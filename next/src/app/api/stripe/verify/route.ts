@@ -79,10 +79,28 @@ async function recordPartnerPayment(input: {
   } catch {}
 }
 
+const HIGGSFIELD_ORIGIN = "https://higgsfield.ai";
+
+function withCors(res: NextResponse) {
+  try {
+    res.headers.set("Access-Control-Allow-Origin", HIGGSFIELD_ORIGIN);
+    res.headers.set("Vary", "Origin");
+    res.headers.set("Access-Control-Allow-Methods", "POST,OPTIONS");
+    res.headers.set("Access-Control-Allow-Headers", "Content-Type");
+  } catch {}
+  return res;
+}
+
+export async function OPTIONS() {
+  return withCors(new NextResponse(null, { status: 204 }));
+}
+
 export async function POST(req: NextRequest) {
   try {
     if (!process.env.STRIPE_SECRET_KEY) {
-      return NextResponse.json({ ok: false, error: "not_configured" }, { status: 500 });
+      return withCors(
+        NextResponse.json({ ok: false, error: "not_configured" }, { status: 500 })
+      );
     }
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-08-27.basil" });
 
@@ -98,7 +116,14 @@ export async function POST(req: NextRequest) {
       const cfg: any = await readPartnerConfig(partnerSlugHeader);
       const connectedAccountId = String(cfg?.connectedAccountId || "").trim();
       if (!connectedAccountId) {
-        return NextResponse.json({ ok: true, active: false, status: "no_connected_account", plan: null });
+        return withCors(
+          NextResponse.json({
+            ok: true,
+            active: false,
+            status: "no_connected_account",
+            plan: null,
+          })
+        );
       }
 
       // Find customer on the CONNECTED account by email (customer IDs are per-account).
@@ -114,7 +139,9 @@ export async function POST(req: NextRequest) {
         } catch {}
       }
       if (!customerId) {
-        return NextResponse.json({ ok: true, active: false, status: "no_customer", plan: null });
+        return withCors(
+          NextResponse.json({ ok: true, active: false, status: "no_customer", plan: null })
+        );
       }
 
       const allSubs = await stripe.subscriptions.list({ customer: customerId, limit: 10 }, { stripeAccount: connectedAccountId } as any);
@@ -140,7 +167,15 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      if (!latest) return NextResponse.json({ ok: true, active: false, status: "no_active_subscription", plan: null });
+      if (!latest)
+        return withCors(
+          NextResponse.json({
+            ok: true,
+            active: false,
+            status: "no_active_subscription",
+            plan: null,
+          })
+        );
 
       // Partner offering: treat any active subscription as "pro" access inside the app.
       const plan: "pro" = "pro";
@@ -163,18 +198,22 @@ export async function POST(req: NextRequest) {
         }
       } catch {}
 
-      return NextResponse.json({
-        ok: true,
-        active: true,
-        status: latest.status,
-        plan,
-        customer_id: customerId,
-        subscription_id: latest.id,
-        subscription_created_at: latest.created ? new Date(latest.created * 1000).toISOString() : null,
-        subscription_current_period_start_at: (latest as any)?.current_period_start
-          ? new Date(((latest as any).current_period_start as number) * 1000).toISOString()
-          : null,
-      });
+      return withCors(
+        NextResponse.json({
+          ok: true,
+          active: true,
+          status: latest.status,
+          plan,
+          customer_id: customerId,
+          subscription_id: latest.id,
+          subscription_created_at: latest.created
+            ? new Date(latest.created * 1000).toISOString()
+            : null,
+          subscription_current_period_start_at: (latest as any)?.current_period_start
+            ? new Date(((latest as any).current_period_start as number) * 1000).toISOString()
+            : null,
+        })
+      );
     }
 
     let customerId = customerHeader || undefined;
@@ -190,7 +229,14 @@ export async function POST(req: NextRequest) {
           typeof (session as any).customer === "string" ? ((session as any).customer as string) : (session as any).customer?.id;
 
         if (!subId) {
-          return NextResponse.json({ ok: true, active: false, status: "no_subscription", plan: null });
+          return withCors(
+            NextResponse.json({
+              ok: true,
+              active: false,
+              status: "no_subscription",
+              plan: null,
+            })
+          );
         }
 
         // Retrieve subscription with expanded price/product for plan detection
@@ -217,7 +263,14 @@ export async function POST(req: NextRequest) {
         }
 
         if (!invoiceStatus) {
-          return NextResponse.json({ ok: true, active: false, status: sub.status || "inactive", plan: null });
+          return withCors(
+            NextResponse.json({
+              ok: true,
+              active: false,
+              status: sub.status || "inactive",
+              plan: null,
+            })
+          );
         }
 
         customerId = sessCustomerId || (typeof (sub as any).customer === "string" ? (sub as any).customer : undefined) || customerId;
@@ -299,20 +352,24 @@ export async function POST(req: NextRequest) {
           }
         } catch {}
 
-        return NextResponse.json({
-          ok: true,
-          active,
-          status,
-          plan: finalPlan,
-          customer_id: customerId || null,
-          subscription_id: latest.id,
-          subscription_created_at: latest.created ? new Date(latest.created * 1000).toISOString() : null,
-          subscription_current_period_start_at: (latest as any)?.current_period_start
-            ? new Date(((latest as any).current_period_start as number) * 1000).toISOString()
-            : null,
-          verify_source: "session_id",
-          invoice_status: invoiceStatus || null,
-        });
+        return withCors(
+          NextResponse.json({
+            ok: true,
+            active,
+            status,
+            plan: finalPlan,
+            customer_id: customerId || null,
+            subscription_id: latest.id,
+            subscription_created_at: latest.created
+              ? new Date(latest.created * 1000).toISOString()
+              : null,
+            subscription_current_period_start_at: (latest as any)?.current_period_start
+              ? new Date(((latest as any).current_period_start as number) * 1000).toISOString()
+              : null,
+            verify_source: "session_id",
+            invoice_status: invoiceStatus || null,
+          })
+        );
       } catch (e: any) {
         // Fall through to email/customer based verification
       }
@@ -327,7 +384,9 @@ export async function POST(req: NextRequest) {
     }
 
     if (!customerId) {
-      return NextResponse.json({ ok: true, active: false, status: "no_customer", plan: null });
+      return withCors(
+        NextResponse.json({ ok: true, active: false, status: "no_customer", plan: null })
+      );
     }
 
     // Check for ACTIVE, TRIALING, or INCOMPLETE-BUT-PAID subscriptions
@@ -370,14 +429,21 @@ export async function POST(req: NextRequest) {
     }
 
     if (!latest) {
-      console.log('[VERIFY] No active or paid subscription found');
-      return NextResponse.json({ ok: true, active: false, status: "no_active_subscription", plan: null });
+      console.log("[VERIFY] No active or paid subscription found");
+      return withCors(
+        NextResponse.json({
+          ok: true,
+          active: false,
+          status: "no_active_subscription",
+          plan: null,
+        })
+      );
     }
 
     const status = latest.status;
     const active = true; // If we reached here, subscription is valid
 
-    console.log('[VERIFY] ✅ Found valid subscription:', { 
+    console.log("[VERIFY] ✅ Found valid subscription:", {
       status, 
       active, 
       subscriptionId: latest.id,
@@ -391,7 +457,11 @@ export async function POST(req: NextRequest) {
     let plan: "starter" | "pro" | null = null;
     const env = process.env;
 
-    console.log('[VERIFY] Price analysis:', { priceId, unitAmount: price?.unit_amount, currency: price?.currency });
+    console.log("[VERIFY] Price analysis:", {
+      priceId,
+      unitAmount: price?.unit_amount,
+      currency: price?.currency,
+    });
 
     if (priceId) {
       const starterIds = [
@@ -471,7 +541,10 @@ export async function POST(req: NextRequest) {
              
              // If not tracked yet for this specific subscription ID
              if (lastTracked !== subId) {
-                console.log('[VERIFY] ⚠️ Detecting untracked payment (webhook missed?), initiating fallback tracking...', { userId, subId });
+                console.log(
+                  "[VERIFY] ⚠️ Detecting untracked payment (webhook missed?), initiating fallback tracking...",
+                  { userId, subId }
+                );
                 
                 // Fetch invoice for amount details
                 const invoiceId = typeof latest.latest_invoice === 'string' ? latest.latest_invoice : latest.latest_invoice?.id;
@@ -489,22 +562,25 @@ export async function POST(req: NextRequest) {
                 // Track in Brevo
                 if (user.user.email) {
                     await trackBrevoEvent({
-                        email: user.user.email,
-                        eventName: 'payment_succeeded',
-                        eventProps: {
-                          plan: finalPlan,
-                          amount,
-                          currency,
-                          tier: finalPlan, // simplistic mapping
-                          invoice_id: invoiceId,
-                          source: 'verify_fallback'
-                        },
-                        contactProps: {
-                          plan: finalPlan,
-                          customer_status: 'subscriber'
-                        }
+                      email: user.user.email,
+                      eventName: "payment_succeeded",
+                      eventProps: {
+                        plan: finalPlan,
+                        amount,
+                        currency,
+                        tier: finalPlan,
+                        invoice_id: invoiceId,
+                        source: "verify_fallback",
+                      },
+                      contactProps: {
+                        plan: finalPlan,
+                        customer_status: "subscriber",
+                      },
                     });
-                    console.log('[VERIFY] ✅ Fallback tracking success for:', user.user.email);
+                    console.log(
+                      "[VERIFY] ✅ Fallback tracking success for:",
+                      user.user.email
+                    );
                 }
 
                 // Update metadata so we don't track again
@@ -522,7 +598,7 @@ export async function POST(req: NextRequest) {
            }
         }
       } catch (err: any) {
-        console.error('[VERIFY] Fallback tracking error:', err.message);
+        console.error("[VERIFY] Fallback tracking error:", err.message);
         // Don't fail the verification request
       }
     }
@@ -539,10 +615,20 @@ export async function POST(req: NextRequest) {
         ? new Date(((latest as any).current_period_start as number) * 1000).toISOString()
         : null,
     };
-    console.log('[VERIFY] Subscription check:', { customerId, status, active, plan: finalPlan });
-    return NextResponse.json(result);
+    console.log("[VERIFY] Subscription check:", {
+      customerId,
+      status,
+      active,
+      plan: finalPlan,
+    });
+    return withCors(NextResponse.json(result));
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || "unknown_error" }, { status: 500 });
+    return withCors(
+      NextResponse.json(
+        { ok: false, error: e?.message || "unknown_error" },
+        { status: 500 }
+      )
+    );
   }
 }
 
