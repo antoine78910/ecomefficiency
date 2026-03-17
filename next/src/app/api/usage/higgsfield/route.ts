@@ -17,11 +17,14 @@ function getSupabaseAdmin() {
   return createClient(url, key);
 }
 
-const HIGGSFIELD_ORIGIN = "https://higgsfield.ai";
+const HIGGSFIELD_ORIGINS = ["https://higgsfield.ai", "https://www.higgsfield.ai"];
 
-function withCors(res: NextResponse) {
+function withCors(res: NextResponse, req?: Request) {
   try {
-    res.headers.set("Access-Control-Allow-Origin", HIGGSFIELD_ORIGIN);
+    const origin = req?.headers?.get("Origin") || "";
+    const allow =
+      HIGGSFIELD_ORIGINS.includes(origin) ? origin : HIGGSFIELD_ORIGINS[0];
+    res.headers.set("Access-Control-Allow-Origin", allow);
     res.headers.set("Vary", "Origin");
     res.headers.set("Access-Control-Allow-Methods", "POST,OPTIONS");
     res.headers.set("Access-Control-Allow-Headers", "Content-Type");
@@ -29,8 +32,8 @@ function withCors(res: NextResponse) {
   return res;
 }
 
-export async function OPTIONS() {
-  return withCors(new NextResponse(null, { status: 204 }));
+export async function OPTIONS(req: Request) {
+  return withCors(new NextResponse(null, { status: 204 }), req);
 }
 
 export async function POST(req: Request) {
@@ -62,7 +65,8 @@ export async function POST(req: Request) {
         NextResponse.json(
           { ok: false, error: "invalid_delta" },
           { status: 400 }
-        )
+        ),
+        req
       );
     }
 
@@ -92,11 +96,12 @@ export async function POST(req: Request) {
         NextResponse.json(
           { ok: false, error: error.message },
           { status: 500 }
-        )
+        ),
+        req
       );
     }
 
-    return withCors(NextResponse.json({ ok: true }));
+    return withCors(NextResponse.json({ ok: true }), req);
   } catch (e: any) {
     console.warn(
       "[API] /api/usage/higgsfield POST exception",
@@ -106,7 +111,8 @@ export async function POST(req: Request) {
       NextResponse.json(
         { ok: false, error: e?.message || "error" },
         { status: 500 }
-      )
+      ),
+      req
     );
   }
 }

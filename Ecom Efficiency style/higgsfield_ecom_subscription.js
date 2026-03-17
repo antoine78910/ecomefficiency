@@ -75,13 +75,14 @@
         at: new Date().toISOString(),
         source: source || null
       };
+      log('logUsage POST', source, email, delta);
       fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'omit',
         body: JSON.stringify(payload)
-      }).catch(function () { /* fire and forget */ });
-    } catch (_) {}
+      }).then(function (r) { if (DEBUG) log('logUsage response', r.status, source); }).catch(function (err) { if (DEBUG) log('logUsage error', err && err.message, source); });
+    } catch (e) { if (DEBUG) log('logUsage exception', e && e.message); }
   }
 
   // --- Token JWT Higgsfield (Clerk) : POST /tokens + capture depuis les requêtes ---
@@ -579,44 +580,6 @@
     }
   }
 
-  // --- Blocage génération si quota atteint (overlay + blocage clic) ---
-  function addBlockOverlayToButton(btn, overlayId) {
-    if (!btn || document.getElementById(overlayId)) return;
-    var parent = btn.closest('div') || btn.parentElement;
-    if (!parent) return;
-    var wrap = document.createElement('div');
-    wrap.id = overlayId;
-    wrap.setAttribute('data-ee-block', '1');
-    wrap.style.cssText = 'position:absolute;inset:0;background:rgba(0,0,0,0.75);display:flex;align-items:center;justify-content:center;border-radius:inherit;z-index:9999;cursor:not-allowed;pointer-events:auto;';
-    wrap.innerHTML = '<span style="color:#fff;font-size:13px;padding:12px;text-align:center;">Quota journalier atteint (100 crédits). Réessayez demain.</span>';
-    if (getComputedStyle(parent).position === 'static') parent.style.position = 'relative';
-    parent.appendChild(wrap);
-  }
-
-  function removeBlockOverlays() {
-    var list = document.querySelectorAll('[id^="ee-hf-ecom-block-overlay"]');
-    for (var i = 0; i < list.length; i++) list[i].remove();
-  }
-
-  function blockGenerateIfNeeded() {
-    const used = getUsedToday();
-    const limit = CONFIG.DAILY_CREDIT_LIMIT;
-    if (used < limit) {
-      removeBlockOverlays();
-      return;
-    }
-    var unlimitedBtn = findUnlimitedGenerateButton();
-    if (unlimitedBtn) addBlockOverlayToButton(unlimitedBtn, 'ee-hf-ecom-block-overlay-unlimited');
-    var standardBtn = findStandardGenerateButton();
-    if (standardBtn) addBlockOverlayToButton(standardBtn, 'ee-hf-ecom-block-overlay-standard');
-    if (!unlimitedBtn && !standardBtn) {
-      var btn = Array.from(document.querySelectorAll('button')).find(function (b) {
-        return /generate|générer|create|créer|run|go/i.test(b.textContent || '');
-      });
-      if (btn) addBlockOverlayToButton(btn, 'ee-hf-ecom-block-overlay');
-    }
-  }
-
   function installGenerateClickBlocker() {
     document.addEventListener('click', function (e) {
       if (isUnlimitedMode()) return;
@@ -674,23 +637,69 @@
     return null;
   }
 
+  function restoreButton(btn) {
+    if (!btn) return;
+    btn.style.pointerEvents = '';
+    btn.style.opacity = '';
+    btn.removeAttribute('data-ee-greyed');
+  }
+
+  function greyButton(btn) {
+    if (!btn) return;
+    btn.setAttribute('data-ee-greyed', '1');
+    btn.style.pointerEvents = 'none';
+    btn.style.opacity = '0.7';
+  }
+
+  /** Overlay flottant (position:fixed) au-dessus du bouton + bouton grisé et non cliquable */
+  function ensureOverlayRoot() {
+    var root = document.getElementById('ee-hf-ecom-overlay-root');
+    if (root && document.body.contains(root)) return root;
+    root = document.createElement('div');
+    root.id = 'ee-hf-ecom-overlay-root';
+    root.style.cssText = 'position:fixed;left:0;top:0;width:0;height:0;pointer-events:none;z-index:2147483640;';
+    document.body.appendChild(root);
+    return root;
+  }
+
+  function placeOverlayOverButton(overlayId, btn, onClick) {
+    if (!btn || !btn.getBoundingClientRect) return;
+    var root = ensureOverlayRoot();
+    var overlay = document.getElementById(overlayId);
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = overlayId;
+      overlay.setAttribute('data-ee-floating-overlay', '1');
+      overlay.style.cssText = 'position:fixed;z-index:2147483646;cursor:pointer;pointer-events:auto;';
+      overlay.addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        if (onClick) onClick();
+      }, true);
+      root.appendChild(overlay);
+    }
+    var r = btn.getBoundingClientRect();
+    overlay.style.left = r.left + 'px';
+    overlay.style.top = r.top + 'px';
+    overlay.style.width = Math.max(0, r.width) + 'px';
+    overlay.style.height = Math.max(0, r.height) + 'px';
+    greyButton(btn);
+  }
+
+  var lastStandardBtn = null;
+  var lastUnlimitedBtn = null;
+
   function installStandardGenerateButtonOverlay() {
     var btn = findStandardGenerateButton();
-    if (!btn || btn.getAttribute('data-ee-standard-overlay-added') === '1') return;
-    var parent = btn.parentElement;
-    if (!parent || parent.getAttribute('data-ee-standard-wrap') === '1') return;
-    var wrap = document.createElement('div');
-    wrap.setAttribute('data-ee-standard-wrap', '1');
-    wrap.style.cssText = 'position:relative;display:inline-block;';
-    parent.insertBefore(wrap, btn);
-    wrap.appendChild(btn);
-    btn.setAttribute('data-ee-standard-overlay-added', '1');
-    var overlay = document.createElement('div');
-    overlay.setAttribute('data-ee-standard-overlay', '1');
-    overlay.style.cssText = 'position:absolute;inset:0;z-index:9998;cursor:pointer;';
-    overlay.addEventListener('click', function (e) {
-      e.preventDefault();
-      e.stopPropagation();
+    if (!btn) {
+      if (lastStandardBtn) { restoreButton(lastStandardBtn); lastStandardBtn = null; }
+      var el = document.getElementById('ee-hf-ecom-overlay-standard');
+      if (el) el.remove();
+      return;
+    }
+    if (lastStandardBtn && lastStandardBtn !== btn) restoreButton(lastStandardBtn);
+    lastStandardBtn = btn;
+    function onOverlayClick() {
       var used = getUsedToday();
       var limit = CONFIG.DAILY_CREDIT_LIMIT;
       if (used >= limit) {
@@ -701,34 +710,33 @@
       var email = getVerifiedEmail();
       var usedToday = getUsedToday();
       logUsage(email, 1, usedToday, 'standard_generate');
+      log('track standard_generate', email, usedToday);
       updateWidget(null, usedToday, limit, usedToday >= limit, 1);
-      try {
-        btn.setAttribute('data-ee-synthetic', '1');
-        btn.click();
-        setTimeout(function () { try { btn.removeAttribute('data-ee-synthetic'); } catch (_) {} }, 100);
-      } catch (_) {}
-    }, true);
-    wrap.appendChild(overlay);
+      setTimeout(function () {
+        try {
+          var b = findStandardGenerateButton();
+          if (b) b.click();
+        } catch (_) {}
+      }, 120);
+    }
+    placeOverlayOverButton('ee-hf-ecom-overlay-standard', btn, onOverlayClick);
   }
 
   function installUnlimitedButtonOverlay() {
     var btn = findUnlimitedGenerateButton();
-    if (!btn || btn.getAttribute('data-ee-overlay-added') === '1') return;
-    var parent = btn.parentElement;
-    if (!parent || parent.getAttribute('data-ee-wrap') === '1') return;
-    var wrap = document.createElement('div');
-    wrap.setAttribute('data-ee-wrap', '1');
-    wrap.style.cssText = 'position:relative;display:inline-block;';
-    parent.insertBefore(wrap, btn);
-    wrap.appendChild(btn);
-    btn.setAttribute('data-ee-overlay-added', '1');
-    var overlay = document.createElement('div');
-    overlay.setAttribute('data-ee-unlimited-overlay', '1');
-    overlay.style.cssText = 'position:absolute;inset:0;z-index:9998;cursor:pointer;';
-    overlay.addEventListener('click', function (e) {
-      e.preventDefault();
-      e.stopPropagation();
-      if (isUnlimitedMode()) { btn.click(); return; }
+    if (!btn) {
+      if (lastUnlimitedBtn) { restoreButton(lastUnlimitedBtn); lastUnlimitedBtn = null; }
+      var el = document.getElementById('ee-hf-ecom-overlay-unlimited');
+      if (el) el.remove();
+      return;
+    }
+    if (lastUnlimitedBtn && lastUnlimitedBtn !== btn) restoreButton(lastUnlimitedBtn);
+    lastUnlimitedBtn = btn;
+    function onOverlayClick() {
+      if (isUnlimitedMode()) {
+        setTimeout(function () { try { var b = findUnlimitedGenerateButton(); if (b) b.click(); } catch (_) {} }, 50);
+        return;
+      }
       var used = getUsedToday();
       var limit = CONFIG.DAILY_CREDIT_LIMIT;
       if (used >= limit) {
@@ -739,19 +747,20 @@
       var email = getVerifiedEmail();
       var usedToday = getUsedToday();
       logUsage(email, 1, usedToday, 'unlimited_generate');
+      log('track unlimited_generate', email, usedToday);
       updateWidget(null, usedToday, limit, usedToday >= limit, 1);
-      try {
-        btn.setAttribute('data-ee-synthetic', '1');
-        btn.click();
-        setTimeout(function () { try { btn.removeAttribute('data-ee-synthetic'); } catch (_) {} }, 100);
-      } catch (_) {}
-    }, true);
-    wrap.appendChild(overlay);
+      setTimeout(function () {
+        try {
+          var b = findUnlimitedGenerateButton();
+          if (b) b.click();
+        } catch (_) {}
+      }, 120);
+    }
+    placeOverlayOverButton('ee-hf-ecom-overlay-unlimited', btn, onOverlayClick);
   }
 
   function setupBlockingObserver() {
     installGenerateClickBlocker();
-    setInterval(blockGenerateIfNeeded, 2000);
     setInterval(installUnlimitedButtonOverlay, 1000);
     setInterval(installStandardGenerateButtonOverlay, 1000);
   }
