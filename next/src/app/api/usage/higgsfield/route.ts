@@ -60,7 +60,7 @@ export async function POST(req: Request) {
         ? json.source.trim().slice(0, 64)
         : null;
 
-    if (!delta || !Number.isFinite(delta)) {
+    if (!Number.isFinite(delta)) {
       return withCors(
         NextResponse.json(
           { ok: false, error: "invalid_delta" },

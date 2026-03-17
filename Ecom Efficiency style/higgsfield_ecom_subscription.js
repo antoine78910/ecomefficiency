@@ -66,7 +66,7 @@
 
   function logUsage(email, delta, usedToday, source) {
     try {
-      if (!delta) return;
+      if (delta === undefined || delta === null) return;
       const url = 'https://www.ecomefficiency.com/api/usage/higgsfield';
       const payload = {
         email: email || null,
@@ -651,7 +651,7 @@
     btn.style.opacity = '0.7';
   }
 
-  /** Overlay flottant (position:fixed) au-dessus du bouton + bouton grisé et non cliquable */
+  /** Conteneur fixe pour nos overlays (notre bouton placé pile devant celui de Higgsfield). */
   function ensureOverlayRoot() {
     var root = document.getElementById('ee-hf-ecom-overlay-root');
     if (root && document.body.contains(root)) return root;
@@ -662,19 +662,20 @@
     return root;
   }
 
-  function placeOverlayOverButton(overlayId, btn, onClick) {
+  /** Place notre bouton pile devant le bouton Higgsfield. On ne modifie pas le DOM React (évite erreur #418). Gris visuel via overlay. */
+  function placeOurButtonOver(overlayId, btn, onOurButtonClick) {
     if (!btn || !btn.getBoundingClientRect) return;
     var root = ensureOverlayRoot();
     var overlay = document.getElementById(overlayId);
     if (!overlay) {
       overlay = document.createElement('div');
       overlay.id = overlayId;
-      overlay.setAttribute('data-ee-floating-overlay', '1');
-      overlay.style.cssText = 'position:fixed;z-index:2147483646;cursor:pointer;pointer-events:auto;';
+      overlay.setAttribute('data-ee-our-button', '1');
+      overlay.style.cssText = 'position:fixed;z-index:2147483646;cursor:pointer;pointer-events:auto;background:rgba(0,0,0,0.2);border-radius:6px;';
       overlay.addEventListener('click', function (e) {
         e.preventDefault();
         e.stopPropagation();
-        if (onClick) onClick();
+        if (onOurButtonClick) onOurButtonClick();
       }, true);
       root.appendChild(overlay);
     }
@@ -683,11 +684,34 @@
     overlay.style.top = r.top + 'px';
     overlay.style.width = Math.max(0, r.width) + 'px';
     overlay.style.height = Math.max(0, r.height) + 'px';
-    greyButton(btn);
+    /* Ne pas appeler greyButton(btn): modifier le bouton React provoque l'erreur d'hydratation #418. */
   }
 
   var lastStandardBtn = null;
   var lastUnlimitedBtn = null;
+
+  /** Affiche une étape de génération en direct (toast temporaire). */
+  function showGenerateStatus(msg, durationMs) {
+    var id = 'ee-hf-ecom-generate-status';
+    var el = document.getElementById(id);
+    if (!el) {
+      el = document.createElement('div');
+      el.id = id;
+      el.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:2147483647;background:rgba(0,0,0,0.85);color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;pointer-events:none;max-width:90%;';
+      document.body.appendChild(el);
+    }
+    if (!msg) {
+      el.style.display = 'none';
+      if (el._eeStatusHide) { clearTimeout(el._eeStatusHide); el._eeStatusHide = null; }
+      return;
+    }
+    el.textContent = msg;
+    el.style.display = '';
+    if (durationMs > 0) {
+      clearTimeout(el._eeStatusHide);
+      el._eeStatusHide = setTimeout(function () { el.style.display = 'none'; }, durationMs);
+    }
+  }
 
   function installStandardGenerateButtonOverlay() {
     var btn = findStandardGenerateButton();
@@ -699,27 +723,33 @@
     }
     if (lastStandardBtn && lastStandardBtn !== btn) restoreButton(lastStandardBtn);
     lastStandardBtn = btn;
-    function onOverlayClick() {
+    function onOurButtonClick() {
+      showGenerateStatus('Verifying credits amount...', 0);
       var used = getUsedToday();
       var limit = CONFIG.DAILY_CREDIT_LIMIT;
       if (used >= limit) {
+        showGenerateStatus('Daily limit reached (100). Try again tomorrow.', 4000);
+        setTimeout(function () { showGenerateStatus('', 1); }, 4000);
         alert('Daily credit limit reached (100). Try again tomorrow.');
         return;
       }
+      showGenerateStatus('Authorizing...', 0);
       addUsedToday(1);
       var email = getVerifiedEmail();
       var usedToday = getUsedToday();
       logUsage(email, 1, usedToday, 'standard_generate');
       log('track standard_generate', email, usedToday);
       updateWidget(null, usedToday, limit, usedToday >= limit, 1);
+      showGenerateStatus('Generating...', 0);
       setTimeout(function () {
         try {
           var b = findStandardGenerateButton();
           if (b) b.click();
-        } catch (_) {}
+          setTimeout(function () { showGenerateStatus('', 1); }, 800);
+        } catch (_) { showGenerateStatus('', 1); }
       }, 120);
     }
-    placeOverlayOverButton('ee-hf-ecom-overlay-standard', btn, onOverlayClick);
+    placeOurButtonOver('ee-hf-ecom-overlay-standard', btn, onOurButtonClick);
   }
 
   function installUnlimitedButtonOverlay() {
@@ -732,37 +762,37 @@
     }
     if (lastUnlimitedBtn && lastUnlimitedBtn !== btn) restoreButton(lastUnlimitedBtn);
     lastUnlimitedBtn = btn;
-    function onOverlayClick() {
-      if (isUnlimitedMode()) {
-        setTimeout(function () { try { var b = findUnlimitedGenerateButton(); if (b) b.click(); } catch (_) {} }, 50);
-        return;
-      }
-      var used = getUsedToday();
-      var limit = CONFIG.DAILY_CREDIT_LIMIT;
-      if (used >= limit) {
-        alert('Daily credit limit reached (100). Try again tomorrow.');
-        return;
-      }
-      addUsedToday(1);
+    function onOurButtonClick() {
+      /* Unlimited : on n'enlève pas de crédits ; on log pour l'admin et on affiche les étapes. */
+      showGenerateStatus('Verifying (Unlimited - no deduction)...', 0);
       var email = getVerifiedEmail();
       var usedToday = getUsedToday();
-      logUsage(email, 1, usedToday, 'unlimited_generate');
-      log('track unlimited_generate', email, usedToday);
-      updateWidget(null, usedToday, limit, usedToday >= limit, 1);
+      logUsage(email, 0, usedToday, 'unlimited_generate');
+      log('track unlimited_generate (no credit deduction)');
+      showGenerateStatus('Authorizing...', 0);
       setTimeout(function () {
-        try {
-          var b = findUnlimitedGenerateButton();
-          if (b) b.click();
-        } catch (_) {}
-      }, 120);
+        showGenerateStatus('Generating...', 0);
+        setTimeout(function () {
+          try {
+            var b = findUnlimitedGenerateButton();
+            if (b) b.click();
+            setTimeout(function () { showGenerateStatus('', 1); }, 800);
+          } catch (_) { showGenerateStatus('', 1); }
+        }, 120);
+      }, 200);
     }
-    placeOverlayOverButton('ee-hf-ecom-overlay-unlimited', btn, onOverlayClick);
+    placeOurButtonOver('ee-hf-ecom-overlay-unlimited', btn, onOurButtonClick);
   }
 
   function setupBlockingObserver() {
     installGenerateClickBlocker();
     setInterval(installUnlimitedButtonOverlay, 1000);
     setInterval(installStandardGenerateButtonOverlay, 1000);
+  }
+
+  /** Retarde l’installation des overlays pour limiter le conflit d’hydratation React #418. */
+  function scheduleBlockingObserver() {
+    setTimeout(setupBlockingObserver, 3000);
   }
 
   // --- Init: interceptor tout de suite, DOM (widget/popup) après load pour éviter conflit hydratation React #418 ---
@@ -791,7 +821,7 @@
             log('popup not shown after retries; starting tracking without email');
             ensureWidget();
             startTracking();
-            setupBlockingObserver();
+            scheduleBlockingObserver();
           }
         };
         setTimeout(tryShow, 2000);
@@ -799,7 +829,7 @@
         if (SIMULATE_CONNECTED) log('mode simulé: tracking crédits activé');
         ensureWidget();
         startTracking();
-        setupBlockingObserver();
+        scheduleBlockingObserver();
       }
     }
     if (document.readyState === 'complete') {
