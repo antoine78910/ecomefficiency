@@ -7,6 +7,7 @@ type HiggsfieldUsageEvent = {
   used_today: number | null;
   at: string;
   user_agent: string | null;
+  source: string | null;
 };
 
 function getSupabaseAdmin() {
@@ -39,6 +40,7 @@ export async function POST(req: Request) {
       delta?: number;
       usedToday?: number;
       at?: string;
+      source?: string | null;
     };
 
     const rawEmail = typeof json.email === "string" ? json.email.trim() : "";
@@ -50,6 +52,10 @@ export async function POST(req: Request) {
         : null;
     const at =
       (typeof json.at === "string" && json.at) || new Date().toISOString();
+    const source =
+      typeof json.source === "string" && json.source.trim()
+        ? json.source.trim().slice(0, 64)
+        : null;
 
     if (!delta || !Number.isFinite(delta)) {
       return withCors(
@@ -69,12 +75,16 @@ export async function POST(req: Request) {
       used_today: usedToday,
       at,
       user_agent: ua,
+      source,
     };
 
     const supabase = getSupabaseAdmin();
-    const { error } = await supabase
-      .from("higgsfield_usage_events")
-      .insert(event);
+    let result = await supabase.from("higgsfield_usage_events").insert(event);
+    if (result.error && (result.error.message?.includes("source") || result.error.message?.includes("column"))) {
+      const { source: _s, ...eventWithoutSource } = event;
+      result = await supabase.from("higgsfield_usage_events").insert(eventWithoutSource);
+    }
+    const { error } = result;
 
     if (error) {
       console.warn("[API] higgsfield_usage_events insert error", error.message);

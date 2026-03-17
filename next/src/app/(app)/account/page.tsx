@@ -85,19 +85,6 @@ export default function AccountPage() {
           We’ll send a confirmation link to your current address. Your email won’t change until you confirm.
         </div>
       </div>
-
-      <div className="mt-8 rounded-xl border border-white/10 p-4 bg-gray-900">
-        <div className="text-white font-medium mb-2">Subscription</div>
-        <p className="text-sm text-gray-400 mb-3">Update payment method, cancel or change plan.</p>
-        <a
-          href="https://billing.stripe.com/p/login/fZu9AU1HlfYGfKO2CvbjW00"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex px-4 py-2 rounded-md border border-white/20 text-white hover:bg-white/10 transition-colors text-sm"
-        >
-          Manage subscription
-        </a>
-      </div>
     </div>
   );
 }

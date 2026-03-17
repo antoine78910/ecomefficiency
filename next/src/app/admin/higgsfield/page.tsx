@@ -15,30 +15,48 @@ type UsageRow = {
   at: string
   created_at?: string
   user_agent?: string | null
+  source?: string | null
 }
 
 async function fetchHiggsfieldUsage() {
-  if (!supabaseAdmin) return { events: [], totalCredits: 0, byEmail: [] }
-  const { data: events, error } = await supabaseAdmin
+  if (!supabaseAdmin) return { events: [], totalCredits: 0, byEmail: [], unlimitedClicks: 0, unlimitedCredits: 0 }
+  let selectCols = 'id, email, delta, used_today, at, created_at, user_agent, source'
+  let { data: events, error } = await supabaseAdmin
     .from('higgsfield_usage_events')
-    .select('id, email, delta, used_today, at, created_at, user_agent')
+    .select(selectCols)
     .order('at', { ascending: false })
     .limit(500)
+  if (error && (error.message?.includes('source') || error.message?.includes('column'))) {
+    selectCols = 'id, email, delta, used_today, at, created_at, user_agent'
+    const fallback = await supabaseAdmin
+      .from('higgsfield_usage_events')
+      .select(selectCols)
+      .order('at', { ascending: false })
+      .limit(500)
+    events = fallback.data
+    error = fallback.error
+  }
   if (error) {
     console.error('[admin/higgsfield]', error.message)
-    return { events: [], totalCredits: 0, byEmail: [] }
+    return { events: [], totalCredits: 0, byEmail: [], unlimitedClicks: 0, unlimitedCredits: 0 }
   }
   const rows = (events || []) as UsageRow[]
   const totalCredits = rows.reduce((sum, r) => sum + (Number(r.delta) || 0), 0)
+  let unlimitedClicks = 0
+  let unlimitedCredits = 0
   const byEmailMap = new Map<string, number>()
   for (const r of rows) {
     const key = (r.email || '').trim() || '(sans email)'
     byEmailMap.set(key, (byEmailMap.get(key) || 0) + (Number(r.delta) || 0))
+    if ((r.source || '').toLowerCase() === 'unlimited_generate') {
+      unlimitedClicks += 1
+      unlimitedCredits += Number(r.delta) || 0
+    }
   }
   const byEmail = Array.from(byEmailMap.entries())
     .map(([email, credits]) => ({ email, credits }))
     .sort((a, b) => b.credits - a.credits)
-  return { events: rows, totalCredits, byEmail }
+  return { events: rows, totalCredits, byEmail, unlimitedClicks, unlimitedCredits }
 }
 
 export default async function AdminHiggsfieldPage() {
@@ -77,7 +95,7 @@ export default async function AdminHiggsfieldPage() {
     }
   }
 
-  const { events, totalCredits, byEmail } = await fetchHiggsfieldUsage()
+  const { events, totalCredits, byEmail, unlimitedClicks, unlimitedCredits } = await fetchHiggsfieldUsage()
 
   return (
     <div className="min-h-screen bg-black text-white px-6 py-10">
@@ -93,7 +111,7 @@ export default async function AdminHiggsfieldPage() {
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
           <div className="bg-gradient-to-r from-amber-600 to-amber-700 rounded-xl p-4">
             <div className="flex items-center justify-between">
               <div>
@@ -113,6 +131,15 @@ export default async function AdminHiggsfieldPage() {
             <div>
               <p className="text-gray-400 text-sm">Emails distincts</p>
               <p className="text-2xl font-bold">{byEmail.length}</p>
+            </div>
+          </div>
+          <div className="bg-gradient-to-r from-purple-600 to-purple-700 rounded-xl p-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-purple-200 text-sm">Clics bouton Unlimited validés</p>
+                <p className="text-2xl font-bold">{unlimitedClicks}</p>
+                <p className="text-purple-200 text-xs">{unlimitedCredits} crédits</p>
+              </div>
             </div>
           </div>
         </div>
@@ -156,6 +183,7 @@ export default async function AdminHiggsfieldPage() {
                     <th className="p-3 text-left">Email</th>
                     <th className="p-3 text-right">Delta</th>
                     <th className="p-3 text-right">Used today</th>
+                    <th className="p-3 text-left">Source</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -171,6 +199,7 @@ export default async function AdminHiggsfieldPage() {
                       <td className="p-3 font-medium">{e.email || '—'}</td>
                       <td className="p-3 text-right text-amber-400">+{e.delta}</td>
                       <td className="p-3 text-right text-gray-400">{e.used_today ?? '—'}</td>
+                      <td className="p-3 text-gray-400">{e.source || '—'}</td>
                     </tr>
                   ))}
                 </tbody>
