@@ -2,9 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Shield, Users, Activity, BarChart3, LayoutTemplate, ClipboardList, Star } from 'lucide-react'
+import { Shield, Users, Activity, BarChart3, LayoutTemplate, ClipboardList, Star, Zap } from 'lucide-react'
 
 const adminRoutes = [
+  {
+    href: '/admin/higgsfield',
+    label: 'Higgsfield',
+    icon: Zap,
+    description: 'Crédits Higgsfield consommés (extension)'
+  },
   {
     href: '/admin/reviews',
     label: 'Reviews',
