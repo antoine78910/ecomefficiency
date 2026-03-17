@@ -4,6 +4,7 @@ import { createHmac } from 'crypto'
 import AdminNavigation from '@/components/AdminNavigation'
 import { Zap } from 'lucide-react'
 import { supabaseAdmin } from '@/integrations/supabase/server'
+import { HiggsfieldEmailTable, HiggsfieldEventsTable } from '@/components/HiggsfieldTables'
 
 export const dynamic = 'force-dynamic'
 
@@ -113,7 +114,7 @@ export default async function AdminHiggsfieldPage() {
             Crédits Higgsfield consommés
           </h1>
           <p className="text-gray-400">
-            Générations enregistrées via l’extension (extension → POST /api/usage/higgsfield)
+            Générations enregistrées via l&apos;extension (extension → POST /api/usage/higgsfield)
           </p>
         </div>
 
@@ -159,66 +160,12 @@ export default async function AdminHiggsfieldPage() {
 
         {byEmail.length > 0 && (
           <div className="mb-8">
-            <h2 className="text-xl font-semibold mb-4">Par email</h2>
-            <div className="overflow-auto border border-white/10 rounded-xl bg-gray-900/30">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-800/50">
-                  <tr>
-                    <th className="p-4 text-left">Email</th>
-                    <th className="p-4 text-right">Crédits consommés</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {byEmail.map(({ email, credits }) => (
-                    <tr key={email} className="border-t border-white/5 hover:bg-white/5">
-                      <td className="p-4 font-medium">{email}</td>
-                      <td className="p-4 text-right text-amber-400 font-semibold">{credits.toLocaleString()}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+            <HiggsfieldEmailTable data={byEmail} />
           </div>
         )}
 
         <div>
-          <h2 className="text-xl font-semibold mb-4">Derniers événements</h2>
-          {events.length === 0 ? (
-            <div className="border border-white/10 rounded-xl bg-white/5 p-8 text-center text-gray-400">
-              Aucun enregistrement pour le moment. Les crédits apparaîtront ici une fois que l’extension aura envoyé des événements (génération sur Higgsfield avec email vérifié).
-            </div>
-          ) : (
-            <div className="overflow-auto border border-white/10 rounded-xl bg-gray-900/30 max-h-[500px]">
-              <table className="w-full text-sm">
-                <thead className="bg-gray-800/50 sticky top-0">
-                  <tr>
-                    <th className="p-3 text-left">Date</th>
-                    <th className="p-3 text-left">Email</th>
-                    <th className="p-3 text-right">Delta</th>
-                    <th className="p-3 text-right">Used today</th>
-                    <th className="p-3 text-left">Source</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {events.map((e, i) => (
-                    <tr key={e.id ?? i} className="border-t border-white/5 hover:bg-white/5">
-                      <td className="p-3 text-gray-400">
-                        {e.created_at
-                          ? new Date(e.created_at).toLocaleString('fr-FR')
-                          : e.at
-                            ? new Date(e.at).toLocaleString('fr-FR')
-                            : '—'}
-                      </td>
-                      <td className="p-3 font-medium">{e.email || '—'}</td>
-                      <td className="p-3 text-right text-amber-400">+{e.delta}</td>
-                      <td className="p-3 text-right text-gray-400">{e.used_today ?? '—'}</td>
-                      <td className="p-3 text-gray-400">{e.source || '—'}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
+          <HiggsfieldEventsTable data={events} />
         </div>
       </div>
     </div>

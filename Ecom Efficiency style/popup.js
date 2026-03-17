@@ -9,15 +9,16 @@ document.addEventListener('DOMContentLoaded', () => {
     const today = new Date().toISOString().slice(0, 10);
     const lastReset = tracking && tracking.lastResetDate;
     const todayUsage = (lastReset === today) ? (tracking.todayUsage || 0) : 0;
-    const limitReached = todayUsage >= 100;
+    const dailyLimit = (data && data.ee_hf_daily_limit) || 100;
+    const limitReached = todayUsage >= dailyLimit;
     if (wallet || todayUsage > 0) {
       block.style.display = 'block';
       const creditsEl = document.getElementById('ee-hf-credits-value');
       const usedEl = document.getElementById('ee-hf-used-value');
       const limitMsg = document.getElementById('ee-hf-limit-msg');
       if (creditsEl) creditsEl.textContent = wallet && (wallet.credits !== undefined && wallet.credits !== null) ? wallet.credits : '–';
-      if (usedEl) usedEl.textContent = todayUsage + ' / 100';
-      if (limitMsg) limitMsg.style.display = limitReached ? 'block' : 'none';
+      if (usedEl) usedEl.textContent = todayUsage + ' / ' + dailyLimit;
+      if (limitMsg) { limitMsg.textContent = 'Daily limit reached (' + dailyLimit + ' credits).'; limitMsg.style.display = limitReached ? 'block' : 'none'; }
     } else {
       block.style.display = 'none';
     }

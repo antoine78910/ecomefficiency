@@ -3,7 +3,7 @@
 (function () {
   'use strict';
   var lastKnownCredits = null; // from GET workspaces/wallet
-  var MAX_DAILY_CREDITS = 100;
+  var MAX_DAILY_CREDITS = (window.EE_HIGGSFIELD_ECOM_CONFIG && window.EE_HIGGSFIELD_ECOM_CONFIG.DAILY_CREDIT_LIMIT) || 100;
 
   function getAuthHeader(initOrRequest) {
     if (!initOrRequest || !initOrRequest.headers) return null;
@@ -125,7 +125,7 @@
       if (isBlockGenerations()) {
         console.log('[EE][HIGGSFIELD] Blocked generation: daily limit reached');
         try { window.postMessage({ type: 'EE_HIGGSFIELD_DAILY_LIMIT_BLOCKED', source: 'ee-logger', payload: { maxDaily: MAX_DAILY_CREDITS } }, '*'); } catch (_) {}
-        return Promise.reject(new Error('Daily credit limit reached (100 credits).'));
+        return Promise.reject(new Error('Daily credit limit reached (' + MAX_DAILY_CREDITS + ' credits).'));
       }
       var beforeGen = lastKnownCredits;
       try { window.postMessage({ type: 'EE_HIGGSFIELD_GENERATION_START', source: 'ee-logger', payload: { creditsBeforeGeneration: beforeGen } }, '*'); } catch (_) {}

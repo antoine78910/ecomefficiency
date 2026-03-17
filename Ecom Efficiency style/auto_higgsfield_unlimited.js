@@ -1,80 +1,80 @@
 (function () {
   'use strict';
 
-  // Run only on higgsfield.ai
   if (!location.hostname.includes('higgsfield.ai')) return;
-  // Do NOT run on auth/login pages (interferes with auto-login and can spam requests)
   try {
     if ((location.pathname || '').startsWith('/auth')) return;
   } catch (_) {}
 
   console.log('[HIGGSFIELD] Unlimited helper loaded on', location.href);
 
-  let attempt = 0;
+  var activated = false;
+
+  function findUnlimitedSwitch() {
+    var switches = document.querySelectorAll('button[role="switch"], [aria-checked]');
+    for (var i = 0; i < switches.length; i++) {
+      var sw = switches[i];
+      var parent = sw.closest ? sw.closest('div') : sw.parentElement;
+      if (!parent) continue;
+      var txt = (parent.textContent || '').toLowerCase();
+      if (txt.indexOf('unlimited') !== -1 || txt.indexOf('unlim') !== -1) {
+        return sw;
+      }
+    }
+    return null;
+  }
 
   function toggleUnlimited() {
-    attempt += 1;
-    console.log(`[HIGGSFIELD] Scan #${attempt} at ${new Date().toISOString()}`);
+    if (activated) return;
+    var sw = findUnlimitedSwitch();
+    if (!sw) return;
 
-    // Strategy 1: container text starts with "Unlimited"
-    // accept "unlimited" or truncated "unlim"
-    let containers = Array.from(
-      document.querySelectorAll('div')
-    ).filter((d) => {
-      const txt = (d.textContent || '').trim().toLowerCase();
-      return txt.startsWith('unlimited') || txt.startsWith('unlim');
-    });
+    var isOn = (sw.getAttribute('aria-checked') || '').toLowerCase() === 'true';
+    console.log('[HIGGSFIELD] Found switch, current state:', isOn ? 'ON' : 'OFF');
 
-    // Strategy 2: any switch near text "Unlimited"
-    if (!containers.length) {
-      const switches = Array.from(document.querySelectorAll('button[role="switch"], [aria-checked]'));
-      containers = switches
-        .map((sw) => sw.closest('div'))
-        .filter((div) => {
-          const txt = (div && div.textContent ? div.textContent : '').toLowerCase();
-          return txt.includes('unlimited') || txt.includes('unlim');
-        });
-    }
-
-    if (!containers.length) {
-      console.log('[HIGGSFIELD] No container with text "Unlimited" found');
+    if (isOn) {
+      activated = true;
+      console.log('[HIGGSFIELD] Unlimited already enabled');
       return;
     }
 
-    for (const container of containers) {
-      const switchBtn =
-        container.querySelector('button[role="switch"]') ||
-        container.querySelector('[aria-checked]');
-      if (!switchBtn) continue;
-      const isOn = (switchBtn.getAttribute('aria-checked') || '').toLowerCase() === 'true';
-      console.log('[HIGGSFIELD] Found switch, current state:', isOn ? 'ON' : 'OFF');
-      if (!isOn) {
-        console.log('[HIGGSFIELD] Enabling Unlimited toggle');
-        try {
-          switchBtn.click();
-          // Some toggles need a second click on parent
-          const parentButton = switchBtn.closest('button');
-          if (parentButton && parentButton !== switchBtn) parentButton.click();
-        } catch (e) {
-          console.warn('[HIGGSFIELD] Click failed:', e);
-        }
-      } else {
-        console.log('[HIGGSFIELD] Unlimited already enabled');
-      }
-      return; // done after first match
+    console.log('[HIGGSFIELD] Enabling Unlimited toggle via synthetic events');
+    activated = true;
+    try {
+      sw.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, composed: true, pointerType: 'mouse', isPrimary: true }));
+      sw.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, composed: true }));
+      sw.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, composed: true, pointerType: 'mouse', isPrimary: true }));
+      sw.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, composed: true }));
+      sw.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true }));
+    } catch (e) {
+      console.warn('[HIGGSFIELD] Synthetic click failed, falling back to .click():', e);
+      try { sw.click(); } catch (_) {}
     }
+
+    setTimeout(function () {
+      var check = findUnlimitedSwitch();
+      if (check) {
+        var nowOn = (check.getAttribute('aria-checked') || '').toLowerCase() === 'true';
+        console.log('[HIGGSFIELD] Post-toggle verification:', nowOn ? 'ON' : 'OFF');
+        if (!nowOn) {
+          activated = false;
+        }
+      }
+    }, 500);
   }
 
-  // Ne pas toucher le DOM avant load+2s pour éviter React #418 (hydration).
-  function startUnlimitedHelper() {
-    const observer = new MutationObserver(() => { toggleUnlimited(); });
-    try { observer.observe(document.documentElement, { childList: true, subtree: true }); } catch (_) {}
-    setInterval(toggleUnlimited, 500);
-    toggleUnlimited();
+  function start() {
+    var pollId = setInterval(function () {
+      toggleUnlimited();
+      if (activated) clearInterval(pollId);
+    }, 2000);
+
+    setTimeout(function () { clearInterval(pollId); }, 30000);
   }
+
   if (document.readyState === 'complete') {
-    setTimeout(startUnlimitedHelper, 2000);
+    setTimeout(start, 4000);
   } else {
-    window.addEventListener('load', function () { setTimeout(startUnlimitedHelper, 2000); }, { once: true });
+    window.addEventListener('load', function () { setTimeout(start, 4000); }, { once: true });
   }
 })();

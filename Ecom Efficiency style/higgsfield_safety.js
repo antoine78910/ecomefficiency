@@ -9,7 +9,7 @@
   }
 
   // Credit tracking: wallet (workspaces/wallet), generation start/end, daily limit 100, reset at midnight.
-  var MAX_DAILY_CREDITS = 100;
+  var MAX_DAILY_CREDITS = (window.EE_HIGGSFIELD_ECOM_CONFIG && window.EE_HIGGSFIELD_ECOM_CONFIG.DAILY_CREDIT_LIMIT) || 100;
   var HIDE_WALLET_WIDGET = true; // ne pas afficher le widget "Crédits Higgsfield" en haut à droite
   function todayStr() {
     var d = new Date();
@@ -62,7 +62,7 @@
         var usedStr = (usedToday !== undefined && usedToday !== null) ? String(usedToday) : (usedFromDeltas > 0 ? String(usedFromDeltas) : '0');
         var limitLine = '<div>Limit: <strong>' + usedStr + ' / ' + MAX_DAILY_CREDITS + '</strong></div>';
         if (limitReached) {
-          limitLine = '<div style="color:#ff6b6b;font-weight:700;margin-top:6px;">Daily limit reached (100 credits).</div>';
+          limitLine = '<div style="color:#ff6b6b;font-weight:700;margin-top:6px;">Daily limit reached (' + MAX_DAILY_CREDITS + ' credits).</div>';
         }
         el.innerHTML = '<div style="font-weight:700;margin-bottom:4px;">Crédits Higgsfield</div>' +
           '<div>Remaining: <strong>' + (credits !== undefined && credits !== null ? credits : '–') + '</strong></div>' +

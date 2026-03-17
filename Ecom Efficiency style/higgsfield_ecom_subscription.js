@@ -1,30 +1,32 @@
-// Higgsfield EcomEfficiency: vérification abonnement + limite 100 crédits/jour + widget
+// Higgsfield EcomEfficiency: vérification abonnement + limite crédits/jour + widget
 (function () {
   'use strict';
   try { console.log('[EE-HF-Ecom] subscription+credits script loaded on', location.href); } catch (_) {}
 
   const host = (location.hostname || '').toLowerCase();
   if (host !== 'higgsfield.ai' && host !== 'www.higgsfield.ai') return;
-  if ((location.pathname || '').startsWith('/auth')) return;
 
   const CONFIG = window.EE_HIGGSFIELD_ECOM_CONFIG || {
-    // Public Next backend (Stripe + Supabase verification)
     API_BASE_URL: 'https://www.ecomefficiency.com',
     VERIFY_SUBSCRIPTION_PATH: '/api/stripe/verify',
-    // Backend usage logging (Supabase): POST /api/usage/higgsfield
     USAGE_LOG_PATH: '/api/usage/higgsfield',
     DAILY_CREDIT_LIMIT: 100
   };
-  // Mode test: simuler connexion = pas de popup email, tracking crédits + logs détaillés
+  const GENERATION_COSTS_BY_QUALITY = (window.EE_HIGGSFIELD_ECOM_CONFIG && window.EE_HIGGSFIELD_ECOM_CONFIG.GENERATION_COSTS_BY_QUALITY) || {
+    AUTO: 12,
+    '1K': 12,
+    '2K': 15,
+    '4K': 25
+  };
   const SIMULATE_CONNECTED = !!(window.EE_HIGGSFIELD_ECOM_CONFIG && window.EE_HIGGSFIELD_ECOM_CONFIG.SIMULATE_CONNECTED);
 
-  const WALLET_URL = 'https://fnf.higgsfield.ai/workspaces/wallet';
   const STORAGE_PREFIX = 'ee_hf_ecom_';
   const SESSION_VERIFIED_EMAIL = STORAGE_PREFIX + 'verified_email';
   const SESSION_VERIFIED_AT = STORAGE_PREFIX + 'verified_at';
-  const LS_DAILY_USAGE = STORAGE_PREFIX + 'daily_usage'; // JSON: { "2025-02-21": 45, ... }
+  const SESSION_DAILY_LIMIT = STORAGE_PREFIX + 'daily_limit';
+  const LS_DAILY_USAGE = STORAGE_PREFIX + 'daily_usage';
 
-  const HIDE_ECOM_WIDGET = false; // afficher le widget "Crédits Higgsfield" (crédits restants aujourd'hui) en haut à droite
+  const HIDE_ECOM_WIDGET = false;
 
   const DEBUG = true;
   const _console = (typeof console !== 'undefined' && console.__ee_original__) ? console.__ee_original__ : (typeof console !== 'undefined' ? console : { log: function () {} });
@@ -33,6 +35,19 @@
   // --- Storage ---
   function getVerifiedEmail() { try { return sessionStorage.getItem(SESSION_VERIFIED_EMAIL); } catch (_) { return null; } }
   function setVerifiedEmail(email) { try { sessionStorage.setItem(SESSION_VERIFIED_EMAIL, email || ''); sessionStorage.setItem(SESSION_VERIFIED_AT, String(Date.now())); } catch (_) {} }
+  function applyDynamicCreditLimit(limit) {
+    if (typeof limit === 'number' && limit > 0) {
+      CONFIG.DAILY_CREDIT_LIMIT = limit;
+      try { sessionStorage.setItem(SESSION_DAILY_LIMIT, String(limit)); } catch (_) {}
+      log('daily credit limit set to', limit);
+    }
+  }
+  function restoreDynamicCreditLimit() {
+    try {
+      var stored = sessionStorage.getItem(SESSION_DAILY_LIMIT);
+      if (stored) { var n = parseInt(stored, 10); if (n > 0) { CONFIG.DAILY_CREDIT_LIMIT = n; log('restored daily credit limit from session:', n); } }
+    } catch (_) {}
+  }
   function getDailyUsage() {
     try {
       const raw = localStorage.getItem(LS_DAILY_USAGE);
@@ -48,17 +63,30 @@
     const k = getTodayKey();
     u[k] = (u[k] || 0) + delta;
     setDailyUsage(u);
-    const email = getVerifiedEmail();
-    const usedToday = u[k];
-    logUsage(email, delta, usedToday);
   }
 
   function isUnlimitedMode() {
     try {
-      const txtNodes = Array.from(document.querySelectorAll('div, span, p'))
-        .map(function (n) { return (n.textContent || '').trim().toLowerCase(); })
-        .filter(function (t) { return t.indexOf('unlimited') !== -1 || t.indexOf('unlim') !== -1; });
-      return txtNodes.length > 0;
+      var switches = document.querySelectorAll('button[role="switch"], [aria-checked]');
+      for (var i = 0; i < switches.length; i++) {
+        var sw = switches[i];
+        var parent = sw.closest ? sw.closest('div') : sw.parentElement;
+        if (!parent) continue;
+        var txt = (parent.textContent || '').toLowerCase();
+        if (txt.indexOf('unlimited') !== -1 || txt.indexOf('unlim') !== -1) {
+          var isOn = (sw.getAttribute('aria-checked') || '').toLowerCase() === 'true';
+          log('isUnlimitedMode: toggle found, aria-checked=' + sw.getAttribute('aria-checked') + ' \u2192 ' + (isOn ? 'UNLIMITED' : 'STANDARD'));
+          return isOn;
+        }
+      }
+      var btn = document.querySelector('button[data-tour-anchor="tour-image-generate"]');
+      if (!btn) try { btn = document.getElementById('hf:image-form-submit'); } catch (_) {}
+      if (btn && (btn.textContent || '').toLowerCase().indexOf('unlimited') !== -1) {
+        log('isUnlimitedMode: true (button text)');
+        return true;
+      }
+      log('isUnlimitedMode: false (no unlimited toggle/button found)');
+      return false;
     } catch (_) {
       return false;
     }
@@ -85,7 +113,7 @@
     } catch (e) { if (DEBUG) log('logUsage exception', e && e.message); }
   }
 
-  // --- Token JWT Higgsfield (Clerk) : POST /tokens + capture depuis les requêtes ---
+  // --- Token JWT Higgsfield (Clerk) ---
   const CLERK_BASE = 'https://clerk.higgsfield.ai';
   const CLERK_TOKENS_PATH = '/v1/client/sessions';
   let capturedBearerToken = null;
@@ -136,15 +164,14 @@
     return getSessionIdFromStorage();
   }
 
-  /** Récupère un token JWT frais via POST Clerk /sessions/{id}/tokens (credentials: 'include') */
   function getFreshTokenFromClerk() {
     const sessionId = getSessionId();
     if (!sessionId) {
-      log('getFreshTokenFromClerk: pas de session ID (attendre une requête Clerk ou être connecté)');
+      log('getFreshTokenFromClerk: no session ID');
       return Promise.resolve(null);
     }
     const url = CLERK_BASE + CLERK_TOKENS_PATH + '/' + encodeURIComponent(sessionId) + '/tokens?__clerk_api_version=2025-11-10';
-    log('POST Clerk tokens pour session', sessionId);
+    log('POST Clerk tokens for session', sessionId);
     const f = origFetch || window.fetch;
     function tryMethod(method) {
       return f(url, {
@@ -156,16 +183,11 @@
         var authHeader = r.headers && (r.headers.get ? r.headers.get('Authorization') : r.headers['Authorization']);
         if (authHeader && typeof authHeader === 'string' && authHeader.indexOf('Bearer ') === 0) {
           capturedBearerToken = authHeader.slice(7).trim();
-          log('Token frais Clerk (header Authorization), len=' + capturedBearerToken.length);
           return capturedBearerToken;
         }
         return r.json().then(function (data) {
           const token = (data && (data.jwt || data.token || data.data && (data.data.jwt || data.data.token)));
-          if (token && typeof token === 'string') {
-            capturedBearerToken = token;
-            log('Token frais Clerk (body), len=' + token.length);
-            return token;
-          }
+          if (token && typeof token === 'string') { capturedBearerToken = token; return token; }
           return null;
         });
       }).catch(function (e) { log('Clerk tokens error', e && e.message); return null; });
@@ -226,7 +248,7 @@
     });
   }
 
-  // --- Interception de TOUTES les requêtes (logs + capture session ID + Bearer + wallet) ---
+  // --- Fetch interceptor ---
   let origFetch = null;
   function installFetchInterceptor() {
     origFetch = window.fetch;
@@ -239,7 +261,7 @@
 
       if (u.indexOf('clerk') !== -1 && u.indexOf('/sessions/') !== -1) {
         const m = u.match(/\/sessions\/(sess_[a-zA-Z0-9_]+)/);
-        if (m && m[1]) { capturedSessionId = m[1]; log('Session ID capturé:', capturedSessionId); }
+        if (m && m[1]) { capturedSessionId = m[1]; log('Session ID captured:', capturedSessionId); }
       }
 
       const headers = init && init.headers;
@@ -251,49 +273,28 @@
       }
       if (authHeader && typeof authHeader === 'string' && authHeader.indexOf('Bearer ') === 0) {
         capturedBearerToken = authHeader.slice(7).trim();
-        log('Token Bearer capturé (longueur ' + capturedBearerToken.length + ')');
       }
 
       return origFetch.apply(this, arguments).then(function (res) {
         if (u.indexOf('fnf.higgsfield.ai') !== -1) {
           log('HTTP RESPONSE', res.status, method, u);
-          if (u.indexOf('workspaces/wallet') !== -1 && res.ok) {
-            const clone = res.clone();
-            clone.json().then(function (data) {
-              log('wallet data', data);
-              const raw = data && (data.balance ?? data.credits ?? data.available ?? (data.wallet && (data.wallet.balance ?? data.wallet.credits)));
-              const num = typeof raw === 'number' ? raw : (typeof raw === 'string' ? parseInt(raw, 10) : null);
-              if (num !== null) {
-                const prev = lastBalance;
-                lastBalance = num;
-                if (prev !== null && prev !== num && num < prev) {
-                  const delta = prev - num;
-                  if (delta > 0) { addUsedToday(delta); lastDelta = delta; log('credits spent (intercept): delta=' + delta + ', usedToday=' + getUsedToday()); }
-                }
-              }
-            }).catch(function () {});
-          }
         }
         if (u.indexOf('clerk') !== -1 && u.indexOf('/tokens') !== -1 && res.ok && (method === 'POST' || method === 'GET')) {
-          var authHeader = res.headers && (res.headers.get ? res.headers.get('Authorization') : res.headers['Authorization']);
-          if (authHeader && typeof authHeader === 'string' && authHeader.indexOf('Bearer ') === 0) {
-            capturedBearerToken = authHeader.slice(7).trim();
-            log('Token capturé (réponse Clerk header Authorization), len=' + capturedBearerToken.length);
+          var ah = res.headers && (res.headers.get ? res.headers.get('Authorization') : res.headers['Authorization']);
+          if (ah && typeof ah === 'string' && ah.indexOf('Bearer ') === 0) {
+            capturedBearerToken = ah.slice(7).trim();
           } else {
-            const clone = res.clone();
+            var clone = res.clone();
             clone.json().then(function (data) {
-              const token = (data && (data.jwt || data.token || data.data && (data.data.jwt || data.data.token)));
-              if (token && typeof token === 'string') {
-                capturedBearerToken = token;
-                log('Token capturé (réponse Clerk body), len=' + token.length);
-              }
+              var token = (data && (data.jwt || data.token || data.data && (data.data.jwt || data.data.token)));
+              if (token && typeof token === 'string') capturedBearerToken = token;
             }).catch(function () {});
           }
         }
         return res;
       });
     };
-    log('fetch interceptor installed (toutes requêtes loggées, Bearer capturé)');
+    log('fetch interceptor installed');
 
     if (typeof XMLHttpRequest !== 'undefined') {
       const OrigXHR = XMLHttpRequest;
@@ -308,45 +309,88 @@
         xhr.setRequestHeader = function (name, value) {
           if (String(name).toLowerCase() === 'authorization' && String(value).indexOf('Bearer ') === 0) {
             capturedBearerToken = value.slice(7).trim();
-            log('Token Bearer capturé (XHR), len=' + capturedBearerToken.length);
           }
           return origSetRequestHeader.apply(this, arguments);
         };
         return xhr;
       };
-      log('XHR interceptor installed');
     }
   }
 
-  // --- Wallet : origFetch + credentials + timeout 12s ---
-  const WALLET_FETCH_TIMEOUT_MS = 12000;
-  function fetchWallet(token) {
-    const f = origFetch || window.fetch;
-    var controller = null;
-    var timeoutId = null;
-    if (typeof AbortController !== 'undefined') {
-      controller = new AbortController();
-      timeoutId = setTimeout(function () { if (controller) controller.abort(); }, WALLET_FETCH_TIMEOUT_MS);
-    }
-    var opts = {
-      method: 'GET',
-      credentials: 'include',
-      headers: { 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
-      signal: controller ? controller.signal : undefined
-    };
-    return f(WALLET_URL, opts).then(function (r) {
-      if (timeoutId) clearTimeout(timeoutId);
-      if (!r.ok) throw new Error('Wallet ' + r.status);
-      return r.json();
-    }).catch(function (err) {
-      if (timeoutId) clearTimeout(timeoutId);
-      throw err;
-    });
+  // --- Daily credits helpers ---
+  function getHoursUntilReset() {
+    var now = new Date();
+    var tomorrow = new Date(now);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    tomorrow.setHours(0, 0, 0, 0);
+    var diffMs = tomorrow - now;
+    return Math.ceil(diffMs / (1000 * 60 * 60));
   }
 
-  // --- Backend: verify subscription (Stripe + Supabase via /api/stripe/verify) ---
+  function getDailyRemaining() {
+    return Math.max(0, CONFIG.DAILY_CREDIT_LIMIT - getUsedToday());
+  }
+
+  function detectQualityFromText(text) {
+    const upper = String(text || '').replace(/\s+/g, ' ').trim().toUpperCase();
+    if (!upper) return null;
+    if (/\b4K\b/.test(upper)) return '4K';
+    if (/\b2K\b/.test(upper)) return '2K';
+    if (/\b1K\b/.test(upper)) return '1K';
+    if (/\bAUTO\b/.test(upper)) return 'AUTO';
+    return null;
+  }
+
+  function getSelectedGenerationQuality() {
+    const selectors = ['[aria-pressed="true"]','[aria-selected="true"]','[aria-checked="true"]','[data-state="checked"]','[data-state="on"]'];
+    for (let i = 0; i < selectors.length; i++) {
+      const nodes = document.querySelectorAll(selectors[i]);
+      for (let j = 0; j < nodes.length; j++) {
+        const quality = detectQualityFromText(nodes[j].textContent || '');
+        if (quality) return quality;
+      }
+    }
+    return 'AUTO';
+  }
+
+  function readCostFromGenerateButton() {
+    var btn = document.querySelector('button[data-tour-anchor="tour-image-generate"]');
+    if (!btn) try { btn = document.getElementById('hf:image-form-submit'); } catch (_) {}
+    if (!btn) {
+      var allBtns = document.querySelectorAll('button[type="submit"]');
+      for (var b = 0; b < allBtns.length; b++) {
+        if (/\bgenerate\b/i.test(allBtns[b].textContent || '')) { btn = allBtns[b]; break; }
+      }
+    }
+    if (!btn) return null;
+    var children = btn.querySelectorAll('span, div');
+    for (var i = 0; i < children.length; i++) {
+      var raw = (children[i].textContent || '').trim();
+      if (/^\d+(\.\d+)?$/.test(raw)) {
+        var n = parseFloat(raw);
+        if (n > 0) return n;
+      }
+    }
+    var allText = (btn.textContent || '').replace(/generate/gi, '').trim();
+    var m = allText.match(/(\d+(?:\.\d+)?)/);
+    if (m) { var n2 = parseFloat(m[1]); if (n2 > 0) return n2; }
+    return null;
+  }
+
+  function getGenerationCostInfo() {
+    var btnCost = readCostFromGenerateButton();
+    if (btnCost !== null) {
+      log('cost read from Generate button: ' + btnCost);
+      return { quality: 'BUTTON', cost: btnCost, usedFallback: false };
+    }
+    var quality = getSelectedGenerationQuality();
+    var cost = GENERATION_COSTS_BY_QUALITY[quality] || GENERATION_COSTS_BY_QUALITY.AUTO || 12;
+    log('cost from quality mapping: ' + quality + ' \u2192 ' + cost);
+    return { quality: quality, cost: cost, usedFallback: !GENERATION_COSTS_BY_QUALITY[quality] };
+  }
+
+  // --- Backend: verify subscription ---
   function verifySubscription(email) {
-    // Forcer l’URL correcte (avec www) pour éviter les redirections 307:
     const url = 'https://www.ecomefficiency.com/api/stripe/verify';
     return fetch(url, {
       method: 'POST',
@@ -359,89 +403,70 @@
         return r.json().catch(function () { return { ok: false }; });
       })
       .then(function (data) {
-        // Attendu côté backend:
-        // - Succès: { ok: true, active: true, status: "active"|"trialing"|..., plan: "starter"|"pro"|... }
-        // - Pas d'abonnement: { ok: true, active: false, status: "no_active_subscription", plan: null }
         if (!data || data.ok !== true) {
-          return { allowed: false, reason: 'api_error', plan: null, status: data && data.status };
+          return { allowed: false, reason: 'api_error', plan: null, status: data && data.status, daily_credit_limit: null };
         }
         if (data.active === true) {
-          return {
-            allowed: true,
-            plan: data.plan || null,
-            status: data.status || 'active'
-          };
+          return { allowed: true, plan: data.plan || null, status: data.status || 'active', daily_credit_limit: data.daily_credit_limit || null, source: data.source || null };
         }
-        // Pas d'abonnement actif
-        return {
-          allowed: false,
-          reason: 'no_active_subscription',
-          plan: data.plan || null,
-          status: data.status || 'no_active_subscription'
-        };
+        return { allowed: false, reason: 'no_active_subscription', plan: data.plan || null, status: data.status || 'no_active_subscription', daily_credit_limit: null };
       })
-      .catch(function () { return { allowed: false, reason: 'network_error', plan: null, status: null }; });
+      .catch(function () { return { allowed: false, reason: 'network_error', plan: null, status: null, daily_credit_limit: null }; });
   }
 
-  // --- Popup UI (demande email pour chaque session / rechargement) ---
+  // --- Popup UI ---
   function shouldShowPopup() {
     return !SIMULATE_CONNECTED;
   }
 
-  // Ecom Efficiency brand: same look as ecomefficiency.com (purple #9541e0, dark bg, rounded-xl)
-  var EE_ACCENT = '#9541e0';
-  var EE_BG = 'rgb(17, 24, 39)';      /* gray-900 */
-  var EE_BORDER = 'rgba(255,255,255,0.1)';
-  var EE_INPUT_BG = 'rgba(31, 41, 55, 0.6)'; /* gray-800/60 */
-
   function createPopup() {
     if (document.getElementById('ee-hf-ecom-popup-root')) return;
-    const root = document.createElement('div');
+    if ((location.pathname || '').startsWith('/auth')) return;
+    var root = document.createElement('div');
     root.id = 'ee-hf-ecom-popup-root';
-    Object.assign(root.style, {
-      position: 'fixed', top: '0', left: '0', right: '0', bottom: '0',
-      zIndex: 2147483646, display: 'flex', alignItems: 'center', justifyContent: 'center',
-      background: 'rgba(0,0,0,0.7)', fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-    });
-    const box = document.createElement('div');
-    box.className = 'ee-hf-ecom-popup-box';
-    Object.assign(box.style, {
-      background: EE_BG, color: '#fff', padding: '24px', borderRadius: '12px',
-      minWidth: '320px', maxWidth: '90vw', border: '1px solid ' + EE_BORDER,
-      boxShadow: '0 20px 80px rgba(149, 65, 224, 0.12), 0 0 0 1px rgba(255,255,255,0.04)'
-    });
+    root.style.cssText = 'position:fixed;inset:0;z-index:2147483646;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.3);animation:eePopIn 0.2s ease;';
+    var popupStyle = document.createElement('style');
+    popupStyle.textContent = '@keyframes eePopIn{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}' +
+      '#ee-hf-ecom-email:focus{border-color:rgba(149,65,224,0.5)!important;box-shadow:0 0 0 2px rgba(149,65,224,0.15)!important;}' +
+      '#ee-hf-ecom-submit:hover:not(:disabled){filter:brightness(1.15)}#ee-hf-ecom-submit:disabled{opacity:0.6;cursor:wait}';
+    root.appendChild(popupStyle);
+    var box = document.createElement('div');
+    box.style.cssText = 'max-width:380px;width:90%;background:linear-gradient(170deg,#0f0f1a 0%,#1a1028 50%,#0f0f1a 100%);border:1px solid rgba(149,65,224,0.25);border-radius:20px;padding:32px 28px;box-shadow:0 20px 80px rgba(149,65,224,0.2);font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;color:#fff;text-align:center;position:relative;';
     box.innerHTML =
-      '<div style="font-weight:600;font-size:1.1rem;margin-bottom:6px;color:#fff;">Ecom Efficiency – Higgsfield</div>' +
-      '<p style="margin:0 0 14px;font-size:14px;color:rgba(156,163,175,1);">Enter the email you used for your Ecom Efficiency subscription.</p>' +
-      '<input type="email" id="ee-hf-ecom-email" placeholder="your@email.com" style="width:100%;box-sizing:border-box;padding:10px 12px;border:1px solid ' + EE_BORDER + ';border-radius:6px;background:' + EE_INPUT_BG + ';color:#fff;margin-bottom:12px;font-size:14px;outline:none;" />' +
-      '<div id="ee-hf-ecom-msg" style="min-height:20px;font-size:13px;margin-bottom:10px;"></div>' +
-      '<div style="display:flex;gap:8px;justify-content:center;">' +
-      '<button type="button" id="ee-hf-ecom-submit" style="min-width:140px;padding:10px 18px;background:' + EE_ACCENT + ';color:#fff;border:1px solid ' + EE_ACCENT + ';border-radius:10px;cursor:pointer;font-weight:600;font-size:14px;">Verify</button>' +
-      '</div>';
+      '<div style="position:absolute;top:-1px;left:50%;transform:translateX(-50%);width:60%;height:3px;background:linear-gradient(90deg,transparent,#9541e0,#b54af3,#9541e0,transparent);border-radius:0 0 4px 4px;"></div>' +
+      '<div style="font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#b54af3;margin-bottom:12px;">Ecom Efficiency</div>' +
+      '<div style="font-size:20px;font-weight:700;margin-bottom:8px;">Verify Your Subscription</div>' +
+      '<div style="font-size:14px;color:rgba(255,255,255,0.7);margin-bottom:20px;line-height:1.5;">Enter the email you used for your<br>Ecom Efficiency subscription.</div>' +
+      '<input type="email" id="ee-hf-ecom-email" placeholder="your@email.com" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid rgba(255,255,255,0.1);border-radius:12px;background:rgba(255,255,255,0.06);color:#fff;margin-bottom:14px;font-size:14px;outline:none;transition:border-color 0.2s,box-shadow 0.2s;" />' +
+      '<div id="ee-hf-ecom-msg" style="min-height:20px;font-size:13px;margin-bottom:14px;"></div>' +
+      '<button type="button" id="ee-hf-ecom-submit" style="width:100%;padding:12px;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;background:linear-gradient(to bottom,#9541e0,#7c30c7);color:#fff;box-shadow:0 8px 40px rgba(149,65,224,0.35);transition:filter 0.15s;">Verify</button>';
     root.appendChild(box);
     document.body.appendChild(root);
 
-    const emailEl = document.getElementById('ee-hf-ecom-email');
-    const msgEl = document.getElementById('ee-hf-ecom-msg');
-    const submitBtn = document.getElementById('ee-hf-ecom-submit');
+    var emailEl = document.getElementById('ee-hf-ecom-email');
+    var msgEl = document.getElementById('ee-hf-ecom-msg');
+    var submitBtn = document.getElementById('ee-hf-ecom-submit');
 
     function setMsg(txt, isErr) {
       msgEl.textContent = txt || '';
       msgEl.style.color = isErr ? '#f87171' : '#86efac';
     }
 
-    submitBtn.addEventListener('click', function () {
-      const email = (emailEl.value || '').trim().toLowerCase();
+    function doVerify() {
+      var email = (emailEl.value || '').trim().toLowerCase();
       if (!email) { setMsg('Please enter an email.', true); return; }
-      setMsg('Verifying subscription…');
+      setMsg('Verifying subscription\u2026');
       submitBtn.disabled = true;
       verifySubscription(email).then(function (res) {
         submitBtn.disabled = false;
         if (res && res.allowed) {
           setVerifiedEmail(email);
-          const planLabel = res.plan ? (' (plan: ' + res.plan + ')') : '';
-          setMsg('Active subscription detected' + planLabel + '. Access granted.', false);
-          setTimeout(function () { root.remove(); startTracking(); }, 600);
+          if (res.daily_credit_limit) applyDynamicCreditLimit(res.daily_credit_limit);
+          var sourceLabel = res.source === 'legacy' ? ' (legacy)' : '';
+          var planLabel = res.plan ? (' (plan: ' + res.plan + sourceLabel + ')') : '';
+          var limitLabel = CONFIG.DAILY_CREDIT_LIMIT !== 100 ? ' — ' + CONFIG.DAILY_CREDIT_LIMIT + ' credits/day' : '';
+          setMsg('Active subscription detected' + planLabel + limitLabel + '. Access granted.', false);
+          setTimeout(function () { root.remove(); removeShield(); ensureWidget(); startTracking(); scheduleBlockingObserver(); eeFullyInitialized = true; }, 600);
         } else {
           if (res && res.reason === 'no_active_subscription') {
             setMsg('No active subscription for this email. Please subscribe on ecomefficiency.com.', true);
@@ -455,11 +480,29 @@
         submitBtn.disabled = false;
         setMsg('Network error. Please check backend URL or try again later.', true);
       });
-    });
+    }
+
+    submitBtn.addEventListener('click', doVerify);
+    emailEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') doVerify(); });
   }
 
-  // --- Widget (crédits + utilisé aujourd’hui + limite) ---
+  // --- Widget ---
+  var WIDGET_STYLE_ID = 'ee-hf-ecom-widget-style';
   let widgetEl = null;
+
+  function ensureWidgetStyle() {
+    if (document.getElementById(WIDGET_STYLE_ID)) return;
+    var s = document.createElement('style');
+    s.id = WIDGET_STYLE_ID;
+    s.textContent =
+      '#ee-hf-ecom-widget{position:fixed;top:14px;right:14px;z-index:2147483645;width:224px;color:#fff;' +
+      'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;border-radius:16px;overflow:hidden;' +
+      'transition:box-shadow 0.3s ease,border-color 0.3s ease;}' +
+      '#ee-hf-ecom-widget .ee-w-bar-track{width:100%;height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;}' +
+      '#ee-hf-ecom-widget .ee-w-bar-fill{height:100%;border-radius:3px;transition:width 0.5s ease;}';
+    (document.head || document.documentElement).appendChild(s);
+  }
+
   function ensureWidget() {
     if (HIDE_ECOM_WIDGET) {
       var existing = document.getElementById('ee-hf-ecom-widget');
@@ -467,137 +510,109 @@
       widgetEl = null;
       return null;
     }
+    ensureWidgetStyle();
     if (widgetEl && document.body.contains(widgetEl)) return widgetEl;
     widgetEl = document.createElement('div');
     widgetEl.id = 'ee-hf-ecom-widget';
-    Object.assign(widgetEl.style, {
-      position: 'fixed', top: '12px', right: '12px', zIndex: 2147483645,
-      background: 'rgba(10,10,14,0.92)', color: '#fff', padding: '12px 14px', borderRadius: '10px',
-      fontSize: '12px', minWidth: '160px', boxShadow: '0 4px 20px rgba(0,0,0,0.3)',
-      border: '1px solid rgba(255,255,255,0.1)'
-    });
     document.body.appendChild(widgetEl);
     return widgetEl;
   }
 
-  function updateWidget(balance, usedToday, limit, isOverLimit, lastGenDelta) {
+  function updateWidget(usedToday, limit, isOverLimit, lastGenDelta) {
     if (HIDE_ECOM_WIDGET) {
       var ex = document.getElementById('ee-hf-ecom-widget');
       if (ex) ex.remove();
       return;
     }
-    const w = ensureWidget();
+    var w = ensureWidget();
     if (!w) return;
-    const limitVal = limit !== undefined ? limit : CONFIG.DAILY_CREDIT_LIMIT;
-    const usedVal = usedToday != null ? usedToday : 0;
-    const remaining = Math.max(0, limitVal - usedVal);
-    w.style.borderColor = isOverLimit ? 'rgba(248,113,113,0.6)' : 'rgba(134,239,172,0.4)';
-    w.style.background = isOverLimit ? 'rgba(80,20,20,0.92)' : 'rgba(10,10,14,0.92)';
-    const email = getVerifiedEmail();
-    const emailLine = email
-      ? '<div style="font-size:11px;opacity:0.9;margin-bottom:6px;color:#86efac;word-break:break-all;" title="Tracked for this email">Tracked: ' + String(email).replace(/</g, '&lt;') + '</div>'
-      : '<div style="font-size:11px;opacity:0.6;margin-bottom:6px;">No email verified</div>';
-    const lastLine = (lastGenDelta > 0)
-      ? '<div style="font-size:11px;opacity:0.85;margin-top:4px;">Last generation: -' + lastGenDelta + ' credits</div>'
+    var limitVal = limit !== undefined ? limit : CONFIG.DAILY_CREDIT_LIMIT;
+    var usedVal = usedToday != null ? usedToday : 0;
+    var remaining = Math.max(0, limitVal - usedVal);
+    var hours = getHoursUntilReset();
+    var pct = limitVal > 0 ? Math.round((remaining / limitVal) * 100) : 0;
+    var email = getVerifiedEmail();
+
+    var bgGrad = isOverLimit
+      ? 'linear-gradient(170deg,#1a0a0a 0%,#2a1010 50%,#1a0a0a 100%)'
+      : 'linear-gradient(170deg,#0f0f1a 0%,#1a1028 50%,#0f0f1a 100%)';
+    var borderColor = isOverLimit ? 'rgba(239,68,68,0.3)' : 'rgba(149,65,224,0.25)';
+    var barColor = remaining > 0 ? 'linear-gradient(90deg,#9541e0,#b54af3)' : 'linear-gradient(90deg,#ef4444,#dc2626)';
+    var accentColor = remaining > 0 ? '#b54af3' : '#ef4444';
+    var shadowColor = isOverLimit ? 'rgba(239,68,68,0.15)' : 'rgba(149,65,224,0.15)';
+
+    w.style.background = bgGrad;
+    w.style.border = '1px solid ' + borderColor;
+    w.style.boxShadow = '0 8px 32px ' + shadowColor + ', 0 0 0 1px ' + borderColor;
+
+    var emailHtml = email
+      ? '<div style="font-size:11px;color:#b54af3;word-break:break-all;margin-bottom:8px;opacity:0.85;">' + String(email).replace(/</g, '&lt;') + '</div>'
       : '';
-    w.innerHTML = '<div style="font-weight:700;margin-bottom:6px;">Higgsfield credits (per day)</div>' +
-      emailLine +
-      '<div>Remaining today: <strong>' + remaining + '</strong> / ' + limitVal + '</div>' +
-      '<div>Used today: <strong>' + usedVal + '</strong></div>' +
-      lastLine;
+
+    var lastHtml = (lastGenDelta > 0)
+      ? '<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:rgba(255,255,255,0.5);margin-top:8px;">' +
+          '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="' + accentColor + '" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>' +
+          'Last: \u2212' + lastGenDelta + ' credits</div>'
+      : '';
+
+    w.innerHTML =
+      '<div style="position:relative;padding:14px 16px 12px;">' +
+        '<div style="position:absolute;top:-1px;left:50%;transform:translateX(-50%);width:50%;height:2px;background:linear-gradient(90deg,transparent,' + accentColor + ',transparent);border-radius:0 0 2px 2px;"></div>' +
+        '<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#b54af3;margin-bottom:8px;">Ecom Efficiency</div>' +
+        emailHtml +
+        '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">' +
+          '<span style="font-size:12px;color:rgba(255,255,255,0.5);">Remaining</span>' +
+          '<span style="font-size:22px;font-weight:700;color:' + accentColor + ';">' + remaining +
+            '<span style="font-size:12px;font-weight:400;color:rgba(255,255,255,0.35);"> / ' + limitVal + '</span>' +
+          '</span>' +
+        '</div>' +
+        '<div class="ee-w-bar-track"><div class="ee-w-bar-fill" style="width:' + pct + '%;background:' + barColor + ';"></div></div>' +
+        lastHtml +
+        '<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:rgba(255,255,255,0.35);margin-top:8px;">' +
+          '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
+          'Resets in ~' + hours + 'h' +
+        '</div>' +
+      '</div>';
   }
 
-  // --- Tracking: poll wallet, delta, daily cap (intervalle long pour éviter ERR_TIMED_OUT) ---
-  let lastBalance = null;
+  // --- Tracking ---
   let lastDelta = 0;
-  let pollInterval = null;
+  let syntheticGenerateButtons = typeof Set !== 'undefined' ? new Set() : null;
   let widgetRefreshInterval = null;
-  let pollIntervalMs = 10000;
-  let consecutiveTimeouts = 0;
-  let lastTimeoutLog = 0;
 
   function startTracking() {
-    if (pollInterval) return;
-    log('startTracking() — poll wallet every ' + (pollIntervalMs / 1000) + 's, widget every 0.5s');
+    if (widgetRefreshInterval) return;
+    log('startTracking()');
 
     function refreshWidgetFromState() {
       const used = getUsedToday();
       const limit = CONFIG.DAILY_CREDIT_LIMIT;
-      updateWidget(lastBalance, used, limit, used >= limit, lastDelta);
+      updateWidget(used, limit, used >= limit, lastDelta);
     }
 
-    function doWalletPoll(token) {
-      if (!token) return refreshWidgetFromState();
-      return fetchWallet(token).then(function (data) {
-        consecutiveTimeouts = 0;
-        pollIntervalMs = 10000;
-        log('poll: wallet', data);
-        const raw = data && (data.balance ?? data.credits ?? data.available ?? (data.wallet && (data.wallet.balance ?? data.wallet.credits)));
-        const num = typeof raw === 'number' ? raw : (typeof raw === 'string' ? parseInt(raw, 10) : null);
-        const prevBalance = lastBalance;
-        if (num !== null) lastBalance = num;
-        // Usage is now tracked per click on Generate, not via wallet deltas.
-        refreshWidgetFromState();
-      }).catch(function (err) {
-        const msg = err && err.message ? err.message : String(err);
-        const isTimeout = (err && err.name === 'AbortError') || msg.indexOf('abort') !== -1 || msg.indexOf('TIMED_OUT') !== -1 || msg.indexOf('timeout') !== -1 || msg.indexOf('Failed to fetch') !== -1;
-        if (isTimeout) {
-          consecutiveTimeouts++;
-          if (consecutiveTimeouts >= 2) {
-            pollIntervalMs = Math.min(pollIntervalMs + 5000, 60000);
-            if (pollInterval) { clearInterval(pollInterval); pollInterval = setInterval(poll, pollIntervalMs); }
-          }
-          if (Date.now() - lastTimeoutLog > 30000) {
-            log('wallet timeout (réseau lent?) — poll toutes les ' + (pollIntervalMs / 1000) + 's');
-            lastTimeoutLog = Date.now();
-          }
-        } else {
-          consecutiveTimeouts = 0;
-          if (msg.indexOf('401') !== -1) {
-            capturedBearerToken = null;
-            log('→ 401: token invalidé');
-          } else log('poll: wallet error', msg);
-        }
-        refreshWidgetFromState();
-      });
-    }
-
-    function poll() {
-      getJwtAsync().then(function (token) {
-        if (!token) {
-          refreshWidgetFromState();
-          return;
-        }
-        doWalletPoll(token);
-      });
-    }
-
-    poll();
-    pollInterval = setInterval(poll, pollIntervalMs);
-
-    if (!widgetRefreshInterval) {
-      widgetRefreshInterval = setInterval(refreshWidgetFromState, 500);
-    }
+    refreshWidgetFromState();
+    widgetRefreshInterval = setInterval(refreshWidgetFromState, 1000);
   }
 
   function installGenerateClickBlocker() {
     document.addEventListener('click', function (e) {
       if (isUnlimitedMode()) return;
-      const btn = e.target && (e.target.closest ? e.target.closest('button') : null);
+      var el = e.target;
+      if (!el) return;
+      if (el.closest && (el.closest('#ee-hf-credit-popup') || el.closest('#ee-hf-ecom-popup-root') || el.closest('#ee-hf-ecom-widget') || el.closest('#ee-hf-ecom-overlay-root'))) return;
+      var btn = el.closest ? el.closest('button') : null;
       if (!btn) return;
-      if (btn.getAttribute('data-ee-synthetic') === '1') return;
+      if (btn.getAttribute && btn.getAttribute('data-ee-our-button') === '1') return;
+      if (syntheticGenerateButtons && syntheticGenerateButtons.has(btn)) return;
       if (isUnlimitedGenerateButton(btn)) return;
-      const used = getUsedToday();
-      const limit = CONFIG.DAILY_CREDIT_LIMIT;
-      if (!/generate|générer|create|créer|run|go/i.test(btn.textContent || '')) return;
+      if (!/\bgenerate\b|\bg\u00e9n\u00e9rer\b|\bcreate\b|\bcr\u00e9er\b/i.test(btn.textContent || '')) return;
+      var used = getUsedToday();
+      var limit = CONFIG.DAILY_CREDIT_LIMIT;
       if (used >= limit) {
         e.preventDefault();
         e.stopPropagation();
-        alert('Daily credit limit reached (100). Try again tomorrow.');
-        return;
+        showCreditPopup('No More Credits', 'You\'ve used all your daily credits. They will reset automatically.', getDailyRemaining(), CONFIG.DAILY_CREDIT_LIMIT);
       }
-      addUsedToday(1);
-      updateWidget(null, getUsedToday(), limit, getUsedToday() >= limit, 1);
     }, true);
   }
 
@@ -622,7 +637,6 @@
     return null;
   }
 
-  /** Bouton Generate standard (pas Unlimited) : même zone formulaire, autre bouton submit / texte Generate */
   function findStandardGenerateButton() {
     var unlimited = findUnlimitedGenerateButton();
     var candidates = document.querySelectorAll('button[type="submit"], aside button, button');
@@ -631,8 +645,8 @@
       if (btn === unlimited) continue;
       if (isUnlimitedGenerateButton(btn)) continue;
       var txt = (btn.textContent || '').trim();
-      if (/^generate$|^g[eé]n[eé]rer$/i.test(txt) || (txt.toLowerCase().indexOf('generate') !== -1 && txt.toLowerCase().indexOf('unlimited') === -1)) return btn;
-      if (btn.type === 'submit' && btn.closest && btn.closest('form') && /generate|g[eé]n[eé]rer|create|cr[eé]er/i.test((btn.closest('form').textContent || ''))) return btn;
+      if (/^generate$|^g[e\u00e9]n[e\u00e9]rer$/i.test(txt) || (txt.toLowerCase().indexOf('generate') !== -1 && txt.toLowerCase().indexOf('unlimited') === -1)) return btn;
+      if (btn.type === 'submit' && btn.closest && btn.closest('form') && /generate|g[e\u00e9]n[e\u00e9]rer|create|cr[e\u00e9]er/i.test((btn.closest('form').textContent || ''))) return btn;
     }
     return null;
   }
@@ -644,14 +658,6 @@
     btn.removeAttribute('data-ee-greyed');
   }
 
-  function greyButton(btn) {
-    if (!btn) return;
-    btn.setAttribute('data-ee-greyed', '1');
-    btn.style.pointerEvents = 'none';
-    btn.style.opacity = '0.7';
-  }
-
-  /** Conteneur fixe pour nos overlays (notre bouton placé pile devant celui de Higgsfield). */
   function ensureOverlayRoot() {
     var root = document.getElementById('ee-hf-ecom-overlay-root');
     if (root && document.body.contains(root)) return root;
@@ -662,7 +668,6 @@
     return root;
   }
 
-  /** Place notre bouton pile devant le bouton Higgsfield. On ne modifie pas le DOM React (évite erreur #418). Gris visuel via overlay. */
   function placeOurButtonOver(overlayId, btn, onOurButtonClick) {
     if (!btn || !btn.getBoundingClientRect) return;
     var root = ensureOverlayRoot();
@@ -684,13 +689,55 @@
     overlay.style.top = r.top + 'px';
     overlay.style.width = Math.max(0, r.width) + 'px';
     overlay.style.height = Math.max(0, r.height) + 'px';
-    /* Ne pas appeler greyButton(btn): modifier le bouton React provoque l'erreur d'hydratation #418. */
+  }
+
+  function showCreditPopup(title, message, remaining, limit, hoursUntilReset) {
+    var existingPopup = document.getElementById('ee-hf-credit-popup');
+    if (existingPopup) existingPopup.remove();
+    var backdrop = document.createElement('div');
+    backdrop.id = 'ee-hf-credit-popup';
+    backdrop.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.65);backdrop-filter:blur(6px);animation:eePopIn 0.2s ease;';
+    var pct = limit > 0 ? Math.max(0, Math.min(100, Math.round((remaining / limit) * 100))) : 0;
+    var barColor = remaining > 0 ? 'linear-gradient(90deg,#9541e0,#b54af3)' : 'linear-gradient(90deg,#ef4444,#dc2626)';
+    var hours = hoursUntilReset || getHoursUntilReset();
+    var mins = Math.round(((new Date(new Date().setHours(24,0,0,0)) - new Date()) / 60000) % 60);
+    var timeStr = hours > 0 ? hours + 'h ' + mins + 'min' : mins + 'min';
+    backdrop.innerHTML =
+      '<div style="max-width:380px;width:90%;background:linear-gradient(170deg,#0f0f1a 0%,#1a1028 50%,#0f0f1a 100%);border:1px solid rgba(149,65,224,0.25);border-radius:20px;padding:32px 28px;box-shadow:0 20px 80px rgba(149,65,224,0.2);font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;color:#fff;text-align:center;position:relative;">' +
+        '<div style="position:absolute;top:-1px;left:50%;transform:translateX(-50%);width:60%;height:3px;background:linear-gradient(90deg,transparent,#9541e0,#b54af3,#9541e0,transparent);border-radius:0 0 4px 4px;"></div>' +
+        '<div style="font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#b54af3;margin-bottom:12px;">Ecom Efficiency</div>' +
+        '<div style="font-size:20px;font-weight:700;margin-bottom:8px;">' + (title || 'Daily Credits') + '</div>' +
+        '<div style="font-size:14px;color:rgba(255,255,255,0.7);margin-bottom:20px;line-height:1.5;">' + (message || '') + '</div>' +
+        '<div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:16px;margin-bottom:20px;">' +
+          '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;">' +
+            '<span style="font-size:13px;color:rgba(255,255,255,0.5);">Remaining</span>' +
+            '<span style="font-size:22px;font-weight:700;' + (remaining <= 0 ? 'color:#ef4444;' : 'color:#b54af3;') + '">' + remaining + '<span style="font-size:13px;font-weight:400;color:rgba(255,255,255,0.4);"> / ' + limit + '</span></span>' +
+          '</div>' +
+          '<div style="width:100%;height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;">' +
+            '<div style="width:' + pct + '%;height:100%;background:' + barColor + ';border-radius:3px;transition:width 0.4s ease;"></div>' +
+          '</div>' +
+        '</div>' +
+        '<div style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;color:rgba(255,255,255,0.45);margin-bottom:20px;">' +
+          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
+          'Resets in ' + timeStr +
+        '</div>' +
+        '<button id="ee-hf-credit-popup-close" style="width:100%;padding:12px;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;background:linear-gradient(to bottom,#9541e0,#7c30c7);color:#fff;box-shadow:0 8px 40px rgba(149,65,224,0.35);transition:filter 0.15s;"' +
+          ' onmouseover="this.style.filter=\'brightness(1.15)\'" onmouseout="this.style.filter=\'none\'">' +
+          'Got it' +
+        '</button>' +
+      '</div>';
+    var style = document.createElement('style');
+    style.textContent = '@keyframes eePopIn{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}';
+    backdrop.appendChild(style);
+    document.body.appendChild(backdrop);
+    backdrop.addEventListener('click', function (e) { if (e.target === backdrop) backdrop.remove(); });
+    var closeBtn = document.getElementById('ee-hf-credit-popup-close');
+    if (closeBtn) closeBtn.addEventListener('click', function () { backdrop.remove(); });
   }
 
   var lastStandardBtn = null;
   var lastUnlimitedBtn = null;
 
-  /** Affiche une étape de génération en direct (toast temporaire). */
   function showGenerateStatus(msg, durationMs) {
     var id = 'ee-hf-ecom-generate-status';
     var el = document.getElementById(id);
@@ -713,6 +760,63 @@
     }
   }
 
+  function triggerGenerateButtonClick(btn) {
+    if (!btn) return;
+    if (syntheticGenerateButtons) syntheticGenerateButtons.add(btn);
+    try {
+      try { btn.focus({ preventScroll: true }); } catch (_) {}
+      try { btn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, composed: true, pointerType: 'mouse', isPrimary: true, button: 0, buttons: 1 })); } catch (_) {}
+      try { btn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, composed: true, button: 0, buttons: 1, detail: 1 })); } catch (_) {}
+      try { btn.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, composed: true, pointerType: 'mouse', isPrimary: true, button: 0, buttons: 0 })); } catch (_) {}
+      try { btn.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, composed: true, button: 0, buttons: 0, detail: 1 })); } catch (_) {}
+      btn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, button: 0, buttons: 0, detail: 1 }));
+    } finally {
+      setTimeout(function () {
+        try { if (syntheticGenerateButtons) syntheticGenerateButtons.delete(btn); } catch (_) {}
+      }, 600);
+    }
+  }
+
+  function runPaidGenerationPrecheck(source, buttonFinder) {
+    log('verifying generation cost...', source);
+    showGenerateStatus('Checking daily credits...', 0);
+    const costInfo = getGenerationCostInfo();
+    const limit = CONFIG.DAILY_CREDIT_LIMIT;
+    const used = getUsedToday();
+    const remaining = getDailyRemaining();
+    const email = getVerifiedEmail();
+    log('generation cost resolved', source, 'cost=' + costInfo.cost, 'used=' + used, 'remaining=' + remaining, 'limit=' + limit);
+
+    if ((used + costInfo.cost) > limit) {
+      var hours = getHoursUntilReset();
+      showGenerateStatus('No more credits for the day.', 6000);
+      log('generation blocked: daily limit reached', source, 'used=' + used, 'cost=' + costInfo.cost, 'limit=' + limit, 'resetIn=' + hours + 'h');
+      showCreditPopup('No More Credits', 'This generation costs ' + costInfo.cost + ' credits but you only have ' + remaining + ' left.', remaining, limit, hours);
+      return;
+    }
+
+    log('authorizing generation...', source);
+    showGenerateStatus('Authorizing...', 0);
+    addUsedToday(costInfo.cost);
+    lastDelta = costInfo.cost;
+    const usedToday = getUsedToday();
+    logUsage(email, costInfo.cost, usedToday, source);
+    log('generation authorized', source, 'cost=' + costInfo.cost, 'usedToday=' + usedToday, 'remaining=' + getDailyRemaining());
+    updateWidget(usedToday, limit, usedToday >= limit, costInfo.cost);
+
+    log('triggering generation...', source);
+    showGenerateStatus('Generating...', 0);
+    setTimeout(function () {
+      try {
+        var btn = buttonFinder();
+        if (btn) triggerGenerateButtonClick(btn);
+        setTimeout(function () { showGenerateStatus('', 1); }, 800);
+      } catch (_) {
+        showGenerateStatus('', 1);
+      }
+    }, 120);
+  }
+
   function installStandardGenerateButtonOverlay() {
     var btn = findStandardGenerateButton();
     if (!btn) {
@@ -724,30 +828,13 @@
     if (lastStandardBtn && lastStandardBtn !== btn) restoreButton(lastStandardBtn);
     lastStandardBtn = btn;
     function onOurButtonClick() {
-      showGenerateStatus('Verifying credits amount...', 0);
-      var used = getUsedToday();
-      var limit = CONFIG.DAILY_CREDIT_LIMIT;
-      if (used >= limit) {
-        showGenerateStatus('Daily limit reached (100). Try again tomorrow.', 4000);
-        setTimeout(function () { showGenerateStatus('', 1); }, 4000);
-        alert('Daily credit limit reached (100). Try again tomorrow.');
+      log('overlay click', 'standard_generate');
+      if (!getVerifiedEmail() && shouldShowPopup()) {
+        log('no verified email, showing popup first');
+        createPopup();
         return;
       }
-      showGenerateStatus('Authorizing...', 0);
-      addUsedToday(1);
-      var email = getVerifiedEmail();
-      var usedToday = getUsedToday();
-      logUsage(email, 1, usedToday, 'standard_generate');
-      log('track standard_generate', email, usedToday);
-      updateWidget(null, usedToday, limit, usedToday >= limit, 1);
-      showGenerateStatus('Generating...', 0);
-      setTimeout(function () {
-        try {
-          var b = findStandardGenerateButton();
-          if (b) b.click();
-          setTimeout(function () { showGenerateStatus('', 1); }, 800);
-        } catch (_) { showGenerateStatus('', 1); }
-      }, 120);
+      runPaidGenerationPrecheck('standard_generate', findStandardGenerateButton);
     }
     placeOurButtonOver('ee-hf-ecom-overlay-standard', btn, onOurButtonClick);
   }
@@ -763,23 +850,35 @@
     if (lastUnlimitedBtn && lastUnlimitedBtn !== btn) restoreButton(lastUnlimitedBtn);
     lastUnlimitedBtn = btn;
     function onOurButtonClick() {
-      /* Unlimited : on n'enlève pas de crédits ; on log pour l'admin et on affiche les étapes. */
-      showGenerateStatus('Verifying (Unlimited - no deduction)...', 0);
-      var email = getVerifiedEmail();
-      var usedToday = getUsedToday();
-      logUsage(email, 0, usedToday, 'unlimited_generate');
-      log('track unlimited_generate (no credit deduction)');
-      showGenerateStatus('Authorizing...', 0);
-      setTimeout(function () {
-        showGenerateStatus('Generating...', 0);
+      log('overlay click', 'unlimited_generate');
+      if (!getVerifiedEmail() && shouldShowPopup()) {
+        log('no verified email, showing popup first');
+        createPopup();
+        return;
+      }
+      if (isUnlimitedMode()) {
+        log('verifying unlimited mode...', 'unlimited_generate');
+        showGenerateStatus('Unlimited detected - no credit deduction.', 0);
+        var email = getVerifiedEmail();
+        var usedToday = getUsedToday();
+        logUsage(email, 0, usedToday, 'unlimited_generate');
+        log('unlimited mode detected, tracking only without deduction');
+        log('authorizing generation...', 'unlimited_generate');
+        showGenerateStatus('Authorizing...', 0);
         setTimeout(function () {
-          try {
-            var b = findUnlimitedGenerateButton();
-            if (b) b.click();
-            setTimeout(function () { showGenerateStatus('', 1); }, 800);
-          } catch (_) { showGenerateStatus('', 1); }
-        }, 120);
-      }, 200);
+          log('triggering generation...', 'unlimited_generate');
+          showGenerateStatus('Generating...', 0);
+          setTimeout(function () {
+            try {
+              var unlimitedBtn = findUnlimitedGenerateButton();
+              if (unlimitedBtn) triggerGenerateButtonClick(unlimitedBtn);
+              setTimeout(function () { showGenerateStatus('', 1); }, 800);
+            } catch (_) { showGenerateStatus('', 1); }
+          }, 120);
+        }, 150);
+        return;
+      }
+      runPaidGenerationPrecheck('unlimited_generate', findUnlimitedGenerateButton);
     }
     placeOurButtonOver('ee-hf-ecom-overlay-unlimited', btn, onOurButtonClick);
   }
@@ -790,52 +889,172 @@
     setInterval(installStandardGenerateButtonOverlay, 1000);
   }
 
-  /** Retarde l’installation des overlays pour limiter le conflit d’hydratation React #418. */
   function scheduleBlockingObserver() {
     setTimeout(setupBlockingObserver, 3000);
   }
 
-  // --- Init: interceptor tout de suite, DOM (widget/popup) après load pour éviter conflit hydratation React #418 ---
-  function init() {
-    installFetchInterceptor();
-    log('init', location.href, 'SIMULATE_CONNECTED=', SIMULATE_CONNECTED);
-    function runDomAndTracking() {
-      if (shouldShowPopup()) {
-        // Retarder un peu pour laisser React hydrater, puis re-essayer régulièrement
-        let attempts = 0;
-        const maxAttempts = 10;
-        const tryShow = function () {
-          attempts += 1;
-          try {
-            if (!document.getElementById('ee-hf-ecom-popup-root')) {
-              createPopup();
-              log('popup email displayed (attempt ' + attempts + ')');
-            }
-          } catch (e) {
-            log('popup create error', e && e.message ? e.message : e);
-          }
-          if (attempts < maxAttempts && !document.getElementById('ee-hf-ecom-popup-root')) {
-            setTimeout(tryShow, 1500);
-          } else if (!document.getElementById('ee-hf-ecom-popup-root')) {
-            // fallback: pas de popup, activer tout de même le tracking pour ne pas bloquer l\'UX
-            log('popup not shown after retries; starting tracking without email');
-            ensureWidget();
-            startTracking();
-            scheduleBlockingObserver();
-          }
-        };
-        setTimeout(tryShow, 2000);
-      } else {
-        if (SIMULATE_CONNECTED) log('mode simulé: tracking crédits activé');
-        ensureWidget();
-        startTracking();
-        scheduleBlockingObserver();
+  // --- Shield ---
+  var shieldInstalled = false;
+  var SHIELD_STYLE_ID = 'ee-hf-ecom-shield-style';
+  var SHIELD_ID = 'ee-hf-ecom-shield';
+
+  function installShield() {
+    if (shieldInstalled) return;
+    if (!shouldShowPopup()) return;
+    shieldInstalled = true;
+
+    function injectStyle() {
+      if (document.getElementById(SHIELD_STYLE_ID)) return;
+      var style = document.createElement('style');
+      style.id = SHIELD_STYLE_ID;
+      style.textContent =
+        '#ee-hf-ecom-shield{position:fixed;inset:0;z-index:2147483644;pointer-events:auto;cursor:not-allowed;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);background:rgba(0,0,0,0.45);transition:opacity 0.4s ease;}' +
+        '#ee-hf-ecom-shield.ee-removing{opacity:0;pointer-events:none;}' +
+        '#ee-hf-ecom-shield .ee-shield-label{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#fff;pointer-events:none;}';
+      (document.head || document.documentElement).appendChild(style);
+    }
+
+    function doInstall() {
+      injectStyle();
+      if (document.getElementById(SHIELD_ID)) return;
+      var shield = document.createElement('div');
+      shield.id = SHIELD_ID;
+      shield.innerHTML =
+        '<div class="ee-shield-label">' +
+          '<div style="font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#b54af3;margin-bottom:8px;">Ecom Efficiency</div>' +
+          '<div style="font-size:18px;font-weight:600;margin-bottom:6px;">Verifying your subscription\u2026</div>' +
+          '<div style="font-size:13px;opacity:0.6;">Please enter your email to continue</div>' +
+        '</div>';
+      (document.body || document.documentElement).appendChild(shield);
+      log('shield installed');
+    }
+
+    injectStyle();
+    if (document.body) { doInstall(); }
+    else { document.addEventListener('DOMContentLoaded', doInstall); }
+  }
+
+  function removeShield() {
+    var shield = document.getElementById(SHIELD_ID);
+    if (shield) {
+      shield.classList.add('ee-removing');
+      setTimeout(function () {
+        shield.remove();
+        var style = document.getElementById(SHIELD_STYLE_ID);
+        if (style) style.remove();
+      }, 400);
+      log('shield removed');
+    }
+  }
+
+  // --- SPA navigation watcher ---
+  var lastKnownPath = location.pathname;
+  var spaWatcherActive = false;
+  var eeFullyInitialized = false;
+
+  function isAuthPage(path) {
+    return (path || '').startsWith('/auth');
+  }
+
+  function onSpaNavigateToApp() {
+    if (eeFullyInitialized) return;
+    if (isAuthPage(location.pathname)) return;
+    log('SPA navigation detected: /auth \u2192 ' + location.pathname);
+    runPopupFlow();
+  }
+
+  function installSpaWatcher() {
+    if (spaWatcherActive) return;
+    spaWatcherActive = true;
+
+    var origPushState = history.pushState;
+    var origReplaceState = history.replaceState;
+    history.pushState = function () {
+      origPushState.apply(this, arguments);
+      checkPathChange();
+    };
+    history.replaceState = function () {
+      origReplaceState.apply(this, arguments);
+      checkPathChange();
+    };
+    window.addEventListener('popstate', checkPathChange);
+    setInterval(checkPathChange, 800);
+    log('SPA watcher installed');
+  }
+
+  function checkPathChange() {
+    var current = location.pathname;
+    if (current !== lastKnownPath) {
+      var prev = lastKnownPath;
+      lastKnownPath = current;
+      log('URL changed: ' + prev + ' \u2192 ' + current);
+      if (isAuthPage(prev) && !isAuthPage(current)) {
+        onSpaNavigateToApp();
       }
     }
-    if (document.readyState === 'complete') {
-      setTimeout(runDomAndTracking, 1500);
+  }
+
+  // --- Popup flow ---
+  function runPopupFlow() {
+    if (eeFullyInitialized) return;
+    if (isAuthPage(location.pathname)) return;
+
+    if (shouldShowPopup()) {
+      installShield();
+      var attempts = 0;
+      var maxAttempts = 10;
+      var tryShow = function () {
+        attempts += 1;
+        try {
+          if (!document.getElementById('ee-hf-ecom-popup-root')) {
+            createPopup();
+            log('popup email displayed (attempt ' + attempts + ')');
+          }
+        } catch (e) {
+          log('popup create error', e && e.message ? e.message : e);
+        }
+        if (attempts < maxAttempts && !document.getElementById('ee-hf-ecom-popup-root')) {
+          setTimeout(tryShow, 1000);
+        } else if (!document.getElementById('ee-hf-ecom-popup-root')) {
+          log('popup not shown after retries; starting tracking without email');
+          removeShield();
+          ensureWidget();
+          startTracking();
+          scheduleBlockingObserver();
+          eeFullyInitialized = true;
+        }
+      };
+      setTimeout(tryShow, 500);
     } else {
-      window.addEventListener('load', function () { setTimeout(runDomAndTracking, 1500); });
+      if (SIMULATE_CONNECTED) log('simulate mode: tracking enabled');
+      removeShield();
+      ensureWidget();
+      startTracking();
+      scheduleBlockingObserver();
+      eeFullyInitialized = true;
+    }
+  }
+
+  // --- Init ---
+  function init() {
+    installFetchInterceptor();
+    restoreDynamicCreditLimit();
+    try { sessionStorage.removeItem(SESSION_VERIFIED_EMAIL); sessionStorage.removeItem(SESSION_VERIFIED_AT); } catch (_) {}
+    log('init', location.href, 'SIMULATE_CONNECTED=', SIMULATE_CONNECTED, 'DAILY_CREDIT_LIMIT=', CONFIG.DAILY_CREDIT_LIMIT);
+
+    installSpaWatcher();
+
+    if (isAuthPage(location.pathname)) {
+      log('on /auth page, waiting for SPA navigation to app...');
+      return;
+    }
+
+    installShield();
+
+    if (document.readyState === 'complete' || document.readyState === 'interactive') {
+      setTimeout(runPopupFlow, 400);
+    } else {
+      document.addEventListener('DOMContentLoaded', function () { setTimeout(runPopupFlow, 400); });
     }
   }
 
@@ -845,10 +1064,8 @@
     try { console.error('[EE-HF-Ecom] init error', err && err.message ? err.message : err, err && err.stack); } catch (_) {}
   }
 
-  // Ultra-fallback: si pour une raison quelconque React / load events foirent,
-  // forcer l'apparition du popup quelques secondes après l'arrivée sur higgsfield.ai.
   try {
-    if ((location.hostname || '').toLowerCase().includes('higgsfield.ai')) {
+    if ((location.hostname || '').toLowerCase().includes('higgsfield.ai') && !SIMULATE_CONNECTED) {
       setTimeout(function () {
         try {
           if (!document.getElementById('ee-hf-ecom-popup-root')) {
@@ -858,7 +1075,7 @@
         } catch (e) {
           try { console.warn('[EE-HF-Ecom] Fallback popup error', e && e.message ? e.message : e); } catch (_) {}
         }
-      }, 4000);
+      }, 2000);
     }
   } catch (_) {}
 })();

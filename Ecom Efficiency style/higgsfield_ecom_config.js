@@ -3,8 +3,8 @@
 
 window.EE_HIGGSFIELD_ECOM_CONFIG = {
   // Mode test: true = pas de popup email, tracking crédits + logs détaillés en console
-  // Remettre à false quand le backend est connecté pour afficher le popup de connexion
-  SIMULATE_CONNECTED: true,
+  // false = popup email obligatoire + fond flou tant que non vérifié
+  SIMULATE_CONNECTED: false,
 
   // URL de base de ton API EcomEfficiency (ex: Vercel, Supabase Edge, ou ton serveur)
   API_BASE_URL: 'https://your-ecomefficiency-api.vercel.app',

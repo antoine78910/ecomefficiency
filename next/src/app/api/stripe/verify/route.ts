@@ -80,6 +80,87 @@ async function recordPartnerPayment(input: {
 }
 
 const HIGGSFIELD_ORIGIN = "https://higgsfield.ai";
+const LEGACY_DAILY_CREDIT_LIMIT = 10;
+const DEFAULT_DAILY_CREDIT_LIMIT = 100;
+
+async function checkLegacyStripe(email: string): Promise<{
+  found: boolean;
+  customerId?: string;
+  subscriptionId?: string;
+  status?: string;
+  createdAt?: string | null;
+  periodStartAt?: string | null;
+} | null> {
+  const legacyKey = process.env.STRIPE_SECRET_KEY_LEGACY;
+  if (!legacyKey) return null;
+
+  try {
+    const legacyStripe = new Stripe(legacyKey, { apiVersion: "2025-08-27.basil" });
+
+    const search = await legacyStripe.customers.search({
+      query: `email:'${email}'`,
+      limit: 1,
+    });
+    const customer = (search.data || [])[0];
+    if (!customer?.id) return { found: false };
+
+    const allSubs = await legacyStripe.subscriptions.list({
+      customer: customer.id,
+      limit: 10,
+    });
+    const sorted = allSubs.data.sort((a, b) => b.created - a.created);
+
+    for (const sub of sorted) {
+      if (sub.status === "active" || sub.status === "trialing") {
+        return {
+          found: true,
+          customerId: customer.id,
+          subscriptionId: sub.id,
+          status: sub.status,
+          createdAt: sub.created
+            ? new Date(sub.created * 1000).toISOString()
+            : null,
+          periodStartAt: (sub as any)?.current_period_start
+            ? new Date(
+                ((sub as any).current_period_start as number) * 1000
+              ).toISOString()
+            : null,
+        };
+      }
+      if (sub.status === "incomplete" && sub.latest_invoice) {
+        try {
+          const invId =
+            typeof sub.latest_invoice === "string"
+              ? sub.latest_invoice
+              : sub.latest_invoice.id;
+          if (invId) {
+            const inv = await legacyStripe.invoices.retrieve(invId);
+            if (inv.status === "paid") {
+              return {
+                found: true,
+                customerId: customer.id,
+                subscriptionId: sub.id,
+                status: "incomplete_paid",
+                createdAt: sub.created
+                  ? new Date(sub.created * 1000).toISOString()
+                  : null,
+                periodStartAt: (sub as any)?.current_period_start
+                  ? new Date(
+                      ((sub as any).current_period_start as number) * 1000
+                    ).toISOString()
+                  : null,
+              };
+            }
+          }
+        } catch {}
+      }
+    }
+    return { found: false };
+  } catch (e) {
+    console.error("[VERIFY] Legacy Stripe check failed:", e);
+    return null;
+  }
+}
 
 function withCors(res: NextResponse) {
   try {
@@ -368,6 +449,7 @@ export async function POST(req: NextRequest) {
               : null,
             verify_source: "session_id",
             invoice_status: invoiceStatus || null,
+            daily_credit_limit: DEFAULT_DAILY_CREDIT_LIMIT,
           })
         );
       } catch (e: any) {
@@ -384,6 +466,26 @@ export async function POST(req: NextRequest) {
     }
 
     if (!customerId) {
+      if (email) {
+        const legacy = await checkLegacyStripe(email);
+        if (legacy?.found) {
+          console.log("[VERIFY] Found legacy subscriber:", { email, legacyCustomerId: legacy.customerId });
+          return withCors(
+            NextResponse.json({
+              ok: true,
+              active: true,
+              status: legacy.status,
+              plan: "legacy",
+              customer_id: legacy.customerId,
+              subscription_id: legacy.subscriptionId,
+              subscription_created_at: legacy.createdAt,
+              subscription_current_period_start_at: legacy.periodStartAt,
+              daily_credit_limit: LEGACY_DAILY_CREDIT_LIMIT,
+              source: "legacy",
+            })
+          );
+        }
+      }
       return withCors(
         NextResponse.json({ ok: true, active: false, status: "no_customer", plan: null })
       );
@@ -429,7 +531,27 @@ export async function POST(req: NextRequest) {
     }
 
     if (!latest) {
-      console.log("[VERIFY] No active or paid subscription found");
+      console.log("[VERIFY] No active or paid subscription found on main account");
+      if (email) {
+        const legacy = await checkLegacyStripe(email);
+        if (legacy?.found) {
+          console.log("[VERIFY] Found legacy subscriber (no active main sub):", { email, legacyCustomerId: legacy.customerId });
+          return withCors(
+            NextResponse.json({
+              ok: true,
+              active: true,
+              status: legacy.status,
+              plan: "legacy",
+              customer_id: legacy.customerId,
+              subscription_id: legacy.subscriptionId,
+              subscription_created_at: legacy.createdAt,
+              subscription_current_period_start_at: legacy.periodStartAt,
+              daily_credit_limit: LEGACY_DAILY_CREDIT_LIMIT,
+              source: "legacy",
+            })
+          );
+        }
+      }
       return withCors(
         NextResponse.json({
           ok: true,
@@ -614,12 +736,14 @@ export async function POST(req: NextRequest) {
       subscription_current_period_start_at: (latest as any)?.current_period_start
         ? new Date(((latest as any).current_period_start as number) * 1000).toISOString()
         : null,
+      daily_credit_limit: DEFAULT_DAILY_CREDIT_LIMIT,
     };
     console.log("[VERIFY] Subscription check:", {
       customerId,
       status,
       active,
       plan: finalPlan,
+      daily_credit_limit: DEFAULT_DAILY_CREDIT_LIMIT,
     });
     return withCors(NextResponse.json(result));
   } catch (e: any) {
