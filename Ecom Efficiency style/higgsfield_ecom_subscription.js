@@ -48,14 +48,19 @@
       if (stored) { var n = parseInt(stored, 10); if (n > 0) { CONFIG.DAILY_CREDIT_LIMIT = n; log('restored daily credit limit from session:', n); } }
     } catch (_) {}
   }
+  function getUserStorageKey() {
+    var email = getVerifiedEmail();
+    if (email) return LS_DAILY_USAGE + '_' + email.toLowerCase().replace(/[^a-z0-9@._-]/g, '');
+    return LS_DAILY_USAGE;
+  }
   function getDailyUsage() {
     try {
-      const raw = localStorage.getItem(LS_DAILY_USAGE);
+      const raw = localStorage.getItem(getUserStorageKey());
       const o = raw ? JSON.parse(raw) : {};
       return typeof o === 'object' ? o : {};
     } catch (_) { return {}; }
   }
-  function setDailyUsage(usage) { try { localStorage.setItem(LS_DAILY_USAGE, JSON.stringify(usage)); } catch (_) {} }
+  function setDailyUsage(usage) { try { localStorage.setItem(getUserStorageKey(), JSON.stringify(usage)); } catch (_) {} }
   function getTodayKey() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
   function getUsedToday() { const u = getDailyUsage(); return u[getTodayKey()] || 0; }
   function addUsedToday(delta) {
@@ -63,6 +68,28 @@
     const k = getTodayKey();
     u[k] = (u[k] || 0) + delta;
     setDailyUsage(u);
+  }
+
+  function syncUsageFromBackend(email) {
+    if (!email) return Promise.resolve();
+    var url = 'https://www.ecomefficiency.com/api/usage/higgsfield?email=' + encodeURIComponent(email);
+    return fetch(url, { method: 'GET', credentials: 'omit' })
+      .then(function (r) { return r.ok ? r.json() : null; })
+      .then(function (data) {
+        if (data && data.ok && typeof data.used_today === 'number') {
+          var u = getDailyUsage();
+          var k = getTodayKey();
+          var localUsed = u[k] || 0;
+          if (data.used_today > localUsed) {
+            u[k] = data.used_today;
+            setDailyUsage(u);
+            log('synced usage from backend: local=' + localUsed + ' -> backend=' + data.used_today);
+          } else {
+            log('local usage up to date: local=' + localUsed + ', backend=' + data.used_today);
+          }
+        }
+      })
+      .catch(function (e) { log('sync usage fetch error', e && e.message ? e.message : e); });
   }
 
   function isUnlimitedMode() {
@@ -353,32 +380,46 @@
     return 'AUTO';
   }
 
-  function readCostFromGenerateButton() {
-    var btn = document.querySelector('button[data-tour-anchor="tour-image-generate"]');
-    if (!btn) try { btn = document.getElementById('hf:image-form-submit'); } catch (_) {}
-    if (!btn) {
-      var allBtns = document.querySelectorAll('button[type="submit"]');
-      for (var b = 0; b < allBtns.length; b++) {
-        if (/\bgenerate\b/i.test(allBtns[b].textContent || '')) { btn = allBtns[b]; break; }
-      }
-    }
+  function readCostFromButton(btn) {
     if (!btn) return null;
     var children = btn.querySelectorAll('span, div');
     for (var i = 0; i < children.length; i++) {
-      var raw = (children[i].textContent || '').trim();
-      if (/^\d+(\.\d+)?$/.test(raw)) {
-        var n = parseFloat(raw);
-        if (n > 0) return n;
+      var el = children[i];
+      if (el.querySelector && el.querySelector('svg')) {
+        var clone = el.cloneNode(true);
+        var svgs = clone.querySelectorAll('svg');
+        for (var s = 0; s < svgs.length; s++) svgs[s].remove();
+        var raw = (clone.textContent || '').trim();
+        if (/^\d+(\.\d+)?$/.test(raw)) {
+          var n = parseFloat(raw);
+          if (n > 0) { log('cost from button child (svg-cleaned):', n); return n; }
+        }
+      }
+      var raw2 = (el.textContent || '').trim();
+      if (/^\d+(\.\d+)?$/.test(raw2)) {
+        var n2 = parseFloat(raw2);
+        if (n2 > 0) { log('cost from button child:', n2); return n2; }
       }
     }
-    var allText = (btn.textContent || '').replace(/generate/gi, '').trim();
+    var allText = (btn.textContent || '').replace(/generate/gi, '').replace(/unlimited/gi, '').trim();
     var m = allText.match(/(\d+(?:\.\d+)?)/);
-    if (m) { var n2 = parseFloat(m[1]); if (n2 > 0) return n2; }
+    if (m) { var n3 = parseFloat(m[1]); if (n3 > 0) { log('cost from button fulltext:', n3); return n3; } }
     return null;
   }
 
-  function getGenerationCostInfo() {
-    var btnCost = readCostFromGenerateButton();
+  function getGenerationCostInfo(targetBtn) {
+    var btn = targetBtn || null;
+    if (!btn) {
+      btn = document.querySelector('button[data-tour-anchor="tour-image-generate"]');
+      if (!btn) try { btn = document.getElementById('hf:image-form-submit'); } catch (_) {}
+      if (!btn) {
+        var allBtns = document.querySelectorAll('button[type="submit"]');
+        for (var b = 0; b < allBtns.length; b++) {
+          if (/\bgenerate\b/i.test(allBtns[b].textContent || '')) { btn = allBtns[b]; break; }
+        }
+      }
+    }
+    var btnCost = readCostFromButton(btn);
     if (btnCost !== null) {
       log('cost read from Generate button: ' + btnCost);
       return { quality: 'BUTTON', cost: btnCost, usedFallback: false };
@@ -465,8 +506,14 @@
           var sourceLabel = res.source === 'legacy' ? ' (legacy)' : '';
           var planLabel = res.plan ? (' (plan: ' + res.plan + sourceLabel + ')') : '';
           var limitLabel = CONFIG.DAILY_CREDIT_LIMIT !== 100 ? ' — ' + CONFIG.DAILY_CREDIT_LIMIT + ' credits/day' : '';
-          setMsg('Active subscription detected' + planLabel + limitLabel + '. Access granted.', false);
-          setTimeout(function () { root.remove(); removeShield(); ensureWidget(); startTracking(); scheduleBlockingObserver(); eeFullyInitialized = true; }, 600);
+          setMsg('Active subscription detected' + planLabel + limitLabel + '. Syncing credits...', false);
+          syncUsageFromBackend(email).then(function () {
+            var used = getUsedToday();
+            var limit = CONFIG.DAILY_CREDIT_LIMIT;
+            var remaining = Math.max(0, limit - used);
+            setMsg('Access granted. ' + remaining + ' / ' + limit + ' credits remaining.', false);
+            setTimeout(function () { root.remove(); removeShield(); ensureWidget(); updateWidget(used, limit, used >= limit, 0); startTracking(); scheduleBlockingObserver(); eeFullyInitialized = true; }, 600);
+          });
         } else {
           if (res && res.reason === 'no_active_subscription') {
             setMsg('No active subscription for this email. Please subscribe on ecomefficiency.com.', true);
@@ -583,6 +630,16 @@
   function startTracking() {
     if (widgetRefreshInterval) return;
     log('startTracking()');
+
+    var email = getVerifiedEmail();
+    if (email) {
+      syncUsageFromBackend(email).then(function () {
+        var used = getUsedToday();
+        var limit = CONFIG.DAILY_CREDIT_LIMIT;
+        updateWidget(used, limit, used >= limit, lastDelta);
+        log('initial widget updated after backend sync: used=' + used + ' limit=' + limit);
+      });
+    }
 
     function refreshWidgetFromState() {
       const used = getUsedToday();
@@ -780,7 +837,8 @@
   function runPaidGenerationPrecheck(source, buttonFinder) {
     log('verifying generation cost...', source);
     showGenerateStatus('Checking daily credits...', 0);
-    const costInfo = getGenerationCostInfo();
+    var actualBtn = buttonFinder ? buttonFinder() : null;
+    const costInfo = getGenerationCostInfo(actualBtn);
     const limit = CONFIG.DAILY_CREDIT_LIMIT;
     const used = getUsedToday();
     const remaining = getDailyRemaining();
