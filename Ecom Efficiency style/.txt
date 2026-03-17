@@ -1,0 +1,11 @@
+{
+      "matches": ["https://chatgpt.com/", "https://auth.openai.com/*", "https://www.chatgpt.com/*"],
+      "js": ["gpt.js"],
+      "run_at": "document_start" 
+    },
+    
+    {
+      "matches": ["https://elevenlabs.io/app*"],
+      "js": ["remove_11_profile.js"],
+      "run_at": "document_idle"
+    },

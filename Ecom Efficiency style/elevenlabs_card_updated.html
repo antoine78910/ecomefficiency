@@ -1,0 +1,126 @@
+<!-- Inclure Tailwind CSS (ajoutez cette ligne dans le <head> de votre HTML) -->
+<!-- <script src="https://cdn.tailwindcss.com"></script> -->
+
+<a href="https://elevenlabs.io/app/home?via=adspower" class="tool-card group relative" target="_blank" rel="noopener noreferrer">
+    <div class="tool-icon">
+        <img src="img/11.png" alt="Adspy" class="w-16 h-16 object-contain">
+    </div>
+    <div class="tool-name">ElevenLabs</div>
+    <div class="tool-description">
+        AI-powered voice synthesis technology that creates realistic and customizable human-like speech for various applications
+    </div>
+
+    <!-- Enhanced popup box with better UI/UX -->
+    <div class="absolute top-2 right-2 bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200 shadow-xl rounded-xl px-4 py-3 w-64 text-sm z-20 opacity-0 group-hover:opacity-100 transition-all duration-300 pointer-events-none group-hover:pointer-events-auto">
+        <!-- Header with icon -->
+        <div class="flex items-center gap-2 mb-2">
+            <div class="w-5 h-5 bg-purple-500 rounded-full flex items-center justify-center">
+                <svg class="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd"/>
+                </svg>
+            </div>
+            <span class="font-semibold text-purple-800">Credits Status</span>
+        </div>
+        
+        <!-- Info content -->
+        <div class="space-y-2">
+            <div class="flex items-center gap-2 text-gray-700">
+                <span class="text-xs">🔄</span>
+                <span class="text-xs">Credits refill every <strong class="text-purple-700">3 days</strong></span>
+            </div>
+            
+            <div class="flex items-center gap-2 text-gray-700">
+                <span class="text-xs">⏰</span>
+                <span class="text-xs">Next refill in <strong class="text-purple-700"><span id="elevenlabs-countdown">calculating...</span> hours</strong></span>
+            </div>
+        </div>
+        
+        <!-- Progress bar -->
+        <div class="mt-3">
+            <div class="w-full bg-purple-100 rounded-full h-1.5">
+                <div id="elevenlabs-progress" class="bg-gradient-to-r from-purple-500 to-indigo-500 h-1.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+            </div>
+            <div class="text-xs text-gray-500 mt-1 text-center">
+                <span id="elevenlabs-progress-text">Loading...</span>
+            </div>
+        </div>
+    </div>
+</a>
+
+<script>
+(function() {
+    // Configuration: refill tous les 3 jours (72 heures)
+    const REFILL_INTERVAL_HOURS = 72;
+    
+    // Date de référence: DERNIER refill effectué (pas le prochain)
+    // Changez cette date pour votre dernier refill effectué
+    const LAST_REFILL_DATE = new Date('2025-01-29T00:00:00Z'); // ← Date de votre DERNIER refill
+    
+    function updateCountdown() {
+        const now = new Date();
+        const timeSinceLastRefill = now.getTime() - LAST_REFILL_DATE.getTime();
+        const hoursSinceLastRefill = timeSinceLastRefill / (1000 * 60 * 60);
+        
+        // Calculer combien d'heures se sont écoulées dans le cycle actuel
+        const hoursInCurrentCycle = hoursSinceLastRefill % REFILL_INTERVAL_HOURS;
+        
+        // Calculer les heures restantes jusqu'au prochain refill
+        const hoursUntilNextRefill = REFILL_INTERVAL_HOURS - hoursInCurrentCycle;
+        
+        // S'assurer que ça ne dépasse jamais 72 heures
+        const hoursRemaining = Math.max(1, Math.min(72, Math.ceil(hoursUntilNextRefill)));
+        
+        // Calculer le pourcentage de progression (0% = just refilled, 100% = about to refill)
+        const progressPercentage = Math.min(100, (hoursInCurrentCycle / REFILL_INTERVAL_HOURS) * 100);
+        
+        // Mettre à jour le countdown
+        const countdownElement = document.getElementById('elevenlabs-countdown');
+        if (countdownElement) {
+            if (hoursRemaining <= 1) {
+                countdownElement.textContent = 'less than 1';
+            } else {
+                countdownElement.textContent = hoursRemaining.toString();
+            }
+        }
+        
+        // Mettre à jour la barre de progression
+        const progressBar = document.getElementById('elevenlabs-progress');
+        if (progressBar) {
+            progressBar.style.width = progressPercentage + '%';
+        }
+        
+        // Mettre à jour le texte de progression
+        const progressText = document.getElementById('elevenlabs-progress-text');
+        if (progressText) {
+            if (hoursRemaining <= 1) {
+                progressText.textContent = 'Refilling soon...';
+            } else if (hoursRemaining <= 24) {
+                progressText.textContent = `Day 3 - ${hoursRemaining}h remaining`;
+            } else if (hoursRemaining <= 48) {
+                progressText.textContent = `Day 2 - ${hoursRemaining}h remaining`;
+            } else {
+                progressText.textContent = `Day 1 - ${hoursRemaining}h remaining`;
+            }
+        }
+        
+        // Debug info (à supprimer en production)
+        console.log('DEBUG ElevenLabs:', {
+            now: now.toISOString(),
+            lastRefill: LAST_REFILL_DATE.toISOString(),
+            hoursSinceLastRefill: Math.round(hoursSinceLastRefill * 100) / 100,
+            hoursInCurrentCycle: Math.round(hoursInCurrentCycle * 100) / 100,
+            hoursRemaining: hoursRemaining,
+            progressPercentage: Math.round(progressPercentage)
+        });
+    }
+    
+    // Mettre à jour immédiatement
+    updateCountdown();
+    
+    // Mettre à jour toutes les heures
+    setInterval(updateCountdown, 60 * 60 * 1000);
+    
+    // Optionnel : mettre à jour plus fréquemment pour plus de précision (toutes les 10 minutes)
+    // setInterval(updateCountdown, 10 * 60 * 1000);
+})();
+</script>

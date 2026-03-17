@@ -19,7 +19,7 @@ type UsageRow = {
 }
 
 async function fetchHiggsfieldUsage() {
-  if (!supabaseAdmin) return { events: [], totalCredits: 0, byEmail: [], unlimitedClicks: 0, unlimitedCredits: 0 }
+  if (!supabaseAdmin) return { events: [], totalCredits: 0, byEmail: [], unlimitedClicks: 0, unlimitedCredits: 0, standardClicks: 0, standardCredits: 0 }
   let selectCols = 'id, email, delta, used_today, at, created_at, user_agent, source'
   let { data: events, error } = await supabaseAdmin
     .from('higgsfield_usage_events')
@@ -38,25 +38,31 @@ async function fetchHiggsfieldUsage() {
   }
   if (error) {
     console.error('[admin/higgsfield]', error.message)
-    return { events: [], totalCredits: 0, byEmail: [], unlimitedClicks: 0, unlimitedCredits: 0 }
+    return { events: [], totalCredits: 0, byEmail: [], unlimitedClicks: 0, unlimitedCredits: 0, standardClicks: 0, standardCredits: 0 }
   }
   const rows = (events || []) as UsageRow[]
   const totalCredits = rows.reduce((sum, r) => sum + (Number(r.delta) || 0), 0)
   let unlimitedClicks = 0
   let unlimitedCredits = 0
+  let standardClicks = 0
+  let standardCredits = 0
   const byEmailMap = new Map<string, number>()
   for (const r of rows) {
     const key = (r.email || '').trim() || '(sans email)'
     byEmailMap.set(key, (byEmailMap.get(key) || 0) + (Number(r.delta) || 0))
-    if ((r.source || '').toLowerCase() === 'unlimited_generate') {
+    const src = (r.source || '').toLowerCase()
+    if (src === 'unlimited_generate') {
       unlimitedClicks += 1
       unlimitedCredits += Number(r.delta) || 0
+    } else if (src === 'standard_generate') {
+      standardClicks += 1
+      standardCredits += Number(r.delta) || 0
     }
   }
   const byEmail = Array.from(byEmailMap.entries())
     .map(([email, credits]) => ({ email, credits }))
     .sort((a, b) => b.credits - a.credits)
-  return { events: rows, totalCredits, byEmail, unlimitedClicks, unlimitedCredits }
+  return { events: rows, totalCredits, byEmail, unlimitedClicks, unlimitedCredits, standardClicks, standardCredits }
 }
 
 export default async function AdminHiggsfieldPage() {
@@ -95,7 +101,7 @@ export default async function AdminHiggsfieldPage() {
     }
   }
 
-  const { events, totalCredits, byEmail, unlimitedClicks, unlimitedCredits } = await fetchHiggsfieldUsage()
+  const { events, totalCredits, byEmail, unlimitedClicks, unlimitedCredits, standardClicks, standardCredits } = await fetchHiggsfieldUsage()
 
   return (
     <div className="min-h-screen bg-black text-white px-6 py-10">
@@ -140,6 +146,13 @@ export default async function AdminHiggsfieldPage() {
                 <p className="text-2xl font-bold">{unlimitedClicks}</p>
                 <p className="text-purple-200 text-xs">{unlimitedCredits} crédits</p>
               </div>
+            </div>
+          </div>
+          <div className="bg-gray-900/80 border border-white/10 rounded-xl p-4">
+            <div>
+              <p className="text-gray-400 text-sm">Clics bouton Generate (standard) validés</p>
+              <p className="text-2xl font-bold">{standardClicks}</p>
+              <p className="text-gray-400 text-xs">{standardCredits} crédits</p>
             </div>
           </div>
         </div>

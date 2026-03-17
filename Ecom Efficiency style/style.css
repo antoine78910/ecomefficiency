@@ -1,0 +1,5 @@
+#afterlibButton:disabled {
+    background-color: #cccccc;  /* Gris */
+    cursor: not-allowed;  /* Pointeur non autorisé */
+  }
+  

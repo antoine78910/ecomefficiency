@@ -1,0 +1,860 @@
+{
+  "manifest_version": 3,
+  "name": "Ecom Efficiency",
+  "version": "1.0.1",
+  "description": "Injecte des scripts personnalisés sur des pages spécifiques.",
+  "permissions": ["activeTab", "scripting","webNavigation",
+    "webRequest",
+    "webRequestBlocking", "storage", "cookies", "declarativeNetRequest",
+    "declarativeNetRequestWithHostAccess", "tabs",
+    "tabs"],
+    
+  "host_permissions": [
+    "*://*.explodingtopics.com/*",
+    "https://logindiscord.herokuapp.com/*",
+    "*://*.fotor.com/*",
+    "https://docs.google.com/*",
+    "chrome://*/*",
+    "*://app.afterlib.com/*",
+    "https://login.spyessentials.ai/otp.php?email=alishaeys%40gmail.com",
+    "https://www.pipiads.com/*",
+    "https://chatgpt.com/*",
+    "https://www.chatgpt.com/*",
+    "https://auth.openai.com/*",
+    "*://openai.com/*",
+    "*://*.openai.com/*",
+    "https://elevenlabs.io/*",
+    "https://app.foreplay.co/*",
+    "https://higgsfield.ai/*",
+    "https://www.higgsfield.ai/*",
+    "https://app.trendtrack.io/*",
+    "https://login.microsoftonline.com/*",
+    "https://login.live.com/*",
+    "https://2fa.live/*",
+    "https://openart.ai/*",
+    "http://localhost/*",
+    "http://127.0.0.1/*",
+    "http://51.83.103.21:20016/*",
+    "http://46.224.61.179:20016/*",
+    "*://*.discord.com/*",
+    "*://*.midjourney.com/*",
+    "https://checkout.stripe.com/*",
+    "https://app.heygen.com/*",
+    "https://auth.heygen.com/*",
+    "https://www.freepik.com/*",
+    "https://turboscribe.ai/*",
+    "https://vmake.ai/*",
+    "https://app.flair.ai/*",
+    "https://flair-ai.firebaseapp.com/*",
+    "https://fnf.higgsfield.ai/*",
+    "https://clerk.higgsfield.ai/*",
+    "https://*.vercel.app/*",
+    "https://*.supabase.co/*"],
+
+
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  },
+  "web_accessible_resources": [
+  {
+    "resources": ["loadingBar.js"], 
+    "matches": ["<all_urls>"]
+
+  },
+  {
+    "resources": ["logo_ecom.png"],
+    "matches": ["<all_urls>"]
+  },
+  {
+    "resources": ["elevenlabs_allowed_emails.csv"],
+    "matches": ["https://elevenlabs.io/*", "https://*.elevenlabs.io/*"]
+  },
+  {
+    "resources": ["higgsfield_http_logger.js"],
+    "matches": ["https://higgsfield.ai/*", "https://www.higgsfield.ai/*"]
+  }
+
+],
+
+  "content_scripts": [
+    
+    {
+      "matches": ["*://*/*"],
+      "js": ["ee_silence_console.js"],
+      "run_at": "document_start"
+    },
+    
+    
+    {
+      "matches": ["https://app.trendtrack.io/*"],
+      "js": ["content.js", "popup-detector.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://www.midjourney.com/explore*"
+      ],
+      "js": ["auto_login_midjourney.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://www.midjourney.com/*"
+      ],
+      "js": ["midjourney_restrict.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://discord.com/login*"
+      ],
+      "js": ["auto_login_midjourney.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://discord.com/oauth2/authorize*"
+      ],
+      "js": ["auto_login_midjourney.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://auth.openai.com/*"],
+      "js": ["content.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://app.trendtrack.io/en/workspace/*/settings*"],
+      "js": ["blocked_redirect.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://app.sendshort.ai/*"],
+      "js": ["sendshort_privacy_blur.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://app.sendshort.ai/*"],
+      "js": ["remove_sendshort.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": ["https://app.tryatria.com/login*"],
+      "js": ["atria_auto_login.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://app.tryatria.com/*"],
+      "js": ["atria_grey_button.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": ["https://app.sendshort.ai/en/login*"],
+      "js": ["auto_login_sendshort.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://app.dropship.io/*"],
+      "js": ["auto_login_dropship.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://app.dropship.io/*"],
+      "js": ["remove_dropship_banner.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://login.spyessentials.ai/tool.php"],
+      "js": ["spy_remove.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://app.foreplay.co/*"],
+      "js": ["foreplay_auto_logout.js"]
+    },
+    {
+      "matches": ["https://app.foreplay.co/*"],
+      "js": ["remove_foreplay_trial.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": ["https://app.foreplay.co/*"],
+      "js": ["foreplay_grey_button.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://www.semrush.com/app/exploding-topics*",
+        "https://semrush.com/app/exploding-topics*",
+        "https://ac.explodingtopics.com/*"
+      ],
+      "js": ["semrush_overlay.js"],
+      "all_frames": true,
+      "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://www.semrush.com/apps/exploding-topics/*",
+        "https://www.semrush.com/login*"
+      ],
+      "js": ["auto_login_semrush.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://elevenlabs.io/app/*"],
+      "js": ["auto_logout_11.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://elevenlabs.io/app/*"],
+      "js": ["elevenlabs_block_settings.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://elevenlabs.io/app/*"],
+      "js": ["elevenlabs_grey_header_zone.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": ["https://elevenlabs.io/app/*"],
+      "js": ["elevenlabs_credits_notif.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://login.spyessentials.ai/pages/helium10.php",
+        "https://login.spyessentials.ai/pages/winninghunter.php",
+        "https://login.spyessentials.ai/pages/canva.php",
+        "https://login.spyessentials.ai/pages/canva2nd.php",
+        "https://login.spyessentials.ai/pages/chatgpt.php",
+        "https://login.spyessentials.ai/pages/searchthetrend.php"
+      ],
+      "js": ["hide_banner.js"]
+    },
+    {
+      "matches": ["https://rankerfox.com/login/"],
+      "js": ["auto_login_rankerfox.js"]
+    },
+    {
+      "matches": ["https://app.foreplay.co/*"],
+      "js": ["foreplay_login.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "https://noxtools.com/secure/page/Helium10",
+        "https://tools.noxtools.com/helium10.php",
+        "https://noxtools.com/secure/login*"
+      ],
+      "js": ["nox_tools.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://noxtools.com/secure/page/Runwayml"
+      ],
+      "js": ["nox-runway.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://oneai.softprolab.com/login"],
+      "js": ["auto_login_ai.js"]
+    },
+    {
+      "matches": ["https://login.spyessentials.ai/tool.php"],
+      "js": ["crisp_remover.js", "modify_title_and_link.js"]
+    },
+    {
+      "matches": ["https://login.spyessentials.ai/index.php"],
+      "js": ["ecomefficiency_auto_login.js"]
+    },
+    {
+      "matches": ["https://login.spyessentials.ai/index.php"],
+      "js": ["auto_login_spy.js"]
+    },
+    {
+      "matches": ["https://app.ecomhunt.com/login"],
+      "js": ["auto_login_ecomh.js"]
+    },
+    {
+      "matches": ["https://one.google.com/*"],
+      "js": ["blocked_redirect.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://myaccount.google.com/*"],
+      "js": ["blocked_redirect.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://elevenlabs.io/app/sign-in*"],
+      "js": ["auto_login_11.js"],
+      "run_at": "document_end"
+    },
+    
+    {
+      "matches": ["https://www.sellthetrend.com/login"],
+      "js": ["sell.js"]
+    },
+    {
+      "matches": ["https://app.fomoclips.com/auth/login"],
+      "js": ["fomo.js"]
+    },
+    {
+      "matches": ["https://nichescraper.com/login.php"],
+      "js": ["nichescrapper.js"]
+    },
+    {
+      "matches": ["https://app.pinspy.com/login"],
+      "js": ["pinspy.js"]
+    },
+    {
+      "matches": ["https://app.submagic.co/login"],
+      "js": ["submagic.js"]
+    },
+    {
+      "matches": ["https://www.cutout.pro/login"],
+      "js": ["cutout.js"]
+    },
+    {
+      "matches": [
+        "https://app.vidyo.ai/auth/login-with-email"
+      ],
+      "js": ["vidyo.js"] 
+    },
+    {
+      "matches": [
+        "https://app.runwayml.com/*"
+      ],
+      "js": ["runway.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://rankerfox.com/premium-plan/"
+      ],
+      "js": ["remove_banner_rankerfox.js"]
+    },
+    {
+      "matches": [
+        "https://rankerfox.com/my-account/"
+      ],
+      "js": ["premium_redirect_rankerfox.js"]
+    },
+    {
+      "matches": [
+        "https://www.fotor.com/fr/"
+      ],
+      "js": ["fotor.js"]
+    },
+    {
+      "matches": [
+        "https://www.fotor.com/user/settings"
+      ],
+      "js": ["remove_fotor.js"]
+    },
+    {
+      "matches": [
+        "https://www.fotor.com/*"
+      ],
+      "js": ["fotor_block_settings.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://www.fotor.com/*"
+      ],
+      "js": ["fotor_grey_button.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://www.fotor.com/*"
+      ],
+      "js": ["fotor_videos_popup.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://explodingtopics.com/pro/tracking"
+      ],
+      "js": ["remove_exp.js"]
+    },
+    {
+      "matches": ["https://ecomefficiency.xyz/exp.html"],
+      "js": ["log_exp.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": ["https://ecomefficiency.xyz/sendshort.html"],
+      "js": ["log_sendshort.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": ["https://ecomefficiency.xyz/filki.html"],
+      "js": ["log_filki.js"],
+      "run_at": "document_end"
+    },
+
+    {
+      "matches": ["https://app.afterlib.com/*"],
+      "js": ["afterlib_overlay.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": ["https://app.shophunter.io/dashboard*"],
+      "js": ["shop_redirect.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://login.spyessentials.ai/tool.php"],
+      "js": ["spy_block_card.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://login.spyessentials.ai/pages/winninghunter.php"],
+      "js": ["block_win_head.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://login.spyessentials.ai/pages/canva2nd.php"],
+      "js": ["block_canv_2head.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://login.spyessentials.ai/pages/canva.php"],
+      "js": ["block_canva_1head.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://app.shophunter.io/login*"],
+      "js": ["auto_login_shophunter.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://app.shophunter.io/*"
+      ],
+      "js": ["shophunter_force_logout.js", "shophunter_remove_usermenu.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": ["https://app.foreplay.co/*"],
+      "js": ["remove_foreplay.js"]
+    },
+    {
+      "matches": ["https://www.kalodata.com/login"],
+      "js": ["auto_login_kalo.js"]
+    },
+    {
+      "matches": ["https://www.kalodata.com/*"],
+      "js": ["kalo_simple_blocker.js"],
+      "run_at": "document_start"
+    }, 
+    {
+      "matches": ["https://ecomefficiency.site/"],
+      "js": ["nop_after.js"]
+    },
+    {
+      "matches": ["https://login.spyessentials.ai/otp.php?email=alishaeys%40gmail.com"],
+      "js": ["spy_get_log.js"]
+    },
+    {
+      "matches": ["https://app.trendtrack.io/en/login*"],
+      "js": ["auto_trendtrack.js"]
+    },
+  
+    {
+      "matches": ["https://app.winninghunter.com/login*"],
+      "js": ["win.js"]
+    },
+    {
+      "matches": ["https://app.tryatria.com/*"],
+      "js": ["atria_remove.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://gemini.google.com/*",
+        "https://accounts.google.com/*"
+      ],
+      "js": ["auto_login_gemini_google.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://labs.google/fx/tools/flow*",
+        "https://gemini.google.com/app*",
+        "https://accounts.google.com/*"
+      ],
+      "exclude_matches": [
+        "https://labs.google/fx/tools/flow*",
+        "https://gemini.google.com/app*",
+        "https://accounts.google.com/*"
+      ],
+      "js": ["veo3.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://gemini.google.com/app*"
+      ],
+      "js": ["gemini_overlay.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://accounts.google.com/o/oauth2/*"
+      ],
+      "exclude_matches": [
+        "https://accounts.google.com/o/oauth2/*"
+      ],
+      "js": ["oauth_login.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://auth.heygen.com/*"
+      ],
+      "js": ["auto_login_heygen.js"],
+      "run_at": "document_idle",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "https://www.freepik.com/log-in*"
+      ],
+      "js": ["auto_login_freepik.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://www.freepik.com/*"
+      ],
+      "exclude_matches": [
+        "https://www.freepik.com/log-in*"
+      ],
+      "js": ["freepik_ui_cleanup.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://turboscribe.ai/login*"
+      ],
+      "js": ["auto_login_turboscribe.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://turboscribe.ai/*"
+      ],
+      "js": ["turboscribe_ui_cleanup.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://app.heygen.com/*"
+      ],
+      "js": ["heygen_block_settings.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://app.heygen.com/*"
+      ],
+      "js": ["heygen_blocker.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://app.winninghunter.com/*"
+      ],
+      "js": ["winninghunter_auto_logout.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://auth.openai.com/log-in-or-create-account*",
+        "https://auth.openai.com/log-in/password*"
+      ],
+      "js": ["gpt.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://auth.openai.com/log-in*"
+      ],
+      "exclude_matches": [
+        "https://auth.openai.com/log-in/password*",
+        "https://auth.openai.com/log-in-or-create-account*"
+      ],
+      "js": ["gpt.js"],
+      "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://chatgpt.com/*",
+        "https://www.chatgpt.com/*"
+      ],
+      "js": ["gpt.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://www.pipiads.com/login"
+      ],
+      "js": ["auto_login_pipiads.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": ["https://www.pipiads.com/*"],
+      "js": ["pipiads_credits_notif.js", "pipiads_block_user_center.js", "pipiads_gray_userbox.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://www.pipiads.com/fr/login"
+      ],
+      "js": ["auto_login_pipiads_fr.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://www.capcut.com/fr-fr/login*"
+      ],
+      "js": ["auto_login_capcut.js"],
+      "run_at": "document_end"
+    }
+    ,
+    {
+      "matches": [
+        "https://www.capcut.com/my-edit*"
+      ],
+      "js": ["capcut_remove_recent_projects.js"],
+      "run_at": "document_start"
+    }
+    ,
+    {
+      "matches": [
+        "https://app.flair.ai/*"
+      ],
+      "js": ["auto_login_flair.js"],
+      "run_at": "document_end"
+    }
+    ,
+    {
+      "matches": [
+        "https://higgsfield.ai/auth/sign-in*",
+        "https://www.higgsfield.ai/auth/sign-in*",
+        "https://higgsfield.ai/auth/email/sign-in*",
+        "https://www.higgsfield.ai/auth/email/sign-in*",
+        "https://higgsfield.ai/auth/login*",
+        "https://www.higgsfield.ai/auth/login*"
+      ],
+      "js": ["higgsfield-email-login.js"],
+      "run_at": "document_end"
+    }
+    ,
+    {
+      "matches": [
+        "https://higgsfield.ai/auth/*",
+        "https://www.higgsfield.ai/auth/*"
+      ],
+      "js": ["higgsfield_otp.js"],
+      "run_at": "document_end"
+    }
+    ,
+    {
+      "matches": [
+        "https://higgsfield.ai/@digital_butter_super*",
+        "https://www.higgsfield.ai/@digital_butter_super*",
+        "https://higgsfield.ai/me/settings",
+        "https://www.higgsfield.ai/me/settings"
+      ],
+      "js": ["blocked_redirect.js"],
+      "run_at": "document_start"
+    }
+    ,
+    
+    
+    {
+      "matches": [
+        "https://vmake.ai/*"
+      ],
+      "js": ["vmake_safety.js"],
+      "run_at": "document_start"
+    }
+    ,
+    {
+      "matches": [
+        "https://vmake.ai/*"
+      ],
+      "js": ["auto_login_vmake.js"],
+      "run_at": "document_end"
+    }
+    ,
+    {
+      "matches": [
+        "https://higgsfield.ai/*",
+        "https://www.higgsfield.ai/*"
+      ],
+      "exclude_matches": [
+        "https://higgsfield.ai/auth/*",
+        "https://www.higgsfield.ai/auth/*"
+      ],
+      "js": ["higgsfield_payment_early.js"],
+      "run_at": "document_start"
+    }
+    ,
+    {
+      "matches": [
+        "https://higgsfield.ai/*",
+        "https://www.higgsfield.ai/*"
+      ],
+      "exclude_matches": [
+        "https://higgsfield.ai/auth/*",
+        "https://www.higgsfield.ai/auth/*"
+      ],
+      "js": ["higgsfield_overlay.js"],
+      "run_at": "document_start"
+    }
+    ,
+    {
+      "matches": [
+        "https://higgsfield.ai/*",
+        "https://www.higgsfield.ai/*"
+      ],
+      "js": ["higgsfield_safety.js"],
+      "run_at": "document_idle"
+    }
+    ,
+    {
+      "matches": [
+        "https://higgsfield.ai/*",
+        "https://www.higgsfield.ai/*"
+      ],
+      "exclude_matches": [
+        "https://higgsfield.ai/auth/*",
+        "https://www.higgsfield.ai/auth/*"
+      ],
+      "js": ["higgsfield_gray_header.js"],
+      "run_at": "document_end"
+    }
+    ,
+    {
+      "matches": [
+        "https://higgsfield.ai/*",
+        "https://www.higgsfield.ai/*"
+      ],
+      "exclude_matches": [
+        "https://higgsfield.ai/auth/*",
+        "https://www.higgsfield.ai/auth/*"
+      ],
+      "js": ["auto_higgsfield_unlimited.js"],
+      "run_at": "document_end"
+    }
+    ,
+    {
+      "matches": [
+        "https://higgsfield.ai/*",
+        "https://www.higgsfield.ai/*"
+      ],
+      "exclude_matches": [
+        "https://higgsfield.ai/auth/*",
+        "https://www.higgsfield.ai/auth/*"
+      ],
+      "js": ["higgsfield_credits_notif.js"],
+      "run_at": "document_end"
+    }
+    ,
+    {
+      "matches": [
+        "https://higgsfield.ai/*",
+        "https://www.higgsfield.ai/*"
+      ],
+      "exclude_matches": [
+        "https://higgsfield.ai/auth/*",
+        "https://www.higgsfield.ai/auth/*"
+      ],
+      "js": ["higgsfield_ecom_config.js", "higgsfield_ecom_subscription.js"],
+      "run_at": "document_end"
+    }
+    ,
+    {
+      "matches": [
+        "https://higgsfield.ai/*",
+        "https://www.higgsfield.ai/*"
+      ],
+      "exclude_matches": [
+        "https://higgsfield.ai/auth/*",
+        "https://www.higgsfield.ai/auth/*"
+      ],
+      "js": ["higgsfield_hide_boost_modal.js"],
+      "run_at": "document_end"
+    }
+    ,
+    {
+      "matches": [
+        "https://auth.openai.com/*"
+      ],
+      "js": ["openai_email_verification.js"],
+      "run_at": "document_start"
+    }
+    ,
+    {
+      "matches": [
+        "https://login.live.com/*"
+      ],
+      "js": ["live_oauth_password.js"],
+      "run_at": "document_end"
+    }
+    ,
+    {
+      "matches": [
+        "https://app.brandsearch.co/login*"
+      ],
+      "js": ["auto_login_brandsearch.js"],
+      "run_at": "document_idle"
+    }
+    ,
+    {
+      "matches": [
+        "https://app.brandsearch.co/*"
+      ],
+      "js": ["brandsearch_cleanup.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://2fa.live/*"
+      ],
+      "js": ["2fa_live_helper.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://openart.ai/*"
+      ],
+      "js": ["auto_login_openart.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://openart.ai/*"
+      ],
+      "js": ["openart_blocker.js"],
+      "run_at": "document_start"
+    }
+  ],
+  
+  "icons": {
+    "48": "icon.png"
+  },
+  "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsDqpbVpX9rbxjpvh0we018vfwKdHrmoTghQCT1157739bU6USgLHRETVCcHQKYq/LbTSO3znZQOYesJ03wRFd3WyTAtuf9PuT7w5RcDTlh/WqX3T35Ds++c1jXgKi20clpVZhNabVRlVSJXoS6Ed1RXUQY4N+2SqHbL4DsWqmCv82Qc6zVX6EsjeoSlhggeatMlfHmKCWOGnkhfo9kcTQGLqiuccDJnh+2c0Gm4/aXaY9o1u8KZXGloWdv23RPLvNym8CyVKvNOUtcqFPbZohfRa21E5XcyW8i6okaZt6u/0mzN1A+PYcgXeMPHQukmKARu7MflLD/oKQW8suw93hQIDAQAB"
+}
+
+  
