@@ -602,6 +602,10 @@
           'Last: \u2212' + lastGenDelta + ' credits</div>'
       : '';
 
+    var upgradeHtml = (limitVal < 100)
+      ? '<a href="https://www.ecomefficiency.com/price" target="_blank" rel="noopener" style="display:block;margin-top:10px;padding:8px 0;text-align:center;font-size:11px;font-weight:600;color:#fff;background:linear-gradient(to bottom,#9541e0,#7c30c7);border-radius:8px;text-decoration:none;transition:filter 0.15s;" onmouseover="this.style.filter=\'brightness(1.15)\'" onmouseout="this.style.filter=\'none\'">Get 100 credits/day \u2192 Upgrade to Pro</a>'
+      : '';
+
     w.innerHTML =
       '<div style="position:relative;padding:14px 16px 12px;">' +
         '<div style="position:absolute;top:-1px;left:50%;transform:translateX(-50%);width:50%;height:2px;background:linear-gradient(90deg,transparent,' + accentColor + ',transparent);border-radius:0 0 2px 2px;"></div>' +
@@ -619,6 +623,7 @@
           '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
           'Resets in ~' + hours + 'h' +
         '</div>' +
+        upgradeHtml +
       '</div>';
   }
 

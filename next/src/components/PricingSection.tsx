@@ -73,7 +73,6 @@ function detectCurrencyFromLocale(): Currency {
 ];
 
 const proExtras = [
-  "Higgsfield",
   "Vmake",
   "Atria",
   "Runway",
@@ -87,7 +86,7 @@ const proExtras = [
   "Kalodata",
 ];
 
-const DEFAULT_PRO_CREDIT_BULLETS = ["Pipiads", "ElevenLabs"] as const;
+const DEFAULT_PRO_CREDIT_BULLETS = ["Pipiads", "ElevenLabs", "Higgsfield (100 credits/day)"] as const;
 
 type PricingSectionProps = {
   proBonusBullets?: string[];
@@ -371,7 +370,7 @@ const PricingSection = ({
                         <li key={t} className="flex items-center gap-2 text-xs">
                           <Check className="w-4 h-4 text-purple-400" />
                           <span>{t}</span>
-                          {t === 'Higgsfield' ? (
+                          {t === 'TurboScribe' ? (
                             <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[linear-gradient(135deg,#8b5cf6,#7c3aed)] text-white/95 border border-[#a78bfa]/40">NEW</span>
                           ) : null}
                         </li>

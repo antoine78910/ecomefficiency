@@ -45,6 +45,7 @@ function PriceClient() {
         proCreditBullets={[
           "Pipiads (100k account)",
           "ElevenLabs (100k account / credits reset every 3 days)",
+          "Higgsfield (100 credits/day)",
         ]}
       />
 

@@ -7,7 +7,7 @@
     // Désactivé: bloquait trop de popups/dialogs.
     const REMOVE_ALL_POPUPS = false;
     const REMOVE_GENERIC_OVERLAYS = false;
-    const DISABLE_BLOCKING_RECTANGLES = true; // ne plus bloquer les clics en bas à gauche/droite
+    const DISABLE_BLOCKING_RECTANGLES = false;
     const REMOVE_ADDONS_POPUP = false; // ne plus supprimer le popup add-ons
     const RESET_POPUP_ID = 'ee-heygen-credits-reset-popup';
     const RESET_POPUP_DISMISSED_KEY = 'ee_heygen_credits_reset_popup_dismissed';
