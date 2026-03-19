@@ -603,7 +603,12 @@
       : '';
 
     var upgradeHtml = (limitVal < 100)
-      ? '<a href="https://www.ecomefficiency.com/price" target="_blank" rel="noopener" style="display:block;margin-top:10px;padding:8px 0;text-align:center;font-size:11px;font-weight:600;color:#fff;background:linear-gradient(to bottom,#9541e0,#7c30c7);border-radius:8px;text-decoration:none;transition:filter 0.15s;" onmouseover="this.style.filter=\'brightness(1.15)\'" onmouseout="this.style.filter=\'none\'">Get 100 credits/day \u2192 Upgrade to Pro</a>'
+      ? (
+        '<div style="margin-top:10px;display:flex;align-items:center;justify-content:space-between;gap:8px;">' +
+          '<div style="font-size:10px;color:rgba(255,255,255,0.6);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">Get 100 credits/day</div>' +
+          '<a href="https://www.ecomefficiency.com/price" target="_blank" rel="noopener" style="flex:0 0 auto;display:inline-block;padding:5px 8px;text-align:center;font-size:10px;font-weight:700;line-height:1;color:#fff;background:linear-gradient(to bottom,#9541e0,#7c30c7);border-radius:8px;text-decoration:none;transition:filter 0.15s;white-space:nowrap;" onmouseover="this.style.filter=\'brightness(1.15)\'" onmouseout="this.style.filter=\'none\'">Upgrade to Pro</a>' +
+        '</div>'
+      )
       : '';
 
     w.innerHTML =
