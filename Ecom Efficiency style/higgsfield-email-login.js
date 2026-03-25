@@ -7,6 +7,8 @@
 
   const EMAIL = 'admin@ecomefficiency.com';
   const PASSWORD = 'JHvtviciyz?75jhbe3!';
+  const ECOM_VERIFY_URL = 'https://www.ecomefficiency.com/api/stripe/verify';
+  const ECOM_VERIFIED_EMAIL_KEY = 'EE_HF_AUTH_VERIFIED_EMAIL';
   const DISABLE_KEY = 'HF_EXTENSION_DISABLED';
   const DISABLE_UNTIL_KEY = 'HF_EXTENSION_DISABLED_UNTIL';
   // Goal: hide our footprint during the login submit → OTP transition,
@@ -165,6 +167,100 @@
   function isAuthLoginOrEmailSignInPath() {
     const p = normPath();
     return p === '/auth/email/sign-in' || p === '/auth/login';
+  }
+
+  function getVerifiedEmail() {
+    try { return sessionStorage.getItem(ECOM_VERIFIED_EMAIL_KEY) || ''; } catch (_) { return ''; }
+  }
+
+  function setVerifiedEmail(v) {
+    try { sessionStorage.setItem(ECOM_VERIFIED_EMAIL_KEY, String(v || '')); } catch (_) {}
+  }
+
+  function ensureEcomPopupStyles() {
+    const id = 'ee-hf-auth-gate-style';
+    if (document.getElementById(id)) return;
+    const s = document.createElement('style');
+    s.id = id;
+    s.textContent = `
+      #ee-hf-auth-gate-root { position: fixed; inset: 0; z-index: 2147483647; background: rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; }
+      #ee-hf-auth-gate-card { width: min(420px, 92vw); background:#111; color:#fff; border:1px solid #333; border-radius:12px; padding:18px; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
+      #ee-hf-auth-gate-card input { width:100%; box-sizing:border-box; padding:10px 12px; border-radius:8px; border:1px solid #444; background:#1b1b1b; color:#fff; margin-top:8px; }
+      #ee-hf-auth-gate-card button { margin-top:12px; width:100%; padding:10px 12px; border:none; border-radius:8px; background:#6366f1; color:#fff; font-weight:600; cursor:pointer; }
+      #ee-hf-auth-gate-msg { min-height:18px; margin-top:8px; font-size:13px; color:#fca5a5; }
+    `;
+    document.documentElement.appendChild(s);
+  }
+
+  function showEcomVerifyPopup() {
+    return new Promise((resolve) => {
+      if (document.getElementById('ee-hf-auth-gate-root')) return resolve(false);
+      ensureEcomPopupStyles();
+
+      const root = document.createElement('div');
+      root.id = 'ee-hf-auth-gate-root';
+      root.innerHTML =
+        '<div id="ee-hf-auth-gate-card">' +
+          '<div style="font-weight:700;font-size:16px;">Ecom Efficiency - Access check</div>' +
+          '<div style="opacity:.9;font-size:13px;margin-top:6px;">Enter your subscription email to continue to Higgsfield login.</div>' +
+          '<input id="ee-hf-auth-gate-email" type="email" placeholder="your@email.com" />' +
+          '<div id="ee-hf-auth-gate-msg"></div>' +
+          '<button id="ee-hf-auth-gate-verify" type="button">Verify</button>' +
+        '</div>';
+      document.documentElement.appendChild(root);
+
+      const emailEl = document.getElementById('ee-hf-auth-gate-email');
+      const msgEl = document.getElementById('ee-hf-auth-gate-msg');
+      const verifyBtn = document.getElementById('ee-hf-auth-gate-verify');
+      const setMsg = (txt, ok) => {
+        if (!msgEl) return;
+        msgEl.textContent = txt || '';
+        msgEl.style.color = ok ? '#86efac' : '#fca5a5';
+      };
+
+      verifyBtn.addEventListener('click', async () => {
+        const email = String((emailEl && emailEl.value) || '').trim().toLowerCase();
+        if (!email) return setMsg('Please enter an email.', false);
+        verifyBtn.disabled = true;
+        setMsg('Verifying subscription...', false);
+        try {
+          const r = await fetch(ECOM_VERIFY_URL, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email })
+          });
+          const data = await r.json().catch(() => null);
+          const allowed = !!(data && data.ok === true && data.active === true);
+          if (!allowed) {
+            verifyBtn.disabled = false;
+            if (data && data.status === 'higgsfield_requires_pro') {
+              setMsg('Pro plan required ($29.99 / €29.99), not Starter. Upgrade: ecomefficiency.com/price', false);
+            } else {
+              setMsg('No active subscription found for this email.', false);
+            }
+            return;
+          }
+          setVerifiedEmail(email);
+          setMsg('Subscription verified. Redirecting...', true);
+          setTimeout(() => {
+            try { root.remove(); } catch (_) {}
+            resolve(true);
+          }, 300);
+        } catch (_) {
+          verifyBtn.disabled = false;
+          setMsg('Network error. Please try again.', false);
+        }
+      });
+      resolve(false);
+    });
+  }
+
+  async function ensureAuthGate() {
+    if (!isAuthLoginOrEmailSignInPath()) return true;
+    const existing = getVerifiedEmail();
+    if (existing) return true;
+    await showEcomVerifyPopup();
+    return !!getVerifiedEmail();
   }
 
   function armDisableOnSubmit() {
@@ -375,6 +471,10 @@
       sessionStorage.removeItem('HIGGSFIELD_RELOAD_DONE');
       sessionStorage.removeItem('HIGGSFIELD_RELOAD_DEADLINE_MS');
     } catch (_) {}
+
+    // Block auto-login on /auth/login or /auth/email/sign-in until Ecom email is verified.
+    const gateOk = await ensureAuthGate();
+    if (!gateOk) return;
 
     // Run all handlers (only one will match the current path)
     try { armDisableOnSubmit(); } catch (_) {}

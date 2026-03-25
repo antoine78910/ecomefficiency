@@ -447,6 +447,9 @@
         if (!data || data.ok !== true) {
           return { allowed: false, reason: 'api_error', plan: null, status: data && data.status, daily_credit_limit: null };
         }
+        if (data.status === 'higgsfield_requires_pro') {
+          return { allowed: false, reason: 'requires_pro', plan: data.plan || null, status: data.status, daily_credit_limit: null };
+        }
         if (data.active === true) {
           return { allowed: true, plan: data.plan || null, status: data.status || 'active', daily_credit_limit: data.daily_credit_limit || null, source: data.source || null };
         }
@@ -515,7 +518,9 @@
             setTimeout(function () { root.remove(); removeShield(); ensureWidget(); updateWidget(used, limit, used >= limit, 0); startTracking(); scheduleBlockingObserver(); eeFullyInitialized = true; }, 600);
           });
         } else {
-          if (res && res.reason === 'no_active_subscription') {
+          if (res && res.reason === 'requires_pro') {
+            setMsg('Higgsfield tools require the Pro plan ($29.99 / \u20ac29.99), not Starter. Upgrade at ecomefficiency.com/price', true);
+          } else if (res && res.reason === 'no_active_subscription') {
             setMsg('No active subscription for this email. Please subscribe on ecomefficiency.com.', true);
           } else if (res && res.reason === 'api_error') {
             setMsg('Backend replied with an error. Please try again later.', true);

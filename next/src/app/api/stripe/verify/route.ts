@@ -267,6 +267,38 @@ async function checkLegacyStripe(email: string): Promise<{
   }
 }
 
+function isHiggsfieldExtensionRequest(req: NextRequest): boolean {
+  const o = (req.headers.get("origin") || "").trim();
+  if (!o) return false;
+  try {
+    const host = new URL(o).hostname.replace(/^www\./i, "").toLowerCase();
+    return host === "higgsfield.ai";
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Higgsfield extension: require Pro tier (~29.99), not Starter (~19.99).
+ * Legacy Stripe (source legacy / plan legacy) stays allowed (separate product).
+ */
+function applyHiggsfieldProOnlyGate(
+  req: NextRequest,
+  payload: Record<string, unknown>
+): Record<string, unknown> {
+  if (!isHiggsfieldExtensionRequest(req)) return payload;
+  if (payload.ok !== true || payload.active !== true) return payload;
+  const plan = String(payload.plan ?? "").toLowerCase();
+  const source = String(payload.source ?? "").toLowerCase();
+  const allowed = plan === "pro" || plan === "legacy" || source === "legacy";
+  if (allowed) return payload;
+  return {
+    ...payload,
+    active: false,
+    status: "higgsfield_requires_pro",
+  };
+}
+
 function withCors(res: NextResponse) {
   try {
     res.headers.set("Access-Control-Allow-Origin", HIGGSFIELD_ORIGIN);
@@ -364,20 +396,22 @@ export async function POST(req: NextRequest) {
       } catch {}
 
       return withCors(
-        NextResponse.json({
-          ok: true,
-          active: true,
-          status: latest.status,
-          plan,
-          customer_id: customerId,
-          subscription_id: latest.id,
-          subscription_created_at: latest.created
-            ? new Date(latest.created * 1000).toISOString()
-            : null,
-          subscription_current_period_start_at: (latest as any)?.current_period_start
-            ? new Date(((latest as any).current_period_start as number) * 1000).toISOString()
-            : null,
-        })
+        NextResponse.json(
+          applyHiggsfieldProOnlyGate(req, {
+            ok: true,
+            active: true,
+            status: latest.status,
+            plan,
+            customer_id: customerId,
+            subscription_id: latest.id,
+            subscription_created_at: latest.created
+              ? new Date(latest.created * 1000).toISOString()
+              : null,
+            subscription_current_period_start_at: (latest as any)?.current_period_start
+              ? new Date(((latest as any).current_period_start as number) * 1000).toISOString()
+              : null,
+          })
+        )
       );
     }
 
@@ -518,23 +552,25 @@ export async function POST(req: NextRequest) {
         } catch {}
 
         return withCors(
-          NextResponse.json({
-            ok: true,
-            active,
-            status,
-            plan: finalPlan,
-            customer_id: customerId || null,
-            subscription_id: latest.id,
-            subscription_created_at: latest.created
-              ? new Date(latest.created * 1000).toISOString()
-              : null,
-            subscription_current_period_start_at: (latest as any)?.current_period_start
-              ? new Date(((latest as any).current_period_start as number) * 1000).toISOString()
-              : null,
-            verify_source: "session_id",
-            invoice_status: invoiceStatus || null,
-            daily_credit_limit: DEFAULT_DAILY_CREDIT_LIMIT,
-          })
+          NextResponse.json(
+            applyHiggsfieldProOnlyGate(req, {
+              ok: true,
+              active,
+              status,
+              plan: finalPlan,
+              customer_id: customerId || null,
+              subscription_id: latest.id,
+              subscription_created_at: latest.created
+                ? new Date(latest.created * 1000).toISOString()
+                : null,
+              subscription_current_period_start_at: (latest as any)?.current_period_start
+                ? new Date(((latest as any).current_period_start as number) * 1000).toISOString()
+                : null,
+              verify_source: "session_id",
+              invoice_status: invoiceStatus || null,
+              daily_credit_limit: DEFAULT_DAILY_CREDIT_LIMIT,
+            })
+          )
         );
       } catch (e: any) {
         // Fall through to email/customer based verification
@@ -570,18 +606,20 @@ export async function POST(req: NextRequest) {
         if (legacy?.found) {
           console.log("[VERIFY] Found legacy subscriber:", { email, legacyCustomerId: legacy.customerId });
           return withCors(
-            NextResponse.json({
-              ok: true,
-              active: true,
-              status: legacy.status,
-              plan: "legacy",
-              customer_id: legacy.customerId,
-              subscription_id: legacy.subscriptionId,
-              subscription_created_at: legacy.createdAt,
-              subscription_current_period_start_at: legacy.periodStartAt,
-              daily_credit_limit: LEGACY_DAILY_CREDIT_LIMIT,
-              source: "legacy",
-            })
+            NextResponse.json(
+              applyHiggsfieldProOnlyGate(req, {
+                ok: true,
+                active: true,
+                status: legacy.status,
+                plan: "legacy",
+                customer_id: legacy.customerId,
+                subscription_id: legacy.subscriptionId,
+                subscription_created_at: legacy.createdAt,
+                subscription_current_period_start_at: legacy.periodStartAt,
+                daily_credit_limit: LEGACY_DAILY_CREDIT_LIMIT,
+                source: "legacy",
+              })
+            )
           );
         }
       }
@@ -637,18 +675,20 @@ export async function POST(req: NextRequest) {
         if (legacy?.found) {
           console.log("[VERIFY] Found legacy subscriber (no active main sub):", { email, legacyCustomerId: legacy.customerId });
           return withCors(
-            NextResponse.json({
-              ok: true,
-              active: true,
-              status: legacy.status,
-              plan: "legacy",
-              customer_id: legacy.customerId,
-              subscription_id: legacy.subscriptionId,
-              subscription_created_at: legacy.createdAt,
-              subscription_current_period_start_at: legacy.periodStartAt,
-              daily_credit_limit: LEGACY_DAILY_CREDIT_LIMIT,
-              source: "legacy",
-            })
+            NextResponse.json(
+              applyHiggsfieldProOnlyGate(req, {
+                ok: true,
+                active: true,
+                status: legacy.status,
+                plan: "legacy",
+                customer_id: legacy.customerId,
+                subscription_id: legacy.subscriptionId,
+                subscription_created_at: legacy.createdAt,
+                subscription_current_period_start_at: legacy.periodStartAt,
+                daily_credit_limit: LEGACY_DAILY_CREDIT_LIMIT,
+                source: "legacy",
+              })
+            )
           );
         }
       }
@@ -845,7 +885,9 @@ export async function POST(req: NextRequest) {
       plan: finalPlan,
       daily_credit_limit: DEFAULT_DAILY_CREDIT_LIMIT,
     });
-    return withCors(NextResponse.json(result));
+    return withCors(
+      NextResponse.json(applyHiggsfieldProOnlyGate(req, { ...result }) as Record<string, unknown>)
+    );
   } catch (e: any) {
     return withCors(
       NextResponse.json(
