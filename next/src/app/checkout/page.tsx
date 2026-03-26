@@ -160,14 +160,44 @@ function CheckoutContent() {
         // Check cancellation before fetch
         if (cancelled) return;
 
-        // Create a Stripe Checkout Session (server handles single transaction semantics)
         const headers: Record<string, string> = { 'Content-Type': 'application/json' };
         if (email) headers['x-user-email'] = email;
         if (userId) headers['x-user-id'] = userId;
+        if (existingCustomerId) headers['x-stripe-customer-id'] = existingCustomerId;
 
-        // Create AbortController for fetch to prevent memory leaks
         abortController = new AbortController();
-        
+
+        // Starter → Pro: upgrade in place with Stripe proration (unused Starter time credited toward Pro).
+        if (tier === 'pro' && email) {
+          const vres = await fetch('/api/stripe/verify', {
+            method: 'POST',
+            headers,
+            body: JSON.stringify({ email }),
+            signal: abortController.signal,
+          });
+          const vj = await vres.json().catch(() => ({} as any));
+          if (vj?.ok && vj?.active && vj?.plan === 'starter') {
+            const ures = await fetch('/api/stripe/upgrade', {
+              method: 'POST',
+              headers,
+              body: JSON.stringify({ billing, currency }),
+              signal: abortController.signal,
+            });
+            const uj = await ures.json().catch(() => ({} as any));
+            if (ures.ok && uj?.ok) {
+              sessionStorage.setItem(redirectKey, '2');
+              if (uj.invoice_url) {
+                window.location.href = String(uj.invoice_url);
+                return;
+              }
+              const h = window.location.hostname.replace(/^www\./, '').toLowerCase();
+              const appBase = h === 'ecomefficiency.com' ? 'https://app.ecomefficiency.com' : window.location.origin;
+              window.location.href = `${appBase}/app?checkout=success&upgraded=1`;
+              return;
+            }
+          }
+        }
+
         const res = await fetch('/api/stripe/checkout', {
           method: 'POST',
           headers,

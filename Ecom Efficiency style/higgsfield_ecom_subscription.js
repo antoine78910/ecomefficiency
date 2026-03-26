@@ -35,6 +35,20 @@
   // --- Storage ---
   function getVerifiedEmail() { try { return sessionStorage.getItem(SESSION_VERIFIED_EMAIL); } catch (_) { return null; } }
   function setVerifiedEmail(email) { try { sessionStorage.setItem(SESSION_VERIFIED_EMAIL, email || ''); sessionStorage.setItem(SESSION_VERIFIED_AT, String(Date.now())); } catch (_) {} }
+
+  /** Same key as higgsfield-email-login.js — copy into ecom session so / and SPA after /auth get widget + credits without a second popup. */
+  const AUTH_GATE_VERIFIED_EMAIL_KEY = 'EE_HF_AUTH_VERIFIED_EMAIL';
+  function syncVerifiedEmailFromAuthGate() {
+    try {
+      if (getVerifiedEmail()) return;
+      var raw = sessionStorage.getItem(AUTH_GATE_VERIFIED_EMAIL_KEY);
+      var ea = raw && String(raw).trim();
+      if (ea) {
+        setVerifiedEmail(ea.toLowerCase());
+        log('synced verified email from pre-login auth gate');
+      }
+    } catch (_) {}
+  }
   function applyDynamicCreditLimit(limit) {
     if (typeof limit === 'number' && limit > 0) {
       CONFIG.DAILY_CREDIT_LIMIT = limit;
@@ -1069,6 +1083,7 @@
 
   // --- Popup flow ---
   function runPopupFlow() {
+    syncVerifiedEmailFromAuthGate();
     if (eeFullyInitialized) return;
     if (isAuthPage(location.pathname)) return;
 
@@ -1112,7 +1127,7 @@
   function init() {
     installFetchInterceptor();
     restoreDynamicCreditLimit();
-    try { sessionStorage.removeItem(SESSION_VERIFIED_EMAIL); sessionStorage.removeItem(SESSION_VERIFIED_AT); } catch (_) {}
+    syncVerifiedEmailFromAuthGate();
     log('init', location.href, 'SIMULATE_CONNECTED=', SIMULATE_CONNECTED, 'DAILY_CREDIT_LIMIT=', CONFIG.DAILY_CREDIT_LIMIT);
 
     installSpaWatcher();
@@ -1141,6 +1156,9 @@
     if ((location.hostname || '').toLowerCase().includes('higgsfield.ai') && !SIMULATE_CONNECTED) {
       setTimeout(function () {
         try {
+          syncVerifiedEmailFromAuthGate();
+          if (eeFullyInitialized) return;
+          if (!shouldShowPopup()) return;
           if (!document.getElementById('ee-hf-ecom-popup-root')) {
             console.log('[EE-HF-Ecom] Fallback: forcing email popup');
             createPopup();

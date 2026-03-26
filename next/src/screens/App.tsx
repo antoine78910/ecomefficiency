@@ -1565,10 +1565,38 @@ function CredentialsPanel({
       const { data } = await mod.supabase.auth.getUser();
       const email = data.user?.email;
       const userId = data.user?.id;
+      const meta = (data.user?.user_metadata as any) || {};
+      const stripeCustomerFromMeta = meta.stripe_customer_id as string | undefined;
       
       const headers: Record<string, string> = { 'Content-Type': 'application/json' };
       if (email) headers['x-user-email'] = email;
       if (userId) headers['x-user-id'] = userId;
+      if (stripeCustomerFromMeta) headers['x-stripe-customer-id'] = stripeCustomerFromMeta;
+
+      // Starter → Pro: Stripe prorates (credit unused Starter time toward Pro) instead of charging full Pro on a second checkout.
+      if (tier === 'pro' && plan === 'starter' && email) {
+        const upRes = await fetch('/api/stripe/upgrade', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ billing, currency: safeCurrency }),
+        });
+        const upJson = await upRes.json().catch(() => ({}));
+        if (upRes.ok && upJson?.ok) {
+          if (upJson.invoice_url) {
+            window.location.href = String(upJson.invoice_url);
+            return;
+          }
+          try {
+            const h = typeof window !== 'undefined' ? window.location.hostname.replace(/^www\./, '').toLowerCase() : '';
+            const appBase =
+              h === 'ecomefficiency.com' ? 'https://app.ecomefficiency.com' : window.location.origin;
+            window.location.href = `${appBase}/app?checkout=success&upgraded=1`;
+          } catch {
+            window.location.href = '/app?checkout=success&upgraded=1';
+          }
+          return;
+        }
+      }
       
       // Call Stripe checkout API directly
       const res = await fetch('/api/stripe/checkout', {

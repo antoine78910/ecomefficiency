@@ -9,6 +9,9 @@
   const PASSWORD = 'JHvtviciyz?75jhbe3!';
   const ECOM_VERIFY_URL = 'https://www.ecomefficiency.com/api/stripe/verify';
   const ECOM_VERIFIED_EMAIL_KEY = 'EE_HF_AUTH_VERIFIED_EMAIL';
+  /** Mirror higgsfield_ecom_subscription.js so credits widget + localStorage usage key work before / or before ecom script syncs. */
+  const ECOM_SESSION_VERIFIED_EMAIL = 'ee_hf_ecom_verified_email';
+  const ECOM_SESSION_VERIFIED_AT = 'ee_hf_ecom_verified_at';
   const DISABLE_KEY = 'HF_EXTENSION_DISABLED';
   const DISABLE_UNTIL_KEY = 'HF_EXTENSION_DISABLED_UNTIL';
   // Goal: hide our footprint during the login submit → OTP transition,
@@ -174,7 +177,14 @@
   }
 
   function setVerifiedEmail(v) {
-    try { sessionStorage.setItem(ECOM_VERIFIED_EMAIL_KEY, String(v || '')); } catch (_) {}
+    const s = String(v || '').trim().toLowerCase();
+    try {
+      sessionStorage.setItem(ECOM_VERIFIED_EMAIL_KEY, s);
+      if (s) {
+        sessionStorage.setItem(ECOM_SESSION_VERIFIED_EMAIL, s);
+        sessionStorage.setItem(ECOM_SESSION_VERIFIED_AT, String(Date.now()));
+      }
+    } catch (_) {}
   }
 
   function ensureEcomPopupStyles() {
@@ -182,14 +192,13 @@
     if (document.getElementById(id)) return;
     const s = document.createElement('style');
     s.id = id;
-    s.textContent = `
-      #ee-hf-auth-gate-root { position: fixed; inset: 0; z-index: 2147483647; background: rgba(0,0,0,0.7); display:flex; align-items:center; justify-content:center; }
-      #ee-hf-auth-gate-card { width: min(420px, 92vw); background:#111; color:#fff; border:1px solid #333; border-radius:12px; padding:18px; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; }
-      #ee-hf-auth-gate-card input { width:100%; box-sizing:border-box; padding:10px 12px; border-radius:8px; border:1px solid #444; background:#1b1b1b; color:#fff; margin-top:8px; }
-      #ee-hf-auth-gate-card button { margin-top:12px; width:100%; padding:10px 12px; border:none; border-radius:8px; background:#6366f1; color:#fff; font-weight:600; cursor:pointer; }
-      #ee-hf-auth-gate-msg { min-height:18px; margin-top:8px; font-size:13px; color:#fca5a5; }
-    `;
-    document.documentElement.appendChild(s);
+    s.textContent =
+      '@keyframes eeHfAuthPopIn{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}' +
+      '#ee-hf-auth-gate-root{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.3);animation:eeHfAuthPopIn 0.2s ease;}' +
+      '#ee-hf-auth-gate-email:focus{border-color:rgba(149,65,224,0.5)!important;box-shadow:0 0 0 2px rgba(149,65,224,0.15)!important;}' +
+      '#ee-hf-auth-gate-verify:hover:not(:disabled){filter:brightness(1.15)}' +
+      '#ee-hf-auth-gate-verify:disabled{opacity:0.6;cursor:wait}';
+    (document.head || document.documentElement).appendChild(s);
   }
 
   function showEcomVerifyPopup() {
@@ -199,15 +208,25 @@
 
       const root = document.createElement('div');
       root.id = 'ee-hf-auth-gate-root';
-      root.innerHTML =
-        '<div id="ee-hf-auth-gate-card">' +
-          '<div style="font-weight:700;font-size:16px;">Ecom Efficiency - Access check</div>' +
-          '<div style="opacity:.9;font-size:13px;margin-top:6px;">Enter your subscription email to continue to Higgsfield login.</div>' +
-          '<input id="ee-hf-auth-gate-email" type="email" placeholder="your@email.com" />' +
-          '<div id="ee-hf-auth-gate-msg"></div>' +
-          '<button id="ee-hf-auth-gate-verify" type="button">Verify</button>' +
-        '</div>';
-      document.documentElement.appendChild(root);
+      const card = document.createElement('div');
+      card.id = 'ee-hf-auth-gate-card';
+      card.style.cssText =
+        'max-width:380px;width:90%;background:linear-gradient(170deg,#0f0f1a 0%,#1a1028 50%,#0f0f1a 100%);' +
+        'border:1px solid rgba(149,65,224,0.25);border-radius:20px;padding:32px 28px;' +
+        'box-shadow:0 20px 80px rgba(149,65,224,0.2);font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;' +
+        'color:#fff;text-align:center;position:relative;';
+      card.innerHTML =
+        '<div style="position:absolute;top:-1px;left:50%;transform:translateX(-50%);width:60%;height:3px;background:linear-gradient(90deg,transparent,#9541e0,#b54af3,#9541e0,transparent);border-radius:0 0 4px 4px;"></div>' +
+        '<div style="font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#b54af3;margin-bottom:12px;">Ecom Efficiency</div>' +
+        '<div style="font-size:20px;font-weight:700;margin-bottom:8px;">Verify Your Subscription</div>' +
+        '<div style="font-size:14px;color:rgba(255,255,255,0.7);margin-bottom:20px;line-height:1.5;">Enter the email you used for your<br>Ecom Efficiency subscription to continue.</div>' +
+        '<input type="email" id="ee-hf-auth-gate-email" placeholder="your@email.com" ' +
+        'style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid rgba(255,255,255,0.1);border-radius:12px;background:rgba(255,255,255,0.06);color:#fff;margin-bottom:14px;font-size:14px;outline:none;transition:border-color 0.2s,box-shadow 0.2s;" />' +
+        '<div id="ee-hf-auth-gate-msg" style="min-height:20px;font-size:13px;margin-bottom:14px;"></div>' +
+        '<button type="button" id="ee-hf-auth-gate-verify" ' +
+        'style="width:100%;padding:12px;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;background:linear-gradient(to bottom,#9541e0,#7c30c7);color:#fff;box-shadow:0 8px 40px rgba(149,65,224,0.35);transition:filter 0.15s;">Verify</button>';
+      root.appendChild(card);
+      (document.body || document.documentElement).appendChild(root);
 
       const emailEl = document.getElementById('ee-hf-auth-gate-email');
       const msgEl = document.getElementById('ee-hf-auth-gate-msg');
@@ -215,14 +234,15 @@
       const setMsg = (txt, ok) => {
         if (!msgEl) return;
         msgEl.textContent = txt || '';
-        msgEl.style.color = ok ? '#86efac' : '#fca5a5';
+        msgEl.style.color = ok ? '#86efac' : '#f87171';
       };
 
-      verifyBtn.addEventListener('click', async () => {
-        const email = String((emailEl && emailEl.value) || '').trim().toLowerCase();
+      async function runVerify() {
+        if (!verifyBtn || !emailEl) return;
+        const email = String(emailEl.value || '').trim().toLowerCase();
         if (!email) return setMsg('Please enter an email.', false);
         verifyBtn.disabled = true;
-        setMsg('Verifying subscription...', false);
+        setMsg('Verifying subscription\u2026', false);
         try {
           const r = await fetch(ECOM_VERIFY_URL, {
             method: 'POST',
@@ -230,28 +250,39 @@
             body: JSON.stringify({ email })
           });
           const data = await r.json().catch(() => null);
+          if (data && data.status === 'higgsfield_requires_pro') {
+            verifyBtn.disabled = false;
+            setMsg('Pro plan required ($29.99 / \u20ac29.99), not Starter. Upgrade: ecomefficiency.com/price', false);
+            return;
+          }
           const allowed = !!(data && data.ok === true && data.active === true);
           if (!allowed) {
             verifyBtn.disabled = false;
-            if (data && data.status === 'higgsfield_requires_pro') {
-              setMsg('Pro plan required ($29.99 / €29.99), not Starter. Upgrade: ecomefficiency.com/price', false);
-            } else {
-              setMsg('No active subscription found for this email.', false);
-            }
+            setMsg('No active subscription for this email. Please subscribe on ecomefficiency.com.', false);
             return;
           }
+          try {
+            const lim = data && data.daily_credit_limit;
+            if (typeof lim === 'number' && lim > 0) {
+              sessionStorage.setItem('ee_hf_ecom_daily_limit', String(lim));
+            }
+          } catch (_) {}
           setVerifiedEmail(email);
-          setMsg('Subscription verified. Redirecting...', true);
+          setMsg('Subscription verified. You can continue.', true);
           setTimeout(() => {
             try { root.remove(); } catch (_) {}
             resolve(true);
-          }, 300);
+          }, 400);
         } catch (_) {
           verifyBtn.disabled = false;
           setMsg('Network error. Please try again.', false);
         }
+      }
+
+      verifyBtn.addEventListener('click', runVerify);
+      emailEl.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') runVerify();
       });
-      resolve(false);
     });
   }
 
