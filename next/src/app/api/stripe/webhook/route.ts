@@ -77,6 +77,68 @@ async function recordPartnerPayment(input: {
   }
 }
 
+function detectPlanFromPriceId(priceId: string | undefined | null): 'starter' | 'pro' | null {
+  if (!priceId) return null
+  const env = process.env as Record<string, string | undefined>
+  const starterIds = new Set([
+    env.STRIPE_PRICE_ID_STARTER_MONTHLY_EUR,
+    env.STRIPE_PRICE_ID_STARTER_YEARLY_EUR,
+    env.STRIPE_PRICE_ID_STARTER_MONTHLY_USD,
+    env.STRIPE_PRICE_ID_STARTER_YEARLY_USD,
+    env.NEXT_PUBLIC_STRIPE_PRICE_ID_STARTER_MONTHLY,
+    env.NEXT_PUBLIC_STRIPE_PRICE_ID_STARTER_YEARLY,
+  ].filter(Boolean) as string[])
+  const proIds = new Set([
+    env.STRIPE_PRICE_ID_PRO_MONTHLY_EUR,
+    env.STRIPE_PRICE_ID_PRO_YEARLY_EUR,
+    env.STRIPE_PRICE_ID_PRO_MONTHLY_USD,
+    env.STRIPE_PRICE_ID_PRO_YEARLY_USD,
+    env.NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_MONTHLY,
+    env.NEXT_PUBLIC_STRIPE_PRICE_ID_PRO_YEARLY,
+  ].filter(Boolean) as string[])
+  if (starterIds.has(priceId)) return 'starter'
+  if (proIds.has(priceId)) return 'pro'
+  return null
+}
+
+async function detectPlanFromSubscription(
+  stripe: Stripe,
+  subscriptionId: string,
+  stripeOpts?: any
+): Promise<{ plan: 'starter' | 'pro'; tier: string; priceId?: string }> {
+  try {
+    const sub = await stripe.subscriptions.retrieve(subscriptionId, stripeOpts)
+    const priceId = (sub as any)?.items?.data?.[0]?.price?.id as string | undefined
+    const price = (sub as any)?.items?.data?.[0]?.price as Stripe.Price | undefined
+
+    let plan = detectPlanFromPriceId(priceId)
+
+    if (!plan && price) {
+      const lookup = ((price.lookup_key || '') as string).toLowerCase()
+      const nickname = ((price.nickname || '') as string).toLowerCase()
+      if (lookup.includes('pro') || nickname.includes('pro')) plan = 'pro'
+      else if (lookup.includes('starter') || nickname.includes('starter')) plan = 'starter'
+    }
+
+    if (!plan && price) {
+      const amount = price.unit_amount || 0
+      if (amount >= 2500) plan = 'pro'
+      else if (amount >= 1000) plan = 'starter'
+    }
+
+    if (!plan) {
+      const metaTier = ((sub as any)?.metadata?.tier || '').toLowerCase()
+      if (metaTier === 'starter') plan = 'starter'
+      else if (metaTier === 'pro' || metaTier === 'growth') plan = 'pro'
+    }
+
+    const resolved = plan || 'starter'
+    return { plan: resolved, tier: resolved, priceId }
+  } catch {
+    return { plan: 'pro', tier: 'pro' }
+  }
+}
+
 export async function POST(req: NextRequest) {
   const requestId = `wh_${Date.now()}_${Math.random().toString(36).slice(2,8)}`;
   console.log('[webhook]', requestId, '­ƒöö Webhook endpoint called');
@@ -176,6 +238,15 @@ export async function POST(req: NextRequest) {
           const customerId = session?.customer;
           const partnerSlug = session?.metadata?.partner_slug || session?.metadata?.partnerSlug;
           const userEmail = session?.customer_details?.email || session?.customer_email || session?.metadata?.user_email;
+
+          // Detect actual plan from the subscription price ID (not hardcoded)
+          const subId = typeof session?.subscription === 'string' ? session.subscription : session?.subscription?.id;
+          let detectedPlan: 'starter' | 'pro' = 'starter';
+          if (subId) {
+            const detected = await detectPlanFromSubscription(stripe, subId, stripeOpts);
+            detectedPlan = detected.plan;
+            console.log('[webhook][checkout.session.completed]', requestId, 'Detected plan from subscription:', { subId, plan: detectedPlan, priceId: detected.priceId });
+          }
           
           // For partner checkouts, we need to handle userId lookup by email if not provided
           let targetUserId = clientRef;
@@ -194,11 +265,11 @@ export async function POST(req: NextRequest) {
                 'Content-Type': 'application/json',
                 'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
               },
-              body: JSON.stringify({ user_metadata: { plan: 'pro', stripe_customer_id: customerId } })
+              body: JSON.stringify({ user_metadata: { plan: detectedPlan, tier: detectedPlan, stripe_customer_id: customerId } })
             });
-            console.log('[webhook][checkout.session.completed]', requestId, '✅ Updated user plan to pro:', targetUserId);
+            console.log('[webhook][checkout.session.completed]', requestId, `Updated user plan to ${detectedPlan}:`, targetUserId);
           } else if (userEmail && partnerSlug) {
-            console.log('[webhook][checkout.session.completed]', requestId, '⚠️ Could not find userId for partner checkout:', userEmail);
+            console.log('[webhook][checkout.session.completed]', requestId, 'Could not find userId for partner checkout:', userEmail);
           }
         }
         break;
@@ -285,8 +356,7 @@ export async function POST(req: NextRequest) {
             try {
               const sub = await stripe.subscriptions.retrieve(subscriptionId);
               const userId = (sub as any)?.metadata?.userId;
-              const tier = (sub as any)?.metadata?.tier;
-              const plan = tier === 'starter' ? 'starter' : 'pro';
+              const detected = await detectPlanFromSubscription(stripe, subscriptionId);
               if (userId && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL) {
                 await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users/${userId}`, {
                   method: 'PUT',
@@ -294,7 +364,7 @@ export async function POST(req: NextRequest) {
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${process.env.SUPABASE_SERVICE_ROLE_KEY}`
                   },
-                  body: JSON.stringify({ user_metadata: { plan, tier, stripe_customer_id: sub.customer } })
+                  body: JSON.stringify({ user_metadata: { plan: detected.plan, tier: detected.tier, stripe_customer_id: sub.customer } })
                 });
               }
             } catch {}
@@ -321,24 +391,22 @@ export async function POST(req: NextRequest) {
         }
 
         let userEmail = invoice.customer_email;
-        let plan = 'pro'; // default
-        let tier = 'pro';
+        let plan: 'starter' | 'pro' = 'starter';
+        let tier = 'starter';
         let fpPlan: string | null = null;
 
         if (subscriptionId) {
           try {
-            // Fetch subscription to get metadata
             const subscription = await stripe.subscriptions.retrieve(subscriptionId, stripeOpts as any);
             const clientRef = subscription?.metadata?.userId;
             const customerId = subscription?.customer;
-            tier = subscription?.metadata?.tier || 'pro'; // 'starter' or 'pro'
-            // Use Stripe Price ID if available (best for plan-level rewards), fallback to tier.
-            try {
-              const priceId = (subscription as any)?.items?.data?.[0]?.price?.id;
-              fpPlan = priceId ? String(priceId) : (tier ? String(tier) : null);
-            } catch {
-              fpPlan = tier ? String(tier) : null;
-            }
+
+            // Detect plan from price ID (not metadata which may be unset)
+            const detected = await detectPlanFromSubscription(stripe, subscriptionId, stripeOpts);
+            plan = detected.plan;
+            tier = detected.tier;
+            fpPlan = detected.priceId ? String(detected.priceId) : tier;
+
             const partnerSlug = (subscription as any)?.metadata?.partner_slug || (subscription as any)?.metadata?.partnerSlug;
             
             // For partner subscriptions, if no userId in metadata, try to find by email
@@ -351,10 +419,7 @@ export async function POST(req: NextRequest) {
               } catch {}
             }
 
-            console.log('[webhook][invoice.payment_succeeded]', requestId, '📋 Subscription metadata:', { clientRef: targetUserId, customerId, tier, partnerSlug });
-
-            // Map tier to plan: starter ÔåÆ starter, pro/growth ÔåÆ pro
-             plan = tier === 'starter' ? 'starter' : 'pro';
+            console.log('[webhook][invoice.payment_succeeded]', requestId, 'Subscription metadata:', { clientRef: targetUserId, customerId, tier, plan, priceId: detected.priceId, partnerSlug });
 
             console.log('[webhook][invoice.payment_succeeded]', requestId, '­ƒöö ACTIVATING PLAN:', {
               userId: clientRef,
