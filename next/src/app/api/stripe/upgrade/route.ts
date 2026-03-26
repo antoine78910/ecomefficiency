@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
+import {
+  searchCustomersByEmailAllPagesMerged,
+  findBestCustomerWithActiveSubscription,
+} from '@/lib/stripeLegacySubscription'
 
 function starterPriceIds(env: Record<string, string | undefined>): string[] {
   return [
@@ -33,11 +37,14 @@ export async function POST(req: NextRequest) {
 
     let customerId = req.headers.get('x-stripe-customer-id') || undefined
     const email = req.headers.get('x-user-email') || undefined
+
+    // Resolve customer the same way as /api/stripe/verify
     if (!customerId && email) {
       try {
-        const search = await stripe.customers.search({ query: `email:'${String(email).replace(/'/g, "\\'")}'`, limit: 1 })
-        const found = search.data?.[0]
-        if (found) customerId = found.id
+        const customers = await searchCustomersByEmailAllPagesMerged(stripe, email)
+        const best = await findBestCustomerWithActiveSubscription(stripe, customers)
+        if (best) customerId = best.customerId
+        else if (customers.length > 0) customerId = customers[0].id
       } catch {}
     }
     if (!customerId) return NextResponse.json({ ok: false, error: 'missing_customer' }, { status: 400 })
@@ -103,45 +110,37 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'already_on_target_price' }, { status: 400 })
     }
 
-    // pending_if_incomplete: subscription stays on Starter until the proration invoice is paid.
-    // Stripe auto-charges the customer's default payment method. If it succeeds (no 3DS),
-    // the upgrade is instant. If 3DS or failure, a pending_update is set and the user must
-    // complete payment via hosted invoice.
-    const updated = await stripe.subscriptions.update(sub.id, {
-      items: [{ id: item.id, price: priceId }],
-      proration_behavior: 'create_prorations',
-      payment_behavior: 'pending_if_incomplete',
-      cancel_at_period_end: false,
-    })
-
-    const u = updated as unknown as Stripe.Subscription
-    const hasPendingUpdate = !!(u as any).pending_update
-
-    let invoiceUrl: string | null = null
-    let amountDue: number | null = null
-
-    if (hasPendingUpdate) {
-      const li = (u as any).latest_invoice
-      const invId = typeof li === 'string' ? li : li?.id
-      if (invId) {
-        const invoice = await stripe.invoices.retrieve(invId)
-        invoiceUrl = invoice.hosted_invoice_url || null
-        amountDue = typeof invoice.amount_due === 'number' ? invoice.amount_due : null
+    // Build return URL
+    const requestOrigin = req.headers.get('origin') || 'http://localhost:3000'
+    let returnOrigin = env.APP_URL || requestOrigin
+    try {
+      const ou = new URL(returnOrigin)
+      const bare = ou.hostname.toLowerCase().replace(/^www\./, '')
+      if (bare === 'ecomefficiency.com' && !ou.hostname.toLowerCase().startsWith('app.')) {
+        ou.protocol = 'https:'
+        ou.hostname = 'app.ecomefficiency.com'
+        ou.port = ''
+        returnOrigin = ou.origin
       }
-    }
+    } catch {}
+
+    // Create a Billing Portal session with subscription_update flow.
+    // Stripe shows the proration preview, the user confirms, and Stripe handles
+    // payment + subscription update atomically. No server-side subscriptions.update needed.
+    const portalSession = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: `${returnOrigin}/app?checkout=success&upgraded=1`,
+      flow_data: {
+        type: 'subscription_update',
+        subscription_update: {
+          subscription: sub.id,
+        },
+      } as any,
+    })
 
     return NextResponse.json({
       ok: true,
-      upgraded: !hasPendingUpdate,
-      pending_payment: hasPendingUpdate,
-      subscription: {
-        id: u.id,
-        status: u.status,
-        current_period_end: (u as any).current_period_end ?? null,
-      },
-      proration: true,
-      invoice_url: hasPendingUpdate ? invoiceUrl : null,
-      amount_due: amountDue,
+      portal_url: portalSession.url,
     })
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || 'unknown_error' }, { status: 500 })

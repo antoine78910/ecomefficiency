@@ -90,18 +90,8 @@ export default function SubscriptionPage() {
           body: JSON.stringify({ billing, currency }),
         })
         const upJson = await upRes.json().catch(() => ({}))
-        if (upRes.ok && upJson?.ok) {
-          if (upJson.pending_payment && upJson.invoice_url) {
-            window.location.href = String(upJson.invoice_url)
-            return
-          }
-          try {
-            const h = window.location.hostname.replace(/^www\./, '').toLowerCase()
-            const appBase = h === 'ecomefficiency.com' ? 'https://app.ecomefficiency.com' : window.location.origin
-            window.location.href = `${appBase}/app?checkout=success&upgraded=1`
-          } catch {
-            window.location.href = '/app?checkout=success&upgraded=1'
-          }
+        if (upRes.ok && upJson?.ok && upJson.portal_url) {
+          window.location.href = String(upJson.portal_url)
           return
         }
       }

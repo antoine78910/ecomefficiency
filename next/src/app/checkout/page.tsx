@@ -184,15 +184,9 @@ function CheckoutContent() {
               signal: abortController.signal,
             });
             const uj = await ures.json().catch(() => ({} as any));
-            if (ures.ok && uj?.ok) {
+            if (ures.ok && uj?.ok && uj.portal_url) {
               sessionStorage.setItem(redirectKey, '2');
-              if (uj.pending_payment && uj.invoice_url) {
-                window.location.href = String(uj.invoice_url);
-                return;
-              }
-              const h = window.location.hostname.replace(/^www\./, '').toLowerCase();
-              const appBase = h === 'ecomefficiency.com' ? 'https://app.ecomefficiency.com' : window.location.origin;
-              window.location.href = `${appBase}/app?checkout=success&upgraded=1`;
+              window.location.href = String(uj.portal_url);
               return;
             }
           }
