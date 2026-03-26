@@ -1833,6 +1833,58 @@ function CredentialsPanel({
           }); */
 
           const currentPlan = plan as string; // Type assertion to avoid flow narrowing issues
+
+          if (
+            (currentPlan === 'starter' || currentPlan === 'pro') &&
+            !hasProCreds &&
+            !hasStarterCreds &&
+            !hasAnyCreds
+          ) {
+            return (
+              <div className="space-y-3 text-sm">
+                <p className="text-amber-100/90 leading-relaxed">
+                  Your subscription looks active, but AdsPower credentials are not available yet. This often happens when a payment is{' '}
+                  <span className="font-semibold text-amber-200">past due</span> on one account while access is still granted via the legacy
+                  billing check — or when the app is still syncing.
+                </p>
+                <div className="flex flex-wrap gap-2 items-center">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      try {
+                        setShowBilling(true);
+                      } catch {}
+                    }}
+                    className="px-3 py-1.5 rounded-md text-sm font-semibold cursor-pointer hover:brightness-110"
+                    style={
+                      isEcomEfficiencyAppHost
+                        ? {
+                            background: 'linear-gradient(to bottom, #9541e0, #7c30c7)',
+                            border: '1px solid #9541e0',
+                            color: '#ffffff',
+                            boxShadow: '0 4px 24px rgba(149,65,224,0.45)',
+                          }
+                        : { background: wlMain, color: wlText }
+                    }
+                  >
+                    View plans
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      try {
+                        void openPortal();
+                      } catch {}
+                    }}
+                    className="px-3 py-1.5 rounded-md text-sm border border-white/20 text-white hover:bg-white/10 cursor-pointer"
+                  >
+                    Update payment
+                  </button>
+                </div>
+              </div>
+            );
+          }
+
           if ((currentPlan === 'pro' && hasProCreds) || (currentPlan === 'starter' && hasStarterCreds) || (currentPlan === 'checking' && hasAnyCreds)) {
             // Compute values once to avoid repeated type checks in JSX
             const displayEmail = currentPlan === 'pro' 

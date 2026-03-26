@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { supabaseAdmin } from '@/integrations/supabase/server'
+import { checkLegacyStripe } from '@/lib/stripeLegacySubscription'
 
 // Always compute on request; no ISR/static caching
 export const dynamic = 'force-dynamic'
@@ -162,86 +163,100 @@ export async function GET(req: NextRequest) {
           if (found) customerId = found.id
         } catch {}
       }
-      if (!customerId) {
-        return NextResponse.json({}, { status: 200 })
-      }
-      const subs = await stripe.subscriptions.list(
-        { customer: customerId, status: 'all', limit: 10 },
-        stripeAccount ? ({ stripeAccount } as any) : undefined
-      )
-      const sorted = subs.data.sort((a, b) => (b.created || 0) - (a.created || 0))
-      
-      // Check if ANY subscription is truly active (active/trialing status OR paid invoice)
-      let anyActive = false;
-      let debugInfo: any[] = [];
-      
-      for (const sub of sorted) {
-        console.log('[CREDENTIALS] Checking sub:', { 
-          id: sub.id, 
-          status: sub.status, 
-          hasInvoice: !!sub.latest_invoice,
-          created: new Date(sub.created * 1000).toISOString()
-        });
-        
-        if (sub.status === 'active' || sub.status === 'trialing') {
-          anyActive = true;
-          console.log('[CREDENTIALS] ✅ Found active/trialing sub');
-          break;
-        }
-        
-        // For incomplete, verify invoice is paid
-        if (sub.status === 'incomplete' && sub.latest_invoice) {
-          try {
-            const invoiceId = typeof sub.latest_invoice === 'string' ? sub.latest_invoice : sub.latest_invoice.id;
-            console.log('[CREDENTIALS] Checking invoice for incomplete sub:', { subId: sub.id, invoiceId });
-            
-            if (invoiceId) {
-              const invoice = await stripe.invoices.retrieve(
-                invoiceId,
-                stripeAccount ? ({ stripeAccount } as any) : undefined
-              );
-              console.log('[CREDENTIALS] Invoice details:', { 
-                id: invoice.id, 
-                status: invoice.status,
-                amount_paid: invoice.amount_paid,
-                amount_due: invoice.amount_due
-              });
-              
-              if (invoice.status === 'paid') {
-                anyActive = true;
-                console.log('[CREDENTIALS] ✅ Granting access: incomplete sub with PAID invoice');
-                break;
-              } else {
-                console.log('[CREDENTIALS] ❌ Invoice not paid:', invoice.status);
+
+      let anyActive = false
+      let latestStatus: string | undefined
+
+      if (customerId) {
+        const subs = await stripe.subscriptions.list(
+          { customer: customerId, status: 'all', limit: 10 },
+          stripeAccount ? ({ stripeAccount } as any) : undefined
+        )
+        const sorted = subs.data.sort((a, b) => (b.created || 0) - (a.created || 0))
+
+        for (const sub of sorted) {
+          console.log('[CREDENTIALS] Checking sub:', {
+            id: sub.id,
+            status: sub.status,
+            hasInvoice: !!sub.latest_invoice,
+            created: new Date(sub.created * 1000).toISOString(),
+          })
+
+          if (sub.status === 'active' || sub.status === 'trialing') {
+            anyActive = true
+            console.log('[CREDENTIALS] ✅ Found active/trialing sub')
+            break
+          }
+
+          if (sub.status === 'incomplete' && sub.latest_invoice) {
+            try {
+              const invoiceId =
+                typeof sub.latest_invoice === 'string' ? sub.latest_invoice : sub.latest_invoice.id
+              console.log('[CREDENTIALS] Checking invoice for incomplete sub:', { subId: sub.id, invoiceId })
+
+              if (invoiceId) {
+                const invoice = await stripe.invoices.retrieve(
+                  invoiceId,
+                  stripeAccount ? ({ stripeAccount } as any) : undefined
+                )
+                console.log('[CREDENTIALS] Invoice details:', {
+                  id: invoice.id,
+                  status: invoice.status,
+                  amount_paid: invoice.amount_paid,
+                  amount_due: invoice.amount_due,
+                })
+
+                if (invoice.status === 'paid') {
+                  anyActive = true
+                  console.log('[CREDENTIALS] ✅ Granting access: incomplete sub with PAID invoice')
+                  break
+                }
+                console.log('[CREDENTIALS] ❌ Invoice not paid:', invoice.status)
               }
+            } catch (e: any) {
+              console.error('[CREDENTIALS] Failed to check invoice:', e.message)
             }
-          } catch (e: any) {
-            console.error('[CREDENTIALS] Failed to check invoice:', e.message);
           }
         }
-        
-        debugInfo.push({ id: sub.id, status: sub.status, hasInvoice: !!sub.latest_invoice });
+
+        const latest = sorted[0]
+        latestStatus = latest?.status
+
+        console.log('[CREDENTIALS] Main Stripe access check:', {
+          customerId,
+          latestStatus,
+          anyActive,
+          latestId: latest?.id,
+          totalSubs: sorted.length,
+          stripeAccount: stripeAccount || null,
+          partnerSlug: partnerSlug || null,
+        })
       }
-      
-      const latest = sorted[0]
-      const status = latest?.status
 
-      console.log('[CREDENTIALS] Access check:', { 
-        customerId, 
-        status, 
-        anyActive, 
-        latestId: latest?.id,
-        totalSubs: sorted.length,
-        stripeAccount: stripeAccount || null,
-        partnerSlug: partnerSlug || null,
-      })
+      if (!anyActive && email) {
+        try {
+          const legacy = await checkLegacyStripe(email.trim())
+          if (legacy?.found) {
+            anyActive = true
+            console.log('[CREDENTIALS] ✅ Legacy Stripe grants access (aligned with /api/stripe/verify)', {
+              email: email.trim(),
+              legacyCustomerId: legacy.customerId,
+            })
+          }
+        } catch (e: any) {
+          console.warn('[CREDENTIALS] Legacy Stripe check failed:', e?.message || e)
+        }
+      }
 
-      // Fail-closed unless ANY subscription is active/trialing OR has paid invoice
       if (!anyActive) {
-        console.log('[CREDENTIALS] ❌ Access denied - no valid subscription (latest status:', status, ')')
+        console.log(
+          '[CREDENTIALS] ❌ Access denied - no valid subscription (latest main status:',
+          latestStatus ?? 'no_customer',
+          ')'
+        )
         return NextResponse.json({}, { status: 200 })
       }
-      
+
       console.log('[CREDENTIALS] ✅ Access granted')
     }
   } catch {
