@@ -2,12 +2,21 @@
 import React from "react";
 import { supabase } from "@/integrations/supabase/client";
 
+function detectCheckoutCurrency(): 'EUR' | 'USD' {
+  try {
+    const c = typeof window !== 'undefined' ? window.localStorage.getItem('ee_detected_currency') : null
+    if (c === 'EUR' || c === 'USD') return c
+  } catch {}
+  return 'EUR'
+}
+
 export default function SubscriptionPage() {
   const [plan, setPlan] = React.useState<'free'|'starter'|'pro'>('free')
   const [email, setEmail] = React.useState<string>('')
   const [customerId, setCustomerId] = React.useState<string>('')
   const [userId, setUserId] = React.useState<string>('')
   const [firstName, setFirstName] = React.useState<string>('')
+  const [upgradeLoading, setUpgradeLoading] = React.useState(false)
 
   React.useEffect(() => {
     (async () => {
@@ -61,6 +70,59 @@ export default function SubscriptionPage() {
 
   const crown = '👑'
 
+  const handleUpgradeToPro = async () => {
+    if (upgradeLoading) return
+    setUpgradeLoading(true)
+    try {
+      const currency = detectCheckoutCurrency()
+      const billing = 'monthly' as const
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (email) headers['x-user-email'] = email
+      if (userId) headers['x-user-id'] = userId
+      if (customerId) headers['x-stripe-customer-id'] = customerId
+
+      if (plan === 'starter' && email) {
+        const upRes = await fetch('/api/stripe/upgrade', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ billing, currency }),
+        })
+        const upJson = await upRes.json().catch(() => ({}))
+        if (upRes.ok && upJson?.ok) {
+          if (upJson.invoice_url) {
+            window.location.href = String(upJson.invoice_url)
+            return
+          }
+          try {
+            const h = window.location.hostname.replace(/^www\./, '').toLowerCase()
+            const appBase = h === 'ecomefficiency.com' ? 'https://app.ecomefficiency.com' : window.location.origin
+            window.location.href = `${appBase}/app?checkout=success&upgraded=1`
+          } catch {
+            window.location.href = '/app?checkout=success&upgraded=1'
+          }
+          return
+        }
+      }
+
+      const res = await fetch('/api/stripe/checkout', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ tier: 'pro', billing, currency }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (res.ok && json?.url) {
+        window.location.href = json.url
+        return
+      }
+      window.location.href = `/checkout?tier=pro&billing=${billing}&currency=${currency}`
+    } catch {
+      const currency = detectCheckoutCurrency()
+      window.location.href = `/checkout?tier=pro&billing=monthly&currency=${currency}`
+    } finally {
+      setUpgradeLoading(false)
+    }
+  }
+
   return (
     <div className="max-w-3xl mx-auto px-6 py-10">
       <div className="mb-4">
@@ -103,10 +165,12 @@ export default function SubscriptionPage() {
 
         {(plan === 'starter' || plan === 'free') && (
           <button
-            onClick={() => { window.location.href = '/pricing' }}
-            className="px-4 py-2 rounded-md bg-[#9541e0] hover:bg-[#8636d2] text-white"
+            type="button"
+            disabled={upgradeLoading}
+            onClick={() => { void handleUpgradeToPro() }}
+            className="px-4 py-2 rounded-md bg-[#9541e0] hover:bg-[#8636d2] text-white disabled:opacity-60 disabled:cursor-wait"
           >
-            Upgrade to Pro
+            {upgradeLoading ? 'Redirecting…' : 'Upgrade to Pro'}
           </button>
         )}
       </div>
