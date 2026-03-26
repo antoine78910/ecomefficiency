@@ -91,9 +91,8 @@ export default function SubscriptionPage() {
         })
         const upJson = await upRes.json().catch(() => ({}))
         if (upRes.ok && upJson?.ok) {
-          const payUrl = upJson.checkout_url || upJson.invoice_url
-          if (payUrl) {
-            window.location.href = String(payUrl)
+          if (upJson.pending_payment && upJson.invoice_url) {
+            window.location.href = String(upJson.invoice_url)
             return
           }
           try {

@@ -186,9 +186,8 @@ function CheckoutContent() {
             const uj = await ures.json().catch(() => ({} as any));
             if (ures.ok && uj?.ok) {
               sessionStorage.setItem(redirectKey, '2');
-              const payUrl = uj.checkout_url || uj.invoice_url;
-              if (payUrl) {
-                window.location.href = String(payUrl);
+              if (uj.pending_payment && uj.invoice_url) {
+                window.location.href = String(uj.invoice_url);
                 return;
               }
               const h = window.location.hostname.replace(/^www\./, '').toLowerCase();
