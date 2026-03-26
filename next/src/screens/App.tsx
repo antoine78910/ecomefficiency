@@ -1466,6 +1466,8 @@ function CredentialsPanel({
           })
           const json = await res.json().catch(() => ({}))
           if (json?.ok && json?.active) {
+            const cid = (json as any).customer_id
+            if (cid && typeof cid === 'string') setCustomerId(cid)
             const src = String((json as any).source || '').toLowerCase()
             const pl = String((json as any).plan || '').toLowerCase()
             const legacyOnly = src === 'legacy' || pl === 'legacy'
@@ -1620,8 +1622,9 @@ function CredentialsPanel({
         });
         const upJson = await upRes.json().catch(() => ({}));
         if (upRes.ok && upJson?.ok) {
-          if (upJson.invoice_url) {
-            window.location.href = String(upJson.invoice_url);
+          const payUrl = upJson.checkout_url || upJson.invoice_url;
+          if (payUrl) {
+            window.location.href = String(payUrl);
             return;
           }
           try {

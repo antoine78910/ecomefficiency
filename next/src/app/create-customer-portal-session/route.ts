@@ -1,5 +1,9 @@
 import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
+import {
+  searchCustomersByEmailAllPagesMerged,
+  findBestCustomerWithActiveSubscription,
+} from "@/lib/stripeLegacySubscription"
 
 export async function POST(req: NextRequest) {
   try {
@@ -16,24 +20,16 @@ export async function POST(req: NextRequest) {
     const email = (form.get('email') as string) || ''
     const action = (form.get('action') as string) || 'manage'
 
-    // Resolve customer by email if id missing
+    // Resolve customer by email if id missing — must match /api/stripe/verify: same email can map to
+    // multiple Stripe Customer objects; pick the one whose newest valid subscription is active.
     if (!customerId && email) {
       try {
-        // Try search API first (more efficient)
-        try {
-          const search = await stripe.customers.search({ query: `email:'${email}'`, limit: 1 })
-          const found = (search.data || [])[0]
-          if (found) customerId = found.id
-        } catch (searchError) {
-          // Fallback to list API if search fails
-          console.warn('[create-customer-portal-session] Search failed, trying list:', searchError)
-          const list = await stripe.customers.list({ email: email, limit: 1 })
-          if (list.data.length > 0) {
-            customerId = list.data[0].id
-          }
-        }
+        const customers = await searchCustomersByEmailAllPagesMerged(stripe, email)
+        const best = await findBestCustomerWithActiveSubscription(stripe, customers)
+        if (best) customerId = best.customerId
+        else if (customers.length > 0) customerId = customers[0].id
       } catch (listError) {
-        console.error('[create-customer-portal-session] Customer lookup failed:', listError)
+        console.error("[create-customer-portal-session] Customer lookup failed:", listError)
       }
     }
     if (!customerId) {

@@ -51,6 +51,8 @@ export default function SubscriptionPage() {
         if (partnerSlug) headers['x-partner-slug'] = partnerSlug
         const r = await fetch('/api/stripe/verify', { method:'POST', headers, body: JSON.stringify({ email: user?.email || '' }) })
         const j = await r.json().catch(() => ({}))
+        const stripeCid = j?.customer_id
+        if (stripeCid && typeof stripeCid === 'string') setCustomerId(stripeCid)
         const vp = (j?.plan as string)?.toLowerCase()
         if (j?.ok && j?.active && (vp==='starter' || vp==='pro' || vp==='growth')) setPlan((vp==='growth'?'pro':vp) as any)
         else if (p==='starter' || p==='pro' || p==='growth') setPlan((p==='growth'?'pro':p) as any)
@@ -89,8 +91,9 @@ export default function SubscriptionPage() {
         })
         const upJson = await upRes.json().catch(() => ({}))
         if (upRes.ok && upJson?.ok) {
-          if (upJson.invoice_url) {
-            window.location.href = String(upJson.invoice_url)
+          const payUrl = upJson.checkout_url || upJson.invoice_url
+          if (payUrl) {
+            window.location.href = String(payUrl)
             return
           }
           try {
