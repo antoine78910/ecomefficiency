@@ -1466,6 +1466,17 @@ function CredentialsPanel({
           })
           const json = await res.json().catch(() => ({}))
           if (json?.ok && json?.active) {
+            const src = String((json as any).source || '').toLowerCase()
+            const pl = String((json as any).plan || '').toLowerCase()
+            const legacyOnly = src === 'legacy' || pl === 'legacy'
+            if (legacyOnly) {
+              setPlan('inactive')
+              setBanner(
+                'Legacy billing is not linked to current tool access. Subscribe on the current plans to use AdsPower and the hub.'
+              )
+              try { setShowBilling(true) } catch {}
+              return true
+            }
             setPlan(json.plan==='pro' ? 'pro' : 'starter')
             setBanner(null)
             try { setShowBilling(false) } catch {}

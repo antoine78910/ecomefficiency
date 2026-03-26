@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import Stripe from 'stripe'
 import { supabaseAdmin } from '@/integrations/supabase/server'
-import { checkLegacyStripe } from '@/lib/stripeLegacySubscription'
 
 // Always compute on request; no ISR/static caching
 export const dynamic = 'force-dynamic'
@@ -101,6 +100,37 @@ const nextContent = (lines: string[], fromIndex: number): string => {
     if (candidate && candidate !== '```') return candidate
   }
   return ''
+}
+
+/** Discord returns 429 under burst; honor Retry-After and backoff. */
+async function discordChannelMessages(
+  channelId: string,
+  botToken: string,
+  logLabel: string
+): Promise<Response> {
+  const url = `https://discord.com/api/v10/channels/${channelId}/messages?limit=1`
+  let last: Response | null = null
+  for (let attempt = 0; attempt < 5; attempt++) {
+    if (attempt > 0) {
+      const ra = last ? Number(last.headers.get('retry-after') || '') : NaN
+      const ms = Number.isFinite(ra) && ra > 0
+        ? Math.min(12_000, Math.ceil(ra * 1000) + 200)
+        : Math.min(8000, 800 * 2 ** (attempt - 1))
+      await new Promise((r) => setTimeout(r, ms))
+    }
+    const r = await fetch(url, {
+      headers: { Authorization: `Bot ${botToken}` },
+      cache: 'no-store',
+    })
+    last = r
+    if (r.ok) return r
+    if (r.status !== 429) {
+      console.warn(`[credentials][discord][${logLabel}] failed`, r.status)
+      return r
+    }
+    console.warn(`[credentials][discord][${logLabel}] 429 rate limit, retry`, attempt + 1)
+  }
+  return last as Response
 }
 
 export async function GET(req: NextRequest) {
@@ -233,20 +263,8 @@ export async function GET(req: NextRequest) {
         })
       }
 
-      if (!anyActive && email) {
-        try {
-          const legacy = await checkLegacyStripe(email.trim())
-          if (legacy?.found) {
-            anyActive = true
-            console.log('[CREDENTIALS] ✅ Legacy Stripe grants access (aligned with /api/stripe/verify)', {
-              email: email.trim(),
-              legacyCustomerId: legacy.customerId,
-            })
-          }
-        } catch (e: any) {
-          console.warn('[CREDENTIALS] Legacy Stripe check failed:', e?.message || e)
-        }
-      }
+      // AdsPower / Discord: only current Stripe (main or partner Connect). Legacy Stripe is not eligible
+      // (verify may still report legacy for other clients; tool credentials must match a paying sub here).
 
       if (!anyActive) {
         console.log(
@@ -270,11 +288,7 @@ export async function GET(req: NextRequest) {
       const starterChannel = process.env.DISCORD_CHANNEL_STARTER_ID || process.env.DISCORD_CHANNEL_ID || '1362097043795087642'
       if (starterChannel) {
         // console.log('[credentials][discord][adspower] fetching channel', loginChannel)
-        const r = await fetch(`https://discord.com/api/v10/channels/${starterChannel}/messages?limit=1`, {
-        headers: { 'Authorization': `Bot ${process.env.DISCORD_BOT_TOKEN}` },
-        cache: 'no-store',
-        })
-        // console.log('[credentials][discord][adspower] response', r.status, r.ok)
+        const r = await discordChannelMessages(starterChannel, process.env.DISCORD_BOT_TOKEN, 'adspower')
         if (r.ok) {
           const arr = await r.json()
           const msg = Array.isArray(arr) && arr.length ? arr[0] : null
@@ -466,10 +480,7 @@ export async function GET(req: NextRequest) {
       // Fetch AdsPower credentials for PRO plan from dedicated channel
       const proChannel = process.env.DISCORD_CHANNEL_PRO_ID || '1427653790533816430'
       if (proChannel) {
-        const rPro = await fetch(`https://discord.com/api/v10/channels/${proChannel}/messages?limit=1`, {
-          headers: { 'Authorization': `Bot ${process.env.DISCORD_BOT_TOKEN}` },
-          cache: 'no-store',
-        })
+        const rPro = await discordChannelMessages(proChannel, process.env.DISCORD_BOT_TOKEN, 'adspower_pro')
         if (rPro.ok) {
           const arrPro = await rPro.json()
           const msgPro = Array.isArray(arrPro) && arrPro.length ? arrPro[0] : null
@@ -643,10 +654,7 @@ export async function GET(req: NextRequest) {
       const isFresh = lastBC && (nowMs - lastBC < TTL_MS)
       if (!isFresh) {
         const brainChannel = process.env.BRAIN_CANVA_CHANNEL_ID || '1245005003425447976'
-        const r2 = await fetch(`https://discord.com/api/v10/channels/${brainChannel}/messages?limit=1`, {
-          headers: { 'Authorization': `Bot ${process.env.DISCORD_BOT_TOKEN}` },
-          cache: 'no-store',
-        })
+        const r2 = await discordChannelMessages(brainChannel, process.env.DISCORD_BOT_TOKEN, 'brain_canva')
         if (r2.ok) {
           const arr2 = await r2.json()
           const msg2 = Array.isArray(arr2) && arr2.length ? arr2[0] : null
