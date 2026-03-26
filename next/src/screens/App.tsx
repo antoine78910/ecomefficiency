@@ -1276,12 +1276,22 @@ function CredentialsPanel({
   const [wlMeta, setWlMeta] = React.useState<any>(null)
   const [debugAdsPowerLoading, setDebugAdsPowerLoading] = React.useState(false)
 
+  // Declared before credentials fetch so we can refetch when verify() fills email / stripe_customer_id.
+  const [plan, setPlan] = React.useState<'checking'|'inactive'|'starter'|'pro'>('checking')
+  const [banner, setBanner] = React.useState<string | null>(null)
+  const [showBilling, setShowBilling] = React.useState(false)
+  const [partnerCheckoutPending, setPartnerCheckoutPending] = React.useState(false)
+  const [customerId, setCustomerId] = React.useState<string | null>(null)
+  const [email, setEmail] = React.useState<string | null>(null)
+  const [userId, setUserId] = React.useState<string | null>(null)
+  const [seoModalOpen, setSeoModalOpen] = React.useState(false)
+
   useEffect(() => {
     let active = true;
+    let authUnsub: (() => void) | null = null;
+
     const fetchCreds = async () => {
       try {
-        // Local trigger to simulate "AdsPower logs loading" without stopping confetti.
-        // Use: /app?debug_confetti=1&debug_adspower_loading=1
         let simulateSlow = false
         try {
           if (process.env.NODE_ENV !== 'production' && typeof window !== 'undefined') {
@@ -1291,7 +1301,6 @@ function CredentialsPanel({
         } catch {}
         if (simulateSlow) {
           try { setDebugAdsPowerLoading(true) } catch {}
-          // Force a few extra re-renders during the "loading" window (mirrors heavy UI updates).
           try {
             let pulses = 0
             const id = window.setInterval(() => {
@@ -1305,35 +1314,44 @@ function CredentialsPanel({
         }
 
         const mod = await import("@/integrations/supabase/client");
-        const { data } = await mod.supabase.auth.getUser();
-        const email = data.user?.email || '';
-        const customerId = ((data.user?.user_metadata as any) || {}).stripe_customer_id || '';
-        // White-label: detect partnerSlug from prop or global variable
+        const { data: sessionWrap } = await mod.supabase.auth.getSession();
+        let user = sessionWrap?.session?.user;
+        if (!user) {
+          const { data } = await mod.supabase.auth.getUser();
+          user = data.user ?? undefined;
+        }
+        const sessionEmail = (user?.email || '').trim();
+        const sessionCustomerId = String(((user?.user_metadata as any) || {}).stripe_customer_id || '').trim();
+        const effectiveEmail = (email || sessionEmail || '').trim();
+        const effectiveCustomerId = (customerId || sessionCustomerId || '').trim();
+
         let detectedPartnerSlug = partnerSlug;
         if (!detectedPartnerSlug && typeof window !== 'undefined') {
           detectedPartnerSlug = (window as any).__wl_partner_slug;
         }
         const headers: Record<string, string> = {};
-        if (email) headers['x-user-email'] = email;
-        if (customerId) headers['x-stripe-customer-id'] = customerId;
-        // White-label: allow per-partner AdsPower credentials override (Brain/Canva stay global).
+        if (effectiveEmail) headers['x-user-email'] = effectiveEmail;
+        if (effectiveCustomerId) headers['x-stripe-customer-id'] = effectiveCustomerId;
         if (whiteLabel && detectedPartnerSlug) headers['x-partner-slug'] = String(detectedPartnerSlug);
 
-        // console.log('[CREDENTIALS] Fetching with:', { email, customerId });
+        if (!effectiveEmail && !effectiveCustomerId) {
+          if (active) {
+            setCreds(null);
+            setError(null);
+            setLoading(false);
+          }
+          return;
+        }
 
-        // Force refresh: call GET with cache:no-store so server refetches Discord channels
         const res = await fetch('/api/credentials', { headers, cache: 'no-store' });
         if (!res.ok) {
-          // console.error('[CREDENTIALS] Fetch failed:', res.status, res.statusText);
           throw new Error('Failed to load');
         }
         const json = await res.json();
 
-        // If simulating, keep loading visible a bit longer.
         if (simulateSlow) {
           try { await new Promise((r) => setTimeout(r, 4500)) } catch {}
         }
-        // Debug in browser console (no secrets). Helps confirm whether WL partner creds are being used.
         try {
           const wl = (json as any)?._wl
           console.log('[WL][credentials] fetch', {
@@ -1346,58 +1364,63 @@ function CredentialsPanel({
           })
         } catch {}
 
-        /* console.log('[CREDENTIALS] Received:', {
-          hasData: !!json,
-          keys: Object.keys(json || {}),
-          adspower_email: json?.adspower_email,
-          adspower_starter_email: json?.adspower_starter_email,
-          adspower_pro_email: json?.adspower_pro_email
-        }); */
-
         if (active) {
           try { setWlMeta((json as any)?._wl || null) } catch {}
           setCreds(json);
           setError(null);
         }
       } catch (e: any) {
-        // console.error('[CREDENTIALS] Error:', e);
         if (active) setError(e.message);
       } finally {
         try { setDebugAdsPowerLoading(false) } catch {}
         if (active) setLoading(false);
       }
     };
+
     fetchCreds();
 
-    // Listen for visibility change to refresh credentials when user returns to page
+    import("@/integrations/supabase/client").then(({ supabase }) => {
+      if (!active) return;
+      const { data } = supabase.auth.onAuthStateChange((event) => {
+        if (
+          event === 'INITIAL_SESSION' ||
+          event === 'SIGNED_IN' ||
+          event === 'SIGNED_OUT' ||
+          event === 'TOKEN_REFRESHED' ||
+          event === 'USER_UPDATED'
+        ) {
+          if (!active) return;
+          if (event === 'SIGNED_OUT') {
+            setCreds(null);
+            setLoading(false);
+            return;
+          }
+          fetchCreds();
+        }
+      });
+      authUnsub = () => {
+        try { data.subscription.unsubscribe(); } catch {}
+      };
+    }).catch(() => {});
+
     const onVisible = () => {
       if (document.visibilityState === 'visible') {
-        // console.log('[CREDENTIALS] Page visible, refreshing credentials...');
         fetchCreds();
       }
     };
     document.addEventListener('visibilitychange', onVisible);
 
-    const refreshMs = whiteLabel ? 30000 : 300000; // WL: refresh every 30s, main app: every 5 min
+    const refreshMs = whiteLabel ? 30000 : 300000;
     const id = setInterval(fetchCreds, refreshMs);
     return () => {
       active = false;
       clearInterval(id);
       document.removeEventListener('visibilitychange', onVisible);
+      try { authUnsub?.(); } catch {}
     };
-  }, []);
+  }, [whiteLabel, partnerSlug, email, customerId, plan]);
 
   // Intentionally left empty: copying handled by CopyButton below
-
-  // Determine plan from Stripe in real-time; if inactive/unpaid/incomplete, show banner and restrict access
-  const [plan, setPlan] = React.useState<'checking'|'inactive'|'starter'|'pro'>('checking')
-  const [banner, setBanner] = React.useState<string | null>(null)
-  const [showBilling, setShowBilling] = React.useState(false)
-  const [partnerCheckoutPending, setPartnerCheckoutPending] = React.useState(false)
-  const [customerId, setCustomerId] = React.useState<string | null>(null)
-  const [email, setEmail] = React.useState<string | null>(null)
-  const [userId, setUserId] = React.useState<string | null>(null)
-  const [seoModalOpen, setSeoModalOpen] = React.useState(false)
 
   // If user clicks "Manage billing" from /subscription while not subscribed, open the paywall in /app.
   React.useEffect(() => {
@@ -1420,8 +1443,12 @@ function CredentialsPanel({
           const checkoutSessionId = String(urlParams?.get('session_id') || '')
 
           const mod = await import("@/integrations/supabase/client")
-          const { data } = await mod.supabase.auth.getUser()
-          const user = data.user
+          const { data: sw } = await mod.supabase.auth.getSession()
+          let user = sw.session?.user
+          if (!user) {
+            const { data } = await mod.supabase.auth.getUser()
+            user = data.user ?? undefined
+          }
           const email = user?.email
           setEmail(email || null)
           setUserId(user?.id || null)
