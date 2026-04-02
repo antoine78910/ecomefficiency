@@ -406,14 +406,6 @@ button {
             <div className="tool-description">Data analysis platform specialized in TikTok ecommerce.</div>
           </a>
 
-          <a href="https://app.winninghunter.com/login" className="tool-card" target="_blank" rel="noopener noreferrer">
-            <div className="tool-icon">
-              <img src={`/tools-images/winninghunter.png?v=${ASSET_VERSION}`} alt="Winning Hunter" />
-            </div>
-            <div className="tool-name">Winning Hunter</div>
-            <div className="tool-description">Spy tool for finding top-performing Facebook and TikTok ads.</div>
-          </a>
-
           <a href="https://www.capcut.com/fr-fr/login" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
               <img src={`/tools-images/capcut.png?v=${ASSET_VERSION}`} alt="Capcut" />
