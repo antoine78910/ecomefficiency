@@ -405,12 +405,8 @@ export default function SubscriptionPage() {
                           <span className="font-semibold text-white">{plan.credits.toLocaleString()} credits</span>
                         </span>
                       </li>
-                      <li className="pl-1 text-white/50">
-                        <span className="text-white/70">Up to AI images (Nanobanana):</span> {plan.usage.images}
-                      </li>
-                      <li className="pl-1 text-white/50">
-                        <span className="text-white/70">Up to AI videos (Sora 2):</span> {plan.usage.videos}
-                      </li>
+                      <li className="pl-1 text-white/50">Up to 1200 AI images (Nanobanana)</li>
+                      <li className="pl-1 text-white/50">Up to 120 AI videos (Sora 2)</li>
                       <li className="pt-2 text-[11px] font-semibold uppercase tracking-[0.1em] text-white/45">
                         Included models
                       </li>
