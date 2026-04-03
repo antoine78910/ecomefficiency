@@ -485,6 +485,22 @@ export default function SubscriptionPage() {
                       </span>
                     </div>
                     <h3 className="mt-2 text-2xl font-bold text-white">{planDisplayName}</h3>
+
+                    {isSubscribed ? (
+                      <div className="mt-3">
+                        <Button
+                          type="button"
+                          variant="secondary"
+                          className="w-full rounded-xl border border-white/15 bg-white/5 text-white hover:bg-white/10 sm:w-auto"
+                          onClick={() =>
+                            window.open(BILLING_PORTAL_URL, "_blank", "noopener,noreferrer")
+                          }
+                        >
+                          Manage billing
+                        </Button>
+                      </div>
+                    ) : null}
+
                     <p className="mt-2 max-w-md text-sm leading-relaxed text-white/48">
                       {isSubscribed
                         ? "Your monthly credits refresh with your plan. Use them across Link to Ad, Image, and Video in the studio."
@@ -496,16 +512,6 @@ export default function SubscriptionPage() {
                         <p className="text-center text-[11px] text-white/28">
                           Checkout is powered by Stripe. Subscription credits reset each billing cycle and do not carry over.
                         </p>
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          className="mx-auto w-full rounded-xl border border-white/15 bg-white/5 text-white hover:bg-white/10 sm:w-auto"
-                          onClick={() =>
-                            window.open(BILLING_PORTAL_URL, "_blank", "noopener,noreferrer")
-                          }
-                        >
-                          Manage billing
-                        </Button>
                       </div>
                     ) : null}
                   </div>
