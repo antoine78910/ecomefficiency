@@ -40,12 +40,18 @@ export const KLING_3_VIDEO_CREDITS_PER_SECOND = 2.25;
 // Link to Ad — video model pricing (fixed reference: 15s)
 // ---------------------------------------------------------------------------
 
+/** Link to Ad video: Seedance only (Kling 3.0 disabled for this flow). */
 export const LINK_TO_AD_VIDEO_MODELS = {
-  seedance: { label: "Seedance 2.0", creditsFor15s: 60, marketModel: "bytedance/seedance-2.0-pro" },
-  kling: { label: "Kling 3.0", creditsFor15s: 40, marketModel: "kling-3.0/video" },
+  seedance: {
+    creditsFor15s: 60,
+    marketModel: "bytedance/seedance-2.0-pro" as const,
+  },
 } as const;
 
 export type LinkToAdVideoModelId = keyof typeof LINK_TO_AD_VIDEO_MODELS;
+
+/** Kie market id for Link to Ad image→video (always Seedance 2.0 Pro here). */
+export const LINK_TO_AD_VIDEO_MARKET_MODEL = LINK_TO_AD_VIDEO_MODELS.seedance.marketModel;
 
 export const CLAUDE_AI_CREDITS = 5;
 

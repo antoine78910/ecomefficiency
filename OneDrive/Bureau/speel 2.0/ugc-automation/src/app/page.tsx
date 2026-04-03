@@ -6,7 +6,6 @@ import { HeroVideoCarousel3D } from "./HeroVideoCarousel3D";
 import { LandingRevealCarousel } from "./LandingRevealCarousel";
 import { LandingFaq } from "./LandingFaq";
 import { ArrowRight, Sparkles } from "lucide-react";
-import { SeedanceGlowButton } from "./_components/SeedanceGlowButton";
 
 const STEPS = [
   {
@@ -122,14 +121,6 @@ export default function LandingPage() {
         <div className="pointer-events-none absolute left-1/2 top-0 z-[3] -translate-x-1/2 h-[700px] w-[1000px] rounded-full bg-violet-600/[0.12] blur-[140px]" />
 
         <div className="relative z-10 mx-auto w-full max-w-5xl px-5 pt-4 pb-0 text-center sm:pt-6 md:pt-8">
-          <div className="mb-3 flex items-center justify-center">
-            <span className="inline-flex items-center gap-2 rounded-full border border-violet-400/35 bg-violet-500/15 px-3 py-1 text-[10px] font-bold uppercase tracking-wider text-violet-200">
-              Seedance Pro 2.0 now available !
-              <span className="rounded-full bg-emerald-400/20 px-2 py-0.5 text-[9px] font-bold uppercase tracking-wide text-emerald-100 shadow-[0_0_16px_rgba(16,185,129,0.18)]">
-                NEW
-              </span>
-            </span>
-          </div>
           <h1 className="mx-auto max-w-4xl px-3 sm:px-6 text-4xl font-extrabold tracking-tight leading-[1.12] sm:text-5xl md:text-6xl">
             Realistic AI UGC for{' '}
             <span className="whitespace-nowrap">
@@ -144,7 +135,7 @@ export default function LandingPage() {
             </p>
             <div className="relative">
               <div className="pointer-events-none absolute -inset-6 rounded-full bg-violet-600/20 blur-2xl" />
-              <div className="relative flex items-center gap-2 overflow-hidden rounded-full bg-white/[0.05] px-2 py-1.5 ring-1 ring-violet-500/40 shadow-[0_0_70px_rgba(139,92,246,0.22)] transition-all duration-300 ease-out focus-within:ring-2 focus-within:ring-violet-400 focus-within:shadow-[0_0_90px_rgba(139,92,246,0.55)]">
+              <div className="relative flex flex-col gap-2 overflow-hidden rounded-2xl bg-white/[0.05] p-2 ring-1 ring-violet-500/40 shadow-[0_0_70px_rgba(139,92,246,0.22)] transition-all duration-300 ease-out focus-within:ring-2 focus-within:ring-violet-400 focus-within:shadow-[0_0_90px_rgba(139,92,246,0.55)] sm:flex-row sm:items-center sm:gap-2 sm:rounded-full sm:py-1.5">
               <Input
                 type="url"
                 placeholder="https://your-product-page.com"
@@ -152,17 +143,14 @@ export default function LandingPage() {
               />
               <Button
                 asChild
-                className="h-10 shrink-0 rounded-2xl bg-violet-400 px-6 text-sm font-semibold text-black border border-violet-200/40 shadow-[0_6px_0_0_rgba(76,29,149,0.9)] transition-all hover:-translate-y-[1px] hover:bg-violet-300 hover:shadow-[0_8px_0_0_rgba(76,29,149,0.9)] active:translate-y-[6px] active:shadow-[0_0_0_0_rgba(76,29,149,0.9)]"
+                className="h-auto min-h-10 shrink-0 rounded-xl bg-violet-400 px-3 py-2.5 text-center text-[11px] font-semibold leading-snug text-black border border-violet-200/40 shadow-[0_6px_0_0_rgba(76,29,149,0.9)] transition-all hover:-translate-y-[1px] hover:bg-violet-300 hover:shadow-[0_8px_0_0_rgba(76,29,149,0.9)] active:translate-y-[6px] active:shadow-[0_0_0_0_rgba(76,29,149,0.9)] sm:rounded-2xl sm:px-5 sm:py-2.5 sm:text-xs md:text-sm"
               >
-                <Link href="/signup">
-                  <Sparkles className="mr-1 h-4 w-4" />
-                  Generate
+                <Link href="/signup" className="inline-flex items-center justify-center gap-1.5">
+                  <Sparkles className="h-4 w-4 shrink-0" aria-hidden />
+                  <span className="max-w-[14rem] sm:max-w-none">Seedance Pro 2.0 now available !</span>
                 </Link>
               </Button>
             </div>
-              <div className="mt-4 flex justify-center">
-                <SeedanceGlowButton href="/signup" label="Seedance Pro 2.0 now available !" />
-              </div>
             </div>
           </div>
         </div>
