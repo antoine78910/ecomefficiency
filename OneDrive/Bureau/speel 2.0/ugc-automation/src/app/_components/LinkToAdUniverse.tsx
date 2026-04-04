@@ -1,13 +1,15 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { motion, useReducedMotion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import { toast } from "sonner";
 import {
   ArrowLeft,
   Check,
   ChevronDown,
   ChevronUp,
+  Eye,
+  EyeOff,
   ImagePlus,
   Loader2,
   Maximize2,
@@ -42,6 +44,7 @@ import {
   normalizeKlingByReference,
   normalizePipelineByAngle,
   mergeNanoPromptForApi,
+  composeThreeLabeledPrompts,
   composeVideoPromptEditableSections,
   parseNanoEditableSections,
   parseThreeLabeledPrompts,
@@ -78,6 +81,10 @@ import {
   composeScriptFromFactors,
 } from "@/lib/linkToAdScriptFactors";
 import ShapeGrid from "@/app/ShapeGrid";
+import {
+  factorWordRulesForUgcDuration,
+  normalizeUgcScriptVideoDurationSec,
+} from "@/lib/ugcAiScriptBrief";
 import { LINK_TO_AD_LOADING_MESSAGES } from "@/lib/linkToAd/loadingMessageLoops";
 import { assertStudioImageUpload, STUDIO_IMAGE_FILE_ACCEPT } from "@/lib/studioUploadValidation";
 import {
@@ -417,12 +424,29 @@ async function fetchWithRetry(
   throw lastErr;
 }
 
+export type LinkToAdRecentRunChip = {
+  id: string;
+  title: string | null;
+  storeUrl: string;
+  createdAt: string;
+  thumbUrl: string | null;
+};
+
 export type LinkToAdUniverseProps = {
   /** When set, load this run once (e.g. from Projects). */
   resumeRunId?: string | null;
   onResumeConsumed?: () => void;
   /** Refresh Projects list after save. */
   onRunsChanged?: () => void;
+  /** Last few Link to Ad runs (e.g. 3 most recent) for quick switching. */
+  recentLinkToAdRuns?: LinkToAdRecentRunChip[];
+  /** Current run id (persisted) — highlights the active chip. */
+  activeRunId?: string | null;
+  onActiveRunIdChange?: (runId: string | null) => void;
+  /** Parent remounts Link to Ad for a clean session (Return to Link to Ad). */
+  onStartFreshLinkToAdSession?: () => void;
+  /** Load another run in place (same as Projects → open). */
+  onSwitchLinkToAdRun?: (runId: string) => void;
 };
 
 function confidenceToQuality(c: string | undefined) {
@@ -649,12 +673,26 @@ function PersonaPhotoSection({
   );
 }
 
-export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRunsChanged }: LinkToAdUniverseProps) {
+export default function LinkToAdUniverse({
+  resumeRunId,
+  onResumeConsumed,
+  onRunsChanged,
+  recentLinkToAdRuns = [],
+  activeRunId: activeRunIdProp = null,
+  onActiveRunIdChange,
+  onStartFreshLinkToAdSession,
+  onSwitchLinkToAdRun,
+}: LinkToAdUniverseProps) {
+  const reduceMotion = useReducedMotion();
   const { planId, current: creditsBalance, spendCredits, grantCredits } = useCreditsPlan();
   /** After a fresh store scan starts, gate later steps against this snapshot so the wallet UI does not “jump” each step. Resync on image/video redo actions only. */
   const [ltaFrozenCredits, setLtaFrozenCredits] = useState<number | null>(null);
   const creditsBalanceRef = useRef(creditsBalance);
   creditsBalanceRef.current = creditsBalance;
+  /** When true, we already charged 10 credits once for regenerating the 3 Nano images. */
+  const [ltaPrepaidThreeImagesRegen, setLtaPrepaidThreeImagesRegen] = useState(false);
+  /** Previous images kept “warm” on the left when regenerating angles without recreating visuals. */
+  const [ltaWarmReferenceImages, setLtaWarmReferenceImages] = useState<string[]>([]);
 
   const [ltaCreditModal, setLtaCreditModal] = useState<{
     required: number;
@@ -738,6 +776,8 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
   const scriptProvider = "claude" as const;
 
   const [videoDuration, setVideoDuration] = useState<number>(LINK_TO_AD_DEFAULT_VIDEO_DURATION_SEC);
+  /** After Generate from URL (or when a saved run is loaded), duration is fixed for this session. */
+  const [ltaVideoDurationLocked, setLtaVideoDurationLocked] = useState(false);
   const [customUgcTopic, setCustomUgcTopic] = useState("");
   const [customUgcOffer, setCustomUgcOffer] = useState("");
   const [customUgcCta, setCustomUgcCta] = useState("");
@@ -824,6 +864,8 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
   const [productImageLightboxUrl, setProductImageLightboxUrl] = useState<string | null>(null);
   const [expandedAngleBriefs, setExpandedAngleBriefs] = useState<Record<number, boolean>>({});
   const [angleSummaryDrafts, setAngleSummaryDrafts] = useState<Record<number, string>>({});
+  /** Screen-recording: hide recent-generation chips (stored in localStorage). */
+  const [hidePreviousLtaGenerations, setHidePreviousLtaGenerations] = useState(false);
 
   const nanoBananaPromptsSignatureRef = useRef<string | null>(null);
   /** Incremented when user abandons the flow so late pipeline responses do not re-hydrate the UI. */
@@ -888,6 +930,37 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
     }
   }, []);
 
+  useEffect(() => {
+    return () => {
+      cancelCurrentGeneration({ silent: true });
+    };
+  }, [cancelCurrentGeneration]);
+
+  useEffect(() => {
+    try {
+      const v = localStorage.getItem("link-to-ad-hide-previous-generations");
+      if (v === "1") setHidePreviousLtaGenerations(true);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  useEffect(() => {
+    onActiveRunIdChange?.(universeRunId);
+  }, [universeRunId, onActiveRunIdChange]);
+
+  const toggleHidePreviousLtaGenerations = useCallback(() => {
+    setHidePreviousLtaGenerations((h) => {
+      const next = !h;
+      try {
+        localStorage.setItem("link-to-ad-hide-previous-generations", next ? "1" : "0");
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
+  }, []);
+
   const hasStartedLinkToAdFlow = useMemo(
     () =>
       Boolean(
@@ -935,7 +1008,7 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
       "The draft on this screen will be lost (URL, brief, scripts, uploads, in-progress media).",
       "Credits already spent will NOT be refunded.",
       "",
-      "Projects already saved to your account are not deleted.",
+      "Runs already saved to your Projects are not deleted.",
     ].join("\n");
     if (typeof window !== "undefined" && !window.confirm(msg)) return;
 
@@ -1003,12 +1076,39 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
     setCustomUgcOffer("");
     setCustomUgcCta("");
     setLtaFrozenCredits(null);
+    setLtaVideoDurationLocked(false);
     latestSnapRef.current = null;
     prevAngleRef.current = null;
     nanoBananaPromptsSignatureRef.current = null;
     onRunsChanged?.();
     toast.message("Link to Ad reset", { description: "You can start a new ad from scratch." });
   }, [cancelCurrentGeneration, onRunsChanged]);
+
+  const handleReturnToFreshLinkToAd = useCallback(() => {
+    if (
+      typeof window !== "undefined" &&
+      !window.confirm(
+        "Start a new Link to Ad? Unsaved work on this screen will be cleared. Saved generations stay in Projects.",
+      )
+    ) {
+      return;
+    }
+    cancelCurrentGeneration({ silent: true });
+    onStartFreshLinkToAdSession?.();
+  }, [cancelCurrentGeneration, onStartFreshLinkToAdSession]);
+
+  const handleSwitchRecentRun = useCallback(
+    (runId: string) => {
+      const active = activeRunIdProp ?? universeRunId;
+      if (runId === active) {
+        toast.message("Already on this generation");
+        return;
+      }
+      cancelCurrentGeneration({ silent: true });
+      onSwitchLinkToAdRun?.(runId);
+    },
+    [activeRunIdProp, universeRunId, cancelCurrentGeneration, onSwitchLinkToAdRun],
+  );
 
   const selImg = nanoBananaSelectedImageIndex;
   const activeKlingSlot = useMemo(() => {
@@ -1306,25 +1406,26 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
   }, [angleLabels, hasAvatarPhoto, hasPersonaPhoto, sanitizeAngleLabelForAvatar, scriptOptionBodiesAll]);
 
   useEffect(() => {
+    const norm = (s: string) => s.replace(/\r\n/g, "\n").trim();
+    const merged: [string, string, string] = [
+      mergeNanoPromptForApi(nanoPromptDrafts[0] ?? "", nanoPromptTechnicalTails[0] ?? ""),
+      mergeNanoPromptForApi(nanoPromptDrafts[1] ?? "", nanoPromptTechnicalTails[1] ?? ""),
+      mergeNanoPromptForApi(nanoPromptDrafts[2] ?? "", nanoPromptTechnicalTails[2] ?? ""),
+    ];
+    const composed = composeThreeLabeledPrompts(merged);
+    if (norm(composed) === norm(nanoBananaPromptsRaw)) {
+      return;
+    }
     const parsed = parseThreeLabeledPrompts(nanoBananaPromptsRaw);
     const parts = parsed.map((p) => splitNanoPromptBodyForEditing(p));
     setNanoPromptDrafts([parts[0].editable, parts[1].editable, parts[2].editable]);
     setNanoPromptTechnicalTails([parts[0].technicalTail, parts[1].technicalTail, parts[2].technicalTail]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- drafts/tails read for compose guard when raw changes (skip re-parse after user edit)
   }, [nanoBananaPromptsRaw]);
 
   const factorWordRules = useMemo(
-    () => ({
-      hook: { min: 3, max: 5, label: "Hook", hint: "3–5 words" },
-      problem: { min: 5, max: 7, label: "Problem", hint: "5–7 words" },
-      benefits: {
-        min: 10,
-        max: 14,
-        label: "Solution",
-        hint: "10–14 words (must include product + main benefit)",
-      },
-      cta: { min: 3, max: 4, label: "CTA", hint: "3–4 words" },
-    }),
-    [],
+    () => factorWordRulesForUgcDuration(videoDuration),
+    [videoDuration],
   );
 
   const factorWordCounts = useMemo(() => {
@@ -1336,20 +1437,46 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
     };
   }, [scriptFactors.benefits, scriptFactors.cta, scriptFactors.hook, scriptFactors.problem]);
 
+  const spokenWordTotal = useMemo(() => {
+    return (
+      factorWordCounts.hook +
+      (factorWordRules.problem ? factorWordCounts.problem : 0) +
+      factorWordCounts.benefits +
+      factorWordCounts.cta
+    );
+  }, [factorWordCounts, factorWordRules.problem]);
+
   const factorWordsValid = useMemo(() => {
-    const check = (k: keyof typeof factorWordRules) => {
-      const c = factorWordCounts[k];
-      const r = factorWordRules[k];
-      return c >= r.min && c <= r.max;
-    };
+    const c = factorWordCounts;
+    const r = factorWordRules;
+    const inRange = (n: number, min: number, max: number) => n >= min && n <= max;
+    const hookOk = inRange(c.hook, r.hook.min, r.hook.max);
+    const problemOk =
+      r.problem === null ? c.problem === 0 : inRange(c.problem, r.problem.min, r.problem.max);
+    const benefitsOk = inRange(c.benefits, r.benefits.min, r.benefits.max);
+    const ctaOk = inRange(c.cta, r.cta.min, r.cta.max);
+    const totalOk = spokenWordTotal <= r.maxTotalSpoken;
     return {
-      hook: check("hook"),
-      problem: check("problem"),
-      benefits: check("benefits"),
-      cta: check("cta"),
-      all: check("hook") && check("problem") && check("benefits") && check("cta"),
+      hook: hookOk,
+      problem: problemOk,
+      benefits: benefitsOk,
+      cta: ctaOk,
+      total: totalOk,
+      all: hookOk && problemOk && benefitsOk && ctaOk && totalOk,
     };
-  }, [factorWordCounts, factorWordRules]);
+  }, [factorWordCounts, factorWordRules, spokenWordTotal]);
+
+  /** 5s tier omits PROBLEM — clear leftover text when user selects 5s. */
+  useEffect(() => {
+    if (normalizeUgcScriptVideoDurationSec(videoDuration) !== 5) return;
+    setScriptFactors((prev) => {
+      if (!prev.problem.trim()) return prev;
+      const next = { ...prev, problem: "" };
+      setEditableScript(composeScriptFromFactors(next));
+      setScriptHasEdits(true);
+      return next;
+    });
+  }, [videoDuration]);
   const composeScriptsFromOptions = useCallback((options: string[]) => {
     return options
       .map((opt, idx) => {
@@ -2158,6 +2285,7 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
       return;
     }
 
+    setLtaVideoDurationLocked(true);
     setIsWorking(true);
     setStage("writing_scripts");
     try {
@@ -2191,7 +2319,9 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
     }
   }
 
-  async function onRegenerateMarketingAngles() {
+  const [regenerateAnglesChoiceOpen, setRegenerateAnglesChoiceOpen] = useState(false);
+
+  async function onRegenerateMarketingAngles(opts?: { keepExistingImages?: boolean; regenImagesAlso?: boolean }) {
     const url = storeUrl.trim();
     if (!url || !lastExtractedJson || !summaryText.trim()) {
       toast.error("Incomplete data to regenerate angles.");
@@ -2208,6 +2338,19 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
       setLtaFrozenCredits(null);
       return;
     }
+    const wantsRegenImages = Boolean(opts?.regenImagesAlso);
+    if (wantsRegenImages && !ltaPrepaidThreeImagesRegen) {
+      if (!spendLtaCreditsIfEnough(10)) {
+        // Roll back the 2 credits if we cannot also pay the image refresh.
+        if (!isPlatformCreditBypassActive()) {
+          grantCredits(2);
+          creditsBalanceRef.current += 2;
+        }
+        setLtaFrozenCredits(null);
+        return;
+      }
+      setLtaPrepaidThreeImagesRegen(true);
+    }
 
     setIsWorking(true);
     setStage("writing_scripts");
@@ -2216,25 +2359,34 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
         .map((u) => u.trim())
         .filter((u, i, arr) => /^https?:\/\//i.test(u) && arr.indexOf(u) === i)
         .slice(0, 3);
-      const res = await fetch("/api/gpt/ugc-scripts-from-brief", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          storeUrl: url,
-          productTitle: extractedTitle,
-          brandBrief: summaryText.trim(),
-          previousScriptsText: scriptsText.trim(),
-          productImageUrls: resolvedProductUrlsForGpt(),
-          avatarImageUrls: personaRefs.length > 0 ? personaRefs : undefined,
-          videoDurationSeconds: videoDuration,
-          generationMode,
-          customUgcIntent: composeCustomUgcIntent(customUgcTopic, customUgcOffer, customUgcCta),
-          provider: scriptProvider,
-        }),
-      });
-      const json = (await res.json()) as { data?: string; error?: string };
-      if (!res.ok || !json.data) throw new Error(json.error || "Regenerate scripts failed");
-      const nextScripts = String(json.data);
+      const prevScripts = scriptsText.trim();
+      let nextScripts = "";
+      for (let attempt = 0; attempt < 2; attempt++) {
+        const prevHint =
+          attempt === 0
+            ? prevScripts
+            : `${prevScripts}\n\nIMPORTANT: Generate 3 NEW angles that are clearly different from the previous set (different hooks, pains, and CTAs).`;
+        const res = await fetch("/api/gpt/ugc-scripts-from-brief", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            storeUrl: url,
+            productTitle: extractedTitle,
+            brandBrief: summaryText.trim(),
+            previousScriptsText: prevHint,
+            productImageUrls: resolvedProductUrlsForGpt(),
+            avatarImageUrls: personaRefs.length > 0 ? personaRefs : undefined,
+            videoDurationSeconds: videoDuration,
+            generationMode,
+            customUgcIntent: composeCustomUgcIntent(customUgcTopic, customUgcOffer, customUgcCta),
+            provider: scriptProvider,
+          }),
+        });
+        const json = (await res.json()) as { data?: string; error?: string };
+        if (!res.ok || !json.data) throw new Error(json.error || "Regenerate scripts failed");
+        nextScripts = String(json.data);
+        if (nextScripts.trim() && nextScripts.trim() !== prevScripts) break;
+      }
       const nextLabels = deriveAngleLabelsFromScripts(nextScripts);
 
       // Reset downstream generations to avoid mixing prompts/images/videos across different scripts.
@@ -2244,6 +2396,12 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
       setNanoBananaPromptsRaw("");
       setNanoBananaSelectedPromptIndex(0);
       setNanoBananaTaskId(null);
+      const keepImages = Boolean(opts?.keepExistingImages);
+      if (keepImages) {
+        const warm = nanoBananaImageUrls.filter((u) => typeof u === "string" && u.trim().length > 0);
+        if (warm.length) setLtaWarmReferenceImages((prev) => [...warm, ...prev].slice(0, 24));
+      }
+      // Always clear current 3-image state when scripts change (avoid mixing old visuals with new angles).
       setNanoBananaImageUrl(null);
       setNanoBananaImageUrls([]);
       setNanoBananaSelectedImageIndex(null);
@@ -2293,6 +2451,11 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
       if (!isPlatformCreditBypassActive()) {
         grantCredits(2);
         creditsBalanceRef.current += 2;
+        if (opts?.regenImagesAlso && ltaPrepaidThreeImagesRegen) {
+          grantCredits(10);
+          creditsBalanceRef.current += 10;
+          setLtaPrepaidThreeImagesRegen(false);
+        }
         setLtaFrozenCredits(null);
       }
       const msg = err instanceof Error ? err.message : "Regenerate failed";
@@ -2301,6 +2464,15 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
     } finally {
       setIsWorking(false);
     }
+  }
+
+  function requestRegenerateMarketingAngles() {
+    const hasImgs = nanoBananaImageUrls.some((u) => typeof u === "string" && u.trim().length > 0);
+    if (hasImgs) {
+      setRegenerateAnglesChoiceOpen(true);
+      return;
+    }
+    void onRegenerateMarketingAngles();
   }
 
   async function onRun(opts?: { bypassSavedProject?: boolean }) {
@@ -2331,6 +2503,7 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
             hydrateFromRun(findJson.data);
             if (linkToAdFlowEpochRef.current !== epochAtStart) {
               setIsWorking(false);
+              setLtaVideoDurationLocked(false);
               return;
             }
             setStage("ready");
@@ -2343,10 +2516,14 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
       }
     }
 
+    // New scan / fresh pipeline: duration is fixed after this point (wallet failure unlocks below).
+    setLtaVideoDurationLocked(true);
+
     const walletNow = creditsBalanceRef.current;
     if (walletNow < ltaGenerateCredits) {
       setIsWorking(false);
       setStage("idle");
+      setLtaVideoDurationLocked(false);
       setLtaCreditModal({
         current: walletNow,
         required: ltaGenerateCredits,
@@ -2359,6 +2536,7 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
       setIsWorking(false);
       setStage("idle");
       setLtaFrozenCredits(null);
+      setLtaVideoDurationLocked(false);
       return;
     }
     chargedFullBundle = true;
@@ -2432,6 +2610,7 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
             hydrateFromRun(getJson.data, { silent: true });
             if (linkToAdFlowEpochRef.current !== epochAtStart) {
               setIsWorking(false);
+              setLtaVideoDurationLocked(false);
               return;
             }
             toast.message("Pipeline stopped early", {
@@ -2455,6 +2634,7 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
       }
       hydrateFromRun(getJson.data, { silent: true });
       if (linkToAdFlowEpochRef.current !== epochAtStart) {
+        setLtaVideoDurationLocked(false);
         return;
       }
       setStage("ready");
@@ -2468,6 +2648,7 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
     } catch (err) {
       if (linkToAdFlowEpochRef.current !== epochAtStart) {
         setLtaFrozenCredits(null);
+        setLtaVideoDurationLocked(false);
         return;
       }
       if (chargedFullBundle) {
@@ -2742,6 +2923,28 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
     return { urlsByPrompt, lastTaskId, taskIds };
   }
 
+  /** Copy external image URLs to Supabase storage for fast loading. Silently falls back to originals. */
+  async function reuploadToStorage(urls: string[]): Promise<string[]> {
+    const result = [...urls];
+    await Promise.all(
+      urls.map(async (u, i) => {
+        if (!u || !/^https?:\/\//i.test(u)) return;
+        try {
+          const res = await fetch("/api/uploads/from-url", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url: u }),
+          });
+          const json = (await res.json()) as { url?: string };
+          if (res.ok && json.url) result[i] = json.url;
+        } catch {
+          /* keep original */
+        }
+      }),
+    );
+    return result;
+  }
+
   async function persistNanoThreeGeneratedImages(
     url: string,
     prompts: [string, string, string],
@@ -2783,12 +2986,24 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
     }
   }
 
-  async function onGenerateNanoBananaImagesFromAllPrompts() {
+  async function onGenerateNanoBananaImagesFromAllPrompts(opts?: { forceRegenerateCharge?: boolean }) {
     const url = storeUrl.trim();
     const idx = selectedAngleIndex;
     if (!url || !lastExtractedJson || idx === null) {
       toast.error("Project not ready to generate images.");
       return;
+    }
+    const force = Boolean(opts?.forceRegenerateCharge);
+    const hasExisting = nanoBananaImageUrls.some((u) => typeof u === "string" && u.trim().length > 0);
+    const shouldCharge = (force || hasExisting) && !ltaPrepaidThreeImagesRegen;
+    const usingPrepaid = ltaPrepaidThreeImagesRegen && !shouldCharge;
+    if (shouldCharge) {
+      const walletNow = creditsBalanceRef.current;
+      setLtaFrozenCredits(walletNow);
+      if (!spendLtaCreditsIfEnough(10)) {
+        setLtaFrozenCredits(null);
+        return;
+      }
     }
     const nanoRefs = resolveNanoProductImageUrls();
     const img = nanoRefs[0];
@@ -2860,11 +3075,22 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
         throw new Error("Image generation did not produce 3 images.");
       }
 
-      await persistNanoThreeGeneratedImages(url, prompts as [string, string, string], urlsByPrompt, lastTaskId);
+      const storedUrls = await reuploadToStorage(urlsByPrompt);
+      setNanoBananaImageUrls([...storedUrls]);
+
+      await persistNanoThreeGeneratedImages(url, prompts as [string, string, string], storedUrls, lastTaskId);
 
       toast.success("3 images generated");
+      if (shouldCharge || usingPrepaid) setLtaPrepaidThreeImagesRegen(false);
+      setLtaFrozenCredits(null);
     } catch (e) {
       if (e instanceof DOMException && e.name === "AbortError") return;
+      if ((shouldCharge || usingPrepaid) && !isPlatformCreditBypassActive()) {
+        grantCredits(10);
+        creditsBalanceRef.current += 10;
+        setLtaPrepaidThreeImagesRegen(false);
+        setLtaFrozenCredits(null);
+      }
       toast.error("Image generation", {
         description: e instanceof Error ? e.message : "Unknown error",
       });
@@ -2985,9 +3211,13 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
             return [];
           });
           if (!urls.length) throw new Error("Image ready but URL missing.");
-          const first = urls[0];
+          let first = urls[0];
           const rawSlot = lastNanoImagePromptIndexRef.current;
           const pIdx: 0 | 1 | 2 = rawSlot === 0 || rawSlot === 1 || rawSlot === 2 ? rawSlot : 0;
+
+          const stored = await reuploadToStorage([first]);
+          if (stored[0]) first = stored[0];
+
           let merged: string[] = [];
           setNanoBananaImageUrls((prev) => {
             merged = mergeNanoUrlIntoThreeSlots(prev, pIdx, first);
@@ -3125,6 +3355,8 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
         body: JSON.stringify({
+          linkToAd: true,
+          accountPlan: planId,
           marketModel: LINK_TO_AD_VIDEO_MARKET_MODEL,
           prompt: klingPrompt,
           imageUrl: img,
@@ -3627,7 +3859,7 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
   return (
     <>
     <Card className="border-white/10 bg-[#0b0912]/85 shadow-[0_0_30px_rgba(139,92,246,0.10)]">
-      <CardHeader>
+      <CardHeader className="space-y-3">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex min-w-0 flex-wrap items-center gap-2 sm:gap-3">
             {hasStartedLinkToAdFlow ? (
@@ -3635,16 +3867,80 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
                 type="button"
                 size="sm"
                 variant="secondary"
-                onClick={() => confirmAndResetLinkToAdToStart()}
-                className="h-8 shrink-0 gap-1.5 rounded-xl border border-white/15 bg-white/[0.04] px-2.5 text-xs font-semibold text-white/75 hover:border-red-400/35 hover:bg-red-500/10 hover:text-red-100"
+                onClick={() => handleReturnToFreshLinkToAd()}
+                className="h-8 shrink-0 gap-1.5 rounded-xl border border-white/15 bg-white/[0.04] px-2.5 text-xs font-semibold text-white/80 hover:border-violet-400/35 hover:bg-violet-500/10 hover:text-white"
               >
                 <ArrowLeft className="h-3.5 w-3.5" aria-hidden />
-                Cancel the ad
+                Return to Link to Ad
               </Button>
             ) : null}
             <CardTitle className="text-base">Link to Ad</CardTitle>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+            <div className="flex items-center gap-2.5">
+              <button
+                type="button"
+                role="switch"
+                aria-checked={hidePreviousLtaGenerations}
+                aria-label={
+                  hidePreviousLtaGenerations
+                    ? "Show previous Link to Ad generations"
+                    : "Hide previous Link to Ad generations"
+                }
+                onClick={toggleHidePreviousLtaGenerations}
+                className={cn(
+                  "group relative flex h-8 shrink-0 items-center rounded-full border px-1 transition-[border-color,background-color,box-shadow] duration-300",
+                  "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-violet-400/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0b0912]",
+                  hidePreviousLtaGenerations
+                    ? "w-[3.25rem] border-violet-400/40 bg-gradient-to-r from-violet-500/30 to-violet-600/20 shadow-[0_0_20px_rgba(139,92,246,0.15)]"
+                    : "w-[3.25rem] border-white/12 bg-black/40 hover:border-white/18 hover:bg-white/[0.05]",
+                )}
+              >
+                <motion.span
+                  className="pointer-events-none flex h-6 w-6 items-center justify-center rounded-full bg-white text-[#1a1025] shadow-md"
+                  initial={false}
+                  animate={{
+                    x: hidePreviousLtaGenerations ? 20 : 0,
+                    scale: hidePreviousLtaGenerations ? 0.92 : 1,
+                  }}
+                  transition={
+                    reduceMotion
+                      ? { duration: 0.12 }
+                      : { type: "spring", stiffness: 520, damping: 34, mass: 0.65 }
+                  }
+                >
+                  {hidePreviousLtaGenerations ? (
+                    <EyeOff className="h-3.5 w-3.5 opacity-80" aria-hidden />
+                  ) : (
+                    <Eye className="h-3.5 w-3.5 opacity-90" aria-hidden />
+                  )}
+                </motion.span>
+              </button>
+              <div className="flex min-w-0 flex-col items-start leading-tight">
+                <span className="text-[10px] font-semibold uppercase tracking-wide text-white/50">
+                  Previous runs
+                </span>
+                <span
+                  className={cn(
+                    "text-[11px] font-medium transition-colors duration-300",
+                    hidePreviousLtaGenerations ? "text-white/35" : "text-violet-200/85",
+                  )}
+                >
+                  {hidePreviousLtaGenerations ? "Hidden" : "Visible"}
+                </span>
+              </div>
+            </div>
+            {hasStartedLinkToAdFlow ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => confirmAndResetLinkToAdToStart()}
+                className="h-8 shrink-0 gap-1.5 rounded-xl border border-red-400/25 bg-red-500/10 px-2.5 text-xs font-semibold text-red-100/90 hover:border-red-400/45 hover:bg-red-500/20"
+              >
+                Cancel Link to Ad
+              </Button>
+            ) : null}
             {stage === "error" ? (
               <div className="flex items-center gap-2 text-xs text-red-300/90">
                 <span className="rounded-full border border-red-400/30 bg-red-500/10 px-2 py-1">Error</span>
@@ -3652,6 +3948,95 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
             ) : null}
           </div>
         </div>
+        <AnimatePresence initial={false}>
+          {!hidePreviousLtaGenerations && recentLinkToAdRuns.length > 0 ? (
+            <motion.div
+              key="lta-recent-runs"
+              initial={
+                reduceMotion
+                  ? { opacity: 0 }
+                  : { opacity: 0, y: -10, scale: 0.985 }
+              }
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={
+                reduceMotion
+                  ? { opacity: 0 }
+                  : { opacity: 0, y: -8, scale: 0.98, filter: "blur(4px)" }
+              }
+              transition={
+                reduceMotion
+                  ? { duration: 0.15 }
+                  : { duration: 0.32, ease: [0.22, 1, 0.36, 1] }
+              }
+              className="origin-top overflow-hidden"
+            >
+              <div className="rounded-xl border border-white/10 bg-black/20 px-3 py-2.5">
+                <p className="text-[10px] leading-snug text-white/45">
+                  All your Link to Ad generations are stored in your projects — switch between your last three here, or
+                  open Projects for the full list.
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {recentLinkToAdRuns.map((r, i) => {
+                    const active = (activeRunIdProp ?? universeRunId) === r.id;
+                    const label =
+                      (r.title && r.title.trim()) ||
+                      (() => {
+                        try {
+                          return new URL(r.storeUrl).hostname.replace(/^www\./, "");
+                        } catch {
+                          return r.storeUrl.slice(0, 28);
+                        }
+                      })();
+                    const dateShort = (() => {
+                      try {
+                        return new Date(r.createdAt).toLocaleDateString(undefined, {
+                          month: "short",
+                          day: "numeric",
+                        });
+                      } catch {
+                        return "";
+                      }
+                    })();
+                    return (
+                      <motion.button
+                        key={r.id}
+                        type="button"
+                        layout={!reduceMotion}
+                        initial={reduceMotion ? false : { opacity: 0, y: 6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={
+                          reduceMotion
+                            ? { duration: 0.12 }
+                            : { delay: i * 0.035, duration: 0.28, ease: [0.22, 1, 0.36, 1] }
+                        }
+                        onClick={() => handleSwitchRecentRun(r.id)}
+                        className={cn(
+                          "flex min-w-0 max-w-[11rem] items-center gap-2 rounded-lg border px-2 py-1.5 text-left transition-colors",
+                          active
+                            ? "border-violet-400/50 bg-violet-500/15 text-white"
+                            : "border-white/10 bg-white/[0.03] text-white/75 hover:border-violet-400/35 hover:bg-white/[0.05]",
+                        )}
+                      >
+                        <span className="relative h-9 w-9 shrink-0 overflow-hidden rounded-md border border-white/10 bg-black/40">
+                          {r.thumbUrl ? (
+                            // eslint-disable-next-line @next/next/no-img-element
+                            <img src={r.thumbUrl} alt="" className="h-full w-full object-cover" loading="lazy" />
+                          ) : (
+                            <span className="flex h-full w-full items-center justify-center text-[9px] text-white/30">—</span>
+                          )}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-[11px] font-semibold leading-tight">{label}</span>
+                          <span className="text-[9px] text-white/40">{dateShort}</span>
+                        </span>
+                      </motion.button>
+                    );
+                  })}
+                </div>
+              </div>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
       </CardHeader>
 
       <CardContent className="space-y-6">
@@ -3722,28 +4107,34 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
             )}
           </div>
         ) : null}
-        {/* Duration */}
+        {/* Duration — hidden once generation has started (new pipeline or continue scripts). */}
         <div className="flex flex-wrap items-center gap-4">
           <div className="space-y-1">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-white/50">Duration</p>
-            <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.03] p-1">
-              {[5, 10, 15].map((d) => (
-                <button
-                  key={d}
-                  type="button"
-                  onClick={() => setVideoDuration(d)}
-                  disabled={isWorking}
-                  className={cn(
-                    "rounded-md px-3 py-1.5 text-xs font-semibold transition",
-                    videoDuration === d
-                      ? "bg-violet-500/15 text-white border border-violet-400/60"
-                      : "bg-black/20 text-white/65 hover:border-white/20 border border-white/10",
-                  )}
-                >
-                  {d}s
-                </button>
-              ))}
-            </div>
+            {ltaVideoDurationLocked ? (
+              <p className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-white/80">
+                {videoDuration}s <span className="font-normal text-white/45">(locked for this run)</span>
+              </p>
+            ) : (
+              <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.03] p-1">
+                {[5, 10, 15].map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    onClick={() => setVideoDuration(d)}
+                    disabled={isWorking}
+                    className={cn(
+                      "rounded-md px-3 py-1.5 text-xs font-semibold transition",
+                      videoDuration === d
+                        ? "bg-violet-500/15 text-white border border-violet-400/60"
+                        : "bg-black/20 text-white/65 hover:border-white/20 border border-white/10",
+                    )}
+                  >
+                    {d}s
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -4262,21 +4653,20 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
                     />
                   </div>
                 </div>
-                <p className="text-sm font-semibold tracking-tight text-white/90">
-                  Choose your AI UGC angle
-                </p>
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-xs text-white/45">You can regenerate a fresh set anytime.</p>
-                  <Button
+                <div className="flex items-center justify-between gap-3">
+                  <p className="text-sm font-semibold tracking-tight text-white/90">
+                    Choose your AI UGC angle
+                  </p>
+                  <button
                     type="button"
-                    size="sm"
                     disabled={isWorking || stage === "writing_scripts"}
-                    onClick={() => void onRegenerateMarketingAngles()}
-                    className={`${primaryBtnClass} h-auto min-h-12 shrink-0 px-4 py-2 text-sm inline-flex flex-col items-center justify-center gap-0.5`}
+                    onClick={() => requestRegenerateMarketingAngles()}
+                    className="group/regen inline-flex shrink-0 items-center gap-1.5 rounded-full border border-violet-400/25 bg-violet-500/10 px-3 py-1.5 text-[11px] font-semibold text-violet-300 transition-all hover:border-violet-400/50 hover:bg-violet-500/20 hover:text-violet-200 disabled:pointer-events-none disabled:opacity-40"
                   >
-                    <span className="font-semibold leading-tight">Regenerate 3 new angles</span>
-                    <span className="text-[11px] font-semibold text-black/70">2 credits</span>
-                  </Button>
+                    <RefreshCw className="h-3 w-3 transition-transform group-hover/regen:rotate-90" aria-hidden />
+                    Regenerate
+                    <span className="rounded-full bg-violet-400/20 px-1.5 py-px text-[10px] font-bold text-violet-300/90">2 cr</span>
+                  </button>
                 </div>
                 <div className="grid gap-3 sm:grid-cols-3">
                 {angleOptionCards.map((card) => (
@@ -4284,19 +4674,41 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
                     key={card.index}
                     type="button"
                     onClick={() => void onSelectAngle(card.index)}
-                    className="rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-4 text-left transition-all hover:border-violet-400/40 hover:bg-white/[0.07]"
+                    className={cn(
+                      "group/angle relative rounded-2xl border px-4 py-4 text-left transition-all duration-200",
+                      selectedAngleIndex === card.index
+                        ? "border-violet-400/60 bg-violet-500/[0.12] shadow-[0_0_20px_rgba(139,92,246,0.15)]"
+                        : "border-white/8 bg-white/[0.03] hover:border-violet-400/30 hover:bg-white/[0.06]",
+                    )}
                   >
-                    <div className="flex items-center justify-between gap-2">
-                      <span className="text-xs font-bold uppercase tracking-wide text-violet-300">Angle {card.index + 1}</span>
+                    <div className="flex items-center gap-2">
+                      <span className={cn(
+                        "inline-flex h-5 w-5 items-center justify-center rounded-full text-[10px] font-bold transition-colors",
+                        selectedAngleIndex === card.index
+                          ? "bg-violet-400 text-black"
+                          : "bg-white/10 text-white/50 group-hover/angle:bg-violet-400/20 group-hover/angle:text-violet-300",
+                      )}>
+                        {card.index + 1}
+                      </span>
+                      <span className={cn(
+                        "text-[10px] font-bold uppercase tracking-wider transition-colors",
+                        selectedAngleIndex === card.index ? "text-violet-300" : "text-white/40 group-hover/angle:text-white/60",
+                      )}>
+                        Angle {card.index + 1}
+                      </span>
                     </div>
-                    <p className={cn("mt-2 text-sm leading-snug text-white/85", !expandedAngleBriefs[card.index] && card.canExpand && "line-clamp-3")}>
+                    <p className={cn(
+                      "mt-2.5 text-[13px] leading-snug transition-colors",
+                      selectedAngleIndex === card.index ? "text-white/90" : "text-white/65 group-hover/angle:text-white/80",
+                      !expandedAngleBriefs[card.index] && card.canExpand && "line-clamp-3",
+                    )}>
                       {expandedAngleBriefs[card.index] ? card.fullLabel : card.label}
                     </p>
                     {card.canExpand ? (
                       <span
                         role="button"
                         tabIndex={0}
-                        className="mt-2 inline-flex text-[11px] font-medium text-violet-300/80 hover:text-violet-200"
+                        className="mt-2 inline-flex text-[11px] font-medium text-violet-300/70 transition hover:text-violet-200"
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
@@ -4679,15 +5091,58 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
                             selectedAngleIndex === null ||
                             !nanoBananaPromptsRaw.trim()
                           }
-                          onClick={() => void onGenerateNanoBananaImagesFromAllPrompts()}
-                          className="mt-1 text-[10px] font-medium text-violet-300/85 underline-offset-2 transition hover:text-violet-200 hover:underline disabled:cursor-not-allowed disabled:no-underline disabled:opacity-40"
+                          onClick={() => void onGenerateNanoBananaImagesFromAllPrompts({ forceRegenerateCharge: true })}
+                          className="group/ri mt-2 inline-flex w-full items-center justify-center gap-1.5 rounded-full border border-violet-400/20 bg-violet-500/10 px-3 py-1.5 text-[10px] font-semibold text-violet-300 transition-all hover:border-violet-400/40 hover:bg-violet-500/20 hover:text-violet-200 disabled:pointer-events-none disabled:opacity-40"
                         >
-                          Regenerate 3 images
+                          <RefreshCw className="h-2.5 w-2.5 transition-transform group-hover/ri:rotate-90" aria-hidden />
+                          Regen 3 images
+                          <span className="rounded-full bg-violet-400/20 px-1.5 py-px text-[9px] font-bold text-violet-300/90">10 cr</span>
                         </button>
                       ) : null}
                     </div>
                   ) : null}
                 </div>
+
+                {ltaWarmReferenceImages.length > 0 ? (
+                  <div className="mt-3 border-t border-white/10 pt-3">
+                    <div className="flex items-center justify-between gap-2">
+                      <p className="text-[10px] font-semibold uppercase tracking-wide text-white/45">
+                        Saved images
+                      </p>
+                      <button
+                        type="button"
+                        onClick={() => setLtaWarmReferenceImages([])}
+                        className="text-[10px] font-medium text-white/40 underline-offset-2 transition hover:text-white/70 hover:underline"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      {ltaWarmReferenceImages.map((url, i) => (
+                        <button
+                          key={`${url}-${i}`}
+                          type="button"
+                          className="group relative aspect-[9/16] w-[4.25rem] shrink-0 overflow-hidden rounded-lg border border-white/15 bg-black transition hover:border-violet-400/60"
+                          onClick={() => setNanoImageLightboxUrl(url)}
+                          aria-label="Open saved image"
+                        >
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img
+                            src={url}
+                            alt=""
+                            className="h-full w-full object-cover object-center"
+                            loading="lazy"
+                            decoding="async"
+                          />
+                          <span className="pointer-events-none absolute inset-0 bg-black/0 transition group-hover:bg-black/10" />
+                        </button>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-[10px] leading-snug text-white/35">
+                      These are kept for reference when you regenerate angles.
+                    </p>
+                  </div>
+                ) : null}
 
                 {scriptsText.trim() ? (
                   <div className="mt-3 border-t border-white/10 pt-3">
@@ -4749,10 +5204,7 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
                                   className="min-h-[120px] border-white/10 bg-black/25 text-xs leading-relaxed text-white/85"
                                   spellCheck
                                 />
-                                <div className="flex items-center justify-between gap-2">
-                                  <p className="text-[10px] text-white/45">
-                                    Edit the angle text (Hook, Problem, Solution, CTA). No metadata/persona.
-                                  </p>
+                                <div className="flex justify-end">
                                   <Button
                                     type="button"
                                     size="sm"
@@ -4779,7 +5231,7 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
             {/* Right: generate prompts, generate video, Kling / video stage */}
             <div className="flex min-w-0 flex-1 flex-col gap-4">
               {!showVideoStageLayout ? (
-                <div className="flex flex-col gap-4 rounded-xl border border-violet-500/25 bg-violet-500/[0.06] p-4">
+                <div className="flex flex-col gap-4 rounded-xl border border-violet-500/25 bg-violet-500/[0.06] px-4 pb-4 pt-2">
                   {showUniverseLoading && universeLoadingState.message ? (
                     <div className="flex items-center justify-between gap-3 rounded-xl border border-white/10 bg-black/25 px-3 py-2.5">
                       <div className="flex min-w-0 items-center gap-2">
@@ -4797,6 +5249,44 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
                       >
                         Cancel
                       </Button>
+                    </div>
+                  ) : null}
+                  {nanoBananaPromptsRaw.trim() ? (
+                    <div className="rounded-xl border border-white/10 bg-black/25 px-4 pb-3 pt-2">
+                      <p className="text-xs font-semibold text-white/90">Image prompts (3)</p>
+                      <p className="mt-0.5 text-[10px] leading-snug text-white/40">
+                        Ajuste le texte éditable de chaque prompt avant de lancer la génération d’images. Les blocs
+                        techniques (lumière, caméra, etc.) restent fusionnés automatiquement.
+                      </p>
+                      <div className="mt-3 grid grid-cols-1 gap-3">
+                        {([0, 1, 2] as const).map((i) => (
+                          <div key={i} className="space-y-1">
+                            <Label className="text-[10px] font-semibold uppercase tracking-wide text-white/45">
+                              Prompt {i + 1}
+                            </Label>
+                            <Textarea
+                              value={nanoPromptDrafts[i]}
+                              onChange={(e) => {
+                                const v = e.target.value;
+                                setNanoPromptDrafts((prev) => {
+                                  const next: [string, string, string] = [prev[0], prev[1], prev[2]];
+                                  next[i] = v;
+                                  setNanoBananaPromptsRaw(
+                                    composeThreeLabeledPrompts([
+                                      mergeNanoPromptForApi(next[0], nanoPromptTechnicalTails[0]),
+                                      mergeNanoPromptForApi(next[1], nanoPromptTechnicalTails[1]),
+                                      mergeNanoPromptForApi(next[2], nanoPromptTechnicalTails[2]),
+                                    ]),
+                                  );
+                                  return next;
+                                });
+                              }}
+                              className="min-h-[100px] border-white/10 bg-black/30 text-xs leading-relaxed text-white/85"
+                              spellCheck
+                            />
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   ) : null}
                   {nanoBananaPromptsRaw &&
@@ -4835,10 +5325,12 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
                               selectedAngleIndex === null ||
                               !nanoBananaPromptsRaw.trim()
                             }
-                            onClick={() => void onGenerateNanoBananaImagesFromAllPrompts()}
-                            className="mt-2 w-fit text-[10px] font-medium text-violet-300/85 underline-offset-2 transition hover:text-violet-200 hover:underline disabled:cursor-not-allowed disabled:no-underline disabled:opacity-40"
+                            onClick={() => void onGenerateNanoBananaImagesFromAllPrompts({ forceRegenerateCharge: true })}
+                            className="group/ri mt-3 inline-flex items-center gap-1.5 rounded-full border border-violet-400/20 bg-violet-500/10 px-3.5 py-1.5 text-[11px] font-semibold text-violet-300 transition-all hover:border-violet-400/40 hover:bg-violet-500/20 hover:text-violet-200 disabled:pointer-events-none disabled:opacity-40"
                           >
+                            <RefreshCw className="h-3 w-3 transition-transform group-hover/ri:rotate-90" aria-hidden />
                             Regenerate 3 images
+                            <span className="rounded-full bg-violet-400/20 px-1.5 py-px text-[10px] font-bold text-violet-300/90">10 cr</span>
                           </button>
                         ) : null}
                       </div>
@@ -4943,8 +5435,8 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
                     isNanoPromptsLoading ||
                     nanoPollTaskId ||
                     isNanoAllImagesSubmitting) ? (
-                    <div className="shrink-0 rounded-xl border border-white/10 bg-black/25 p-4">
-                      <div className="flex flex-col gap-3">
+                    <div className="shrink-0 rounded-xl border border-white/10 bg-black/25 px-4 pb-3 pt-2">
+                      <div className="flex flex-col gap-2">
                         {!nanoBananaPromptsRaw.trim() &&
                         !isNanoPromptsLoading &&
                         !isNanoAllImagesSubmitting &&
@@ -4952,7 +5444,7 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
                           <>
                             <div className="space-y-2">
                               <div className="flex items-center justify-between gap-2">
-                                <div className="min-h-[1rem]">
+                                <div className={scriptHasEdits ? "min-h-[1rem]" : undefined}>
                                   {scriptHasEdits ? (
                                     <span className="text-[10px] text-violet-200/85">Edited factors ready</span>
                                   ) : null}
@@ -4973,13 +5465,18 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
                               </div>
                               {scriptEditVisible ? (
                                 <>
-                                  <div className="rounded-xl border border-white/10 bg-black/20 p-3">
-                                    <p className="text-[11px] font-medium text-white/75">
-                                      Intentionally limited edits (to avoid lip-sync desync or story inconsistencies across the video).
+                                  <div className="mb-2 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-white/10 bg-white/[0.02] px-3 py-2">
+                                    <p className="text-[10px] font-semibold uppercase tracking-wide text-white/45">
+                                      Spoken budget (Hook + Problem + Solution + CTA)
                                     </p>
-                                    <p className="mt-1 text-[10px] leading-snug text-white/45">
-                                      Hook: 3–5 words · Problem: 5–7 words · Solution: 10–14 words · CTA: 3–4 words
-                                    </p>
+                                    <span
+                                      className={cn(
+                                        "text-[10px] tabular-nums",
+                                        factorWordsValid.total ? "text-white/55" : "text-amber-400/90",
+                                      )}
+                                    >
+                                      {spokenWordTotal}/{factorWordRules.maxTotalSpoken}
+                                    </span>
                                   </div>
                                   <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
                                   <div className="space-y-1">
@@ -4987,18 +5484,13 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
                                       <p className="text-[10px] font-semibold uppercase tracking-wide text-white/45">
                                         {factorWordRules.hook.label}
                                       </p>
-                                      <span
-                                        className={cn(
-                                          "text-[10px] tabular-nums",
-                                          factorWordsValid.hook ? "text-white/45" : "text-red-200/80",
-                                        )}
-                                      >
+                                      <span className="text-[10px] tabular-nums text-white/45">
                                         {factorWordCounts.hook}/{factorWordRules.hook.max}
                                       </span>
                                     </div>
-                                    <p className="text-[10px] text-white/35">{factorWordRules.hook.hint}</p>
                                     <Textarea
                                       value={scriptFactors.hook}
+                                      title={factorWordRules.hook.hint}
                                       onChange={(e) => {
                                         const v = clampToMaxWords(e.target.value, factorWordRules.hook.max);
                                         const next = { ...scriptFactors, hook: v };
@@ -5006,42 +5498,45 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
                                         setEditableScript(composeScriptFromFactors(next));
                                         setScriptHasEdits(true);
                                       }}
-                                      className={cn(
-                                        "min-h-[74px] border-white/10 bg-black/30 text-xs leading-relaxed text-white/80",
-                                        !factorWordsValid.hook && "border-red-500/35",
-                                      )}
+                                      className="min-h-[74px] border-white/10 bg-black/30 text-xs leading-relaxed text-white/80"
                                     />
                                   </div>
+                                  {factorWordRules.problem ? (
                                   <div className="space-y-1">
                                     <div className="flex items-center justify-between gap-2">
                                       <p className="text-[10px] font-semibold uppercase tracking-wide text-white/45">
                                         {factorWordRules.problem.label}
                                       </p>
-                                      <span
-                                        className={cn(
-                                          "text-[10px] tabular-nums",
-                                          factorWordsValid.problem ? "text-white/45" : "text-red-200/80",
-                                        )}
-                                      >
+                                      <span className="text-[10px] tabular-nums text-white/45">
                                         {factorWordCounts.problem}/{factorWordRules.problem.max}
                                       </span>
                                     </div>
-                                    <p className="text-[10px] text-white/35">{factorWordRules.problem.hint}</p>
                                     <Textarea
                                       value={scriptFactors.problem}
+                                      title={factorWordRules.problem.hint}
                                       onChange={(e) => {
-                                        const v = clampToMaxWords(e.target.value, factorWordRules.problem.max);
+                                        const pr = factorWordRules.problem;
+                                        if (!pr) return;
+                                        const v = clampToMaxWords(e.target.value, pr.max);
                                         const next = { ...scriptFactors, problem: v };
                                         setScriptFactors(next);
                                         setEditableScript(composeScriptFromFactors(next));
                                         setScriptHasEdits(true);
                                       }}
-                                      className={cn(
-                                        "min-h-[74px] border-white/10 bg-black/30 text-xs leading-relaxed text-white/80",
-                                        !factorWordsValid.problem && "border-red-500/35",
-                                      )}
+                                      className="min-h-[74px] border-white/10 bg-black/30 text-xs leading-relaxed text-white/80"
                                     />
                                   </div>
+                                  ) : (
+                                    <div className="space-y-1 sm:col-span-2">
+                                      <p className="text-[10px] font-semibold uppercase tracking-wide text-white/45">
+                                        Problem
+                                      </p>
+                                      <p className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-[11px] leading-relaxed text-white/45">
+                                        Omitted for 5-second videos (15-word spoken budget). Use 10s or 15s to add a
+                                        Problem block.
+                                      </p>
+                                    </div>
+                                  )}
                                   <div className="space-y-1">
                                     <p className="text-[10px] font-semibold uppercase tracking-wide text-white/45">Avatar / Persona</p>
                                     {hasPersonaPhoto ? (
@@ -5065,18 +5560,13 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
                                       <p className="text-[10px] font-semibold uppercase tracking-wide text-white/45">
                                         {factorWordRules.benefits.label}
                                       </p>
-                                      <span
-                                        className={cn(
-                                          "text-[10px] tabular-nums",
-                                          factorWordsValid.benefits ? "text-white/45" : "text-red-200/80",
-                                        )}
-                                      >
+                                      <span className="text-[10px] tabular-nums text-white/45">
                                         {factorWordCounts.benefits}/{factorWordRules.benefits.max}
                                       </span>
                                     </div>
-                                    <p className="text-[10px] text-white/35">{factorWordRules.benefits.hint}</p>
                                     <Textarea
                                       value={scriptFactors.benefits}
+                                      title={factorWordRules.benefits.hint}
                                       onChange={(e) => {
                                         const v = clampToMaxWords(e.target.value, factorWordRules.benefits.max);
                                         const next = { ...scriptFactors, benefits: v };
@@ -5084,10 +5574,7 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
                                         setEditableScript(composeScriptFromFactors(next));
                                         setScriptHasEdits(true);
                                       }}
-                                      className={cn(
-                                        "min-h-[74px] border-white/10 bg-black/30 text-xs leading-relaxed text-white/80",
-                                        !factorWordsValid.benefits && "border-red-500/35",
-                                      )}
+                                      className="min-h-[74px] border-white/10 bg-black/30 text-xs leading-relaxed text-white/80"
                                     />
                                   </div>
                                   <div className="space-y-1">
@@ -5103,18 +5590,13 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
                                       <p className="text-[10px] font-semibold uppercase tracking-wide text-white/45">
                                         {factorWordRules.cta.label}
                                       </p>
-                                      <span
-                                        className={cn(
-                                          "text-[10px] tabular-nums",
-                                          factorWordsValid.cta ? "text-white/45" : "text-red-200/80",
-                                        )}
-                                      >
+                                      <span className="text-[10px] tabular-nums text-white/45">
                                         {factorWordCounts.cta}/{factorWordRules.cta.max}
                                       </span>
                                     </div>
-                                    <p className="text-[10px] text-white/35">{factorWordRules.cta.hint}</p>
                                     <Textarea
                                       value={scriptFactors.cta}
+                                      title={factorWordRules.cta.hint}
                                       onChange={(e) => {
                                         const v = clampToMaxWords(e.target.value, factorWordRules.cta.max);
                                         const next = { ...scriptFactors, cta: v };
@@ -5122,10 +5604,7 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
                                         setEditableScript(composeScriptFromFactors(next));
                                         setScriptHasEdits(true);
                                       }}
-                                      className={cn(
-                                        "min-h-[74px] border-white/10 bg-black/30 text-xs leading-relaxed text-white/80",
-                                        !factorWordsValid.cta && "border-red-500/35",
-                                      )}
+                                      className="min-h-[74px] border-white/10 bg-black/30 text-xs leading-relaxed text-white/80"
                                     />
                                   </div>
                                   <div className="space-y-1">
@@ -5148,7 +5627,9 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
                               className={`h-auto min-h-11 w-full max-w-md py-2.5 ${primaryBtnClass}`}
                               onClick={() => {
                                 if (scriptEditVisible && !factorWordsValid.all) {
-                                  toast.error("Please match the required word limits before generating.");
+                                  toast.error(
+                                    "Match each block’s word range and the total spoken budget for this duration before generating.",
+                                  );
                                   return;
                                 }
                                 if (selectedAngleIndex === null || selectedAngleIndex === undefined) {
@@ -5304,11 +5785,6 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
                         </details>
                       ) : null}
                       <div className="rounded-xl border border-white/10 bg-black/20 p-4">
-                        <p className="text-xs font-semibold uppercase tracking-wide text-white/50">Your video</p>
-                        <p className="mt-1 text-xs text-white/45">
-                          Preview in 9:16. Regenerate adds the last clip below; switch reference images to see each
-                          frame&apos;s ads.
-                        </p>
                         {isVideoPromptLoading ? (
                           <div className="mt-3 flex items-center gap-2 text-xs text-violet-200">
                             <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
@@ -5461,15 +5937,43 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
                         !klingVideoUrl &&
                         !klingPollTaskId &&
                         !isKlingSubmitting ? (
-                          <Button
-                            type="button"
-                            className={`mt-4 h-auto min-h-11 py-2.5 ${primaryBtnClass}`}
-                            onClick={() => {
-                              void onGenerateKlingVideo();
-                            }}
-                          >
-                            <span className="text-sm font-semibold leading-tight">Retry video render</span>
-                          </Button>
+                          <div className="mt-4 rounded-xl border border-white/10 bg-black/30 p-3">
+                            <p className="text-[10px] font-semibold uppercase tracking-wide text-white/45">
+                              Ready to render
+                            </p>
+                            <div className="mt-2 flex items-center gap-3">
+                              <div className="group relative h-12 w-12 shrink-0 overflow-hidden rounded-lg border border-white/10 bg-black">
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={nanoBananaImageUrl}
+                                  alt="Selected reference"
+                                  className="h-full w-full object-cover object-center"
+                                  loading="eager"
+                                  decoding="async"
+                                />
+                              </div>
+                              <div className="min-w-0 flex-1">
+                                <p className="text-xs font-medium text-white/80 truncate">
+                                  Using the selected image as the start frame
+                                </p>
+                                <p className="mt-0.5 text-[10px] text-white/40">
+                                  Confirm to generate the video.
+                                </p>
+                              </div>
+                            </div>
+                            <Button
+                              type="button"
+                              className={`mt-3 h-auto min-h-11 w-full py-2.5 ${primaryBtnClass}`}
+                              onClick={() => {
+                                void onGenerateKlingVideo();
+                              }}
+                            >
+                              <span className="inline-flex items-center justify-center gap-2 text-sm font-semibold leading-tight">
+                                <Video className="h-4 w-4 shrink-0" aria-hidden />
+                                Generate video from selected image
+                              </span>
+                            </Button>
+                          </div>
                         ) : null}
                       </div>
 
@@ -5575,6 +6079,62 @@ export default function LinkToAdUniverse({ resumeRunId, onResumeConsumed, onRuns
           loading="eager"
           decoding="async"
         />
+      </div>
+    ) : null}
+
+    {regenerateAnglesChoiceOpen ? (
+      <div
+        className="fixed inset-0 z-[210] flex items-center justify-center bg-black/80 p-4 backdrop-blur-sm animate-in fade-in duration-200"
+        role="dialog"
+        aria-modal="true"
+        aria-label="Regenerate angles"
+        onClick={() => setRegenerateAnglesChoiceOpen(false)}
+      >
+        <div
+          className="w-full max-w-sm rounded-2xl border border-white/10 bg-[#0e0e12] p-5 shadow-[0_24px_80px_rgba(0,0,0,0.8)] animate-in fade-in slide-in-from-bottom-3 duration-300"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-violet-500/15">
+              <RefreshCw className="h-4 w-4 text-violet-300" aria-hidden />
+            </div>
+            <p className="text-sm font-semibold text-white">Regenerate 3 angles</p>
+          </div>
+          <p className="mt-2 text-xs leading-relaxed text-white/50">
+            You already have generated images. Keep them or recreate everything?
+          </p>
+          <div className="mt-4 grid gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setRegenerateAnglesChoiceOpen(false);
+                void onRegenerateMarketingAngles({ keepExistingImages: true, regenImagesAlso: false });
+              }}
+              className="flex h-10 items-center justify-center gap-2 rounded-xl border border-white/8 bg-white/5 text-[13px] font-medium text-white/85 transition-all hover:border-white/15 hover:bg-white/10"
+            >
+              Keep images
+              <span className="rounded-full bg-emerald-500/15 px-2 py-px text-[10px] font-bold text-emerald-300">free</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setRegenerateAnglesChoiceOpen(false);
+                void onRegenerateMarketingAngles({ keepExistingImages: false, regenImagesAlso: true });
+              }}
+              className="flex h-10 items-center justify-center gap-2 rounded-xl border border-violet-400/25 bg-violet-500/15 text-[13px] font-medium text-white/90 transition-all hover:border-violet-400/40 hover:bg-violet-500/25"
+            >
+              Regenerate images too
+              <span className="rounded-full bg-violet-400/20 px-2 py-px text-[10px] font-bold text-violet-300">10 cr</span>
+            </button>
+            <button
+              type="button"
+              className="mt-1 h-9 text-[12px] font-medium text-white/40 transition hover:text-white/70"
+              onClick={() => setRegenerateAnglesChoiceOpen(false)}
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
       </div>
     ) : null}
 

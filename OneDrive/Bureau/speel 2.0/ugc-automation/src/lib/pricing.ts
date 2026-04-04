@@ -33,9 +33,6 @@ export const PRICING_BASE = {
 /** Effective $/credit reference from Starter subscription (requested baseline). */
 export const STARTER_CREDIT_VALUE_USD = 29.99 / 250;
 
-/** Credits charged per second of Kling 3.0–style video (dynamic rule). */
-export const KLING_3_VIDEO_CREDITS_PER_SECOND = 2.25;
-
 // ---------------------------------------------------------------------------
 // Link to Ad — video model pricing (fixed reference: 15s)
 // ---------------------------------------------------------------------------
@@ -103,9 +100,6 @@ export const SEEDREAM_45_COST_USD = 0.0325;
 export const SEEDREAM_50_LITE_FAL_LIST_USD = 0.035;
 export const SEEDREAM_50_LITE_COST_USD = 0.0275;
 
-const SEEDREAM_45_BASE = computeImageModelFromCostUsd(SEEDREAM_45_COST_USD);
-const SEEDREAM_50_LITE_BASE = computeImageModelFromCostUsd(SEEDREAM_50_LITE_COST_USD);
-
 /** Google Nano Banana 2 / Pro on Kie — credits & COGS from provider sheet (Fal list + negotiated COGS). */
 function googleImageTier(p: {
   model: string;
@@ -127,29 +121,48 @@ function googleImageTier(p: {
   };
 }
 
-const GOOGLE_NANO_2_1K = googleImageTier({
+/** Product-fixed credits (Studio Nano 2 / Pro tiers). */
+function fixedImageModelCredits(p: {
+  model: string;
+  credits: number;
+  fal_list_price_usd: number | null;
+}) {
+  return {
+    model: p.model,
+    cost_usd: 0,
+    cost_with_buffer: 0,
+    target_margin: PRICING_BASE.target_margins.image,
+    price_usd: p.credits * 0.07,
+    credits: p.credits,
+    fal_list_price_usd: p.fal_list_price_usd,
+  };
+}
+
+/** NanoBanana 2 — 1K / 2K / 4K (studio `nano`). */
+const GOOGLE_NANO_2_1K = fixedImageModelCredits({
   model: "google_nano_banana_2_1k",
-  cost_usd: 0.04,
+  credits: 1,
   fal_list_price_usd: 0.08,
 });
-const GOOGLE_NANO_2_2K = googleImageTier({
+const GOOGLE_NANO_2_2K = fixedImageModelCredits({
   model: "google_nano_banana_2_2k",
-  cost_usd: 0.06,
+  credits: 2,
   fal_list_price_usd: 0.12,
 });
-const GOOGLE_NANO_2_4K = googleImageTier({
+const GOOGLE_NANO_2_4K = fixedImageModelCredits({
   model: "google_nano_banana_2_4k",
-  cost_usd: 0.09,
+  credits: 3,
   fal_list_price_usd: 0.16,
 });
-const GOOGLE_NANO_PRO_12K = googleImageTier({
+/** NanoBanana Pro — 1K/2K = 3 cr; 4K = 4 cr (studio `pro`). */
+const GOOGLE_NANO_PRO_12K = fixedImageModelCredits({
   model: "google_nano_banana_pro_1k_2k",
-  cost_usd: 0.09,
+  credits: 3,
   fal_list_price_usd: 0.15,
 });
-const GOOGLE_NANO_PRO_4K = googleImageTier({
+const GOOGLE_NANO_PRO_4K = fixedImageModelCredits({
   model: "google_nano_banana_pro_4k",
-  cost_usd: 0.12,
+  credits: 4,
   fal_list_price_usd: 0.3,
 });
 
@@ -159,113 +172,61 @@ export const IMAGE_MODEL = {
   google_nano_banana_2_4k: GOOGLE_NANO_2_4K,
   google_nano_banana_pro_1k_2k: GOOGLE_NANO_PRO_12K,
   google_nano_banana_pro_4k: GOOGLE_NANO_PRO_4K,
-  /** Legacy key — Google nano banana text-to-image (1 price). */
-  nanobanana_standard: googleImageTier({
+  /** Legacy — “nano normal” (0.5 cr / image; total jobs use integer credits via ceil). */
+  nanobanana_standard: fixedImageModelCredits({
     model: "nanobanana_standard",
-    cost_usd: 0.02,
+    credits: 0.5,
     fal_list_price_usd: 0.039,
   }),
   /**
-   * Legacy key used by Link to Ad for 3 reference images.
-   * Requested billing: 2 credits per NanoBanana Pro image.
+   * Legacy key used by Link to Ad for 3 reference images (Pro tier 1K/2K).
    */
-  nanobanana_pro: googleImageTier({
+  nanobanana_pro: fixedImageModelCredits({
     model: "nanobanana_pro",
-    cost_usd: 0.09,
+    credits: 3,
     fal_list_price_usd: 0.15,
   }),
-  google_nano_banana_edit: googleImageTier({
+  google_nano_banana_edit: fixedImageModelCredits({
     model: "google_nano_banana_edit",
-    cost_usd: 0.02,
+    credits: 0.5,
     fal_list_price_usd: 0.039,
   }),
-  recraft_remove_background: {
-    model: "recraft_remove_background",
-    cost_usd: 0,
-    cost_with_buffer: 0,
-    target_margin: PRICING_BASE.target_margins.image,
-    price_usd: 0,
-    credits: 1,
-    fal_list_price_usd: null as number | null,
-  },
-  seedream_45_text_to_image: {
+  seedream_45_text_to_image: fixedImageModelCredits({
     model: "seedream_45_text_to_image",
-    cost_usd: SEEDREAM_45_BASE.cost_usd,
-    cost_with_buffer: SEEDREAM_45_BASE.cost_with_buffer,
-    target_margin: SEEDREAM_45_BASE.target_margin,
-    price_usd: SEEDREAM_45_COST_USD / (1 - PRICING_BASE.target_margins.image),
-    credits: Math.max(
-      1,
-      Math.ceil((SEEDREAM_45_COST_USD / (1 - PRICING_BASE.target_margins.image)) / STARTER_CREDIT_VALUE_USD),
-    ),
+    credits: 1,
     fal_list_price_usd: SEEDREAM_45_FAL_LIST_USD,
-  },
-  seedream_45_image_to_image: {
+  }),
+  seedream_45_image_to_image: fixedImageModelCredits({
     model: "seedream_45_image_to_image",
-    cost_usd: SEEDREAM_45_BASE.cost_usd,
-    cost_with_buffer: SEEDREAM_45_BASE.cost_with_buffer,
-    target_margin: SEEDREAM_45_BASE.target_margin,
-    price_usd: SEEDREAM_45_COST_USD / (1 - PRICING_BASE.target_margins.image),
-    credits: Math.max(
-      1,
-      Math.ceil((SEEDREAM_45_COST_USD / (1 - PRICING_BASE.target_margins.image)) / STARTER_CREDIT_VALUE_USD),
-    ),
+    credits: 1,
     fal_list_price_usd: SEEDREAM_45_FAL_LIST_USD,
-  },
-  seedream_50_lite_text_to_image: {
+  }),
+  seedream_50_lite_text_to_image: fixedImageModelCredits({
     model: "seedream_50_lite_text_to_image",
-    cost_usd: SEEDREAM_50_LITE_BASE.cost_usd,
-    cost_with_buffer: SEEDREAM_50_LITE_BASE.cost_with_buffer,
-    target_margin: SEEDREAM_50_LITE_BASE.target_margin,
-    price_usd: SEEDREAM_50_LITE_COST_USD / (1 - PRICING_BASE.target_margins.image),
-    credits: Math.max(
-      1,
-      Math.ceil((SEEDREAM_50_LITE_COST_USD / (1 - PRICING_BASE.target_margins.image)) / STARTER_CREDIT_VALUE_USD),
-    ),
+    credits: 1,
     fal_list_price_usd: SEEDREAM_50_LITE_FAL_LIST_USD,
-  },
-  seedream_50_lite_image_to_image: {
+  }),
+  seedream_50_lite_image_to_image: fixedImageModelCredits({
     model: "seedream_50_lite_image_to_image",
-    cost_usd: SEEDREAM_50_LITE_BASE.cost_usd,
-    cost_with_buffer: SEEDREAM_50_LITE_BASE.cost_with_buffer,
-    target_margin: SEEDREAM_50_LITE_BASE.target_margin,
-    price_usd: SEEDREAM_50_LITE_COST_USD / (1 - PRICING_BASE.target_margins.image),
-    credits: Math.max(
-      1,
-      Math.ceil((SEEDREAM_50_LITE_COST_USD / (1 - PRICING_BASE.target_margins.image)) / STARTER_CREDIT_VALUE_USD),
-    ),
+    credits: 1,
     fal_list_price_usd: SEEDREAM_50_LITE_FAL_LIST_USD,
-  },
-  seedream_45: {
+  }),
+  seedream_45: fixedImageModelCredits({
     model: "seedream_45",
-    cost_usd: SEEDREAM_45_BASE.cost_usd,
-    cost_with_buffer: SEEDREAM_45_BASE.cost_with_buffer,
-    target_margin: SEEDREAM_45_BASE.target_margin,
-    price_usd: SEEDREAM_45_COST_USD / (1 - PRICING_BASE.target_margins.image),
-    credits: Math.max(
-      1,
-      Math.ceil((SEEDREAM_45_COST_USD / (1 - PRICING_BASE.target_margins.image)) / STARTER_CREDIT_VALUE_USD),
-    ),
+    credits: 1,
     fal_list_price_usd: SEEDREAM_45_FAL_LIST_USD,
-  },
-  seedream_50_lite: {
+  }),
+  seedream_50_lite: fixedImageModelCredits({
     model: "seedream_50_lite",
-    cost_usd: SEEDREAM_50_LITE_BASE.cost_usd,
-    cost_with_buffer: SEEDREAM_50_LITE_BASE.cost_with_buffer,
-    target_margin: SEEDREAM_50_LITE_BASE.target_margin,
-    price_usd: SEEDREAM_50_LITE_COST_USD / (1 - PRICING_BASE.target_margins.image),
-    credits: Math.max(
-      1,
-      Math.ceil((SEEDREAM_50_LITE_COST_USD / (1 - PRICING_BASE.target_margins.image)) / STARTER_CREDIT_VALUE_USD),
-    ),
+    credits: 1,
     fal_list_price_usd: SEEDREAM_50_LITE_FAL_LIST_USD,
-  },
-  google_nano_banana: googleImageTier({
+  }),
+  google_nano_banana: fixedImageModelCredits({
     model: "google_nano_banana",
-    cost_usd: 0.02,
+    credits: 0.5,
     fal_list_price_usd: 0.039,
   }),
-} as const;
+};
 
 /** Kie Market model id — Topaz Video Upscale (1× / 2× / 4×). */
 export const KIE_TOPAZ_VIDEO_UPSCALE_MODEL = "topaz/video-upscale" as const;
@@ -277,8 +238,8 @@ export const TOPAZ_VIDEO_UPSCALER = {
   kie_model: KIE_TOPAZ_VIDEO_UPSCALE_MODEL,
   cost_usd_per_second: 0.06,
   fal_list_usd_per_second: 0.08,
-  /** Billed credits per second (product tier). */
-  credits_per_second: 12,
+  /** Billed credits per second (product tier). Charge = ceil(duration_sec × this); same for 1× / 2× / 4×. */
+  credits_per_second: 2,
 } as const;
 
 /** Topaz Image Upscaler — fixed per-image pricing tiers (2K / 4K / 8K). */
@@ -286,23 +247,21 @@ export const TOPAZ_IMAGE_UPSCALER = {
   kie_model: KIE_TOPAZ_IMAGE_UPSCALE_MODEL,
   tiers: {
     "2K": {
-      credits_per_image: 10,
+      credits_per_image: 2,
       our_price_usd: 0.05,
       fal_list_usd: null as number | null,
       discount_vs_fal_pct: null as number | null,
       cogs_usd: 0,
     },
     "4K": {
-      // Spec: 4× should cost 1.75× the 2× price (credits).
-      // 2K is 10 credits => 10 * 1.75 = 17.5 => ceil => 18 credits.
-      credits_per_image: 18,
+      credits_per_image: 3,
       our_price_usd: 0.0875,
       fal_list_usd: null as number | null,
       discount_vs_fal_pct: null as number | null,
       cogs_usd: 0,
     },
     "8K": {
-      credits_per_image: 40,
+      credits_per_image: 5,
       our_price_usd: 0.2,
       fal_list_usd: null as number | null,
       discount_vs_fal_pct: null as number | null,
@@ -312,18 +271,29 @@ export const TOPAZ_IMAGE_UPSCALER = {
 } as const;
 
 export function topazVideoUpscaleCredits(durationSeconds: number, upscaleFactor: string = "2"): number {
+  void upscaleFactor;
   const d = Math.max(0, Number(durationSeconds) || 0);
-  const f = upscaleFactor.trim();
-  const mult = f === "4" ? 1.75 : 1; // 1× and 2× have the same price.
-  return Math.max(1, Math.ceil(d * TOPAZ_VIDEO_UPSCALER.credits_per_second * mult));
+  return Math.max(1, Math.ceil(d * TOPAZ_VIDEO_UPSCALER.credits_per_second));
 }
 
-/** Topaz image upscale (Kie): factor 1 / 2 → 2K tier, 4 → 4K, 8 → 8K credits. */
+/**
+ * Topaz Image Upscale (Kie `topaz/image-upscale`): `upscale_factor` is **2 | 4 | 8**
+ * matching **2K / 4K / 8K** output tiers (not 1×/2×/4× like video).
+ * Product credits: 2 / 3 / 5 per image (see `TOPAZ_IMAGE_UPSCALER.tiers`).
+ */
 export function topazImageUpscaleCredits(factor: string): number {
   const f = factor.trim();
   if (f === "8") return TOPAZ_IMAGE_UPSCALER.tiers["8K"].credits_per_image;
   if (f === "4") return TOPAZ_IMAGE_UPSCALER.tiers["4K"].credits_per_image;
   return TOPAZ_IMAGE_UPSCALER.tiers["2K"].credits_per_image;
+}
+
+/** Kie image upscale_factor string → tier label for UI / history labels. */
+export function topazImageUpscaleKieFactorToTierLabel(factor: string): "2K" | "4K" | "8K" {
+  const f = factor.trim();
+  if (f === "8") return "8K";
+  if (f === "4") return "4K";
+  return "2K";
 }
 
 /** Wholesale discount vs Fal list: (cost_usd − fal_list) / fal_list. */
@@ -493,22 +463,6 @@ export const STUDIO_IMAGE_SEEDREAM_50_LITE_ECONOMICS_ROWS = [
   };
 });
 
-/** Recraft remove background row. */
-export const STUDIO_IMAGE_RECRAFT_REMOVE_BG_ROWS: StudioImageEconomicsRow[] = [
-  {
-    key: "recraft_remove_background",
-    modelAndModality: "Recraft Remove Background, image-to-image",
-    modality: "image",
-    provider: "Recraft",
-    creditsPerGen: IMAGE_MODEL.recraft_remove_background.credits,
-    creditsUnit: "per image",
-    ourRetailUsd: 0,
-    falListUsd: null,
-    discountVsFalListPct: null,
-    cogsUsd: IMAGE_MODEL.recraft_remove_background.cost_usd,
-  },
-];
-
 export type StudioGrokImagineEconomicsRow = {
   modelAndModality: string;
   modality: string;
@@ -615,8 +569,8 @@ export function creditsForImageModel(key: ImageModelKey): number {
 export type StudioImageOutputResolution = "1K" | "2K" | "4K";
 
 /**
- * Credits per generated image in Studio (Kie Google Nano Banana 2 / Pro, Seedream).
- * Seedream KIE billing uses a flat credit per image from `IMAGE_MODEL`; resolution maps to provider quality only.
+ * Credits per generated image in Studio (Google Nano 2 / Pro tiers, flat per-model rows elsewhere).
+ * Seedream 4.5 / 5.0 Lite: flat 1 credit; `resolution` is ignored for billing (KIE still uses a default quality server-side).
  */
 export function studioImageCreditsPerOutput(opts: {
   studioModel: string;
@@ -626,10 +580,8 @@ export function studioImageCreditsPerOutput(opts: {
     return IMAGE_MODEL[opts.studioModel].credits;
   }
   if (isStudioGoogleNanoBananaPickerId(opts.studioModel)) {
-    return IMAGE_MODEL.google_nano_banana.credits;
-  }
-  if (opts.studioModel === "recraft_remove_background") {
-    return IMAGE_MODEL.recraft_remove_background.credits;
+    const k = opts.studioModel as "google_nano_banana" | "nanobanana_standard" | "google_nano_banana_edit";
+    return IMAGE_MODEL[k].credits;
   }
   const m = opts.studioModel as "nano" | "pro";
   if (m === "pro") {
@@ -641,29 +593,77 @@ export function studioImageCreditsPerOutput(opts: {
   return IMAGE_MODEL.google_nano_banana_2_1k.credits;
 }
 
+/**
+ * Display credits charged for a Studio image job (may be 0.5 steps for Google Nano Banana).
+ * Persisted server-side as ledger ticks: `displayCreditsToLedgerTicks(total)`.
+ */
+export function studioImageCreditsChargedTotal(opts: {
+  studioModel: string;
+  resolution: StudioImageOutputResolution;
+  numImages: number;
+}): number {
+  const n = Math.max(1, Math.min(10, Math.floor(Number(opts.numImages) || 1)));
+  const per = studioImageCreditsPerOutput({
+    studioModel: opts.studioModel,
+    resolution: opts.resolution,
+  });
+  const raw = per * n;
+  return Math.ceil(raw * 2) / 2;
+}
+
 // ---------------------------------------------------------------------------
 // Video — Kling 3.0 dynamic (primary)
 // ---------------------------------------------------------------------------
 
 /**
- * Kling 3.0 / 2.6 — quality + audio multipliers (ratios vs 1080p + audio anchor).
- * Anchor: 2.25 credits/s at 1080p + audio (e.g. 12s → 27 credits).
+ * Kling 3.0 / 2.6 — 720p (`std`) vs 1080p (`pro`).
  */
 export function is1080pVideoQuality(quality: string | undefined): boolean {
   return quality === "pro" || quality === "1080p";
 }
 
-/** Multiplier on (duration × KLING_3_VIDEO_CREDITS_PER_SECOND). */
-export function kling30CreditsMultiplier(quality: string | undefined, audio: boolean): number {
+/**
+ * Kling 3.0 — provider Our price ($/s) × 2 → retail $/s → credits/s at $0.07/credit (same as Sora sheet).
+ * Sheet: 1080p+audio $0.135/s → 4 cr/s · 1080p $0.09/s → 3 · 720p+audio $0.10/s → 3 · 720p $0.07/s → 2
+ */
+export function kling30CreditsPerSecondFromSheet(quality: string | undefined, audio: boolean): number {
   const is1080 = is1080pVideoQuality(quality);
-  if (is1080 && audio) return 1;
-  if (is1080 && !audio) return 18 / 27;
-  if (!is1080 && audio) return 20 / 27;
-  return 14 / 27;
+  const ourPerSec = is1080
+    ? audio
+      ? 0.135
+      : 0.09
+    : audio
+      ? 0.1
+      : 0.07;
+  const retailPerSec = ourPerSec * 2;
+  return Math.max(1, Math.round(retailPerSec / 0.07));
 }
 
 /**
- * Kling 3.0–style video credits (studio + API).
+ * Kling 2.6 — Fal "Our price" **per video** (5s / 10s × audio). Text vs image same $ on sheet.
+ * Retail = ×2 → credits = round(retail / 0.07). Quality (720p/1080p) not priced separately on sheet — ignored for billing.
+ */
+export function calculateKling26VideoCredits(
+  durationSec: number,
+  _quality: string | undefined,
+  audio: boolean,
+): number {
+  const d = Math.max(0, Number(durationSec) || 0);
+  const use10s = d > 5;
+  const withAudio = Boolean(audio);
+  const ourUsd = use10s
+    ? withAudio
+      ? 1.1
+      : 0.55
+    : withAudio
+      ? 0.55
+      : 0.275;
+  const retailUsd = ourUsd * 2;
+  return Math.max(1, Math.round(retailUsd / 0.07));
+}
+
+/**
+ * Kling 3.0 video credits (studio + API): duration × credits/s from Fal sheet.
  */
 export function calculateKling30VideoCredits(
   durationSec: number,
@@ -671,19 +671,18 @@ export function calculateKling30VideoCredits(
   audio: boolean,
 ): number {
   const d = Math.max(0, Number(durationSec) || 0);
-  const mult = kling30CreditsMultiplier(quality, audio);
-  return Math.max(1, Math.ceil(d * KLING_3_VIDEO_CREDITS_PER_SECOND * mult));
+  const perSec = kling30CreditsPerSecondFromSheet(quality, audio);
+  return Math.max(1, Math.ceil(d * perSec));
 }
 
 /**
- * Shorthand: anchor tier only (1080p + audio). For legacy call sites.
- * Example: 12s → 27 credits.
+ * Shorthand: Kling 3.0, 1080p + audio. Example: 12s → 48 credits (4 cr/s sheet).
  */
 export function calculateVideoCreditsFromDuration(durationSec: number): number {
   return calculateKling30VideoCredits(durationSec, "pro", true);
 }
 
-/** Reference row from spec: 12s + audio @ 1080p. */
+/** Reference row: Kling 3.0, 12s + audio @ 1080p (sheet $0.135/s → 4 cr/s). */
 export const KLING_3_0_12S_AUDIO_REFERENCE = {
   model: "kling_3_0_12s_audio",
   duration_sec: 12,
@@ -697,15 +696,6 @@ export const KLING_3_0_12S_AUDIO_REFERENCE = {
 // ---------------------------------------------------------------------------
 // Video — Sora (optional fixed tiers)
 // ---------------------------------------------------------------------------
-
-export const SORA_10S = {
-  model: "sora_10s",
-  cost_usd: 0.175,
-  cost_with_buffer: 0.236,
-  target_margin: PRICING_BASE.target_margins.video,
-  price_usd: 0.59,
-  credits: 4,
-} as const;
 
 type VideoTierPricing = {
   model: string;
@@ -722,21 +712,32 @@ type VideoTierPricing = {
   discount_pct_vs_fal: number | null;
 };
 
-function makeVideoTierFromOurAndFal(opts: {
+/**
+ * Sora 2 Pro billing: retail USD = provider “Our price” × 2 (min 2×), then
+ * credits = round(retail / {@link SORA_2_PRO_BILLING_CREDIT_USD}).
+ * Example: $1.65 → $3.30 → 3.30/0.07 ≈ 47 credits.
+ *
+ * Sheet rows (provider Our price) — i2v/t2v/storyboard share the same $ for a given quality+duration:
+ * High 10s $1.65 → 47 · High 15s $3.15 → 90 · Std 10s $0.75 → 21 · Std 15s $1.35 → 39
+ */
+export const SORA_2_PRO_BILLING_CREDIT_USD = 0.07;
+const SORA_2_PRO_RETAIL_MULTIPLIER = 2;
+
+function makeSora2ProTier(opts: {
   model: string;
-  /** Our revenue price (USD) from your sheet. */
+  /** Provider “Our price” (USD) per gen from Fal sheet. */
   our_price_usd: number;
-  /** Fal list price (USD) from your sheet (or null for N/A). */
   fal_list_price_usd: number | null;
 }): VideoTierPricing {
   const target_margin = PRICING_BASE.target_margins.video;
-  const price_usd = opts.our_price_usd;
+  const retail_usd = opts.our_price_usd * SORA_2_PRO_RETAIL_MULTIPLIER;
+  const credits = Math.max(1, Math.round(retail_usd / SORA_2_PRO_BILLING_CREDIT_USD));
+  const price_usd = retail_usd;
   const cost_with_buffer = price_usd * (1 - target_margin);
   const cost_usd = cost_with_buffer / PRICING_BASE.cost_buffer;
-  const credits = Math.max(1, Math.ceil(price_usd / PRICING_BASE.credit_value_usd));
   const discount_pct_vs_fal =
     opts.fal_list_price_usd != null && opts.fal_list_price_usd > 0
-      ? ((price_usd - opts.fal_list_price_usd) / opts.fal_list_price_usd) * 100
+      ? ((opts.our_price_usd - opts.fal_list_price_usd) / opts.fal_list_price_usd) * 100
       : null;
   return {
     model: opts.model,
@@ -751,36 +752,102 @@ function makeVideoTierFromOurAndFal(opts: {
 }
 
 /**
- * OpenAI Sora 2 Pro tiers (from your sheet).
+ * OpenAI Sora 2 Pro tiers (Fal provider “Our price” → 2× retail → credits @ $0.07/credit).
  * Mapping: `klingMode` -> Standard vs High.
  */
-export const SORA_2_PRO_HIGH_10S = makeVideoTierFromOurAndFal({
+export const SORA_2_PRO_HIGH_10S = makeSora2ProTier({
   model: "sora_2_pro_high_10s",
   our_price_usd: 1.65,
   fal_list_price_usd: 5.0,
 });
-export const SORA_2_PRO_HIGH_15S = makeVideoTierFromOurAndFal({
+export const SORA_2_PRO_HIGH_15S = makeSora2ProTier({
   model: "sora_2_pro_high_15s",
   our_price_usd: 3.15,
   fal_list_price_usd: 7.5,
 });
-export const SORA_2_PRO_STANDARD_10S = makeVideoTierFromOurAndFal({
+export const SORA_2_PRO_STANDARD_10S = makeSora2ProTier({
   model: "sora_2_pro_standard_10s",
   our_price_usd: 0.75,
   fal_list_price_usd: 3.0,
 });
-export const SORA_2_PRO_STANDARD_15S = makeVideoTierFromOurAndFal({
+export const SORA_2_PRO_STANDARD_15S = makeSora2ProTier({
   model: "sora_2_pro_standard_15s",
   our_price_usd: 1.35,
   fal_list_price_usd: 4.5,
 });
 
-/** Sora: 10s tier = 4 credits; 15s not in spec — proportional bump. */
-export function calculateSoraCredits(durationSec: number): number {
+/**
+ * OpenAI Sora 2 (non-Pro): Fal “stable” vs “Standard”, same retail formula as Sora 2 Pro.
+ * UI: `klingMode` std = Standard, pro = stable (stable is higher $).
+ */
+export const SORA_2_STABLE_10S = makeSora2ProTier({
+  model: "sora_2_stable_10s",
+  our_price_usd: 0.175,
+  fal_list_price_usd: 1.0,
+});
+export const SORA_2_STABLE_15S = makeSora2ProTier({
+  model: "sora_2_stable_15s",
+  our_price_usd: 0.2,
+  fal_list_price_usd: 1.0,
+});
+export const SORA_2_STANDARD_10S = makeSora2ProTier({
+  model: "sora_2_standard_10s",
+  our_price_usd: 0.15,
+  fal_list_price_usd: 1.0,
+});
+export const SORA_2_STANDARD_15S = makeSora2ProTier({
+  model: "sora_2_standard_15s",
+  our_price_usd: 0.175,
+  fal_list_price_usd: 1.5,
+});
+
+/** @deprecated Use `SORA_2_STANDARD_10S` — kept for `/api/pricing` reference row name */
+export const SORA_10S = SORA_2_STANDARD_10S;
+
+/**
+ * Sora 2 (non-Pro): std → Standard tier, pro → stable tier (see Fal sheet).
+ */
+export function calculateSora2BaseCredits(durationSec: number, quality: string | undefined): number {
   const d = Number(durationSec) || 0;
-  if (d <= 10) return SORA_10S.credits;
-  return 6;
+  const isStable = quality === "pro" || quality === "1080p" || quality === "high";
+  if (d <= 10) return isStable ? SORA_2_STABLE_10S.credits : SORA_2_STANDARD_10S.credits;
+  return isStable ? SORA_2_STABLE_15S.credits : SORA_2_STANDARD_15S.credits;
 }
+
+/** @deprecated Use {@link calculateSora2BaseCredits} with quality — defaults to Standard. */
+export function calculateSoraCredits(durationSec: number): number {
+  return calculateSora2BaseCredits(durationSec, "std");
+}
+
+// ---------------------------------------------------------------------------
+// Video — Veo 3.1 (fixed per-video tiers)
+// ---------------------------------------------------------------------------
+
+/**
+ * Google Veo 3.1 (Fal) — **Fast** vs **Quality** are separate products (different Credits/Gen on sheet).
+ * We use Fal’s **Credits / Gen** column per tier (not the generic Sora retail÷$0.07 formula).
+ * - Fast (e.g. text/image-to-video Fast): 60 cr · $0.30 our price
+ * - Quality (e.g. text/image-to-video Quality): 250 cr · $1.25 our price
+ */
+const _VEO_3_1_FAST_BASE = makeSora2ProTier({
+  model: "veo_3_1_fast",
+  our_price_usd: 0.3,
+  fal_list_price_usd: 1.2,
+});
+export const VEO_3_1_FAST: VideoTierPricing = {
+  ..._VEO_3_1_FAST_BASE,
+  credits: 60,
+};
+
+const _VEO_3_1_QUALITY_BASE = makeSora2ProTier({
+  model: "veo_3_1_quality",
+  our_price_usd: 1.25,
+  fal_list_price_usd: 3.2,
+});
+export const VEO_3_1_QUALITY: VideoTierPricing = {
+  ..._VEO_3_1_QUALITY_BASE,
+  credits: 250,
+};
 
 /** Sora 2 Pro: quality controlled by kling `mode` (std => Standard, pro => High). */
 export function calculateSora2ProCredits(durationSec: number, quality: string | undefined): number {
@@ -874,14 +941,19 @@ export function calculateVideoCreditsForModel(opts: VideoCreditOptions): number 
   const quality = opts.quality;
 
   switch (opts.modelId) {
+    case "veo3":
+      return VEO_3_1_QUALITY.credits;
+    case "veo3_fast":
+      return VEO_3_1_FAST.credits;
     case "openai/sora-2":
-      return calculateSoraCredits(d);
+      return calculateSora2BaseCredits(d, quality);
     case "openai/sora-2-pro":
       return calculateSora2ProCredits(d, quality);
 
     case "kling-3.0/video":
-    case "kling-2.6/video":
       return calculateKling30VideoCredits(d, quality, audio);
+    case "kling-2.6/video":
+      return calculateKling26VideoCredits(d, quality, audio);
 
     default:
       // Seedance, Veo, etc.: anchor tier until per-model tables exist
@@ -952,3 +1024,9 @@ export function calculateWaveSpeedVideoTranslateCredits(durationSeconds: number)
   const d = Math.max(0, Number(durationSeconds) || 0);
   return Math.max(1, Math.ceil(d * WAVESPEED_HEYGEN_TRANSLATE_CREDITS_PER_SECOND));
 }
+
+/**
+ * ElevenLabs speech-to-speech (Ad Clone → Voice change): flat credits per job.
+ * Same charge regardless of source audio/video duration.
+ */
+export const VOICE_CHANGE_CREDITS_FLAT = 5;
