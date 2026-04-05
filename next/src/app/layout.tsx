@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Script from "next/script";
 import "./globals.css";
 import DataFastScript from "@/components/DataFastScript";
+import CrispScript from "@/components/CrispScript";
 import GlobalGetStartedClickTracker from "@/components/GlobalGetStartedClickTracker";
 import FirstPromoterScript from "@/components/FirstPromoterScript";
 import FirstPromoterAttributionGuard from "@/components/FirstPromoterAttributionGuard";
@@ -106,6 +107,7 @@ export default function RootLayout({
       </head>
       <body className="min-h-screen bg-background text-foreground overflow-x-hidden" suppressHydrationWarning>
         <DataFastScript />
+        <CrispScript />
         <FirstPromoterAttributionGuard />
         <GlobalGetStartedClickTracker />
         {children}
