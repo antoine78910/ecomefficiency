@@ -4,7 +4,7 @@ import { createHmac } from 'crypto'
 import AdminNavigation from '@/components/AdminNavigation'
 import { Zap } from 'lucide-react'
 import { supabaseAdmin } from '@/integrations/supabase/server'
-import { HiggsfieldEmailTable, HiggsfieldEventsTable } from '@/components/HiggsfieldTables'
+import { HiggsfieldEmailTable, HiggsfieldEventsTable, HiggsfieldCreditHistory } from '@/components/HiggsfieldTables'
 
 export const dynamic = 'force-dynamic'
 
@@ -26,14 +26,14 @@ async function fetchHiggsfieldUsage() {
     .from('higgsfield_usage_events')
     .select(selectCols)
     .order('at', { ascending: false })
-    .limit(500)
+    .limit(1000)
   if (error && (error.message?.includes('source') || error.message?.includes('column'))) {
     selectCols = 'id, email, delta, used_today, at, created_at, user_agent'
     const fallback = await supabaseAdmin
       .from('higgsfield_usage_events')
       .select(selectCols)
       .order('at', { ascending: false })
-      .limit(500)
+      .limit(1000)
     events = fallback.data
     error = fallback.error
   }
@@ -156,6 +156,10 @@ export default async function AdminHiggsfieldPage() {
               <p className="text-gray-400 text-xs">{standardCredits} crédits</p>
             </div>
           </div>
+        </div>
+
+        <div className="mb-8">
+          <HiggsfieldCreditHistory data={events} />
         </div>
 
         {byEmail.length > 0 && (
