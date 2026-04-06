@@ -14,14 +14,14 @@
     wh1: {
       key: 'wh1',
       label: 'Account 1',
-      email: 'ecom.efficiency1@gmail.com',
+     email: 'ecom.efficiency1@gmail.com',
       password: 'J6Myy@dJxD2qYNf'
     },
     wh2: {
       key: 'wh2',
       label: 'Account 2',
       email: 'wereni6226@gxuzi.com',
-      password: '!bcE9HL4p!QkF@D'
+      password: '!bc?E9HL4p!mkF@8oD'
     },
     sheet: {
       key: 'sheet',
@@ -199,7 +199,34 @@
     }
 
     overlay.appendChild(spinner);
+
+    const msg = document.createElement('div');
+    msg.textContent = 'Connecting to WinningHunter...';
+    Object.assign(msg.style, {
+      marginTop: '16px',
+      color: 'rgba(255,255,255,0.82)',
+      fontSize: '13px',
+      letterSpacing: '0.2px'
+    });
+    overlay.appendChild(msg);
     document.body.appendChild(overlay);
+  }
+
+  function keepLoadingOverlayPinned() {
+    if (DISABLE_LOADING_OVERLAY) return;
+    const intervalId = setInterval(() => {
+      try {
+        // Stop once we are no longer on login page
+        if (!isWinningHunterLoginPage()) {
+          clearInterval(intervalId);
+          return;
+        }
+        // Re-create overlay if site rerender removed it
+        if (!document.getElementById('auto-login-overlay')) {
+          showLoadingOverlay();
+        }
+      } catch (_) {}
+    }, 500);
   }
 
   function setReactInputValue(input, value) {
@@ -505,6 +532,7 @@
     const chosen = FIXED_ACCOUNTS[choice] || FIXED_ACCOUNTS.sheet;
 
     showLoadingOverlay();
+    keepLoadingOverlayPinned();
 
     let creds = null;
     if (chosen && chosen.mode === 'sheet') {

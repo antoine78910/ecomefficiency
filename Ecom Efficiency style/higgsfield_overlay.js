@@ -105,12 +105,12 @@
     // En cas de navigation interne (SPA), sonder brièvement l'arrivée du flag deadline et planifier le reload
     var tries = 0;
     var poll = setInterval(function() {
-      if (__deadlineReloadScheduled || tries++ > 60) { // ~15s max à 250ms
+      if (__deadlineReloadScheduled || tries++ > 24) { // ~24s max at 1000ms
         clearInterval(poll);
         return;
       }
       maybeScheduleDeadlineReload();
-    }, 250);
+    }, 1000);
   }
 
   // Ne jamais toucher le DOM avant load + 1.5s pour éviter React #418 (hydration mismatch).

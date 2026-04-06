@@ -381,7 +381,7 @@
     // If already filled but not submitted yet, just click submit.
     try {
       if (sessionStorage.getItem('HF_EMAILPASS_FILLED') === '1') {
-        await new Promise((r) => setTimeout(r, 250));
+        await new Promise((r) => setTimeout(r, 800));
         const submit = findLoginSubmitControl();
         if (submit) {
           try { sessionStorage.setItem('HF_LOGIN_SUBMITTED', '1'); } catch (_) {}
@@ -409,15 +409,15 @@
       return (el && isVisible(el)) ? el : null;
     }, 25000);
 
-    // Fill inputs
+    // Fill inputs (longer gaps reduce "rapid automation" flags on anti-bot pages)
     fillInputStable(emailInput, EMAIL);
-    await new Promise((r) => setTimeout(r, 250));
+    await new Promise((r) => setTimeout(r, 700));
     fillInputStable(pwdInput, PASSWORD);
 
     try { sessionStorage.setItem('HF_EMAILPASS_FILLED', '1'); } catch (_) {}
 
     // Auto-click Log in once, then disable for 2s to reduce detection risk during transition.
-    await new Promise((r) => setTimeout(r, 350));
+    await new Promise((r) => setTimeout(r, 900));
     const submit = findLoginSubmitControl();
     if (submit) {
       try { sessionStorage.setItem('HF_LOGIN_SUBMITTED', '1'); } catch (_) {}
@@ -440,7 +440,7 @@
     // If already filled but not submitted yet, just click submit.
     try {
       if (sessionStorage.getItem('HF_EMAILPASS_FILLED_LOGIN') === '1') {
-        await new Promise((r) => setTimeout(r, 250));
+        await new Promise((r) => setTimeout(r, 800));
         const submit = findLoginSubmitControl();
         if (submit) {
           try { sessionStorage.setItem('HF_LOGIN_SUBMITTED', '1'); } catch (_) {}
@@ -470,13 +470,13 @@
     if (emailInput && passwordInput) {
       // This page has the login form directly - fill inputs
       fillInputStable(emailInput, EMAIL);
-      await new Promise((r) => setTimeout(r, 250));
+      await new Promise((r) => setTimeout(r, 700));
       fillInputStable(passwordInput, PASSWORD);
 
       try { sessionStorage.setItem('HF_EMAILPASS_FILLED_LOGIN', '1'); } catch (_) {}
 
       // Auto-click Log in once, then disable for 2s to reduce detection risk during transition.
-      await new Promise((r) => setTimeout(r, 350));
+      await new Promise((r) => setTimeout(r, 900));
       const submit = findLoginSubmitControl();
       if (submit) {
         try { sessionStorage.setItem('HF_LOGIN_SUBMITTED', '1'); } catch (_) {}
@@ -532,6 +532,6 @@
       __lastPath = p;
       run();
     } catch (_) {}
-  }, 500);
+  }, 2000);
 })();
 

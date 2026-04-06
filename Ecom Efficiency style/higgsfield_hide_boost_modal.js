@@ -1,11 +1,11 @@
-// Hide Higgsfield "Generate up to 3X Faster" / Boost credits / Nano Banana modal (poll every 0.5s)
+// Hide Higgsfield "Generate up to 3X Faster" / Boost credits / Nano Banana modal (slow poll — avoid bot detection)
 (function () {
   'use strict';
   var host = (typeof location !== 'undefined' && location.hostname) ? location.hostname.toLowerCase() : '';
   if (host !== 'higgsfield.ai' && host !== 'www.higgsfield.ai') return;
   if ((location.pathname || '').indexOf('/auth') === 0) return;
 
-  var CHECK_MS = 500;
+  var CHECK_MS = 3000;
   var seen = new WeakSet();
 
   function hideBoostModal() {

@@ -101,6 +101,16 @@ function scoreEmailForService({ raw, from, subject, to }, service) {
   } else if (s === 'openai') {
     if (/openai|auth\.openai\.com/i.test(fromL + ' ' + subjectL + ' ' + text)) score += 12;
     if (/verification\s+code|one[-\s]?time\s+code|otp/i.test(text)) score += 2;
+  } else if (s === 'freepik') {
+    if (/freepik/i.test(fromL)) score += 10;
+    if (/info@freepik\.com/i.test(fromL)) score += 8;
+    if (/noreply@freepik\.com/i.test(fromL)) score += 6;
+    if (/freepik/i.test(subjectL)) score += 6;
+    if (/verif|code|confirm|one[-\s]?time/i.test(subjectL)) score += 3;
+    if (/one[-\s]?time\s+(verification|login)\s+code/i.test(text)) score += 4;
+    if (/verification\s+code|one[-\s]?time\s+code|otp|security\s+code/i.test(text)) score += 2;
+    if (/freepik\s+account/i.test(text)) score += 3;
+    if (looksOpenAI) score -= 20;
   } else if (s === 'flair') {
     // Flair magic-link login email
     if (/hi\.flair\.ai|flair\.ai/i.test(fromL)) score += 12;
@@ -163,6 +173,7 @@ async function scanOtpFromMailbox(client, mailbox, service) {
 
         const score = scoreEmailForService({ raw, from: fromAddress, subject, to: toAddress }, service);
         if (service === 'higgsfield' && score < 5) continue;
+        if (service === 'freepik' && score < 5) continue;
 
         const candidate = {
           score,
@@ -342,13 +353,15 @@ app.get('/otp-higgsfield', async (req, res) => {
 // Helper to serve vmake OTP for a given accountId ("1", "2", "3")
 async function handleOtpVmake(accountId, req, res) {
   const account = String(accountId || '3'); // default account 3
-  console.log('[imap-vmake] OTP-VMAKE request received at', new Date().toISOString(), 'account=', account);
+  const sinceTs = Number(req && req.query && req.query.since ? req.query.since : 0);
+  console.log('[imap-vmake] OTP-VMAKE request received at', new Date().toISOString(), 'account=', account, 'sinceTs=', sinceTs || 0);
 
   // Deduplicate in-flight requests for the same account (avoid dozens of 90s timeouts in parallel)
   const now = Date.now();
-  const inflight = vmakeInflight.get(account);
+  const inflightKey = `${account}:${sinceTs || 0}`;
+  const inflight = vmakeInflight.get(inflightKey);
   if (inflight && (now - inflight.ts) < 25_000) {
-    console.log('[imap-vmake] Reusing in-flight IMAP attempt for account', account);
+    console.log('[imap-vmake] Reusing in-flight IMAP attempt for account', account, 'sinceTs=', sinceTs || 0);
     try {
       const out = await inflight.promise;
       return res.json(out);
@@ -435,21 +448,33 @@ async function handleOtpVmake(accountId, req, res) {
         console.log('[imap-vmake] Connected to IMAP server:', host);
 
         let code = '';
+        let matchedEmailTs = 0;
         const lock = await client.getMailboxLock('INBOX');
         try {
-          let seq; 
           const unseen = await client.search({ seen: false }, { uid: true });
-          if (unseen.length > 0) {
-            seq = unseen.slice(-20);
-            console.log('[imap-vmake] Found', unseen.length, 'unseen emails, checking last 20');
-          } else {
-            const all = await client.search({}, { uid: true });
-            seq = all.slice(-20);
-            console.log('[imap-vmake] No unseen emails, checking last 20 from all emails');
-          }
-          // latest first
-          seq = seq.reverse();
-          console.log('[imap-vmake] Processing', seq.length, 'emails');
+          const all = await client.search({}, { uid: true });
+
+          // Important: some recent Vmake emails can already be marked as seen,
+          // while the mailbox still contains many very old unseen emails.
+          // So we scan a union of:
+          // - last unseen emails
+          // - last emails overall
+          const unseenTail = unseen.slice(-30);
+          const allTail = all.slice(-30);
+          const seq = Array.from(new Set([].concat(unseenTail, allTail)))
+            .sort((a, b) => Number(b) - Number(a));
+
+          console.log(
+            '[imap-vmake] Search window:',
+            {
+              unseenCount: unseen.length,
+              totalCount: all.length,
+              unseenTail: unseenTail.length,
+              allTail: allTail.length,
+              processing: seq.length,
+              newestUid: seq[0] || null
+            }
+          );
 
           const NOW = Date.now();
           const MAX_AGE_MS = 15 * 60 * 1000; // 15 minutes
@@ -465,11 +490,22 @@ async function handleOtpVmake(accountId, req, res) {
               // 1. Date check - Ignore old emails
               if (message.envelope && message.envelope.date) {
                 const emailDate = new Date(message.envelope.date);
+                const emailTs = emailDate.getTime();
                 const ageMs = NOW - emailDate.getTime();
+                if (sinceTs > 0 && emailTs > 0 && emailTs < sinceTs) {
+                  console.log('[imap-vmake] Email', uid, 'is older than sinceTs, skipping.', {
+                    emailTs,
+                    sinceTs
+                  });
+                  continue;
+                }
                 if (ageMs > MAX_AGE_MS) {
                   console.log('[imap-vmake] Email', uid, 'is too old (' + Math.round(ageMs/60000) + ' min), skipping.');
                   continue;
                 }
+              } else if (sinceTs > 0) {
+                console.log('[imap-vmake] Email', uid, 'has no envelope date, skipping because sinceTs filter is active.');
+                continue;
               }
 
               // 2. Sender check
@@ -484,75 +520,133 @@ async function handleOtpVmake(accountId, req, res) {
                 continue;
               }
 
-              // 3. Precise Code Extraction
-              let m = null;
-
-              // ---- New Vmake template (2026): code digits are in 4 separate <td> boxes ----
-              // Example:
-              // <td ... style="...background:#0F23370D;...">7</td> ... repeated 4 times
-              // We extract the 4 single digits and concatenate them (e.g. "7339").
-              const tryExtractVmakeTdCode = (html) => {
+              // 3. Precise Code Extraction (robust against new HTML/quoted-printable templates)
+              const extractVmakeCode = (input) => {
                 try {
-                  const s = String(html || '');
+                  const original = String(input || '');
+                  const decoded = decodeHtmlEntitiesMinimal(decodeQuotedPrintable(original));
+                  const compact = decoded.replace(/=\r?\n/g, '');
+                  const textOnly = compact
+                    .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+                    .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+                    .replace(/<br\s*\/?>/gi, ' ')
+                    .replace(/<\/?(td|tr|table|div|span|p)[^>]*>/gi, ' ')
+                    .replace(/<[^>]+>/g, ' ')
+                    .replace(/\s+/g, ' ')
+                    .trim();
+                  const normalizeDigits = (value) => String(value || '').replace(/[^\d]/g, '');
 
-                  // Narrow scan around the "log in to Vmake" text if present (reduces false positives like 2026 in footer)
-                  const scoped =
-                    (s.match(/We received a request to log in to Vmake[\s\S]{0,3500}/i) || [])[0] ||
-                    (s.match(/log in to Vmake[\s\S]{0,3500}/i) || [])[0] ||
-                    s;
-
-                  // First, the strongest signal: the code boxes have background:#0F23370D (or background-color)
-                  const digits1 = Array.from(
-                    scoped.matchAll(
-                      /<td\b[^>]*style="[^"]*background(?:-color)?\s*:\s*#0f23370d[^"]*"[^>]*>\s*(\d)\s*<\/td>/gi
+                  // A0. Template Vmake actuel (2026): 4 <td> avec style contenant #0F23370D (boîtes 83×44px, login code).
+                  // Lookahead: la balise peut avoir align= avant style= ; [^>]*style= seul est fragile.
+                  const tdByVmakeBg = Array.from(
+                    compact.matchAll(
+                      /<td(?=[^>]*\bstyle="[^"]*#0f23370d[^"]*")[^>]*>[\s\r\n]*(\d)[\s\r\n]*<\/td>/gi
                     )
                   ).map((mm) => (mm && mm[1] ? String(mm[1]) : '')).filter(Boolean);
+                  if (tdByVmakeBg.length >= 4) return tdByVmakeBg.slice(0, 4).join('');
 
-                  if (digits1.length >= 4) return digits1.slice(0, 4).join('');
+                  // A. New Vmake template: digits rendered in separate boxes
+                  const scopedHtml =
+                    (compact.match(/We received a request to log in to Vmake[\s\S]{0,12000}/i) || [])[0] ||
+                    (compact.match(/log in to Vmake[\s\S]{0,12000}/i) || [])[0] ||
+                    (compact.match(/verification code[\s\S]{0,12000}/i) || [])[0] ||
+                    compact;
 
-                  // Fallback: between "following login code" and "This login code is used"
-                  const windowMatch = scoped.match(
-                    /following\s+login\s+code[\s\S]{0,2500}?This\s+login\s+code\s+is\s+used/i
+                  const tdDigitsStrong = Array.from(
+                    scopedHtml.matchAll(
+                      /<(?:td|div|span)\b[^>]*style="[^"]*background(?:-color)?\s*:\s*#0f23370d[^"]*"[^>]*>\s*(\d)\s*<\/(?:td|div|span)>/gi
+                    )
+                  ).map((mm) => mm && mm[1] ? String(mm[1]) : '').filter(Boolean);
+                  if (tdDigitsStrong.length >= 4) return tdDigitsStrong.slice(0, 4).join('');
+
+                  const tdDigitsWindow = Array.from(
+                    scopedHtml.matchAll(/<(?:td|div|span)\b[^>]*>\s*(\d)\s*<\/(?:td|div|span)>/gi)
+                  ).map((mm) => mm && mm[1] ? String(mm[1]) : '').filter(Boolean);
+                  if (tdDigitsWindow.length >= 4) return tdDigitsWindow.slice(0, 4).join('');
+
+                  const tdDigitsNested = Array.from(
+                    scopedHtml.matchAll(
+                      /<(?:td|div|span)\b[^>]*>(?:\s|&nbsp;|<[^>]+>)*(\d)(?:\s|&nbsp;|<[^>]+>)*<\/(?:td|div|span)>/gi
+                    )
+                  ).map((mm) => mm && mm[1] ? String(mm[1]) : '').filter(Boolean);
+                  if (tdDigitsNested.length >= 4) return tdDigitsNested.slice(0, 4).join('');
+
+                  // B. Common textual variants
+                  const exactPatterns = [
+                    /your\s+verification\s+code\s+is[\s:.-]*([0-9]{4,8})/i,
+                    /verification\s+code[\s:.-]*([0-9]{4,8})/i,
+                    /login\s+code[\s:.-]*([0-9]{4,8})/i,
+                    /code\s+below[\s:.-]*([0-9]{4,8})/i,
+                    /enter\s+the\s+following\s+code[\s:.-]*([0-9]{4,8})/i,
+                    /one[-\s]?time\s+(?:passcode|password|code)[\s:.-]*([0-9]{4,8})/i,
+                    /otp[\s:.-]*([0-9]{4,8})/i
+                  ];
+                  for (const re of exactPatterns) {
+                    const m = textOnly.match(re) || compact.match(re);
+                    if (m && m[1]) return m[1];
+                  }
+
+                  // C. Code digits separated by spaces in text version: "7 3 3 9"
+                  const splitDigits =
+                    textOnly.match(/(?:verification|login)\s+code[\s\S]{0,120}?((?:\d[\s-]*){4,8})/i) ||
+                    textOnly.match(/(?:use|enter)[\s\S]{0,120}?((?:\d[\s-]*){4,8})[\s\S]{0,120}?(?:code|otp)/i);
+                  if (splitDigits && splitDigits[1]) {
+                    const normalized = normalizeDigits(splitDigits[1]);
+                    if (/^\d{4,8}$/.test(normalized)) return normalized;
+                  }
+
+                  // D. Old fallback patterns
+                  let m = compact.match(/<div[^>]*style="[^"]*font-size:\s*40px[^"]*"[^>]*>[\s\r\n]*(\d{4,8})[\s\r\n]*<\/div>/i);
+                  if (!m) {
+                    m = compact.match(/font-size:\s*40px[^>]*>[\s\r\n]*(\d{4,8})[\s\r\n]*<\/div>/i);
+                  }
+                  if (m && m[1]) return m[1];
+
+                  // E. Last resort: any 4-8 digits near "Vmake" / "verification"
+                  const contextual =
+                    textOnly.match(/vmake[\s\S]{0,180}?(\d{4,8})/i) ||
+                    textOnly.match(/verification[\s\S]{0,180}?(\d{4,8})/i);
+                  if (contextual && contextual[1]) {
+                    const candidate = contextual[1];
+                    const n = parseInt(candidate, 10);
+                    if (!(candidate.length === 4 && n >= 2020 && n <= 2030)) return candidate;
+                  }
+
+                  // F. Last fallback on a fresh Vmake email: take the first reasonable 4-8 digit candidate in text.
+                  const fallbackCandidates = Array.from(
+                    new Set(
+                      (textOnly.match(/\b\d{4,8}\b/g) || [])
+                        .concat(compact.match(/\b\d{4,8}\b/g) || [])
+                        .map(normalizeDigits)
+                        .filter((candidate) => {
+                          if (!/^\d{4,8}$/.test(candidate)) return false;
+                          const n = parseInt(candidate, 10);
+                          if (candidate.length === 4 && n >= 2020 && n <= 2030) return false;
+                          return true;
+                        })
+                    )
                   );
-                  const windowHtml = windowMatch ? windowMatch[0] : scoped;
-
-                  const digits2 = Array.from(
-                    windowHtml.matchAll(/<td\b[^>]*>\s*(\d)\s*<\/td>/gi)
-                  ).map((mm) => (mm && mm[1] ? String(mm[1]) : '')).filter(Boolean);
-
-                  // Heuristic: pick the first 4 digits (should correspond to the 4 code boxes in that window)
-                  if (digits2.length >= 4) return digits2.slice(0, 4).join('');
+                  if (fallbackCandidates.length) return fallbackCandidates[0];
                 } catch (_) {}
                 return '';
               };
 
-              const tdCode = tryExtractVmakeTdCode(raw);
-              if (tdCode && /^\d{4}$/.test(tdCode)) {
-                code = tdCode;
-                console.log('[imap-vmake] ✓ Extracted code (new td template):', code, 'from email UID:', uid, 'host:', host);
+              const extracted = extractVmakeCode(raw);
+              if (extracted && /^\d{4}$/.test(extracted)) {
+                code = extracted;
+                matchedEmailTs = message && message.envelope && message.envelope.date
+                  ? new Date(message.envelope.date).getTime()
+                  : 0;
+                console.log('[imap-vmake] ✓ Extracted code:', code, 'from email UID:', uid, 'host:', host);
                 break;
               }
-
-              m = raw.match(/<div[^>]*style="[^"]*font-size:\s*40px[^"]*"[^>]*>[\s\r\n]*(\d{4})[\s\r\n]*<\/div>/i);
-              if (!m) {
-                m = raw.match(/font-size:\s*40px[^>]*>[\s\r\n]*(\d{4})[\s\r\n]*<\/div>/i);
-              }
-              if (!m) {
-                const contextMatch = raw.match(/Your verification code is[\s\S]{0,150}?(\d{4})/i);
-                if (contextMatch) {
-                  const candidate = contextMatch[1];
-                  if (parseInt(candidate) >= 2020 && parseInt(candidate) <= 2030) {
-                    console.log('[imap-vmake] Skipped candidate ' + candidate + ' because it looks like a year and wasn\'t in the main code box.');
-                  } else {
-                    m = contextMatch;
-                  }
-                }
-              }
-
-              if (m && m[1]) { 
-                code = m[1]; 
-                console.log('[imap-vmake] ✓ Extracted code:', code, 'from email UID:', uid, 'host:', host);
-                break; 
+              if (uid === seq[0]) {
+                const subjectPreview = message?.envelope?.subject || '';
+                console.warn('[imap-vmake] Newest Vmake email seen but code extraction failed', {
+                  uid,
+                  subject: String(subjectPreview),
+                  fromAddress
+                });
               }
             } catch (emailErr) {
               console.warn('[imap-vmake] Error processing email', uid, ':', emailErr.message);
@@ -560,8 +654,8 @@ async function handleOtpVmake(accountId, req, res) {
             }
           }
 
-          console.log('[imap-vmake] Sending response:', { code: code || 'not found', host });
-          return { code };
+          console.log('[imap-vmake] Sending response:', { code: code || 'not found', host, sinceTs: sinceTs || 0, matchedEmailTs: matchedEmailTs || 0 });
+          return { code, sinceTs: sinceTs || 0, matchedEmailTs: matchedEmailTs || 0 };
         } finally {
           lock.release();
         }
@@ -581,7 +675,7 @@ async function handleOtpVmake(accountId, req, res) {
     throw err;
   })();
 
-  vmakeInflight.set(account, { ts: now, promise: workPromise });
+  vmakeInflight.set(inflightKey, { ts: now, promise: workPromise });
   try {
     const out = await workPromise;
     return res.json(out);
@@ -594,8 +688,8 @@ async function handleOtpVmake(accountId, req, res) {
       hint: 'CONNECT_TIMEOUT means the server could not open a TCP connection to the IMAP host:port. Usually firewall/port block, wrong host, or provider blocks your server IP. Try setting IMAP_HOSTS2 to an alternate IMAP hostname that works from the server.'
     });
   } finally {
-    const cur = vmakeInflight.get(account);
-    if (cur && cur.promise === workPromise) vmakeInflight.delete(account);
+    const cur = vmakeInflight.get(inflightKey);
+    if (cur && cur.promise === workPromise) vmakeInflight.delete(inflightKey);
   }
 }
 
@@ -605,6 +699,107 @@ app.get('/otp-vmake2', async (req, res) => handleOtpVmake('2', req, res));
 app.get('/otp-vmake3', async (req, res) => handleOtpVmake('3', req, res));
 // Backward compatibility: default to account 3
 app.get('/otp-vmake', async (req, res) => handleOtpVmake(req.query.account || '3', req, res));
+
+// =======================
+// Freepik OTP (account verification)
+// =======================
+const freepikInflight = new Map();
+
+app.get('/otp-freepik', async (req, res) => {
+  console.log('[imap-freepik] OTP-FREEPIK request received at', new Date().toISOString());
+
+  const now = Date.now();
+  const inflight = freepikInflight.get('freepik');
+  if (inflight && (now - inflight.ts) < 25_000) {
+    console.log('[imap-freepik] Reusing in-flight IMAP attempt');
+    try {
+      const out = await inflight.promise;
+      return res.json(out);
+    } catch (e) {
+      return res.status(500).json({ error: (e && e.message) ? e.message : String(e) });
+    }
+  }
+
+  const imapHost = process.env.IMAP_FREEPIK_HOST || 'imap.gmail.com';
+  const imapPort = Number(process.env.IMAP_FREEPIK_PORT || 993);
+  const imapTLS  = String(process.env.IMAP_FREEPIK_TLS || 'true') === 'true';
+  const imapMethod = (process.env.IMAP_FREEPIK_METHOD || process.env.IMAP_METHOD || 'LOGIN').toUpperCase();
+  const imapUser = process.env.IMAP_FREEPIK_USER;
+  const imapPass = process.env.IMAP_FREEPIK_PASS;
+
+  console.log('[imap-freepik] Config:', {
+    host: imapHost,
+    port: imapPort,
+    user: imapUser ? imapUser.substring(0, 3) + '***' : 'missing',
+    tls: imapTLS,
+    method: imapMethod
+  });
+
+  if (!imapHost || !imapUser || !imapPass) {
+    console.error('[imap-freepik] Missing env vars', { host: !!imapHost, user: !!imapUser, pass: !!imapPass });
+    return res.status(500).json({ error: 'Missing IMAP_FREEPIK_* env vars (set IMAP_FREEPIK_USER and IMAP_FREEPIK_PASS for Gmail app password)' });
+  }
+
+  const workPromise = (async () => {
+    const client = new ImapFlow({
+      host: imapHost,
+      port: imapPort,
+      secure: imapTLS,
+      auth: { user: imapUser, pass: imapPass, method: imapMethod },
+      tls: imapTLS ? { servername: imapHost } : undefined,
+    });
+
+    let code = '';
+    let picked = null;
+
+    try {
+      await client.connect();
+      const mailboxesToTry = ['INBOX', 'Junk', 'Spam'];
+      for (const box of mailboxesToTry) {
+        try {
+          const best = await scanOtpFromMailbox(client, box, 'freepik');
+          if (best && best.code) {
+            picked = { ...best, mailbox: box };
+            code = best.code;
+            break;
+          }
+        } catch (_) {
+          continue;
+        }
+      }
+    } finally {
+      try { await client.logout(); } catch (_) {}
+    }
+
+    if (picked) {
+      console.log('[imap-freepik] Picked email:', {
+        mailbox: picked.mailbox,
+        uid: picked.uid,
+        from: picked.from,
+        subject: picked.subject,
+        date: picked.date,
+        score: picked.score,
+        code
+      });
+    } else {
+      console.log('[imap-freepik] No matching OTP email found (code empty)');
+    }
+
+    return { code: code || '' };
+  })();
+
+  freepikInflight.set('freepik', { ts: now, promise: workPromise });
+  try {
+    const out = await workPromise;
+    return res.json(out);
+  } catch (e) {
+    console.error('[imap-freepik] Error while fetching OTP:', e);
+    return res.status(500).json({ error: (e && e.message) ? e.message : String(e) });
+  } finally {
+    const cur = freepikInflight.get('freepik');
+    if (cur && cur.promise === workPromise) freepikInflight.delete('freepik');
+  }
+});
 
 // =======================
 // Flair magic-link (email link sign-in)
@@ -886,7 +1081,7 @@ app.get('/health', (req, res) => {
 app.get('/', (req, res) => {
   res.json({ 
     message: 'IMAP Server is running', 
-    endpoints: ['/otp', '/otp-higgsfield', '/otp-vmake', '/otp-vmake1', '/otp-vmake2', '/otp-vmake3', '/flair-link', '/health'],
+    endpoints: ['/otp', '/otp-higgsfield', '/otp-vmake', '/otp-vmake1', '/otp-vmake2', '/otp-vmake3', '/otp-freepik', '/flair-link', '/health'],
     port: Number(PORT) 
   });
 });

@@ -533,6 +533,13 @@
     },
     {
       "matches": [
+        "https://www.freepik.com/verify-account*"
+      ],
+      "js": ["freepik_otp.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": [
         "https://www.freepik.com/*"
       ],
       "exclude_matches": [
@@ -742,19 +749,6 @@
         "https://www.higgsfield.ai/auth/*"
       ],
       "js": ["higgsfield_gray_header.js"],
-      "run_at": "document_end"
-    }
-    ,
-    {
-      "matches": [
-        "https://higgsfield.ai/*",
-        "https://www.higgsfield.ai/*"
-      ],
-      "exclude_matches": [
-        "https://higgsfield.ai/auth/*",
-        "https://www.higgsfield.ai/auth/*"
-      ],
-      "js": ["auto_higgsfield_unlimited.js"],
       "run_at": "document_end"
     }
     ,

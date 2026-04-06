@@ -106,7 +106,7 @@
   let lastCode = null;
   let startedAt = 0;
   let timedOut = false;
-  const POLL_MS = 500;
+  const POLL_MS = 2000;
   const MAX_MS = 60000;
 
   function ensureOverlay() {
@@ -426,7 +426,7 @@
       // Keep it cheap: only rerun when OTP input exists.
       if (findOtpInput()) run();
     } catch (_) {}
-  }, 1000);
+  }, 4000);
 
   log('Loaded on', location.href);
 })();

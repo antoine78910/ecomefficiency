@@ -1,7 +1,13 @@
 // background.js
 
-// Silence all console output from the service worker.
-// (Prevents leaking credentials / debug spam in extension logs.)
+// Silence most console output from the service worker.
+// Keep originals for targeted diagnostic logging (Freepik OTP, etc.)
+const __bgConsole = {
+  log: console.log.bind(console),
+  info: console.info.bind(console),
+  warn: console.warn.bind(console),
+  error: console.error.bind(console),
+};
 try {
   const noop = function () {};
   console.log = noop;
@@ -568,6 +574,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     (async () => {
       try {
         const accountParam = message.account || '3';
+        const sinceTs = Number(message.sinceTs || 0);
         // Primary server (current): 51.83.103.21
         // Fallback server (older): 46.224.61.179
         const baseUrls = [
@@ -585,9 +592,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               // Try each URL (primary then fallback) on each attempt
               for (let i = 0; i < baseUrls.length; i++) {
                 const baseUrl = baseUrls[i];
+                const querySuffix = sinceTs > 0
+                  ? `?since=${encodeURIComponent(String(sinceTs))}&t=${Date.now()}`
+                  : `?t=${Date.now()}`;
                 const urlVariants = [
-                  baseUrl + '?t=' + Date.now(), // cache-bust
-                  baseUrl // without query (some servers/proxies behave differently)
+                  baseUrl + querySuffix, // cache-bust + earliest accepted email time
+                  sinceTs > 0
+                    ? `${baseUrl}?since=${encodeURIComponent(String(sinceTs))}`
+                    : baseUrl
                 ];
 
                 for (const url of urlVariants) {
@@ -630,21 +642,31 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                       continue;
                     }
 
-                    // Server can return JSON {"code":"8451"} (known),
-                    // but also tolerate plain text by extracting digits.
                     let code = (json && json.code) ? String(json.code).trim() : '';
-                    if (!code && text) {
-                      const m = String(text).match(/\b\d{4,8}\b/);
-                      if (m) code = String(m[0]).trim();
+                    if (sinceTs > 0) {
+                      const echoedSinceTs = Number(json && json.sinceTs ? json.sinceTs : 0);
+                      const matchedEmailTs = Number(json && json.matchedEmailTs ? json.matchedEmailTs : 0);
+                      if (echoedSinceTs !== sinceTs) {
+                        lastErr = new Error('Server did not confirm sinceTs filter');
+                        continue;
+                      }
+                      if (matchedEmailTs > 0 && matchedEmailTs < sinceTs) {
+                        lastErr = new Error('Server returned a stale email');
+                        continue;
+                      }
                     }
 
-                    if (code && code.length >= 4) {
+                    if (code && /^\d{4}$/.test(code)) {
                       console.log('[EE-BG-VMAKE] Success, sending code:', code, 'from', url);
-                      sendResponse({ ok: true, code: code, sourceUrl: url });
+                      sendResponse({ ok: true, code: code, sourceUrl: url, sinceTs });
                       return;
                     }
 
-                    lastErr = new Error('Code empty or invalid');
+                    if (code) {
+                      lastErr = new Error('Code invalid format');
+                    } else {
+                      lastErr = new Error('Code empty or invalid');
+                    }
                   } catch (e) {
                     lastErr = e;
                     console.log('[EE-BG-VMAKE] Fetch error for', url, e);
@@ -851,6 +873,107 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     return true;
   }
 
+
+  // ============================================
+  // FREEPIK OTP (account verification) — verbose diagnostics
+  // ============================================
+  if (message && message.type === 'FETCH_FREEPIK_OTP') {
+    const _log = __bgConsole.log;
+    const _err = __bgConsole.error;
+    _log('[EE-BG][FREEPIK] FETCH_FREEPIK_OTP request received');
+
+    (async () => {
+      const diagSteps = []; // collect step-by-step info for the content script overlay
+      try {
+        const baseUrls = [
+          'http://51.83.103.21:20016/otp-freepik',
+          'http://46.224.61.179:20016/otp-freepik'
+        ];
+        let lastErr = null;
+        const tried = [];
+
+        for (let attempt = 0; attempt < 3; attempt++) {
+          for (const baseUrl of baseUrls) {
+            const url = baseUrl + '?t=' + Date.now();
+            tried.push(url);
+            const stepInfo = { attempt: attempt + 1, url, status: null, bodyPreview: null, error: null, codeFound: null };
+            try {
+              _log('[EE-BG][FREEPIK] Trying URL:', url);
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 8000);
+              const res = await fetch(url, {
+                cache: 'no-store',
+                credentials: 'omit',
+                redirect: 'follow',
+                headers: {
+                  'Accept': 'application/json,text/plain,*/*',
+                  'Cache-Control': 'no-cache',
+                  'Pragma': 'no-cache'
+                },
+                signal: controller.signal
+              }).finally(() => {
+                try { clearTimeout(timeoutId); } catch (_) {}
+              });
+
+              stepInfo.status = res.status;
+              const text = await res.text().catch(() => '');
+              stepInfo.bodyPreview = text ? text.slice(0, 500) : '(empty body)';
+              let json = null;
+              try { json = text ? JSON.parse(text) : null; } catch (_) {}
+
+              if (!res.ok) {
+                const msg =
+                  (json && (json.error || json.message)) ||
+                  (text && text.slice(0, 240)) ||
+                  `HTTP ${res.status}`;
+                stepInfo.error = 'HTTP ' + res.status + ': ' + msg;
+                lastErr = new Error(msg);
+                _err('[EE-BG][FREEPIK] HTTP error', res.status, msg);
+                diagSteps.push(stepInfo);
+                continue;
+              }
+
+              let code = (json && json.code) ? String(json.code).trim() : '';
+              if (!code && text) {
+                const m = String(text).match(/\b\d{4,8}\b/);
+                if (m) code = String(m[0]).trim();
+              }
+
+              if (code && code.length >= 4) {
+                stepInfo.codeFound = code;
+                diagSteps.push(stepInfo);
+                _log('[EE-BG][FREEPIK] ✓ Code received:', code, 'from', url);
+                sendResponse({ ok: true, code, sourceUrl: url, diagSteps });
+                return;
+              }
+              stepInfo.error = 'Server responded OK but code is empty/invalid. JSON code field: ' + JSON.stringify(json && json.code) + '. Raw body starts: ' + (text || '').slice(0, 120);
+              lastErr = new Error(stepInfo.error);
+              _err('[EE-BG][FREEPIK] Code empty', stepInfo.error);
+            } catch (e) {
+              stepInfo.error = (e && e.name ? e.name + ': ' : '') + (e && e.message ? e.message : String(e));
+              lastErr = e;
+              _err('[EE-BG][FREEPIK] fetch error', stepInfo.error);
+            }
+            diagSteps.push(stepInfo);
+          }
+          if (attempt < 2) await new Promise(r => setTimeout(r, 1500));
+        }
+
+        _err('[EE-BG][FREEPIK] ✗ All attempts failed', { lastErr: lastErr ? lastErr.message : 'unknown', triedCount: tried.length });
+        sendResponse({
+          ok: false,
+          error: lastErr ? (lastErr.message || String(lastErr)) : 'Failed after 3 attempts',
+          tried: tried.slice(-12),
+          diagSteps
+        });
+      } catch (e) {
+        _err('[EE-BG][FREEPIK] Outer catch', e && e.message ? e.message : e);
+        sendResponse({ ok: false, error: String(e && e.message ? e.message : e), diagSteps });
+      }
+    })();
+
+    return true;
+  }
 
   // ============================================
   // FOREPLAY INITIAL RESET (One-time per session)

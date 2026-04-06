@@ -792,8 +792,11 @@
       setTimeout(async () => {
         console.log('[VMAVE-AUTOLOGIN] Clicking "Send" button with humanClick');
         humanClick(sendBtn);
+        otpEarliestAcceptedAt = Date.now();
         
-        console.log('[VMAVE-AUTOLOGIN] "Send" clicked. Waiting for OTP input to appear...');
+        console.log('[VMAVE-AUTOLOGIN] "Send" clicked. Waiting for OTP input to appear...', {
+          earliestAcceptedAt: otpEarliestAcceptedAt
+        });
         
         // 4) Wait for OTP input (usually appears after send)
         // Try to find the verify code input
@@ -829,6 +832,7 @@
   let otpPollTimer = null;
   let otpCountdownTimer = null;
   let otpPollStartedAt = 0;
+  let otpEarliestAcceptedAt = 0;
   const OTP_POLL_INTERVAL_MS = 500;
   const OTP_MAX_DURATION_MS = 60000; // 60s max polling
 
@@ -946,6 +950,7 @@
     retryBtn.addEventListener('click', () => {
       lastOtpCode = null;
       otpRequestInFlight = false;
+      otpEarliestAcceptedAt = Date.now();
       const res = document.getElementById('vmake-otp-result');
       const lab = document.getElementById('vmake-otp-label');
       const spin = document.getElementById('vmake-otp-spinner');
@@ -1041,12 +1046,20 @@
     try {
       const response = await new Promise((resolve) => {
         const acc = getSelectedAccount();
-        chrome.runtime.sendMessage({ type: 'FETCH_VMAKE_OTP', account: acc.id }, (res) => resolve(res));
+        chrome.runtime.sendMessage(
+          {
+            type: 'FETCH_VMAKE_OTP',
+            account: acc.id,
+            sinceTs: otpEarliestAcceptedAt || otpPollStartedAt || Date.now()
+          },
+          (res) => resolve(res)
+        );
       });
 
       if (response && response.ok && response.code) {
-        const code = String(response.code || '').trim();
-        if (code && code.length >= 4) {
+        const rawCode = String(response.code || '').trim();
+        const code = (/^\d{4}$/.test(rawCode) ? rawCode : '');
+        if (code) {
           // Keep polling and always keep the latest code on screen.
           if (!lastOtpCode || code !== lastOtpCode) {
             lastOtpCode = code;
@@ -1054,6 +1067,9 @@
             setOtpCodeOnOverlay(code);
           }
           return;
+        }
+        if (rawCode) {
+          console.warn('[VMAVE-AUTOLOGIN] Ignoring invalid Vmake OTP format:', rawCode);
         }
       }
 
@@ -1075,6 +1091,7 @@
     ensureOtpOverlay();
     stopOtpPolling();
     otpPollStartedAt = Date.now();
+    if (!otpEarliestAcceptedAt) otpEarliestAcceptedAt = otpPollStartedAt;
     updateOtpCountdownLabel();
 
     otpCountdownTimer = setInterval(() => {

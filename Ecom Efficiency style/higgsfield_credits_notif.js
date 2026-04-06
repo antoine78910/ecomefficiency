@@ -7,8 +7,7 @@
 (function() {
     'use strict';
 
-    // TEMP: disable the Higgsfield credits popup entirely.
-    // Set to false to re-enable once detection is stable.
+    // Désactivé : popup "No More Credits / Credits left" redondant avec le widget Ecom (higgsfield_ecom_subscription.js).
     const DISABLE_HIGGSFIELD_CREDITS_POPUP = true;
 
     // Silence all console output for this script (avoid noise / leaks).
@@ -456,14 +455,14 @@
         notifDiv.id = 'higgsfield-custom-credits-notif';
         notifDiv.style.cssText = `
             position: fixed;
-            top: 140px;
-            right: 20px;
-            width: 360px;
+            top: 120px;
+            right: 12px;
+            width: 260px;
             background: #1a1a2e;
-            border-radius: 12px;
-            padding: 24px;
-            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(138, 43, 226, 0.4);
+            border-radius: 10px;
+            padding: 14px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.28);
+            border: 1px solid rgba(138, 43, 226, 0.35);
             z-index: 999999;
             color: white;
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
@@ -474,7 +473,7 @@
             <style>
                 @keyframes slideIn {
                     from {
-                        transform: translateX(100px);
+                        transform: translateX(80px);
                         opacity: 0;
                     }
                     to {
@@ -483,94 +482,195 @@
                     }
                 }
 
-                /* Place a bit higher on smaller screens so it stays visible */
                 @media (max-width: 1200px) {
-                    #higgsfield-custom-credits-notif {
-                        top: 100px !important;
-                        right: 12px !important;
-                        width: 320px !important;
+                    #higgsfield-custom-credits-notif:not(.ee-hf-notif-minimized) {
+                        top: 88px !important;
+                        right: 8px !important;
+                        width: 236px !important;
                     }
                 }
+
+                #higgsfield-custom-credits-notif.ee-hf-notif-minimized {
+                    width: auto !important;
+                    min-width: 0 !important;
+                    max-width: none !important;
+                    padding: 6px 8px !important;
+                    top: auto !important;
+                    bottom: 16px !important;
+                    right: 12px !important;
+                    border-radius: 999px !important;
+                    box-shadow: 0 2px 12px rgba(0,0,0,0.35);
+                    display: flex !important;
+                    flex-direction: row !important;
+                    align-items: center !important;
+                    gap: 6px !important;
+                }
+                #higgsfield-custom-credits-notif.ee-hf-notif-minimized .ee-hf-notif-body {
+                    display: none !important;
+                }
+                #higgsfield-custom-credits-notif.ee-hf-notif-minimized .ee-hf-notif-toolbar {
+                    position: static !important;
+                    display: flex !important;
+                    align-items: center !important;
+                    gap: 4px !important;
+                    margin: 0 !important;
+                    order: 2;
+                }
+                #higgsfield-custom-credits-notif.ee-hf-notif-minimized .minimize-btn {
+                    display: none !important;
+                }
+                #higgsfield-custom-credits-notif.ee-hf-notif-minimized .ee-hf-notif-pill {
+                    order: 1;
+                }
+                #higgsfield-custom-credits-notif .ee-hf-notif-pill {
+                    display: none;
+                    align-items: center;
+                    gap: 6px;
+                    padding: 4px 2px;
+                    font-size: 12px;
+                    font-weight: 600;
+                    cursor: pointer;
+                    user-select: none;
+                    color: #e9d5ff;
+                    white-space: nowrap;
+                }
+                #higgsfield-custom-credits-notif.ee-hf-notif-minimized .ee-hf-notif-pill {
+                    display: flex !important;
+                }
                 
-                #higgsfield-custom-credits-notif .close-btn {
+                #higgsfield-custom-credits-notif .ee-hf-notif-toolbar {
                     position: absolute;
-                    top: 12px;
-                    right: 12px;
+                    top: 8px;
+                    right: 8px;
+                    display: flex;
+                    gap: 4px;
+                    z-index: 2;
+                }
+
+                #higgsfield-custom-credits-notif .close-btn,
+                #higgsfield-custom-credits-notif .minimize-btn {
                     background: transparent;
                     border: 1px solid rgba(138, 43, 226, 0.3);
-                    color: rgba(138, 43, 226, 0.8);
-                    width: 28px;
-                    height: 28px;
+                    color: rgba(138, 43, 226, 0.85);
+                    width: 26px;
+                    height: 26px;
                     border-radius: 6px;
                     cursor: pointer;
                     display: flex;
                     align-items: center;
                     justify-content: center;
                     transition: all 0.2s ease;
-                    font-size: 18px;
+                    font-size: 16px;
                     font-weight: 600;
+                    line-height: 1;
+                    padding: 0;
                 }
                 
-                #higgsfield-custom-credits-notif .close-btn:hover {
+                #higgsfield-custom-credits-notif .close-btn:hover,
+                #higgsfield-custom-credits-notif .minimize-btn:hover {
                     background: rgba(138, 43, 226, 0.15);
                     border-color: rgba(138, 43, 226, 0.6);
                     color: rgba(138, 43, 226, 1);
                 }
                 
                 #higgsfield-custom-credits-notif .timer {
-                    font-size: 42px;
+                    font-size: 28px;
                     font-weight: 700;
-                    margin: 15px 0;
+                    margin: 10px 0 8px 0;
                     color: #a78bfa;
                 }
                 
                 #higgsfield-custom-credits-notif .label {
-                    font-size: 13px;
                     opacity: 0.7;
-                    margin-bottom: 8px;
+                    margin-bottom: 6px;
                     letter-spacing: 0.3px;
                     text-transform: uppercase;
-                    font-size: 11px;
+                    font-size: 10px;
                 }
             </style>
+
+            <div class="ee-hf-notif-toolbar">
+                <button type="button" class="minimize-btn" id="minimize-higgsfield-credits-notif" title="Réduire">−</button>
+                <button type="button" class="close-btn" id="close-higgsfield-credits-notif" title="Fermer">×</button>
+            </div>
+
+            <div class="ee-hf-notif-pill" id="restore-higgsfield-credits-notif" role="button" tabindex="0" title="Afficher les crédits">
+                <span style="font-size:14px;">⚠</span>
+                <span>Crédits</span>
+            </div>
             
-            <button class="close-btn" id="close-higgsfield-credits-notif" title="Close">×</button>
-            
-            <div style="font-size: 24px; font-weight: 700; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; justify-content: center;">
-                <span style="font-size: 28px;">⚠️</span>
+            <div class="ee-hf-notif-body">
+            <div style="font-size: 17px; font-weight: 700; margin: 0 52px 12px 0; display: flex; align-items: center; gap: 8px;">
+                <span style="font-size: 20px;">⚠️</span>
                 <span>No More Credits</span>
             </div>
 
-            <div style="text-align:center; opacity:0.85; font-size: 14px; margin-top: -8px; margin-bottom: 14px;">
+            <div style="text-align:center; opacity:0.85; font-size: 12px; margin-bottom: 10px;">
                 Credits left: <b>${isFinite(remainingCredits) ? remainingCredits : '?'}</b>
             </div>
 
             <div style="
                 background: rgba(167, 139, 250, 0.10);
                 border: 1px solid rgba(167, 139, 250, 0.28);
-                border-radius: 10px;
-                padding: 12px 12px;
-                margin: 10px 0 14px 0;
-                font-size: 13px;
+                border-radius: 8px;
+                padding: 8px 10px;
+                margin: 0 0 10px 0;
+                font-size: 11px;
                 line-height: 1.35;
                 text-align: left;
             ">
-                <div style="font-weight: 700; margin-bottom: 6px; color: #c4b5fd;">
+                <div style="font-weight: 700; margin-bottom: 4px; color: #c4b5fd;">
                     Unlimited generations still available
                 </div>
                 <div style="opacity: 0.95;">Images: <b>Nanobanana</b>, <b>Seedream</b></div>
                 <div style="opacity: 0.95;">Video: <b>Kling</b></div>
-                <div style="opacity: 0.75; margin-top: 6px; font-size: 12px;">
+                <div style="opacity: 0.75; margin-top: 4px; font-size: 10px;">
                     (Even if your Higgsfield credits are 0)
                 </div>
             </div>
             
             <div class="label">Credits will be added in</div>
             <div class="timer">${timerText}</div>
+            </div>
         `;
 
         document.body.appendChild(notifDiv);
         console.log('[Higgsfield Credits] Custom notification created');
+
+        function setMinimized(on) {
+            if (on) {
+                notifDiv.classList.add('ee-hf-notif-minimized');
+                try { sessionStorage.setItem('higgsfield_credits_notif_minimized', '1'); } catch (_) {}
+            } else {
+                notifDiv.classList.remove('ee-hf-notif-minimized');
+                try { sessionStorage.removeItem('higgsfield_credits_notif_minimized'); } catch (_) {}
+            }
+        }
+
+        try {
+            if (sessionStorage.getItem('higgsfield_credits_notif_minimized') === '1') {
+                setMinimized(true);
+            }
+        } catch (_) {}
+
+        const minimizeBtn = document.getElementById('minimize-higgsfield-credits-notif');
+        if (minimizeBtn) {
+            minimizeBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                setMinimized(true);
+            });
+        }
+
+        const restorePill = document.getElementById('restore-higgsfield-credits-notif');
+        if (restorePill) {
+            restorePill.addEventListener('click', () => setMinimized(false));
+            restorePill.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                    e.preventDefault();
+                    setMinimized(false);
+                }
+            });
+        }
 
         // Ajouter les event listeners
         const closeBtn = document.getElementById('close-higgsfield-credits-notif');
@@ -585,6 +685,7 @@
                 } catch (_) {
                     sessionStorage.setItem('higgsfield_credits_notif_dismissed', '1');
                 }
+                try { sessionStorage.removeItem('higgsfield_credits_notif_minimized'); } catch (_) {}
                 console.log('[Higgsfield Credits] Notification dismissed for this session');
                 
                 notifDiv.style.animation = 'slideIn 0.3s ease-in reverse';
@@ -659,9 +760,12 @@
 
     // Démarrer l'observation
     function startObserving() {
-        // TEMP: credits popup disabled → ensure it is not visible and stop here.
+        // Popup désactivé → retirer toute notif résiduelle puis arrêter (réessaye si body pas prêt).
         if (DISABLE_HIGGSFIELD_CREDITS_POPUP) {
-            try { removeCustomNotification(); } catch (_) {}
+            try {
+                if (document.body) removeCustomNotification();
+                else { setTimeout(startObserving, 50); return; }
+            } catch (_) {}
             return;
         }
         if (document.body) {

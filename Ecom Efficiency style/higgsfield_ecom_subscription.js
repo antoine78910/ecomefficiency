@@ -555,17 +555,116 @@
   // --- Widget ---
   var WIDGET_STYLE_ID = 'ee-hf-ecom-widget-style';
   let widgetEl = null;
+  var widgetPositionRaf = null;
+
+  function getEcomLogoUrl() {
+    try {
+      if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.getURL === 'function') {
+        return chrome.runtime.getURL('logo_ecom.png');
+      }
+    } catch (_) {}
+    return '';
+  }
+
+  function getExtensionIconUrl() {
+    try {
+      if (typeof chrome !== 'undefined' && chrome.runtime && typeof chrome.runtime.getURL === 'function') {
+        return chrome.runtime.getURL('icon.png');
+      }
+    } catch (_) {}
+    return '';
+  }
+
+  function findProfileMenuTrigger() {
+    try {
+      var el = document.querySelector('[data-header-menu="profile-menu"] button[data-header-menu-trigger="true"]');
+      if (el && el.getBoundingClientRect) {
+        var r = el.getBoundingClientRect();
+        if (r.width > 0 && r.height > 0) return el;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  function scheduleWidgetPosition() {
+    if (widgetPositionRaf) return;
+    widgetPositionRaf = requestAnimationFrame(function () {
+      widgetPositionRaf = null;
+      applyWidgetAnchorPosition();
+    });
+  }
+
+  function applyWidgetAnchorPosition() {
+    var w = document.getElementById('ee-hf-ecom-widget');
+    if (!w) return;
+    var btn = findProfileMenuTrigger();
+    var minimized = w.classList.contains('ee-hf-ecom-widget--minimized');
+    if (!btn) {
+      w.classList.remove('ee-hf-ecom-widget--profile-anchor');
+      w.style.left = 'auto';
+      w.style.top = '14px';
+      w.style.right = '14px';
+      w.style.bottom = 'auto';
+      if (minimized) {
+        w.style.width = '40px';
+        w.style.height = '40px';
+      } else {
+        w.style.width = '200px';
+        w.style.height = '';
+      }
+      return;
+    }
+    w.classList.add('ee-hf-ecom-widget--profile-anchor');
+    var r = btn.getBoundingClientRect();
+    if (minimized) {
+      w.style.left = r.left + 'px';
+      w.style.top = r.top + 'px';
+      w.style.right = 'auto';
+      w.style.bottom = 'auto';
+      w.style.width = Math.max(0, r.width) + 'px';
+      w.style.height = Math.max(0, r.height) + 'px';
+    } else {
+      w.style.left = 'auto';
+      w.style.right = (window.innerWidth - r.right) + 'px';
+      w.style.top = (r.bottom + 8) + 'px';
+      w.style.bottom = 'auto';
+      w.style.width = '200px';
+      w.style.height = '';
+    }
+  }
 
   function ensureWidgetStyle() {
     if (document.getElementById(WIDGET_STYLE_ID)) return;
     var s = document.createElement('style');
     s.id = WIDGET_STYLE_ID;
     s.textContent =
-      '#ee-hf-ecom-widget{position:fixed;top:14px;right:14px;z-index:2147483645;width:224px;color:#fff;' +
+      '#ee-hf-ecom-widget{position:fixed;z-index:2147483645;width:200px;color:#fff;' +
       'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;border-radius:16px;overflow:hidden;' +
-      'transition:box-shadow 0.3s ease,border-color 0.3s ease;}' +
+      'transition:box-shadow 0.3s ease,border-color 0.3s ease,width 0.2s ease,height 0.2s ease,top 0.15s ease,right 0.15s ease,left 0.15s ease;}' +
       '#ee-hf-ecom-widget .ee-w-bar-track{width:100%;height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;}' +
-      '#ee-hf-ecom-widget .ee-w-bar-fill{height:100%;border-radius:3px;transition:width 0.5s ease;}';
+      '#ee-hf-ecom-widget .ee-w-bar-fill{height:100%;border-radius:3px;transition:width 0.5s ease;}' +
+      '#ee-hf-ecom-widget #ee-hf-ecom-widget-min{cursor:pointer;border:1px solid rgba(149,65,224,0.35);background:rgba(149,65,224,0.12);' +
+      'color:#e9d5ff;border-radius:6px;font-size:14px;line-height:1;padding:0;width:22px;height:22px;display:flex;align-items:center;justify-content:center;}' +
+      '#ee-hf-ecom-widget #ee-hf-ecom-widget-min:hover{background:rgba(149,65,224,0.22);}' +
+      '#ee-hf-ecom-widget.ee-hf-ecom-widget--minimized{width:auto!important;min-width:0!important;max-width:none!important;border-radius:999px!important;' +
+      'background:transparent!important;border:none!important;box-shadow:none!important;overflow:visible!important;}' +
+      '#ee-hf-ecom-widget.ee-hf-ecom-widget--minimized .ee-w-full{display:none!important;}' +
+      '#ee-hf-ecom-widget.ee-hf-ecom-widget--minimized #ee-hf-ecom-widget-pill{display:flex!important;}' +
+      '#ee-hf-ecom-widget #ee-hf-ecom-widget-pill{display:none;align-items:center;justify-content:center;gap:0;margin:0;width:100%;height:100%;box-sizing:border-box;' +
+      'border:none;cursor:pointer;font-family:inherit;text-align:center;padding:0;border-radius:999px;background:transparent;color:#fff;}' +
+      '#ee-hf-ecom-widget #ee-hf-ecom-widget-pill .ee-w-pill-ring{position:relative;display:flex;align-items:center;justify-content:center;flex-shrink:0;}' +
+      '#ee-hf-ecom-widget #ee-hf-ecom-widget-pill .ee-w-pill-svg{transform:rotate(-90deg);display:block;}' +
+      '#ee-hf-ecom-widget #ee-hf-ecom-widget-pill .ee-w-pill-avatar{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);' +
+      'border-radius:50%;overflow:hidden;display:grid;place-items:center;background:#0a0a0a;}' +
+      '#ee-hf-ecom-widget #ee-hf-ecom-widget-pill .ee-w-pill-avatar img{width:100%;height:100%;object-fit:cover;display:block;}' +
+      '#ee-hf-ecom-widget #ee-hf-ecom-widget-pill:hover{filter:brightness(1.12);}' +
+      '#ee-hf-ecom-widget #ee-hf-ecom-widget-pill:active{transform:scale(0.98);}' +
+      '#ee-hf-ecom-widget .ee-w-email-blurred .ee-w-email-text{filter:blur(9px);user-select:none;-webkit-user-select:none;pointer-events:none;transition:filter 0.2s ease;}' +
+      '#ee-hf-ecom-widget .ee-w-email-privacy-btn{cursor:pointer;border:1px solid rgba(149,65,224,0.4);background:rgba(149,65,224,0.14);' +
+      'color:#e9d5ff;border-radius:8px;padding:0;width:28px;height:28px;display:inline-flex;align-items:center;justify-content:center;flex-shrink:0;}' +
+      '#ee-hf-ecom-widget .ee-w-email-privacy-btn svg{display:block;}' +
+      '#ee-hf-ecom-widget .ee-w-email-privacy-btn:hover{background:rgba(149,65,224,0.26);border-color:rgba(186,130,255,0.55);}' +
+      '#ee-hf-ecom-widget .ee-w-email-row{display:flex;align-items:center;gap:6px;margin-bottom:8px;min-width:0;}';
     (document.head || document.documentElement).appendChild(s);
   }
 
@@ -581,6 +680,13 @@
     widgetEl = document.createElement('div');
     widgetEl.id = 'ee-hf-ecom-widget';
     document.body.appendChild(widgetEl);
+    try {
+      if (!window.__ee_hf_ecom_widget_position_bound) {
+        window.__ee_hf_ecom_widget_position_bound = true;
+        window.addEventListener('scroll', scheduleWidgetPosition, true);
+        window.addEventListener('resize', scheduleWidgetPosition, { passive: true });
+      }
+    } catch (_) {}
     return widgetEl;
   }
 
@@ -595,7 +701,6 @@
     var limitVal = limit !== undefined ? limit : CONFIG.DAILY_CREDIT_LIMIT;
     var usedVal = usedToday != null ? usedToday : 0;
     var remaining = Math.max(0, limitVal - usedVal);
-    var hours = getHoursUntilReset();
     var pct = limitVal > 0 ? Math.round((remaining / limitVal) * 100) : 0;
     var email = getVerifiedEmail();
 
@@ -611,8 +716,29 @@
     w.style.border = '1px solid ' + borderColor;
     w.style.boxShadow = '0 8px 32px ' + shadowColor + ', 0 0 0 1px ' + borderColor;
 
+    var emailBlurOn = false;
+    try { emailBlurOn = sessionStorage.getItem('ee_hf_ecom_blur_email') === '1'; } catch (_) {}
+
+    var svgEye = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>';
+    var svgEyeOff = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>';
+    var privacyTitle = emailBlurOn
+      ? 'Afficher l\u2019email'
+      : 'Flouter l\u2019email (enregistrement, stream, capture)';
+    var privacyLabel = emailBlurOn ? 'Afficher l\u2019email' : 'Masquer l\u2019email pour capture d\u2019\u00e9cran';
+
     var emailHtml = email
-      ? '<div style="font-size:11px;color:#b54af3;word-break:break-all;margin-bottom:8px;opacity:0.85;">' + String(email).replace(/</g, '&lt;') + '</div>'
+      ? (
+        '<div class="ee-w-email-row' + (emailBlurOn ? ' ee-w-email-blurred' : '') + '">' +
+          '<div id="ee-hf-ecom-email-text" class="ee-w-email-text" style="flex:1;min-width:0;font-size:11px;color:#b54af3;word-break:break-all;opacity:0.85;line-height:1.35;">' +
+            String(email).replace(/</g, '&lt;') +
+          '</div>' +
+          '<button type="button" id="ee-hf-ecom-email-privacy" class="ee-w-email-privacy-btn" ' +
+            'title="' + privacyTitle + '" aria-label="' + privacyLabel + '" ' +
+            'aria-pressed="' + (emailBlurOn ? 'true' : 'false') + '">' +
+            (emailBlurOn ? svgEye : svgEyeOff) +
+          '</button>' +
+        '</div>'
+      )
       : '';
 
     var lastHtml = (lastGenDelta > 0)
@@ -630,25 +756,128 @@
       )
       : '';
 
+    var pillSize = 32;
+    try {
+      var tr = findProfileMenuTrigger();
+      if (tr) {
+        var pr = tr.getBoundingClientRect();
+        var ps = Math.round(Math.min(pr.width, pr.height));
+        if (ps > 0) pillSize = Math.max(28, Math.min(44, ps));
+      }
+    } catch (_) {}
+    var strokeW = 2;
+    var rc = (pillSize - strokeW) / 2;
+    var cc = pillSize / 2;
+    var circ = 2 * Math.PI * rc;
+    var frac = limitVal > 0 ? Math.min(1, Math.max(0, remaining / limitVal)) : 0;
+    var dashOff = circ * (1 - frac);
+    var ringFg = remaining > 0 ? '#b54af3' : '#ef4444';
+    var innerPad = Math.max(3, Math.round(pillSize * 0.125));
+    var avSize = Math.max(16, pillSize - innerPad * 2);
+    var logoUrl = getEcomLogoUrl();
+
+    var pillInner =
+      '<span class="ee-w-pill-ring" style="width:' + pillSize + 'px;height:' + pillSize + 'px">' +
+        '<svg class="ee-w-pill-svg" width="' + pillSize + '" height="' + pillSize + '" aria-hidden="true">' +
+          '<circle r="' + rc + '" cx="' + cc + '" cy="' + cc + '" stroke="rgba(255,255,255,0.14)" fill="transparent" stroke-width="' + strokeW + '"></circle>' +
+          '<circle r="' + rc + '" cx="' + cc + '" cy="' + cc + '" fill="transparent" stroke="' + ringFg + '" stroke-linecap="round" stroke-width="' + strokeW + '"' +
+          ' stroke-dasharray="' + circ + '" stroke-dashoffset="' + dashOff + '" style="transition:stroke-dashoffset 0.5s ease,stroke 0.3s ease"></circle>' +
+        '</svg>' +
+        '<span class="ee-w-pill-avatar" style="width:' + avSize + 'px;height:' + avSize + 'px">' +
+          '<img id="ee-hf-ecom-widget-logo" alt="Crédits Ecom Efficiency" src="' + String(logoUrl).replace(/"/g, '&quot;') + '" />' +
+        '</span>' +
+      '</span>';
+
     w.innerHTML =
-      '<div style="position:relative;padding:14px 16px 12px;">' +
+      '<div class="ee-w-full" style="position:relative;padding:12px 14px 10px;padding-top:10px;">' +
+        '<button type="button" id="ee-hf-ecom-widget-min" title="Réduire" aria-label="Réduire le widget">−</button>' +
         '<div style="position:absolute;top:-1px;left:50%;transform:translateX(-50%);width:50%;height:2px;background:linear-gradient(90deg,transparent,' + accentColor + ',transparent);border-radius:0 0 2px 2px;"></div>' +
-        '<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#b54af3;margin-bottom:8px;">Ecom Efficiency</div>' +
+        '<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#b54af3;margin-bottom:8px;padding-right:28px;">Ecom Efficiency</div>' +
         emailHtml +
-        '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px;">' +
-          '<span style="font-size:12px;color:rgba(255,255,255,0.5);">Remaining</span>' +
-          '<span style="font-size:22px;font-weight:700;color:' + accentColor + ';">' + remaining +
-            '<span style="font-size:12px;font-weight:400;color:rgba(255,255,255,0.35);"> / ' + limitVal + '</span>' +
+        '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">' +
+          '<span style="font-size:11px;color:rgba(255,255,255,0.5);">Remaining</span>' +
+          '<span style="font-size:20px;font-weight:700;color:' + accentColor + ';">' + remaining +
+            '<span style="font-size:11px;font-weight:400;color:rgba(255,255,255,0.35);"> / ' + limitVal + '</span>' +
           '</span>' +
         '</div>' +
         '<div class="ee-w-bar-track"><div class="ee-w-bar-fill" style="width:' + pct + '%;background:' + barColor + ';"></div></div>' +
         lastHtml +
-        '<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:rgba(255,255,255,0.35);margin-top:8px;">' +
-          '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
-          'Resets in ~' + hours + 'h' +
-        '</div>' +
         upgradeHtml +
-      '</div>';
+      '</div>' +
+      '<button type="button" id="ee-hf-ecom-widget-pill" title="Afficher le détail des crédits (' + remaining + '/' + limitVal + ')" aria-label="Crédits Ecom Efficiency : ' + remaining + ' sur ' + limitVal + '">' +
+        pillInner +
+      '</button>';
+
+    try {
+      if (sessionStorage.getItem('ee_hf_ecom_widget_minimized') === '1') {
+        w.classList.add('ee-hf-ecom-widget--minimized');
+      } else {
+        w.classList.remove('ee-hf-ecom-widget--minimized');
+      }
+    } catch (_) {}
+
+    (function bindWidgetChrome() {
+      var minBtn = document.getElementById('ee-hf-ecom-widget-min');
+      var pillBtn = document.getElementById('ee-hf-ecom-widget-pill');
+      var fullPanel = w.querySelector('.ee-w-full');
+      if (fullPanel) {
+        fullPanel.addEventListener('click', function (e) {
+          var t = e.target;
+          if (!t) return;
+          if (t.closest && (t.closest('button') || t.closest('a') || t.closest('input') || t.closest('select') || t.closest('textarea'))) return;
+          e.preventDefault();
+          w.classList.add('ee-hf-ecom-widget--minimized');
+          try { sessionStorage.setItem('ee_hf_ecom_widget_minimized', '1'); } catch (_) {}
+          scheduleWidgetPosition();
+        });
+      }
+      if (minBtn) {
+        minBtn.style.position = 'absolute';
+        minBtn.style.top = '8px';
+        minBtn.style.right = '8px';
+        minBtn.style.zIndex = '3';
+        minBtn.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          w.classList.add('ee-hf-ecom-widget--minimized');
+          try { sessionStorage.setItem('ee_hf_ecom_widget_minimized', '1'); } catch (_) {}
+          scheduleWidgetPosition();
+        });
+      }
+      if (pillBtn) {
+        pillBtn.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          w.classList.remove('ee-hf-ecom-widget--minimized');
+          try { sessionStorage.removeItem('ee_hf_ecom_widget_minimized'); } catch (_) {}
+          scheduleWidgetPosition();
+        });
+      }
+      var logoImg = document.getElementById('ee-hf-ecom-widget-logo');
+      if (logoImg) {
+        logoImg.addEventListener('error', function onLogoErr() {
+          logoImg.removeEventListener('error', onLogoErr);
+          var fallback = getExtensionIconUrl();
+          if (fallback && logoImg.src !== fallback) logoImg.src = fallback;
+        });
+      }
+      var privacyBtn = document.getElementById('ee-hf-ecom-email-privacy');
+      if (privacyBtn) {
+        privacyBtn.addEventListener('click', function (e) {
+          e.preventDefault();
+          e.stopPropagation();
+          try {
+            var on = sessionStorage.getItem('ee_hf_ecom_blur_email') === '1';
+            if (on) sessionStorage.removeItem('ee_hf_ecom_blur_email');
+            else sessionStorage.setItem('ee_hf_ecom_blur_email', '1');
+          } catch (_) {}
+          var used = getUsedToday();
+          var lim = CONFIG.DAILY_CREDIT_LIMIT;
+          updateWidget(used, lim, used >= lim, lastDelta);
+        });
+      }
+      scheduleWidgetPosition();
+    })();
   }
 
   // --- Tracking ---
@@ -677,7 +906,7 @@
     }
 
     refreshWidgetFromState();
-    widgetRefreshInterval = setInterval(refreshWidgetFromState, 1000);
+    widgetRefreshInterval = setInterval(refreshWidgetFromState, 2500);
   }
 
   function installGenerateClickBlocker() {
@@ -685,7 +914,7 @@
       if (isUnlimitedMode()) return;
       var el = e.target;
       if (!el) return;
-      if (el.closest && (el.closest('#ee-hf-credit-popup') || el.closest('#ee-hf-ecom-popup-root') || el.closest('#ee-hf-ecom-widget') || el.closest('#ee-hf-ecom-overlay-root'))) return;
+      if (el.closest && (el.closest('#ee-hf-ecom-popup-root') || el.closest('#ee-hf-ecom-widget') || el.closest('#ee-hf-ecom-overlay-root'))) return;
       var btn = el.closest ? el.closest('button') : null;
       if (!btn) return;
       if (btn.getAttribute && btn.getAttribute('data-ee-our-button') === '1') return;
@@ -697,7 +926,7 @@
       if (used >= limit) {
         e.preventDefault();
         e.stopPropagation();
-        showCreditPopup('No More Credits', 'You\'ve used all your daily credits. They will reset automatically.', getDailyRemaining(), CONFIG.DAILY_CREDIT_LIMIT);
+        showGenerateStatus('Daily credit limit reached.', 4500);
       }
     }, true);
   }
@@ -777,50 +1006,6 @@
     overlay.style.height = Math.max(0, r.height) + 'px';
   }
 
-  function showCreditPopup(title, message, remaining, limit, hoursUntilReset) {
-    var existingPopup = document.getElementById('ee-hf-credit-popup');
-    if (existingPopup) existingPopup.remove();
-    var backdrop = document.createElement('div');
-    backdrop.id = 'ee-hf-credit-popup';
-    backdrop.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.65);backdrop-filter:blur(6px);animation:eePopIn 0.2s ease;';
-    var pct = limit > 0 ? Math.max(0, Math.min(100, Math.round((remaining / limit) * 100))) : 0;
-    var barColor = remaining > 0 ? 'linear-gradient(90deg,#9541e0,#b54af3)' : 'linear-gradient(90deg,#ef4444,#dc2626)';
-    var hours = hoursUntilReset || getHoursUntilReset();
-    var mins = Math.round(((new Date(new Date().setHours(24,0,0,0)) - new Date()) / 60000) % 60);
-    var timeStr = hours > 0 ? hours + 'h ' + mins + 'min' : mins + 'min';
-    backdrop.innerHTML =
-      '<div style="max-width:380px;width:90%;background:linear-gradient(170deg,#0f0f1a 0%,#1a1028 50%,#0f0f1a 100%);border:1px solid rgba(149,65,224,0.25);border-radius:20px;padding:32px 28px;box-shadow:0 20px 80px rgba(149,65,224,0.2);font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;color:#fff;text-align:center;position:relative;">' +
-        '<div style="position:absolute;top:-1px;left:50%;transform:translateX(-50%);width:60%;height:3px;background:linear-gradient(90deg,transparent,#9541e0,#b54af3,#9541e0,transparent);border-radius:0 0 4px 4px;"></div>' +
-        '<div style="font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#b54af3;margin-bottom:12px;">Ecom Efficiency</div>' +
-        '<div style="font-size:20px;font-weight:700;margin-bottom:8px;">' + (title || 'Daily Credits') + '</div>' +
-        '<div style="font-size:14px;color:rgba(255,255,255,0.7);margin-bottom:20px;line-height:1.5;">' + (message || '') + '</div>' +
-        '<div style="background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.08);border-radius:14px;padding:16px;margin-bottom:20px;">' +
-          '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:10px;">' +
-            '<span style="font-size:13px;color:rgba(255,255,255,0.5);">Remaining</span>' +
-            '<span style="font-size:22px;font-weight:700;' + (remaining <= 0 ? 'color:#ef4444;' : 'color:#b54af3;') + '">' + remaining + '<span style="font-size:13px;font-weight:400;color:rgba(255,255,255,0.4);"> / ' + limit + '</span></span>' +
-          '</div>' +
-          '<div style="width:100%;height:6px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;">' +
-            '<div style="width:' + pct + '%;height:100%;background:' + barColor + ';border-radius:3px;transition:width 0.4s ease;"></div>' +
-          '</div>' +
-        '</div>' +
-        '<div style="display:flex;align-items:center;justify-content:center;gap:6px;font-size:13px;color:rgba(255,255,255,0.45);margin-bottom:20px;">' +
-          '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>' +
-          'Resets in ' + timeStr +
-        '</div>' +
-        '<button id="ee-hf-credit-popup-close" style="width:100%;padding:12px;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;background:linear-gradient(to bottom,#9541e0,#7c30c7);color:#fff;box-shadow:0 8px 40px rgba(149,65,224,0.35);transition:filter 0.15s;"' +
-          ' onmouseover="this.style.filter=\'brightness(1.15)\'" onmouseout="this.style.filter=\'none\'">' +
-          'Got it' +
-        '</button>' +
-      '</div>';
-    var style = document.createElement('style');
-    style.textContent = '@keyframes eePopIn{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}';
-    backdrop.appendChild(style);
-    document.body.appendChild(backdrop);
-    backdrop.addEventListener('click', function (e) { if (e.target === backdrop) backdrop.remove(); });
-    var closeBtn = document.getElementById('ee-hf-credit-popup-close');
-    if (closeBtn) closeBtn.addEventListener('click', function () { backdrop.remove(); });
-  }
-
   var lastStandardBtn = null;
   var lastUnlimitedBtn = null;
 
@@ -878,7 +1063,6 @@
       var hours = getHoursUntilReset();
       showGenerateStatus('No more credits for the day.', 6000);
       log('generation blocked: daily limit reached', source, 'used=' + used, 'cost=' + costInfo.cost, 'limit=' + limit, 'resetIn=' + hours + 'h');
-      showCreditPopup('No More Credits', 'This generation costs ' + costInfo.cost + ' credits but you only have ' + remaining + ' left.', remaining, limit, hours);
       return;
     }
 
@@ -972,8 +1156,8 @@
 
   function setupBlockingObserver() {
     installGenerateClickBlocker();
-    setInterval(installUnlimitedButtonOverlay, 1000);
-    setInterval(installStandardGenerateButtonOverlay, 1000);
+    setInterval(installUnlimitedButtonOverlay, 2500);
+    setInterval(installStandardGenerateButtonOverlay, 2500);
   }
 
   function scheduleBlockingObserver() {
@@ -1065,7 +1249,7 @@
       checkPathChange();
     };
     window.addEventListener('popstate', checkPathChange);
-    setInterval(checkPathChange, 800);
+    setInterval(checkPathChange, 2000);
     log('SPA watcher installed');
   }
 
@@ -1112,7 +1296,7 @@
           eeFullyInitialized = true;
         }
       };
-      setTimeout(tryShow, 500);
+      setTimeout(tryShow, 1500);
     } else {
       if (SIMULATE_CONNECTED) log('simulate mode: tracking enabled');
       removeShield();
@@ -1140,9 +1324,9 @@
     installShield();
 
     if (document.readyState === 'complete' || document.readyState === 'interactive') {
-      setTimeout(runPopupFlow, 400);
+      setTimeout(runPopupFlow, 1200);
     } else {
-      document.addEventListener('DOMContentLoaded', function () { setTimeout(runPopupFlow, 400); });
+      document.addEventListener('DOMContentLoaded', function () { setTimeout(runPopupFlow, 1200); });
     }
   }
 

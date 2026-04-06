@@ -8,6 +8,9 @@
     if (h === 'app.dropship.io') return;
     // Allow debugging on ElevenLabs (needed for cookie-logout + credits triggers)
     if (h === 'elevenlabs.io' || h.endsWith('.elevenlabs.io')) return;
+    // Allow debugging on HeyGen auth (needed for auto-login fixes)
+    if (h === 'auth.heygen.com' || h === 'app.heygen.com') return;
+    if (h === 'www.freepik.com' || h === 'freepik.com') return;
   } catch (_) {}
 
   // Silence extension logs in the content-script world.

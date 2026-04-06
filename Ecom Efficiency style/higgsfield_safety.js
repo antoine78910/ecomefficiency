@@ -654,105 +654,13 @@
     }
   }
 
+  // Disabled: top-right "No more credits" / Sunday reset timer popup (user request).
   function ensureCreditsResetPopup(reasonText) {
     try {
-      if (isResetPopupDismissed()) {
-        eeLog('[EE][HIGGSFIELD][reset-popup] Not showing: dismissed');
-        return false;
-      }
-      if (isHomePage()) {
-        eeLog('[EE][HIGGSFIELD][reset-popup] Not showing: home page');
-        return false;
-      }
-      const existing = document.getElementById(HF_RESET_POPUP_ID);
-      if (existing) {
-        // Update countdown only
-        const t = existing.querySelector('[data-ee-reset-timer="1"]');
-        if (t) t.textContent = formatResetCountdown();
-        eeLog('[EE][HIGGSFIELD][reset-popup] Already present -> updated countdown');
-        return true;
-      }
-
-      const root = document.createElement('div');
-      root.id = HF_RESET_POPUP_ID;
-      Object.assign(root.style, {
-        position: 'fixed',
-        top: '14px',
-        right: '14px',
-        zIndex: '2147483647',
-        width: '320px',
-        maxWidth: 'calc(100vw - 28px)',
-        background: 'rgba(10,10,14,0.88)',
-        color: '#fff',
-        borderRadius: '14px',
-        border: '1px solid rgba(255,255,255,0.12)',
-        boxShadow: '0 10px 30px rgba(0,0,0,0.35)',
-        padding: '12px 12px',
-        fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-        backdropFilter: 'blur(10px)',
-      });
-
-      const header = document.createElement('div');
-      Object.assign(header.style, { display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '10px' });
-
-      const title = document.createElement('div');
-      title.textContent = 'No more credits';
-      Object.assign(title.style, { fontSize: '14px', fontWeight: '700', letterSpacing: '0.2px' });
-
-      const close = document.createElement('button');
-      close.type = 'button';
-      close.textContent = '×';
-      Object.assign(close.style, {
-        width: '28px',
-        height: '28px',
-        borderRadius: '10px',
-        border: '1px solid rgba(255,255,255,0.14)',
-        background: 'rgba(255,255,255,0.06)',
-        color: '#fff',
-        cursor: 'pointer',
-        fontSize: '18px',
-        lineHeight: '26px'
-      });
-      close.addEventListener('click', () => {
-        try { sessionStorage.setItem(HF_RESET_POPUP_DISMISSED_KEY, String(Date.now())); } catch (_) {}
-        try { root.remove(); } catch (_) {}
-      });
-
-      header.appendChild(title);
-      header.appendChild(close);
-
-      const body = document.createElement('div');
-      Object.assign(body.style, { marginTop: '10px', display: 'flex', flexDirection: 'column', gap: '8px' });
-
-      const line = document.createElement('div');
-      line.innerHTML = `Credits reset every Sunday <span style="opacity:0.8">(12:00)</span> — next reset in <span data-ee-reset-timer="1" style="font-weight:700; color:#EFFE17">${formatResetCountdown()}</span>`;
-      Object.assign(line.style, { fontSize: '13px', opacity: '0.95' });
-
-      const hint = document.createElement('div');
-      hint.textContent = 'You can still create unlimited images with some models (e.g. Nanobanana Pro, Seedream, Kling, …).';
-      Object.assign(hint.style, { fontSize: '11px', opacity: '0.72', lineHeight: '1.3' });
-
-      body.appendChild(line);
-      body.appendChild(hint);
-
-      root.appendChild(header);
-      root.appendChild(body);
-      document.documentElement.appendChild(root);
-      eeLog('[EE][HIGGSFIELD][reset-popup] Created popup', { url: location.href, reason: String(reasonText || '') });
-
-      // Keep countdown fresh
-      const iv = setInterval(() => {
-        try {
-          if (!document.getElementById(HF_RESET_POPUP_ID)) return clearInterval(iv);
-          const t = document.querySelector(`#${HF_RESET_POPUP_ID} [data-ee-reset-timer="1"]`);
-          if (t) t.textContent = formatResetCountdown();
-        } catch (_) {}
-      }, 30000);
-
-      return true;
-    } catch (_) {
-      return false;
-    }
+      const ex = document.getElementById(HF_RESET_POPUP_ID);
+      if (ex) ex.remove();
+    } catch (_) {}
+    return false;
   }
 
   function maybeShowCreditsResetPopupFromPage() {
@@ -1009,7 +917,8 @@
   let __eeHfScheduled = false;
   function scheduleHandleRoute() {
     const t = now();
-    if (t - __eeHfLastRunAt > 200) {
+    // Slower coalescing reduces DOM churn / "bot-like" rapid re-entry (Cloudflare-style checks).
+    if (t - __eeHfLastRunAt > 600) {
       __eeHfLastRunAt = t;
       try { handleRoute(); } catch (_) {}
       return;
@@ -1020,7 +929,7 @@
       __eeHfScheduled = false;
       __eeHfLastRunAt = now();
       try { handleRoute(); } catch (_) {}
-    }, 220);
+    }, 500);
   }
 
   // Règle d'or React/Next: toute modif DOM uniquement après load + 1,2s
@@ -1030,7 +939,8 @@
     injectNetworkLogger();
     scheduleHandleRoute();
     runUiBlockers();
-    setInterval(() => { try { runUiBlockers(); } catch (_) {} }, 500);
+    // Was 500ms — too aggressive; frequent DOM touches can trigger anti-bot / "rapid activity" screens.
+    setInterval(() => { try { runUiBlockers(); } catch (_) {} }, 3500);
   }
   function scheduleStartSafety() {
     setTimeout(startSafety, 1200);
@@ -1043,11 +953,11 @@
         removePaymentNagDialogs();
         var t0 = Date.now();
         var iv = setInterval(function () {
-          if (Date.now() - t0 > 3000) return clearInterval(iv);
+          if (Date.now() - t0 > 4000) return clearInterval(iv);
           removePaymentNagDialogs();
-        }, 80);
+        }, 450);
       } else {
-        setTimeout(runPaymentRemovalImmediate, 20);
+        setTimeout(runPaymentRemovalImmediate, 150);
       }
     } catch (_) {}
   })();
