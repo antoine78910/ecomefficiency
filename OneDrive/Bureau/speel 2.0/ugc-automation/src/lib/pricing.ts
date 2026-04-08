@@ -34,28 +34,64 @@ export const PRICING_BASE = {
 export const STARTER_CREDIT_VALUE_USD = 29.99 / 250;
 
 // ---------------------------------------------------------------------------
-// Link to Ad — video model pricing (fixed reference: 15s)
+// Link to Ad — video model pricing (Seedance tiers; full Generate = 33 / 49 / 69 cr)
 // ---------------------------------------------------------------------------
 
-/** Link to Ad video: Seedance only (Kling 3.0 disabled for this flow). */
+/**
+ * Video + Claude prompt step only. With scan (8) + 3× Nano Pro (9), full pipeline totals:
+ * 5s → 33, 10s → 49, 15s → 69 credits.
+ */
+export const LINK_TO_AD_SEEDANCE_VIDEO_CREDITS_BY_DURATION_SEC: Record<5 | 10 | 15, number> = {
+  5: 16,
+  10: 32,
+  15: 52,
+};
+
+/** Fast tier (~PiAPI $0.08/s vs $0.10/s): slightly lower credit burn than normal. */
+export const LINK_TO_AD_SEEDANCE_FAST_VIDEO_CREDITS_BY_DURATION_SEC: Record<5 | 10 | 15, number> = {
+  5: 13,
+  10: 26,
+  15: 42,
+};
+
+/** Link to Ad image→video: PiAPI `task_type` maps to these ids for `/api/kling/generate`. */
+export type LinkToAdSeedanceSpeed = "normal" | "fast";
+
+export function linkToAdSeedanceMarketModel(speed: LinkToAdSeedanceSpeed): string {
+  return speed === "fast" ? "bytedance/seedance-2-fast-preview" : "bytedance/seedance-2-preview";
+}
+
+/** Link to Ad video: Seedance 2 Preview only (Kling disabled for this flow). */
 export const LINK_TO_AD_VIDEO_MODELS = {
   seedance: {
-    creditsFor15s: 60,
-    marketModel: "bytedance/seedance-2.0-pro" as const,
+    marketModelNormal: "bytedance/seedance-2-preview" as const,
+    marketModelFast: "bytedance/seedance-2-fast-preview" as const,
   },
 } as const;
 
 export type LinkToAdVideoModelId = keyof typeof LINK_TO_AD_VIDEO_MODELS;
 
-/** Kie market id for Link to Ad image→video (always Seedance 2.0 Pro here). */
-export const LINK_TO_AD_VIDEO_MARKET_MODEL = LINK_TO_AD_VIDEO_MODELS.seedance.marketModel;
+/** @deprecated Use `linkToAdSeedanceMarketModel("normal")` */
+export const LINK_TO_AD_VIDEO_MARKET_MODEL = LINK_TO_AD_VIDEO_MODELS.seedance.marketModelNormal;
 
 export const CLAUDE_AI_CREDITS = 5;
 
-export function linkToAdVideoCredits(model: LinkToAdVideoModelId, durationSec: number): number {
-  const base = LINK_TO_AD_VIDEO_MODELS[model].creditsFor15s;
-  const perSecond = base / 15;
-  return Math.max(1, Math.ceil(durationSec * perSecond)) + CLAUDE_AI_CREDITS;
+export function linkToAdVideoCredits(
+  model: LinkToAdVideoModelId,
+  durationSec: number,
+  seedanceSpeed: LinkToAdSeedanceSpeed = "normal",
+): number {
+  void LINK_TO_AD_VIDEO_MODELS[model];
+  const table =
+    seedanceSpeed === "fast"
+      ? LINK_TO_AD_SEEDANCE_FAST_VIDEO_CREDITS_BY_DURATION_SEC
+      : LINK_TO_AD_SEEDANCE_VIDEO_CREDITS_BY_DURATION_SEC;
+  const d = Math.round(Number(durationSec)) || 10;
+  if (d === 5 || d === 10 || d === 15) {
+    return table[d];
+  }
+  const ref15 = table[15];
+  return Math.max(1, Math.ceil((d / 15) * ref15));
 }
 
 // ---------------------------------------------------------------------------
@@ -901,6 +937,24 @@ export const SUBSCRIPTIONS = [
 ] as const;
 
 // ---------------------------------------------------------------------------
+// Marketing — approximate generation counts from a credit balance (UI copy only)
+// Nanobanana-class images: 0.5 cr each → count ≈ credits × 2.
+// Sora 2–class videos: 5 cr each → count ≈ credits / 5.
+// ---------------------------------------------------------------------------
+
+export function upToAiImagesCountFromCredits(credits: number): number {
+  const n = Number(credits);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.max(1, Math.floor(n * 2));
+}
+
+export function upToAiVideosCountFromCredits(credits: number): number {
+  const n = Number(credits);
+  if (!Number.isFinite(n) || n <= 0) return 0;
+  return Math.max(1, Math.floor(n / 5));
+}
+
+// ---------------------------------------------------------------------------
 // Margin & P&L helpers (credits already consumed)
 // ---------------------------------------------------------------------------
 
@@ -955,8 +1009,13 @@ export function calculateVideoCreditsForModel(opts: VideoCreditOptions): number 
     case "kling-2.6/video":
       return calculateKling26VideoCredits(d, quality, audio);
 
+    case "bytedance/seedance-2-preview":
+      return Math.max(1, calculateKling30VideoCredits(d, "pro", true));
+    case "bytedance/seedance-2-fast-preview":
+      return Math.max(1, Math.ceil(calculateKling30VideoCredits(d, "pro", true) * 0.82));
+
     default:
-      // Seedance, Veo, etc.: anchor tier until per-model tables exist
+      // Veo, etc.: anchor tier until per-model tables exist
       return Math.max(1, calculateKling30VideoCredits(d, "pro", true));
   }
 }
