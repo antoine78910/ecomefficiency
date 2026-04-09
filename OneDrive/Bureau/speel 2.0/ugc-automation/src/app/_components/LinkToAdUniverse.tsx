@@ -14,6 +14,7 @@ import {
   ImagePlus,
   Loader2,
   Maximize2,
+  Download,
   PenLine,
   Plus,
   RefreshCw,
@@ -50,10 +51,10 @@ import {
   composeThreeLabeledPrompts,
   composeVideoPromptEditableSections,
   composeVideoPromptForApi,
-  stripEditSectionLabels,
   parseNanoEditableSections,
   parseThreeLabeledPrompts,
   parseVideoPromptEditableSections,
+  stripEditSectionLabels,
   splitUgcVideoPromptForEditing,
   type VideoPromptEditableSections,
   readUniverseFromExtracted,
@@ -176,13 +177,65 @@ function fnv1aHash(input: string): string {
   return (h >>> 0).toString(16);
 }
 
+async function downloadImageUrl(url: string, filename: string): Promise<void> {
+  const href = proxiedMediaSrc(url);
+  const res = await fetch(href);
+  if (!res.ok) throw new Error(`Download failed (HTTP ${res.status}).`);
+  const blob = await res.blob();
+  const objUrl = URL.createObjectURL(blob);
+  try {
+    const a = document.createElement("a");
+    a.href = objUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  } finally {
+    URL.revokeObjectURL(objUrl);
+  }
+}
+
+/** 30s scripts: show ## PART 1 + ## PART 2 (gestures, lines) in the angle card “Show all”. */
+function extractPartOneAndTwoForDisplay(editable: string): string | null {
+  const inner = editable.replace(/\r\n/g, "\n").trim();
+  const idx = inner.search(/#{1,2}\s*PART\s*1\b/i);
+  if (idx < 0) return null;
+  if (!/#{1,2}\s*PART\s*2\b/i.test(inner)) return null;
+  let end = inner.length;
+  for (const re of [
+    /\n\s*(?:\*\*)?VIDEO_METADATA\b/i,
+    /\n\s*---+(\s*\n|$)/,
+    /\n\s*SCRIPT\s+OPTION\s*\d+/i,
+  ]) {
+    const at = inner.search(re);
+    if (at >= 0) end = Math.min(end, at);
+  }
+  const slice = inner.slice(idx, end).trim();
+  if (!slice || !/PART\s*2\b/i.test(slice)) return null;
+  return slice;
+}
+
 function angleBriefPartsFromScriptOption(
   raw: string,
   angleIndex: 0 | 1 | 2,
 ): { brief: string; full: string; canExpand: boolean } {
   const { editable, headline } = angleBlockForEditing(raw);
-  const factors = splitScriptFactorsForUi(editable, headline);
   const headlineClean = headline.replace(/\s+/g, " ").trim();
+  const partDisplay = extractPartOneAndTwoForDisplay(editable);
+
+  if (partDisplay) {
+    const full = headlineClean ? `${headlineClean}\n\n${partDisplay}` : partDisplay;
+    const canExpand = full.length > 160;
+    const brief =
+      headlineClean || (canExpand ? `${full.slice(0, 160)}…` : full);
+    return {
+      brief: headlineClean ? headlineClean : brief,
+      full,
+      canExpand: headlineClean ? true : canExpand,
+    };
+  }
+
+  const factors = splitScriptFactorsForUi(editable, headline);
   const hookClean = (factors.hook || "").replace(/\s+/g, " ").trim();
   const benefitsClean = (factors.benefits || "").replace(/\s+/g, " ").trim();
 
@@ -223,8 +276,17 @@ function compactSummaryFromPartBasedScript(raw: string): string | null {
   const t = raw.replace(/\r\n/g, "\n").trim();
   if (!t) return null;
 
-  const p1 = /(?:^|\n)\s*\*{0,2}\s*PART\s*1\s*\*{0,2}\s*\n([\s\S]*?)(?=\n\s*\*{0,2}\s*PART\s*2\s*\*{0,2}\s*\n|$)/i.exec(t)?.[1] ?? "";
-  const p2 = /(?:^|\n)\s*\*{0,2}\s*PART\s*2\s*\*{0,2}\s*\n([\s\S]*?)(?=\n\s*-{3,}\s*\n|\n\s*\*{0,2}\s*VIDEO_METADATA\s*\*{0,2}\s*\n|$)/i.exec(t)?.[1] ?? "";
+  const partHdr = String.raw`(?:#{1,2}\s*|\*{0,2}\s*)`;
+  const p1 =
+    new RegExp(
+      String.raw`(?:^|\n)\s*${partHdr}PART\s*1\s*(?:#{1,2}\s*|\*{0,2}\s*)?\n([\s\S]*?)(?=\n\s*${partHdr}PART\s*2\b|$)`,
+      "i",
+    ).exec(t)?.[1] ?? "";
+  const p2 =
+    new RegExp(
+      String.raw`(?:^|\n)\s*${partHdr}PART\s*2\s*(?:#{1,2}\s*|\*{0,2}\s*)?\n([\s\S]*?)(?=\n\s*-{3,}\s*\n|\n\s*\*{0,2}\s*VIDEO_METADATA\s*\*{0,2}\s*\n|\n\s*VIDEO_METADATA\b|$)`,
+      "i",
+    ).exec(t)?.[1] ?? "";
 
   if (!p1.trim() && !p2.trim()) return null;
 
@@ -648,7 +710,7 @@ function LinkToAdRecentRunsChips({
                   })();
                 const dateShort = (() => {
                   try {
-                    return new Date(r.createdAt).toLocaleDateString(undefined, {
+                    return new Date(r.createdAt).toLocaleDateString("en-US", {
                       month: "short",
                       day: "numeric",
                     });
@@ -988,7 +1050,8 @@ export default function LinkToAdUniverse({
       .then(({ data }) => _setUserEmail(data.user?.email ?? null))
       .catch(() => {});
   }, []);
-  const _30sUnlocked = _userEmail === "anto.delbos@mail.com";
+  // 30s Link-to-Ad is enabled for testing (renders as two chained 15s clips).
+  const _30sUnlocked = true;
   /** After a fresh store scan starts, gate later steps against this snapshot so the wallet UI does not “jump” each step. Resync on image/video redo actions only. */
   const [ltaFrozenCredits, setLtaFrozenCredits] = useState<number | null>(null);
   const creditsBalanceRef = useRef(creditsBalance);
@@ -1699,6 +1762,7 @@ export default function LinkToAdUniverse({
       klingVideoUrl: mirror?.videoUrl ?? undefined,
       linkToAdPipelineByAngle: triple,
       ltaSeedanceSpeed,
+      ltaVideoDurationSec: normalizeUgcScriptVideoDurationSec(videoDuration),
     };
   }, [
     cleanCandidate,
@@ -1728,6 +1792,7 @@ export default function LinkToAdUniverse({
     pipelineByAngle,
     videoStageMode,
     ltaSeedanceSpeed,
+    videoDuration,
   ]);
 
   const quality = useMemo(() => confidenceToQuality(confidence ?? undefined), [confidence]);
@@ -1765,11 +1830,18 @@ export default function LinkToAdUniverse({
       const fallbackSafe = shouldSanitize ? sanitizeAngleLabelForAvatar(parts.brief) : parts.brief;
       const fullSafe = shouldSanitize ? sanitizeAngleLabelForAvatar(parts.full) : parts.full;
       const fallback = fallbackSafe;
+      const label = explicitSafe || fallback || "…";
+      const fullLabel =
+        explicitSafe && fullSafe && fullSafe.trim() !== explicitSafe.trim()
+          ? `${explicitSafe}\n\n${fullSafe}`
+          : explicitSafe || fullSafe || fallback || "…";
       return {
         index: i,
-        label: explicitSafe || fallback || "…",
-        fullLabel: explicitSafe || fullSafe || fallback || "…",
-        canExpand: Boolean(!explicitSafe && parts.canExpand && fullSafe && fullSafe !== (explicitSafe || fallback)),
+        label,
+        fullLabel,
+        canExpand: Boolean(
+          parts.canExpand && fullLabel.trim() !== label.trim(),
+        ),
       };
     });
   }, [angleLabels, hasAvatarPhoto, hasPersonaPhoto, sanitizeAngleLabelForAvatar, scriptOptionBodiesAll]);
@@ -2067,7 +2139,15 @@ export default function LinkToAdUniverse({
       setNanoPollTaskId(null);
       setKlingPollTaskId(null);
       setKlingPollImageIndex(null);
-      setLtaSeedanceSpeed(snap.ltaSeedanceSpeed === "fast" ? "fast" : "normal");
+      if (snap.ltaSeedanceSpeed === "fast" || snap.ltaSeedanceSpeed === "normal") {
+        setLtaSeedanceSpeed(snap.ltaSeedanceSpeed);
+      }
+      setVideoDuration(
+        snap.ltaVideoDurationSec != null
+          ? normalizeUgcScriptVideoDurationSec(snap.ltaVideoDurationSec)
+          : LINK_TO_AD_DEFAULT_VIDEO_DURATION_SEC,
+      );
+      setLtaVideoDurationLocked(Boolean(snap.scriptsText.trim()));
       prevAngleRef.current = snap.selectedAngleIndex;
       setLastExtractedJson(cloneExtractedBase(run.extracted));
       setStage("ready");
@@ -3048,7 +3128,10 @@ export default function LinkToAdUniverse({
     }
   }
 
-  async function onGenerateNanoBananaPrompts(angleIdx?: number | null): Promise<string | null> {
+  async function onGenerateNanoBananaPrompts(
+    angleIdx?: number | null,
+    opts?: { keepThreeImagesSubmitting?: boolean },
+  ): Promise<string | null> {
     const url = storeUrl.trim();
     const idx = angleIdx !== undefined && angleIdx !== null ? angleIdx : selectedAngleIndex;
     const selectedScript = selectedScriptOptionByIndex(scriptsText, idx);
@@ -3070,7 +3153,9 @@ export default function LinkToAdUniverse({
       return null;
     }
     setIsNanoPromptsLoading(true);
-    setIsNanoAllImagesSubmitting(false);
+    if (!opts?.keepThreeImagesSubmitting) {
+      setIsNanoAllImagesSubmitting(false);
+    }
     let text = "";
     try {
       nanoPromptsAbortRef.current?.abort();
@@ -3532,7 +3617,7 @@ export default function LinkToAdUniverse({
 
     let prompts: [string, string, string];
     if (!signatureMatches) {
-      const nextPrompts = await onGenerateNanoBananaPrompts(idx);
+      const nextPrompts = await onGenerateNanoBananaPrompts(idx, { keepThreeImagesSubmitting: true });
       if (!nextPrompts) {
         setIsNanoAllImagesSubmitting(false);
         return;
@@ -3551,6 +3636,8 @@ export default function LinkToAdUniverse({
       setIsNanoAllImagesSubmitting(false);
       return;
     }
+
+    setIsNanoAllImagesSubmitting(true);
 
     // Reset old images + downstream state so we don't “reuse” previous results.
     setNanoBananaImageUrl(null);
@@ -4680,7 +4767,7 @@ export default function LinkToAdUniverse({
             )}
           </div>
         ) : null}
-        {/* Duration + Seedance tier — locked once generation has started. */}
+        {/* Duration: locked once scripts exist / generation started so prompts stay aligned. Seedance tier stays user-editable. */}
         <div className="flex flex-wrap items-center gap-4">
           <div className="space-y-1">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-white/50">Duration</p>
@@ -4696,7 +4783,9 @@ export default function LinkToAdUniverse({
                     <button
                       key={d}
                       type="button"
-                      onClick={() => { if (!locked30) setVideoDuration(d); }}
+                      onClick={() => {
+                        if (!locked30) setVideoDuration(d);
+                      }}
                       disabled={isWorking || locked30}
                       className={cn(
                         "rounded-md px-3 py-1.5 text-xs font-semibold transition relative",
@@ -4719,31 +4808,24 @@ export default function LinkToAdUniverse({
           </div>
           <div className="space-y-1">
             <p className="text-[11px] font-semibold uppercase tracking-wide text-white/50">Seedance</p>
-            {ltaVideoDurationLocked ? (
-              <p className="rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2 text-xs font-semibold text-white/80">
-                {ltaSeedanceSpeed === "fast" ? "Fast" : "Normal"}
-                <span className="font-normal text-white/45"> (locked)</span>
-              </p>
-            ) : (
-              <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.03] p-1">
-                {(["normal", "fast"] as const).map((tier) => (
-                  <button
-                    key={tier}
-                    type="button"
-                    disabled={isWorking}
-                    onClick={() => setLtaSeedanceSpeed(tier)}
-                    className={cn(
-                      "rounded-md px-3 py-1.5 text-xs font-semibold transition",
-                      ltaSeedanceSpeed === tier
-                        ? "bg-violet-500/15 text-white border border-violet-400/60"
-                        : "bg-black/20 text-white/65 hover:border-white/20 border border-white/10",
-                    )}
-                  >
-                    {tier === "fast" ? "Fast" : "Normal"}
-                  </button>
-                ))}
-              </div>
-            )}
+            <div className="flex items-center gap-1 rounded-lg border border-white/10 bg-white/[0.03] p-1">
+              {(["normal", "fast"] as const).map((tier) => (
+                <button
+                  key={tier}
+                  type="button"
+                  disabled={isWorking}
+                  onClick={() => setLtaSeedanceSpeed(tier)}
+                  className={cn(
+                    "rounded-md px-3 py-1.5 text-xs font-semibold transition",
+                    ltaSeedanceSpeed === tier
+                      ? "bg-violet-500/15 text-white border border-violet-400/60"
+                      : "bg-black/20 text-white/65 hover:border-white/20 border border-white/10",
+                  )}
+                >
+                  {tier === "fast" ? "Fast" : "Normal"}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -5636,6 +5718,12 @@ export default function LinkToAdUniverse({
                           const url = nanoImageSlots[i];
                           const sel = nanoBananaSelectedImageIndex === i;
                           const pollingHere = Boolean(nanoPollTaskId && nanoPollingSlotIndex === i);
+                          const slotBusy =
+                            !url &&
+                            (pollingHere ||
+                              isNanoAllImagesSubmitting ||
+                              /** Prompts refresh before the 3 image tasks; keep thumbnails alive */
+                              isNanoPromptsLoading);
                           return (
                             <button
                               key={i}
@@ -5646,7 +5734,7 @@ export default function LinkToAdUniverse({
                                 sel
                                   ? "border-violet-400 shadow-[0_0_12px_rgba(139,92,246,0.35)]"
                                   : "border-transparent opacity-80 hover:border-white/20 hover:opacity-100",
-                                !url && !pollingHere && "cursor-default opacity-50 hover:opacity-50",
+                                !url && !slotBusy && "cursor-default opacity-50 hover:opacity-50",
                               )}
                             >
                               {url ? (
@@ -5659,7 +5747,7 @@ export default function LinkToAdUniverse({
                                   decoding="async"
                                   fetchPriority="high"
                                 />
-                              ) : pollingHere ? (
+                              ) : slotBusy ? (
                                 <span className="flex h-full w-full items-center justify-center bg-black/40">
                                   <Loader2 className="h-5 w-5 shrink-0 animate-spin text-violet-300" aria-hidden />
                                 </span>
@@ -5669,16 +5757,40 @@ export default function LinkToAdUniverse({
                                 </span>
                               )}
                               {url ? (
-                                <span
-                                  role="button"
-                                  tabIndex={0}
-                                  aria-label="Open full size"
-                                  className="absolute left-0.5 top-0.5 flex h-5 w-5 items-center justify-center rounded-md bg-black/60 text-white opacity-0 transition-opacity group-hover/thumb:opacity-100"
-                                  onClick={(e) => { e.stopPropagation(); setNanoImageLightboxUrl(url); }}
-                                  onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); setNanoImageLightboxUrl(url); } }}
-                                >
-                                  <Maximize2 className="h-3 w-3" aria-hidden />
-                                </span>
+                                <>
+                                  <span
+                                    role="button"
+                                    tabIndex={0}
+                                    aria-label="Open full size"
+                                    className="absolute left-0.5 top-0.5 flex h-5 w-5 items-center justify-center rounded-md bg-black/60 text-white opacity-0 transition-opacity group-hover/thumb:opacity-100"
+                                    onClick={(e) => { e.stopPropagation(); setNanoImageLightboxUrl(url); }}
+                                    onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); setNanoImageLightboxUrl(url); } }}
+                                  >
+                                    <Maximize2 className="h-3 w-3" aria-hidden />
+                                  </span>
+                                  <span
+                                    role="button"
+                                    tabIndex={0}
+                                    aria-label="Download image"
+                                    className="absolute right-0.5 top-0.5 flex h-5 w-5 items-center justify-center rounded-md bg-black/60 text-white opacity-0 transition-opacity group-hover/thumb:opacity-100"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      void downloadImageUrl(url, `link-to-ad-reference-${i + 1}.jpg`).catch((err) => {
+                                        toast.error(err instanceof Error ? err.message : "Could not download image.");
+                                      });
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") {
+                                        e.stopPropagation();
+                                        void downloadImageUrl(url, `link-to-ad-reference-${i + 1}.jpg`).catch((err) => {
+                                          toast.error(err instanceof Error ? err.message : "Could not download image.");
+                                        });
+                                      }
+                                    }}
+                                  >
+                                    <Download className="h-3 w-3" aria-hidden />
+                                  </span>
+                                </>
                               ) : null}
                               {sel ? (
                                 <span className="absolute bottom-0.5 right-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-violet-400 text-black shadow">
@@ -6112,9 +6224,12 @@ export default function LinkToAdUniverse({
                                   decoding="async"
                                   fetchPriority="high"
                                 />
-                              ) : isNanoAllImagesSubmitting ? (
-                                <span className="flex h-full w-full items-center justify-center bg-black/40">
+                              ) : isNanoAllImagesSubmitting || isNanoPromptsLoading ? (
+                                <span className="flex h-full w-full flex-col items-center justify-center gap-1 bg-black/40 px-1">
                                   <Loader2 className="h-6 w-6 shrink-0 animate-spin text-violet-300" aria-hidden />
+                                  <span className="text-center text-[9px] font-medium leading-tight text-white/45">
+                                    {isNanoPromptsLoading ? "Prompts…" : "Generating…"}
+                                  </span>
                                 </span>
                               ) : (
                                 <span className="flex h-full w-full items-center justify-center text-xs font-medium uppercase tracking-wide text-white/25">
@@ -6122,16 +6237,40 @@ export default function LinkToAdUniverse({
                                 </span>
                               )}
                               {imgUrl ? (
-                                <span
-                                  role="button"
-                                  tabIndex={0}
-                                  aria-label="Open full size"
-                                  className="absolute right-1.5 top-1.5 flex h-7 w-7 items-center justify-center rounded-lg bg-black/60 text-white opacity-0 shadow transition-opacity group-hover/card:opacity-100"
-                                  onClick={(e) => { e.stopPropagation(); setNanoImageLightboxUrl(imgUrl); }}
-                                  onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); setNanoImageLightboxUrl(imgUrl); } }}
-                                >
-                                  <Maximize2 className="h-4 w-4" aria-hidden />
-                                </span>
+                                <div className="absolute right-1.5 top-1.5 flex items-center gap-1">
+                                  <span
+                                    role="button"
+                                    tabIndex={0}
+                                    aria-label="Download image"
+                                    className="flex h-7 w-7 items-center justify-center rounded-lg bg-black/60 text-white opacity-0 shadow transition-opacity group-hover/card:opacity-100"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      void downloadImageUrl(imgUrl, `link-to-ad-reference-${i + 1}.jpg`).catch((err) => {
+                                        toast.error(err instanceof Error ? err.message : "Could not download image.");
+                                      });
+                                    }}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") {
+                                        e.stopPropagation();
+                                        void downloadImageUrl(imgUrl, `link-to-ad-reference-${i + 1}.jpg`).catch((err) => {
+                                          toast.error(err instanceof Error ? err.message : "Could not download image.");
+                                        });
+                                      }
+                                    }}
+                                  >
+                                    <Download className="h-4 w-4" aria-hidden />
+                                  </span>
+                                  <span
+                                    role="button"
+                                    tabIndex={0}
+                                    aria-label="Open full size"
+                                    className="flex h-7 w-7 items-center justify-center rounded-lg bg-black/60 text-white opacity-0 shadow transition-opacity group-hover/card:opacity-100"
+                                    onClick={(e) => { e.stopPropagation(); setNanoImageLightboxUrl(imgUrl); }}
+                                    onKeyDown={(e) => { if (e.key === "Enter") { e.stopPropagation(); setNanoImageLightboxUrl(imgUrl); } }}
+                                  >
+                                    <Maximize2 className="h-4 w-4" aria-hidden />
+                                  </span>
+                                </div>
                               ) : null}
                               {imgUrl && sel ? (
                                 <span className="absolute bottom-1 right-1 flex h-5 w-5 items-center justify-center rounded-full bg-violet-400 text-black shadow sm:h-6 sm:w-6">
@@ -6876,6 +7015,20 @@ export default function LinkToAdUniverse({
           loading="eager"
           decoding="async"
         />
+        <Button
+          type="button"
+          variant="secondary"
+          className="absolute bottom-5 z-10 rounded-full border border-white/15 bg-black/65 text-xs text-white/90 shadow-lg hover:bg-black/85"
+          onClick={(e) => {
+            e.stopPropagation();
+            void downloadImageUrl(nanoImageLightboxUrl, "link-to-ad-reference.jpg").catch((err) => {
+              toast.error(err instanceof Error ? err.message : "Could not download image.");
+            });
+          }}
+        >
+          <Download className="mr-1.5 h-4 w-4" aria-hidden />
+          Download
+        </Button>
       </div>
     ) : null}
 
