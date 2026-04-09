@@ -609,16 +609,17 @@ export default function GettingStartedPage() {
                   href={TRUSTPILOT_REVIEW_URL}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="relative block w-full max-w-[176px] sm:max-w-[200px] md:max-w-[224px] mx-auto overflow-hidden rounded-sm aspect-[2500/500] leading-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0d0e12]"
+                  className="block w-full max-w-[176px] sm:max-w-[200px] md:max-w-[224px] mx-auto leading-none"
                 >
-                  <Image
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
                     src="/trustpilot-setup-banner.png"
                     alt="Trustpilot — Excellent"
-                    fill
-                    unoptimized
-                    sizes="(max-width: 639px) 176px, (max-width: 767px) 200px, 224px"
-                    className="object-cover object-center mix-blend-lighten"
-                    priority
+                    width={2500}
+                    height={500}
+                    className="block w-full h-auto mix-blend-lighten"
+                    loading="eager"
+                    decoding="async"
                   />
                 </Link>
               </div>
