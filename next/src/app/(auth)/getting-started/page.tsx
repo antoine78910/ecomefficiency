@@ -10,6 +10,8 @@ import { seoToolsCatalog } from "@/data/seoToolsCatalog";
 import { postGoal } from "@/lib/analytics";
 import { trackFirstPromoterReferral } from "@/lib/firstpromoterReferral";
 
+const TRUSTPILOT_REVIEW_URL = "https://www.trustpilot.com/review/ecomefficiency.com";
+
 type AcquisitionSource =
   | "instagram"
   | "tiktok"
@@ -602,9 +604,26 @@ export default function GettingStartedPage() {
               />
 
               <div className="relative z-10 rounded-2xl border border-white/10 bg-[#0d0e12] p-5 md:p-6">
-              <div className="text-center mb-6">
+              <div className="mb-0 -mt-0.5">
+                <Link
+                  href={TRUSTPILOT_REVIEW_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="relative block w-full max-w-[176px] sm:max-w-[200px] md:max-w-[224px] mx-auto overflow-hidden rounded-sm aspect-[2500/500] leading-none focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500/50 focus-visible:ring-offset-2 focus-visible:ring-offset-[#0d0e12]"
+                >
+                  <Image
+                    src="/trustpilot-setup-banner.png"
+                    alt="Trustpilot — Excellent"
+                    fill
+                    sizes="(max-width: 768px) 100vw, min(1152px, 96vw)"
+                    className="object-cover object-center mix-blend-lighten scale-[1.12]"
+                    priority
+                  />
+                </Link>
+              </div>
+              <div className="text-center mb-4 mt-1">
                 <h2 className="text-xl md:text-2xl font-semibold">Choose a plan</h2>
-                <p className="text-gray-400 mt-2 text-sm">Subscribe to unlock the tools.</p>
+                <p className="text-gray-400 mt-1.5 text-sm">Subscribe to unlock the tools.</p>
               </div>
 
               <div className="flex items-center justify-center mb-6">
