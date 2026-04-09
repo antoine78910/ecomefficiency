@@ -16,17 +16,28 @@ export default function ActivityTracker() {
   })
   
   useEffect(() => {
-    // Récupérer l'ID de session depuis sessionStorage
     const storedSessionId = sessionStorage.getItem('current_session_id')
     if (storedSessionId) {
       setSessionId(storedSessionId)
     }
     
-    // Récupérer l'utilisateur connecté
     const getUser = async () => {
       const { data } = await supabase.auth.getUser()
       if (data.user) {
         setUserId(data.user.id)
+        // Track page visit with IP
+        try {
+          fetch('/api/activity/track-event', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              user_id: data.user.id,
+              email: data.user.email || null,
+              action: 'page_visit',
+              tool_name: null,
+            }),
+          }).catch(() => {})
+        } catch {}
       }
     }
     

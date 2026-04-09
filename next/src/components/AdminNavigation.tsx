@@ -2,9 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Shield, Users, Activity, BarChart3, LayoutTemplate, ClipboardList, Star, Zap } from 'lucide-react'
+import { Shield, Users, Activity, BarChart3, LayoutTemplate, ClipboardList, Star, Zap, Eye } from 'lucide-react'
 
 const adminRoutes = [
+  {
+    href: '/admin/ip-tracker',
+    label: 'IP Tracker',
+    icon: Eye,
+    description: 'Suivi IP, copies MDP et détection account sharing'
+  },
   {
     href: '/admin/higgsfield',
     label: 'Higgsfield',

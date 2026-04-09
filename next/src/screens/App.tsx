@@ -1112,7 +1112,7 @@ function HowToAccess({ renderTrigger = true }: { renderTrigger?: boolean }) {
   )
 }
 
-function CopyButton({ value, label, disabled = false }: { value?: string; label: string; disabled?: boolean }) {
+function CopyButton({ value, label, disabled = false, toolName, fieldType }: { value?: string; label: string; disabled?: boolean; toolName?: string; fieldType?: 'password' | 'email' | 'username' }) {
   const [copied, setCopied] = React.useState(false)
   const [open, setOpen] = React.useState(false)
   const audioCtxRef = React.useRef<any>(null)
@@ -1133,7 +1133,6 @@ function CopyButton({ value, label, disabled = false }: { value?: string; label:
 
   const playClick = async () => {
     try {
-      // Lightweight click using WebAudio
       const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext
       if (!Ctx) return
       if (!audioCtxRef.current) audioCtxRef.current = new Ctx()
@@ -1160,6 +1159,24 @@ function CopyButton({ value, label, disabled = false }: { value?: string; label:
       setCopied(true)
       setOpen(true)
       setTimeout(() => { setCopied(false); setOpen(false) }, 1200)
+
+      const action = fieldType === 'password' ? 'copy_password' : fieldType === 'email' ? 'copy_email' : 'copy_username'
+      try {
+        const mod = await import("@/integrations/supabase/client")
+        const { data } = await mod.supabase.auth.getUser()
+        if (data.user) {
+          fetch('/api/activity/track-event', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              user_id: data.user.id,
+              email: data.user.email || null,
+              action,
+              tool_name: toolName || null,
+            }),
+          }).catch(() => {})
+        }
+      } catch {}
     } catch {}
   }
 
@@ -1921,7 +1938,7 @@ function CredentialsPanel({
                 <span className={`break-all text-white filter blur-sm transition ease-out duration-300 hover:blur-none group-hover:blur-none select-none`}>
                   {displayEmail}
                 </span>
-                <CopyButton value={emailValue} label="Copy email" />
+                <CopyButton value={emailValue} label="Copy email" toolName="adspower" fieldType="email" />
               </div>
             </div>
             <div>
@@ -1930,7 +1947,7 @@ function CredentialsPanel({
                 <span className={`break-all text-white filter blur-sm transition ease-out duration-300 hover:blur-none group-hover:blur-none select-none`}>
                   {displayPassword}
                 </span>
-                <CopyButton value={passwordValue} label="Copy password" />
+                <CopyButton value={passwordValue} label="Copy password" toolName="adspower" fieldType="password" />
               </div>
             </div>
             <p className="text-xs text-gray-500 md:col-span-2">Last update: {creds?.updatedAt ? new Date(creds.updatedAt).toLocaleString() : '—'}</p>
@@ -1949,14 +1966,14 @@ function CredentialsPanel({
                     <p className="text-xs text-gray-400 mb-1">Username</p>
                     <div className="group flex items-center gap-2">
                       <span className="break-all text-white filter blur-sm transition ease-out duration-300 hover:blur-none group-hover:blur-none select-none">{creds?.brainfm_username || '—'}</span>
-                      <CopyButton value={creds?.brainfm_username} label="Copy username" />
+                      <CopyButton value={creds?.brainfm_username} label="Copy username" toolName="brainfm" fieldType="username" />
                     </div>
                   </div>
                   <div>
                     <p className="text-xs text-gray-400 mb-1">Password</p>
                     <div className="group flex items-center gap-2">
                       <span className="break-all text-white filter blur-sm transition ease-out duration-300 hover:blur-none group-hover:blur-none select-none">{creds?.brainfm_password || '—'}</span>
-                      <CopyButton value={creds?.brainfm_password} label="Copy password" />
+                      <CopyButton value={creds?.brainfm_password} label="Copy password" toolName="brainfm" fieldType="password" />
                     </div>
                   </div>
                 </div>
@@ -2380,14 +2397,14 @@ function BrainCredsCard({ disabled }: { disabled?: boolean }) {
                 <p className="text-xs text-gray-400 mb-1">Email</p>
                 <div className="flex items-center gap-2">
                   <span className="text-white text-sm select-all">1spytools1@gmail.com</span>
-                  <CopyButton value={'1spytools1@gmail.com'} label="Copy email" />
+                  <CopyButton value={'1spytools1@gmail.com'} label="Copy email" toolName="pipiads" fieldType="email" />
                 </div>
               </div>
               <div>
                 <p className="text-xs text-gray-400 mb-1">Password</p>
                 <div className="flex items-center gap-2">
                   <span className="text-white text-sm select-all">wdawdawdiajd08w@298</span>
-                  <CopyButton value={'wdawdawdiajd08w@298'} label="Copy password" />
+                  <CopyButton value={'wdawdawdiajd08w@298'} label="Copy password" toolName="pipiads" fieldType="password" />
                 </div>
               </div>
                   <div className="pt-1 text-[11px] text-gray-500">Use these on your own browser to sign in to Brain.fm</div>
