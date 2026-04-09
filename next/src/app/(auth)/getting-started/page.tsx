@@ -115,13 +115,13 @@ function GettingStartedDiscordNavButton() {
       href={DISCORD_COMMUNITY_URL}
       target="_blank"
       rel="noopener noreferrer"
-      className="group relative flex items-center gap-2 sm:gap-2.5 rounded-2xl border-2 border-indigo-500/30 bg-gradient-to-br from-indigo-900/40 via-zinc-950/60 to-black/80 backdrop-blur-xl px-2.5 py-1.5 sm:px-3 sm:py-2 shadow-2xl hover:shadow-indigo-500/30 hover:border-indigo-400/60 hover:scale-[1.02] hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-500 ease-out overflow-hidden max-w-[200px] sm:max-w-[260px]"
+      className="group relative flex items-center gap-1.5 sm:gap-2.5 rounded-2xl border-2 border-indigo-500/30 bg-gradient-to-br from-indigo-900/40 via-zinc-950/60 to-black/80 backdrop-blur-xl px-2 py-1.5 sm:px-3 sm:py-2 shadow-2xl hover:shadow-indigo-500/30 hover:border-indigo-400/60 hover:scale-[1.02] hover:-translate-y-0.5 active:scale-[0.98] transition-all duration-500 ease-out overflow-hidden w-full max-w-full sm:max-w-[280px] sm:w-auto"
     >
       <div className="absolute inset-0 bg-gradient-to-r from-transparent via-indigo-400/30 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-1000 ease-out pointer-events-none" />
       <div className="absolute inset-0 rounded-2xl bg-gradient-to-r from-indigo-500/10 via-indigo-400/20 to-indigo-500/10 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none" />
       <div className="relative z-10 flex items-center gap-2 sm:gap-2.5 min-w-0 w-full">
-        <div className="shrink-0 p-1.5 sm:p-2 rounded-lg bg-gradient-to-br from-indigo-500/30 to-indigo-600/10 backdrop-blur-sm group-hover:from-indigo-400/40 group-hover:to-indigo-500/20 transition-all duration-300">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512" className="w-4 h-4 sm:w-5 sm:h-5 fill-current text-indigo-400 group-hover:text-indigo-300 transition-all duration-300 group-hover:scale-105" aria-hidden>
+        <div className="shrink-0 p-1 sm:p-2 rounded-lg bg-gradient-to-br from-indigo-500/30 to-indigo-600/10 backdrop-blur-sm group-hover:from-indigo-400/40 group-hover:to-indigo-500/20 transition-all duration-300">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512" className="w-3.5 h-3.5 sm:w-5 sm:h-5 fill-current text-indigo-400 group-hover:text-indigo-300 transition-all duration-300 group-hover:scale-105" aria-hidden>
             <path d="M524.531 69.836a1.5 1.5 0 0 0-.764-.7A485.065 485.065 0 0 0 404.081 32.03a1.816 1.816 0 0 0-1.923.91 337.461 337.461 0 0 0-14.9 30.6 447.848 447.848 0 0 0-134.426 0 309.541 309.541 0 0 0-15.135-30.6 1.89 1.89 0 0 0-1.924-.91 483.689 483.689 0 0 0-119.688 37.107 1.712 1.712 0 0 0-.788.676C39.068 183.651 18.186 294.69 28.43 404.354a2.016 2.016 0 0 0 .765 1.375 487.666 487.666 0 0 0 146.825 74.189 1.9 1.9 0 0 0 2.063-.676A348.2 348.2 0 0 0 208.12 430.4a1.86 1.86 0 0 0-1.019-2.588 321.173 321.173 0 0 1-45.868-21.853 1.885 1.885 0 0 1-.185-3.126 251.047 251.047 0 0 0 9.109-7.137 1.819 1.819 0 0 1 1.9-.256c96.229 43.917 200.41 43.917 295.5 0a1.812 1.812 0 0 1 1.924.233 234.533 234.533 0 0 0 9.132 7.16 1.884 1.884 0 0 1-.162 3.126 301.407 301.407 0 0 1-45.89 21.83 1.875 1.875 0 0 0-1 2.611 391.055 391.055 0 0 0 30.014 48.815 1.864 1.864 0 0 0 2.063.7A486.048 486.048 0 0 0 610.7 405.729a1.882 1.882 0 0 0 .765-1.352c12.264-126.783-20.532-236.912-86.934-334.541zM222.491 337.58c-28.972 0-52.844-26.587-52.844-59.239s23.409-59.241 52.844-59.241c29.665 0 53.306 26.82 52.843 59.239 0 32.654-23.41 59.241-52.843 59.241zm195.38 0c-28.971 0-52.843-26.587-52.843-59.239s23.409-59.241 52.843-59.241c29.667 0 53.307 26.820 52.844 59.239 0 32.654-23.177 59.241-52.844 59.241z" />
           </svg>
         </div>
@@ -129,12 +129,12 @@ function GettingStartedDiscordNavButton() {
           <p className="text-indigo-400 font-bold text-xs sm:text-sm leading-tight group-hover:text-indigo-300 transition-colors duration-300">
             Discord
           </p>
-          <p className="text-indigo-300/60 text-[10px] sm:text-xs leading-tight truncate group-hover:text-indigo-200/80 transition-colors duration-300">
+          <p className="text-indigo-300/60 text-[10px] sm:text-xs leading-snug whitespace-normal group-hover:text-indigo-200/80 transition-colors duration-300">
             Join +3000 members
           </p>
         </div>
-        <div className="shrink-0 opacity-40 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-300">
-          <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" className="w-4 h-4 text-indigo-400" aria-hidden>
+        <div className="shrink-0 opacity-40 group-hover:opacity-100 group-hover:translate-x-0.5 transition-all duration-300 hidden sm:block">
+          <svg viewBox="0 0 24 24" stroke="currentColor" fill="none" className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-indigo-400" aria-hidden>
             <path d="M9 5l7 7-7 7" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
           </svg>
         </div>
@@ -470,16 +470,16 @@ export default function GettingStartedPage() {
       {/* Header aligned like LP navbar */}
       <div className="w-full mx-auto px-0 relative border-b border-white/10 bg-black/90 backdrop-blur-sm">
         <div className="w-full px-0">
-          <div className="grid grid-cols-[auto_1fr] items-center h-14 md:h-16">
-            {/* Logo (flush-left like LP navbar) */}
-            <div className="flex items-center justify-start space-x-3 pl-2 md:pl-3">
-              <Link href="/app" className="inline-flex items-center">
+          <div className="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-2 h-12 sm:h-14 md:h-16">
+            {/* Logo — plus petit sur mobile pour laisser la place au CTA Discord */}
+            <div className="flex items-center justify-start pl-2 md:pl-3 min-w-0">
+              <Link href="/app" className="inline-flex items-center shrink-0">
                 <Image
                   src="/ecomefficiency.png"
                   alt="Ecom Efficiency"
                   width={160}
                   height={64}
-                  className="h-14 w-auto object-contain mix-blend-screen"
+                  className="h-9 w-auto sm:h-11 md:h-12 object-contain mix-blend-screen"
                   priority
                 />
               </Link>
@@ -647,7 +647,7 @@ export default function GettingStartedPage() {
                   href={TRUSTPILOT_REVIEW_URL}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="block w-full max-w-[176px] sm:max-w-[200px] md:max-w-[224px] mx-auto leading-none"
+                  className="block w-full max-w-[190px] sm:max-w-[214px] md:max-w-[240px] mx-auto leading-none"
                 >
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
@@ -683,26 +683,35 @@ export default function GettingStartedPage() {
                       <div className="text-sm text-gray-200/90 mb-1">Essential tools for lean eCommerce growth</div>
                       <div className="text-xs text-gray-400 mb-5">Access to 40 Ecom tools</div>
 
-                      <div className="flex items-end gap-2 mb-1">
-                        <div
-                          className={`text-5xl font-extrabold tabular-nums ${
-                            billing === "yearly" ? "text-[#ab63ff]" : "text-white"
-                          }`}
-                        >
-                          {billing === "yearly" ? formatPrice(11.99, currency) : formatPrice(19.99, currency)}
-                        </div>
-                        {billing === "yearly" ? (
-                          <span className="mb-2 text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-[#ab63ff] border border-purple-500/30">
-                            -40%
-                          </span>
-                        ) : null}
-                        {billing === "yearly" ? (
-                          <div className="text-sm text-gray-500 line-through mb-2 tabular-nums">
+                      {billing === "monthly" ? (
+                        <div className="flex items-end gap-2 mb-1">
+                          <div className="text-5xl font-extrabold tabular-nums leading-none text-white">
                             {formatPrice(19.99, currency)}
                           </div>
-                        ) : null}
-                        <div className="text-sm text-gray-400 mb-2">/mo</div>
-                      </div>
+                          <div className="text-sm text-gray-400 mb-2">/mo</div>
+                        </div>
+                      ) : (
+                        <div className="mb-1 flex flex-col gap-1 md:flex-row md:items-end md:gap-2">
+                          <div className="flex flex-wrap items-end gap-x-2 gap-y-1">
+                            <div className="text-5xl font-extrabold tabular-nums leading-none text-[#ab63ff]">
+                              {formatPrice(11.99, currency)}
+                            </div>
+                            <span className="mb-0.5 md:mb-2 text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-[#ab63ff] border border-purple-500/30 shrink-0">
+                              -40%
+                            </span>
+                            <div className="hidden md:block text-sm text-gray-500 line-through mb-2 tabular-nums shrink-0">
+                              {formatPrice(19.99, currency)}
+                            </div>
+                            <div className="hidden md:block text-sm text-gray-400 mb-2">/mo</div>
+                          </div>
+                          <div className="flex items-baseline gap-1.5 md:hidden">
+                            <span className="text-sm text-gray-500 line-through tabular-nums">
+                              {formatPrice(19.99, currency)}
+                            </span>
+                            <span className="text-sm text-gray-400">/mo</span>
+                          </div>
+                        </div>
+                      )}
                       <div className="text-xs text-gray-500 mb-5">{billing === "yearly" ? "Billed annually • Cancel anytime" : "Cancel anytime"}</div>
 
                       {/* Foreplay-like: primary CTA first */}
@@ -795,36 +804,48 @@ export default function GettingStartedPage() {
                       <div className="mt-auto" />
                     </div>
 
-                    <div className="rounded-2xl border border-purple-500/25 bg-[#0d0e12] p-6 flex flex-col shadow-[0_0_0_1px_rgba(139,92,246,0.12)]">
-                      <div className="flex items-center justify-between">
-                        <div>
-                          <div className="text-white text-2xl font-semibold mb-1">Pro</div>
-                          <div className="text-sm text-gray-200/90 mb-1">Your unfair advantage in speed &amp; efficiency</div>
-                          <div className="text-xs text-gray-400 mb-5">Access to +50 Ecom tools</div>
-                        </div>
-                        <div className="text-[10px] px-2 py-1 rounded-full bg-purple-500/80 text-white border border-white/10 font-semibold">Most Popular</div>
+                    <div className="group/pro relative overflow-visible rounded-2xl border border-purple-500/25 bg-[#0d0e12] p-6 flex flex-col shadow-[0_0_0_1px_rgba(139,92,246,0.12)]">
+                      <div
+                        className="absolute -top-2 right-3 sm:right-4 z-[2] px-3 py-1 sm:px-3.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-semibold font-mono uppercase tracking-wider text-[rgba(245,243,255,0.98)] bg-[rgba(149,65,224,0.25)] border border-[rgba(171,99,255,0.55)] shadow-[0_0_12px_rgba(171,99,255,0.25),0_2px_8px_rgba(0,0,0,0.3)] backdrop-blur-sm whitespace-nowrap transition-all duration-200 ease-out group-hover/pro:border-[rgba(186,147,255,0.65)] group-hover/pro:bg-[rgba(149,65,224,0.32)] group-hover/pro:shadow-[0_0_18px_rgba(171,99,255,0.35),0_2px_8px_rgba(0,0,0,0.28)]"
+                        aria-hidden
+                      >
+                        Most popular
+                      </div>
+                      <div>
+                        <div className="text-white text-2xl font-semibold mb-1 pr-[5.25rem] sm:pr-24">Pro</div>
+                        <div className="text-sm text-gray-200/90 mb-1">Your unfair advantage in speed &amp; efficiency</div>
+                        <div className="text-xs text-gray-400 mb-5">Access to +50 Ecom tools</div>
                       </div>
 
-                      <div className="flex items-end gap-2 mb-1">
-                        <div
-                          className={`text-5xl font-extrabold tabular-nums ${
-                            billing === "yearly" ? "text-[#ab63ff]" : "text-white"
-                          }`}
-                        >
-                          {billing === "yearly" ? formatPrice(17.99, currency) : formatPrice(29.99, currency)}
-                        </div>
-                        {billing === "yearly" ? (
-                          <span className="mb-2 text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-[#ab63ff] border border-purple-500/30">
-                            -40%
-                          </span>
-                        ) : null}
-                        {billing === "yearly" ? (
-                          <div className="text-sm text-gray-500 line-through mb-2 tabular-nums">
+                      {billing === "monthly" ? (
+                        <div className="flex items-end gap-2 mb-1">
+                          <div className="text-5xl font-extrabold tabular-nums leading-none text-white">
                             {formatPrice(29.99, currency)}
                           </div>
-                        ) : null}
-                        <div className="text-sm text-gray-400 mb-2">/mo</div>
-                      </div>
+                          <div className="text-sm text-gray-400 mb-2">/mo</div>
+                        </div>
+                      ) : (
+                        <div className="mb-1 flex flex-col gap-1 md:flex-row md:items-end md:gap-2">
+                          <div className="flex flex-wrap items-end gap-x-2 gap-y-1">
+                            <div className="text-5xl font-extrabold tabular-nums leading-none text-[#ab63ff]">
+                              {formatPrice(17.99, currency)}
+                            </div>
+                            <span className="mb-0.5 md:mb-2 text-[10px] px-2 py-0.5 rounded-full bg-purple-500/20 text-[#ab63ff] border border-purple-500/30 shrink-0">
+                              -40%
+                            </span>
+                            <div className="hidden md:block text-sm text-gray-500 line-through mb-2 tabular-nums shrink-0">
+                              {formatPrice(29.99, currency)}
+                            </div>
+                            <div className="hidden md:block text-sm text-gray-400 mb-2">/mo</div>
+                          </div>
+                          <div className="flex items-baseline gap-1.5 md:hidden">
+                            <span className="text-sm text-gray-500 line-through tabular-nums">
+                              {formatPrice(29.99, currency)}
+                            </span>
+                            <span className="text-sm text-gray-400">/mo</span>
+                          </div>
+                        </div>
+                      )}
                       <div className="text-xs text-gray-500 mb-5">{billing === "yearly" ? "Billed annually • Cancel anytime" : "Cancel anytime"}</div>
 
                       {/* Foreplay-like: primary CTA first */}
