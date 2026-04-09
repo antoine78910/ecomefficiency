@@ -37,7 +37,7 @@ const NewNavbar = () => {
           <div className="flex items-center justify-end gap-2 md:gap-3 pr-0">
             {/* Discord Community Button - desktop only */}
             <a
-              href="https://discord.gg/bKg7J625Sm"
+              href="https://discord.gg/7UgABk3jKJ"
               target="_blank"
               rel="noreferrer noopener"
               className="hidden md:inline-flex group relative px-4 py-2 rounded-xl backdrop-blur-xl border border-indigo-500/30 bg-gradient-to-br from-indigo-900/40 via-black-900/60 to-black/80 shadow-lg hover:shadow-indigo-500/30 hover:shadow-xl hover:scale-[1.02] active:scale-95 transition-all duration-300 ease-out cursor-pointer hover:border-indigo-400/60 overflow-hidden whitespace-nowrap shrink-0"
@@ -102,7 +102,7 @@ const NewNavbar = () => {
                   Partners
                 </Link>
                 <a
-                  href="https://discord.gg/bKg7J625Sm"
+                  href="https://discord.gg/7UgABk3jKJ"
                   target="_blank"
                   rel="noreferrer noopener"
                   className="block px-4 py-3 text-base text-white hover:bg-white/10"

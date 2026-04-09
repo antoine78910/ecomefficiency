@@ -64,7 +64,7 @@ export default function RootLayout({
       "https://x.com/EcomEfficiency",
       "https://www.instagram.com/ecom.efficiency/",
       "https://www.tiktok.com/@ecom.efficiency",
-      "https://discord.com/invite/bKg7J625Sm",
+      "https://discord.gg/7UgABk3jKJ",
     ],
   };
 

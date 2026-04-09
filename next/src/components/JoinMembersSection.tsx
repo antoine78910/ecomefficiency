@@ -16,7 +16,7 @@ const JoinMembersSection = () => {
             {/* Text Content */}
             <div className="flex-1 text-center md:text-left">
               <div className="text-3xl md:text-4xl font-bold text-white mb-3">
-                Join <span className="gradient-text">+2000 Members</span>
+                Join <span className="gradient-text">+3000 Members</span>
               </div>
               <p className="text-lg text-white">
               Access our free community of e-commerce experts and take part in the monthly vote to pick your favorite tool.
@@ -28,7 +28,7 @@ const JoinMembersSection = () => {
                 <div className="button-group">
                   <button
                     className="darkmatter-btn"
-                    onClick={() => window.open('https://discord.gg/bKg7J625Sm', '_blank')}
+                    onClick={() => window.open('https://discord.gg/7UgABk3jKJ', '_blank')}
                   >
                     Join the Discord
                     <span className="darkmatter-particle" style={{ ['--tx' as any]: '-20px', ['--ty' as any]: '-15px', left: '25%', top: '25%' } as any} />

@@ -10,7 +10,7 @@ const NewNavbar = () => {
 
   const handleDiscordClick = () => {
     // Open Discord community link
-    window.open('https://discord.gg/bKg7J625Sm', '_blank');
+    window.open('https://discord.gg/7UgABk3jKJ', '_blank');
   };
 
   const handleFaqClick = () => {

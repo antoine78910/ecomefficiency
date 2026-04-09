@@ -6,7 +6,7 @@ import { supabase } from "@/integrations/supabase/client"
 import { postGoal } from "@/lib/analytics"
 
 const TRUSTPILOT_URL = "https://www.trustpilot.com/review/ecomefficiency.com"
-const DISCORD_URL = "https://discord.gg/bKg7J625Sm"
+const DISCORD_URL = "https://discord.gg/7UgABk3jKJ"
 
 type Step = "rate" | "trustpilot" | "promo" | "low_thanks"
 

@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
 
               <!-- Support section -->
               <p style="margin: 24px 0 0; font-size: 14px; line-height: 1.6; color: #a0a0a0;">
-                Need help? Join our <a href="https://discord.gg/your-discord" style="color: #ab63ff; text-decoration: none;">Discord community</a> or reply to this email.
+                Need help? Join our <a href="https://discord.gg/7UgABk3jKJ" style="color: #ab63ff; text-decoration: none;">Discord community</a> or reply to this email.
               </p>
 
               ${invoiceUrl ? `

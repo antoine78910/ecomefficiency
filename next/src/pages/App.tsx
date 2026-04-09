@@ -111,7 +111,7 @@ const App = () => {
               
               <Button 
                 className="w-full bg-purple-500 hover:bg-purple-600 text-white"
-                onClick={() => window.open('https://discord.gg/your-server', '_blank')}
+                onClick={() => window.open('https://discord.gg/7UgABk3jKJ', '_blank')}
               >
                 Ecom Agent Access
               </Button>
