@@ -615,8 +615,9 @@ export default function GettingStartedPage() {
                     src="/trustpilot-setup-banner.png"
                     alt="Trustpilot — Excellent"
                     fill
-                    sizes="(max-width: 768px) 100vw, min(1152px, 96vw)"
-                    className="object-cover object-center mix-blend-lighten scale-[1.12]"
+                    unoptimized
+                    sizes="(max-width: 639px) 176px, (max-width: 767px) 200px, 224px"
+                    className="object-cover object-center mix-blend-lighten"
                     priority
                   />
                 </Link>
