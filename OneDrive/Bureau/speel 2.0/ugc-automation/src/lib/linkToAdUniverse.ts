@@ -1,3 +1,6 @@
+import { normalizeUgcScriptVideoDurationSec } from "@/lib/ugcAiScriptBrief";
+import { sanitizeUgcAngleScriptText } from "@/lib/sanitizeUgcAngleScript";
+
 /** Persisted Link to Ad Universe state (stored inside ugc_runs.extracted.__universe) */
 export type LinkToAdUniverseSnapshotV1 = {
   v: 1;
@@ -23,6 +26,8 @@ export type LinkToAdUniverseSnapshotV1 = {
   scriptsText: string;
   /** Seedance 2 vs Seedance 2 Fast (PiAPI `task_type`); default normal when absent. */
   ltaSeedanceSpeed?: "normal" | "fast";
+  /** Link to Ad target clip duration (5 / 10 / 15 / 30) chosen for this run; must match script & video API. */
+  ltaVideoDurationSec?: number;
   /** One label per script angle (3 or 4 SCRIPT OPTION blocks). */
   angleLabels: string[];
   /** 0–3 when four angles are stored; video/image pipeline still uses slots 0–2 only (angle 3 mirrors slot 2 until extended). */
@@ -886,6 +891,37 @@ export type VideoPromptEditableSections = {
 };
 
 /**
+ * When the model folds ambient audio into motion prose (or uses wording our older
+ * regex missed), peel likely ambience sentences into the Ambience field for the UI.
+ */
+function peelAmbienceSentencesFromParagraph(paragraph: string): { motion: string; ambience: string } {
+  const raw = paragraph.replace(/\r\n/g, "\n").replace(/\s+/g, " ").trim();
+  if (!raw) return { motion: "", ambience: "" };
+
+  const visualAmbientFalsePositive = /\bambient\s+light\b/i;
+  const ambienceClauseHint =
+    /\b(?:ambien[ct](?:e| sounds?| noise| audio)?|room tone|soundscape|diegetic(?:\s+sound)?|background(?:\s+(?:noise|hum|buzz|hiss|audio|chatter|din))?|acoustic\s+(?:texture|environment)|natural(?:ly)?\s+(?:heard|audible|present)\s+in|(?:faint|distant|soft|subtle|low|quiet|muffled|muted|barely\s+audible)\s+(?:hum|buzz|hiss|rumble|roar|drone|murmur|chatter|clatter|rustle|creak|whir|whirr)|hums?\s+beneath|settling around|under(?:neath)?\s+the\s+dialogue|beneath\s+(?:their|his|her)\s+voice|(?:street|city|office|café|cafe|kitchen|bathroom|crowd|traffic|highway|subway)\s+(?:noise|sounds?|hum|murmur|din|roar|rumble)|(?:birds?(?:ong|ing)?|rain(?:fall)?|thunder|wind|waves?|ocean surf|forest|crickets?|reverb|echo(?:s|es)?)(?:\s|,|\.|$)|(?:espresso|coffee)\s+machine|HVAC|A\/C\b|rumble\s+of)\b/i;
+
+  const chunks = raw.split(/(?<=[.!?])\s+/).map((s) => s.trim()).filter(Boolean);
+  if (chunks.length === 0) return { motion: raw, ambience: "" };
+
+  const ambi: string[] = [];
+  const mov: string[] = [];
+  for (const c of chunks) {
+    if (visualAmbientFalsePositive.test(c)) {
+      mov.push(c);
+      continue;
+    }
+    if (ambienceClauseHint.test(c)) ambi.push(c);
+    else mov.push(c);
+  }
+  return {
+    motion: mov.join(" ").trim(),
+    ambience: ambi.join(" ").trim(),
+  };
+}
+
+/**
  * Heuristic: extract spoken dialogue (quoted text + voice description)
  * and ambient sound region from an unstructured video prompt blob.
  * Works by locating quoted speech blocks, voice description, and ambient
@@ -953,7 +989,12 @@ function extractLegacySections(text: string): { motion: string; dialogue: string
   }
   working = working.replace(/\s{2,}/g, " ").trim();
 
-  const ambience = ambienceParts.join(" ").trim();
+  let ambience = ambienceParts.join(" ").trim();
+  if (!ambience && working) {
+    const peeled = peelAmbienceSentencesFromParagraph(working);
+    ambience = peeled.ambience;
+    working = peeled.motion;
+  }
   const motion = working.replace(/\.\s*$/, ".").trim();
 
   if (!dialogue && !ambience) return null;
@@ -967,18 +1008,62 @@ export function parseVideoPromptEditableSections(editable: string): VideoPromptE
   if (!raw.trim()) {
     return { motion: "", dialogue: "", ambience: "", isStructured: false };
   }
-  if (/EDIT\s*[—:-]\s*Motion\b/im.test(raw)) {
-    const motionM = raw.match(/EDIT\s*[—:-]\s*Motion\s*[:\n]\s*([\s\S]*?)(?=\n\s*EDIT\s*[—:-]\s*Dialogue\b|$)/i);
-    const dialogueM = raw.match(/EDIT\s*[—:-]\s*Dialogue\s*[:\n]\s*([\s\S]*?)(?=\n\s*EDIT\s*[—:-]\s*Ambience\b|$)/i);
-    const ambienceM = raw.match(
-      /EDIT\s*[—:-]\s*Ambience\s*[:\n]\s*([\s\S]*?)(?=\n\s*\*{0,2}TECHNICAL|\n\s*TECHNICAL\b|$)/i,
-    );
-    return {
-      motion: motionM?.[1]?.trim() ?? "",
-      dialogue: dialogueM?.[1]?.trim() ?? "",
-      ambience: ambienceM?.[1]?.trim() ?? "",
-      isStructured: true,
-    };
+  // Structured prompts (including legacy ones) may place "EDIT — Dialogue:" / "EDIT — Ambience:" inline
+  // (not necessarily on their own line) and sometimes omit "EDIT — Motion:" entirely.
+  // Split sections by label positions so each part lands in the correct UI panel.
+  if (/EDIT\s*[—:-]\s*(?:Motion|Dialogue|Ambience|Ambient)\b/im.test(raw)) {
+    const techIdx = raw.search(/(?:^|\n|\s)\s*(?:#\s*)?\*{0,2}TECHNICAL\*{0,2}\b/i);
+    const t = (techIdx >= 0 ? raw.slice(0, techIdx) : raw).trim();
+
+    const pieces: { key: "motion" | "dialogue" | "ambience"; labelStart: number; contentStart: number }[] = [];
+    const labelRe = /(?:^|[\n\s])\s*EDIT\s*[—:-]\s*(Motion|Dialogue|Ambience|Ambient)\s*[:\n]\s*/gi;
+    for (const m of t.matchAll(labelRe)) {
+      const idx = m.index ?? 0;
+      const labelOffset = (m[0] || "").toLowerCase().indexOf("edit");
+      const labelStart = idx + Math.max(0, labelOffset);
+      const contentStart = idx + (m[0] || "").length;
+      const sec = String(m[1] || "").toLowerCase();
+      const key = (sec === "dialogue"
+        ? "dialogue"
+        : sec === "ambience" || sec === "ambient"
+          ? "ambience"
+          : "motion") as "motion" | "dialogue" | "ambience";
+      pieces.push({ key, labelStart, contentStart });
+    }
+
+    if (pieces.length) {
+      pieces.sort((a, b) => a.labelStart - b.labelStart);
+      const out: VideoPromptEditableSections = { motion: "", dialogue: "", ambience: "" };
+
+      // Any content before the first label is almost always the motion/camera block.
+      const pre = t.slice(0, pieces[0].labelStart).trim();
+      if (pre) out.motion = pre;
+
+      for (let i = 0; i < pieces.length; i++) {
+        const cur = pieces[i];
+        const end = i + 1 < pieces.length ? pieces[i + 1].labelStart : t.length;
+        const content = t.slice(cur.contentStart, end).trim();
+        if (!content) continue;
+        out[cur.key] = out[cur.key] ? `${out[cur.key]}\n\n${content}` : content;
+      }
+
+      let motion = stripEditSectionLabels(out.motion);
+      const dialogue = stripEditSectionLabels(out.dialogue);
+      let ambience = stripEditSectionLabels(out.ambience);
+      if (!ambience.trim() && motion.trim()) {
+        const peeled = peelAmbienceSentencesFromParagraph(motion);
+        if (peeled.ambience.trim()) {
+          motion = peeled.motion;
+          ambience = peeled.ambience;
+        }
+      }
+      return {
+        motion,
+        dialogue,
+        ambience,
+        isStructured: true,
+      };
+    }
   }
 
   const legacy = extractLegacySections(raw);
@@ -1024,7 +1109,7 @@ export function composeVideoPromptForApi(parts: VideoPromptEditableSections): st
  */
 export function stripEditSectionLabels(text: string): string {
   return text
-    .replace(/\s*EDIT\s*[—:-]\s*(?:Motion|Dialogue|Ambience)\s*[:\n]\s*/gi, " ")
+    .replace(/\s*EDIT\s*[—:-]\s*(?:Motion|Dialogue|Ambience|Ambient)\s*[:\n]\s*/gi, " ")
     .replace(/\s{2,}/g, " ")
     .trim();
 }
@@ -1037,7 +1122,7 @@ export function splitUgcVideoPromptForEditing(body: string): { editable: string;
   const t = body.replace(/\r\n/g, "\n");
   if (!t.trim()) return { editable: "", technicalTail: "" };
 
-  const tech = /(?:^|\n)\s*\*{0,2}TECHNICAL\*{0,2}\s*[—:*\s]/im.exec(t);
+  const tech = /(?:^|\n)\s*(?:#\s*)?\*{0,2}TECHNICAL\*{0,2}\s*[—:*\s]/im.exec(t);
   if (tech && tech.index !== undefined) {
     return {
       editable: t.slice(0, tech.index).trim(),
@@ -1086,6 +1171,21 @@ export function readUniverseFromExtracted(extracted: unknown): LinkToAdUniverseS
   const o = u as Record<string, unknown>;
   if (o.v !== 1) return null;
   const clean = o.cleanCandidate;
+  const rawScriptsStored = typeof o.scriptsText === "string" ? o.scriptsText : "";
+  const ltaVideoDurationSecParsed = (() => {
+    const raw = (o as Record<string, unknown>).ltaVideoDurationSec;
+    if (typeof raw === "number" && Number.isFinite(raw)) {
+      return normalizeUgcScriptVideoDurationSec(raw);
+    }
+    if (typeof raw === "string" && raw.trim()) {
+      return normalizeUgcScriptVideoDurationSec(Number(raw));
+    }
+    return undefined;
+  })();
+  const scriptsTextForSnap =
+    rawScriptsStored.trim() === ""
+      ? ""
+      : sanitizeUgcAngleScriptText(rawScriptsStored, ltaVideoDurationSecParsed);
   const base: LinkToAdUniverseSnapshotV1 = {
     v: 1,
     phase: o.phase === "after_scripts" ? "after_scripts" : "after_summary",
@@ -1121,8 +1221,9 @@ export function readUniverseFromExtracted(extracted: unknown): LinkToAdUniverseS
         ? (o.personaPhotoUrls as string[])
         : null,
     summaryText: typeof o.summaryText === "string" ? o.summaryText : "",
-    scriptsText: typeof o.scriptsText === "string" ? o.scriptsText : "",
+    scriptsText: scriptsTextForSnap,
     ltaSeedanceSpeed: o.ltaSeedanceSpeed === "fast" ? "fast" : o.ltaSeedanceSpeed === "normal" ? "normal" : undefined,
+    ltaVideoDurationSec: ltaVideoDurationSecParsed,
     angleLabels: parseAngleLabelsFromSnapshot(o),
     selectedAngleIndex:
       typeof o.selectedAngleIndex === "number" && o.selectedAngleIndex >= 0 && o.selectedAngleIndex <= 3

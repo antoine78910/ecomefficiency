@@ -54,6 +54,9 @@ import {
 import { motionControlUpgradeMessage } from "@/lib/subscriptionModelAccess";
 import { clipboardImageFiles } from "@/lib/clipboardImage";
 import { UploadBusyOverlay } from "@/app/_components/UploadBusyOverlay";
+import { AvatarInputCornerBadge } from "@/app/_components/AvatarInputCornerBadge";
+import { AvatarPickerDialog } from "@/app/_components/AvatarPickerDialog";
+import { loadAvatarUrls } from "@/lib/avatarLibrary";
 import { userMessageFromCaughtError } from "@/lib/generationUserMessage";
 import {
   assertStudioImageUpload,
@@ -415,6 +418,20 @@ function universeThumbFromExtracted(extracted: unknown): string | null {
   const u = (extracted as Record<string, unknown>).__universe;
   if (!u || typeof u !== "object") return null;
   const o = u as Record<string, unknown>;
+  const nano = typeof o.nanoBananaImageUrl === "string" ? o.nanoBananaImageUrl.trim() : "";
+  if (nano) return nano;
+  const nanoArr = o.nanoBananaImageUrls;
+  if (Array.isArray(nanoArr)) {
+    for (const x of nanoArr) {
+      if (typeof x === "string" && x.trim()) return x.trim();
+    }
+  }
+  const po = o.productOnlyImageUrls;
+  if (Array.isArray(po)) {
+    for (const x of po) {
+      if (typeof x === "string" && x.trim()) return x.trim();
+    }
+  }
   if (typeof o.neutralUploadUrl === "string" && o.neutralUploadUrl.trim()) return o.neutralUploadUrl.trim();
   const cc = o.cleanCandidate;
   if (cc && typeof cc === "object" && typeof (cc as { url?: string }).url === "string") {
@@ -451,43 +468,85 @@ function addNonEmptyUrl(set: Set<string>, url: string | null | undefined) {
   if (t) set.add(t);
 }
 
-/** All still-image URLs we persist on a run (wizard + Link to Ad universe). */
+/**
+ * Images to show under each ad on the brand dashboard — scoped to this run only.
+ * Excludes crawl "fallback" hero images and avatar/persona refs so packs stay product-consistent.
+ */
 function collectProjectRunImageUrls(run: {
   extracted?: unknown;
   selected_image_url: string | null;
   generated_image_urls?: string[] | null;
+  packshot_urls?: string[] | null;
 }): string[] {
-  const set = new Set<string>();
-  addNonEmptyUrl(set, run.selected_image_url);
-  if (Array.isArray(run.generated_image_urls)) {
-    for (const u of run.generated_image_urls) addNonEmptyUrl(set, u);
-  }
+  const ordered: string[] = [];
+  const seen = new Set<string>();
   const snap = readUniverseFromExtracted(run.extracted);
+  const personaExclude = new Set<string>();
+  if (snap && Array.isArray(snap.personaPhotoUrls)) {
+    for (const u of snap.personaPhotoUrls) {
+      const t = typeof u === "string" ? u.trim() : "";
+      if (t) personaExclude.add(t);
+    }
+  }
+  const add = (url: string | null | undefined) => {
+    const t = typeof url === "string" ? url.trim() : "";
+    if (!t || seen.has(t) || personaExclude.has(t)) return;
+    seen.add(t);
+    ordered.push(t);
+  };
+
+  const packshots = Array.isArray(run.packshot_urls)
+    ? run.packshot_urls.map((u) => (typeof u === "string" ? u.trim() : "")).filter(Boolean)
+    : [];
+  for (const t of packshots) add(t);
+
   if (snap) {
-    addNonEmptyUrl(set, snap.cleanCandidate?.url ?? null);
-    addNonEmptyUrl(set, snap.fallbackImageUrl);
-    addNonEmptyUrl(set, snap.neutralUploadUrl);
-    if (Array.isArray(snap.productOnlyImageUrls)) {
-      for (const u of snap.productOnlyImageUrls) addNonEmptyUrl(set, u);
+    const productOnly = Array.isArray(snap.productOnlyImageUrls)
+      ? snap.productOnlyImageUrls.map((u) => (typeof u === "string" ? u.trim() : "")).filter(Boolean)
+      : [];
+    const userPhotos = Array.isArray(snap.userPhotoUrls)
+      ? snap.userPhotoUrls.map((u) => (typeof u === "string" ? u.trim() : "")).filter(Boolean)
+      : [];
+    const packSet = new Set(packshots);
+
+    for (const t of productOnly) add(t);
+    for (const t of userPhotos) add(t);
+    add(snap.neutralUploadUrl);
+
+    const ccUrl = snap.cleanCandidate?.url?.trim() ?? "";
+    if (ccUrl) {
+      const inProduct = productOnly.includes(ccUrl);
+      const inPack = packSet.has(ccUrl);
+      const noExplicitProductRefs = productOnly.length === 0 && packshots.length === 0;
+      if (inProduct || inPack || noExplicitProductRefs) add(ccUrl);
     }
-    if (Array.isArray(snap.userPhotoUrls)) {
-      for (const u of snap.userPhotoUrls) addNonEmptyUrl(set, u);
+
+    if (Array.isArray(run.generated_image_urls)) {
+      for (const u of run.generated_image_urls) add(u);
     }
-    addNonEmptyUrl(set, snap.nanoBananaImageUrl ?? null);
+    add(run.selected_image_url);
+
+    add(snap.nanoBananaImageUrl ?? null);
     if (Array.isArray(snap.nanoBananaImageUrls)) {
-      for (const u of snap.nanoBananaImageUrls) addNonEmptyUrl(set, u);
+      for (const u of snap.nanoBananaImageUrls) add(u);
     }
     if (Array.isArray(snap.linkToAdPipelineByAngle)) {
       for (const pipe of snap.linkToAdPipelineByAngle) {
         if (!pipe) continue;
-        addNonEmptyUrl(set, pipe.nanoBananaImageUrl ?? null);
+        add(pipe.nanoBananaImageUrl ?? null);
         if (Array.isArray(pipe.nanoBananaImageUrls)) {
-          for (const u of pipe.nanoBananaImageUrls) addNonEmptyUrl(set, u);
+          for (const u of pipe.nanoBananaImageUrls) add(u);
         }
       }
     }
+  } else {
+    add(run.selected_image_url);
+    if (Array.isArray(run.generated_image_urls)) {
+      for (const u of run.generated_image_urls) add(u);
+    }
   }
-  return [...set];
+
+  return ordered;
 }
 
 function addVideosFromKlingSlots(set: Set<string>, slots: unknown) {
@@ -620,6 +679,7 @@ export default function AppBrandWizard() {
       selected_image_url: string | null;
       video_url: string | null;
       generated_image_urls?: string[] | null;
+      packshot_urls?: string[] | null;
       extracted?: unknown;
     }>
   >([]);
@@ -649,6 +709,8 @@ export default function AppBrandWizard() {
   const [isLoadingRuns, setIsLoadingRuns] = useState(false);
   /** While set, ignore pathname→section sync so a stale URL cannot overwrite a sidebar click. */
   const pendingSectionNavRef = useRef<AppSection | null>(null);
+  /** Previous sidebar section — used so we only auto-open the first brand when *entering* My Projects, not after "Back to brands". */
+  const prevAppSectionRef = useRef<AppSection | null>(null);
 
   const [storeUrl, setStoreUrl] = useState("");
   const [isExtracting, setIsExtracting] = useState(false);
@@ -739,6 +801,8 @@ export default function AppBrandWizard() {
   const [motionVideoDetectedDuration, setMotionVideoDetectedDuration] = useState<number | null>(null);
   const [motionCharacterImageUrl, setMotionCharacterImageUrl] = useState<string | null>(null);
   const [motionCharacterFile, setMotionCharacterFile] = useState<File | null>(null);
+  const [avatarUrls, setAvatarUrls] = useState<string[]>([]);
+  const [avatarPickerOpen, setAvatarPickerOpen] = useState(false);
   const [motionQuality, setMotionQuality] = useState<string>("720p");
   const [motionPrompt, setMotionPrompt] = useState<string>("");
   const [adCloneOutputLanguage, setAdCloneOutputLanguage] = useState<string>(
@@ -1189,6 +1253,17 @@ export default function AppBrandWizard() {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const urls = await loadAvatarUrls();
+      if (!cancelled) setAvatarUrls(urls);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
     if (appSection !== "motion_control" && appSection !== "ad_clone") return;
     const onPaste = (event: ClipboardEvent) => {
       const files = clipboardImageFiles(event);
@@ -1460,12 +1535,11 @@ export default function AppBrandWizard() {
     return out;
   }, [savedRuns]);
 
-  /** Last 3 Link to Ad runs (any product) for quick switching without leaving this tab. */
+  /** Previous Link to Ad runs (any product) for quick switching without leaving this tab. */
   const recentLinkToAdRuns = useMemo(() => {
     return savedRuns
       .filter((r) => runHasLinkToAdUniverse(r.extracted))
       .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
-      .slice(0, 3)
       .map((r) => ({
         id: r.id,
         title: r.title,
@@ -1486,6 +1560,15 @@ export default function AppBrandWizard() {
       setSelectedProjectNormalizedUrl(null);
     }
   }, [projects, selectedProjectNormalizedUrl]);
+
+  useEffect(() => {
+    const prev = prevAppSectionRef.current;
+    if (appSection === "projects" && prev !== "projects" && !selectedProjectNormalizedUrl) {
+      const first = projects[0]?.normalizedUrl ?? null;
+      if (first) setSelectedProjectNormalizedUrl(first);
+    }
+    prevAppSectionRef.current = appSection;
+  }, [appSection, projects, selectedProjectNormalizedUrl]);
 
   function resetForNewProject() {
     setStep("url");
@@ -2680,7 +2763,7 @@ export default function AppBrandWizard() {
                                     {proj.runs.length} ad{proj.runs.length > 1 ? "s" : ""}
                                   </span>
                                   <span className="ml-auto text-[10px] text-white/30">
-                                    {new Date(latestRun.created_at).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
+                                    {new Date(latestRun.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
                                   </span>
                                 </div>
                               </div>
@@ -2837,7 +2920,7 @@ export default function AppBrandWizard() {
                                         )}
                                       </div>
                                       <span className="truncate px-0.5 text-center text-[10px] leading-tight text-white/50">
-                                        {new Date(run.created_at).toLocaleDateString(undefined, {
+                                        {new Date(run.created_at).toLocaleDateString("en-US", {
                                           month: "short",
                                           day: "numeric",
                                           hour: "2-digit",
@@ -2863,7 +2946,7 @@ export default function AppBrandWizard() {
                                           <div key={`proj-imgs-${run.id}`}>
                                             <p className="mb-1.5 text-[10px] text-white/40">
                                               Ad ·{" "}
-                                              {new Date(run.created_at).toLocaleString(undefined, {
+                                              {new Date(run.created_at).toLocaleString("en-US", {
                                                 dateStyle: "medium",
                                                 timeStyle: "short",
                                               })}
@@ -2915,7 +2998,7 @@ export default function AppBrandWizard() {
                                           <div key={`proj-vids-${run.id}`}>
                                             <p className="mb-1.5 text-[10px] text-white/40">
                                               Ad ·{" "}
-                                              {new Date(run.created_at).toLocaleString(undefined, {
+                                              {new Date(run.created_at).toLocaleString("en-US", {
                                                 dateStyle: "medium",
                                                 timeStyle: "short",
                                               })}
@@ -2962,7 +3045,7 @@ export default function AppBrandWizard() {
                                           <div>
                                             <p className="text-xs font-semibold text-white/85">
                                               Ad ·{" "}
-                                              {new Date(run.created_at).toLocaleString(undefined, {
+                                              {new Date(run.created_at).toLocaleString("en-US", {
                                                 dateStyle: "medium",
                                                 timeStyle: "short",
                                               })}
@@ -3372,6 +3455,11 @@ export default function AppBrandWizard() {
                                   onClick={() => motionCharacterInputRef.current?.click()}
                                   className="relative flex aspect-[3/4] w-full cursor-pointer flex-col items-center justify-center gap-1.5 overflow-hidden rounded-xl border border-dashed border-white/20 bg-[#0c0c10] text-white/50 transition hover:border-violet-400/40 hover:bg-white/[0.03]"
                                 >
+                                  {avatarUrls.length > 0 ? (
+                                    <AvatarInputCornerBadge
+                                      onClick={() => setAvatarPickerOpen(true)}
+                                    />
+                                  ) : null}
                                   {motionCharacterImageUrl ? (
                                     // eslint-disable-next-line @next/next/no-img-element
                                     <img
@@ -4635,7 +4723,7 @@ export default function AppBrandWizard() {
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <p className="text-xs text-muted-foreground">
-                Provider: <span className="font-medium">Kling 3.0 Standard</span> (KIE Market), aspect 9:16. 15s, 720p
+                Provider: <span className="font-medium">Kling 3.0 Standard</span> (provider), aspect 9:16. 15s, 720p
                 Standard, audio ON (voix native).
                   </p>
 
@@ -4894,6 +4982,18 @@ export default function AppBrandWizard() {
           </div>
         </div>
       ) : null}
+
+      <AvatarPickerDialog
+        open={avatarPickerOpen}
+        onOpenChange={setAvatarPickerOpen}
+        avatarUrls={avatarUrls}
+        title="Choose your avatar"
+        onPick={(url) => {
+          setMotionCharacterFile(null);
+          setMotionCharacterImageUrl(url);
+          toast.success("Character image selected", { description: "Picked from your avatar library." });
+        }}
+      />
     </>
   );
 }

@@ -168,21 +168,21 @@ const VIDEO_MODEL_PICKER_ITEMS: StudioModelPickerItem[] = [
   {
     id: "bytedance/seedance-2-preview",
     label: "Seedance 2 Preview",
-    subtitle: "PiAPI · image → video",
+    subtitle: "Provider · image → video",
     icon: "seedance",
     newBadge: true,
     resolution: "1080p",
     durationRange: "5–15s",
-    searchText: "seedance preview piapi bytedance",
+    searchText: "seedance preview provider bytedance",
   },
   {
     id: "bytedance/seedance-2-fast-preview",
     label: "Seedance 2 Turbo Preview",
-    subtitle: "PiAPI · faster preview",
+    subtitle: "Provider · faster preview",
     icon: "seedance",
     resolution: "1080p",
     durationRange: "5–15s",
-    searchText: "seedance turbo fast preview piapi",
+    searchText: "seedance turbo fast preview provider",
   },
   {
     id: "veo3_fast",
@@ -631,6 +631,12 @@ export default function StudioVideoPanel({
   const [historyItems, setHistoryItems] = useState<StudioHistoryItem[]>([]);
   /** Client-side optimistic job IDs that must survive server poll replacements. */
   const inFlightJobsRef = useRef<Set<string>>(new Set());
+  /** Swap a generating jobId for a done-row id, auto-expire after server has time to sync. */
+  const retireInFlightJob = useCallback((jobId: string, doneId: string) => {
+    inFlightJobsRef.current.delete(jobId);
+    inFlightJobsRef.current.add(doneId);
+    setTimeout(() => inFlightJobsRef.current.delete(doneId), 20_000);
+  }, []);
   const grantCreditsRef = useRef(grantCredits);
   grantCreditsRef.current = grantCredits;
 
@@ -1309,12 +1315,13 @@ export default function StudioVideoPanel({
           toast.message("Motion control started", { description: "Polling…" });
           const url = await pollKlingVideo(json.taskId, editPKey, getPersonalPiapiApiKey() ?? undefined);
           const doneAt = Date.now();
-          inFlightJobsRef.current.delete(jobId);
+          const doneId = `${jobId}-done-${doneAt}`;
+          retireInFlightJob(jobId, doneId);
           setHistoryItems((prev) => {
             const rest = prev.filter((i) => i.id !== jobId);
             return [
               {
-                id: `${jobId}-done-${doneAt}`,
+                id: doneId,
                 kind: "video",
                 status: "ready",
                 label,
@@ -1360,12 +1367,13 @@ export default function StudioVideoPanel({
         toast.message("Edit started", { description: "Polling provider…" });
         const url = await pollKlingVideo(json.taskId, editPKey, getPersonalPiapiApiKey() ?? undefined);
         const doneAt = Date.now();
-        inFlightJobsRef.current.delete(jobId);
+        const doneId = `${jobId}-done-${doneAt}`;
+        retireInFlightJob(jobId, doneId);
         setHistoryItems((prev) => {
           const rest = prev.filter((i) => i.id !== jobId);
           return [
             {
-              id: `${jobId}-done-${doneAt}`,
+              id: doneId,
               kind: "video",
               status: "ready",
               label,
@@ -1498,12 +1506,13 @@ export default function StudioVideoPanel({
           );
           const url = await pollKlingVideo(json.taskId, pKey, piKey);
           const doneAt = Date.now();
-          inFlightJobsRef.current.delete(jobId);
+          const doneId = `${jobId}-done-${doneAt}`;
+          retireInFlightJob(jobId, doneId);
           setHistoryItems((prev) => {
             const rest = prev.filter((i) => i.id !== jobId);
             return [
               {
-                id: `${jobId}-done-${doneAt}`,
+                id: doneId,
                 kind: "video",
                 status: "ready",
                 label,
@@ -1540,12 +1549,13 @@ export default function StudioVideoPanel({
               personalApiKey: pKey,
             }),
           });
-          const json = (await res.json()) as { taskId?: string; error?: string };
+          const json = (await res.json()) as { taskId?: string; provider?: string; error?: string };
           if (!res.ok || !json.taskId) throw new Error(json.error || "Veo failed");
           await registerStudioTask({
             kind: "studio_video",
             label,
             taskId: json.taskId,
+            provider: json.provider,
             model: snap.modelId,
             creditsCharged: platformChargeCreate,
             personalApiKey: pKey,
@@ -1554,12 +1564,13 @@ export default function StudioVideoPanel({
           toast.message("Veo started", { description: "Rendering…" });
           const url = await pollVeoVideo(json.taskId, pKey);
           const doneAt = Date.now();
-          inFlightJobsRef.current.delete(jobId);
+          const doneId = `${jobId}-done-${doneAt}`;
+          retireInFlightJob(jobId, doneId);
           setHistoryItems((prev) => {
             const rest = prev.filter((i) => i.id !== jobId);
             return [
               {
-                id: `${jobId}-done-${doneAt}`,
+                id: doneId,
                 kind: "video",
                 status: "ready",
                 label,
@@ -1619,12 +1630,13 @@ export default function StudioVideoPanel({
         toast.message("Generation started", { description: "Polling provider…" });
         const url = await pollKlingVideo(json.taskId, pKey, piKey);
         const doneAt = Date.now();
-        inFlightJobsRef.current.delete(jobId);
+        const doneId = `${jobId}-done-${doneAt}`;
+        retireInFlightJob(jobId, doneId);
         setHistoryItems((prev) => {
           const rest = prev.filter((i) => i.id !== jobId);
           return [
             {
-              id: `${jobId}-done-${doneAt}`,
+              id: doneId,
               kind: "video",
               status: "ready",
               label,

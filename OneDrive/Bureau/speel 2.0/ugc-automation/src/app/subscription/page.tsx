@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowRight, Check, Coins, CreditCard, Sparkles, X } from "lucide-react";
 import { toast } from "sonner";
 import StudioShell from "@/app/_components/StudioShell";
+import type { SubscriptionDowngradePreview } from "@/app/_components/SubscriptionDowngradeDialog";
+import type { SubscriptionUpgradePreview } from "@/app/_components/SubscriptionUpgradeDialog";
 import { consumeCheckoutQueryParams, useCreditsPlan } from "@/app/_components/CreditsPlanContext";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -18,6 +20,7 @@ import {
   subscriptionPlanSortIndex,
   type SubscriptionPlanId,
 } from "@/lib/stripe/subscriptionPrices";
+import { openStripeBillingPortal } from "@/lib/stripe/openBillingPortalClient";
 
 type Billing = "monthly" | "yearly";
 const BILLING_PORTAL_URL =
@@ -108,6 +111,166 @@ export default function SubscriptionPage() {
     "pending",
   );
   const { planId, planDisplayName } = useCreditsPlan();
+
+  const [upgradeDialogOpen, setUpgradeDialogOpen] = useState(false);
+  const [upgradePreview, setUpgradePreview] = useState<SubscriptionUpgradePreview | null>(null);
+  const [upgradePreviewLoading, setUpgradePreviewLoading] = useState(false);
+  const [upgradeConfirmLoading, setUpgradeConfirmLoading] = useState(false);
+  const [pendingUpgradePlanId, setPendingUpgradePlanId] = useState<string | null>(null);
+
+  const [downgradeDialogOpen, setDowngradeDialogOpen] = useState(false);
+  const [downgradePreview, setDowngradePreview] = useState<SubscriptionDowngradePreview | null>(null);
+  const [downgradePreviewLoading, setDowngradePreviewLoading] = useState(false);
+  const [downgradeConfirmLoading, setDowngradeConfirmLoading] = useState(false);
+  const [pendingDowngradePlanId, setPendingDowngradePlanId] = useState<string | null>(null);
+
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancelDiscountLoading, setCancelDiscountLoading] = useState(false);
+  const [cancelPortalLoading, setCancelPortalLoading] = useState(false);
+  const [subscriptionActiveUntilLabel, setSubscriptionActiveUntilLabel] = useState<string | null>(null);
+  /** From Stripe: user canceled renewal but still has access until period end. */
+  const [cancelAtPeriodEnd, setCancelAtPeriodEnd] = useState(false);
+  const [retentionOfferEligible, setRetentionOfferEligible] = useState(false);
+  const [retentionEligibilityLoading, setRetentionEligibilityLoading] = useState(false);
+
+  const openUpgradeDialog = useCallback(
+    async (planIdCheckout: string) => {
+      setPendingUpgradePlanId(planIdCheckout);
+      setUpgradeDialogOpen(true);
+      setUpgradePreviewLoading(true);
+      setUpgradePreview(null);
+      try {
+        const res = await fetch("/api/stripe/subscription/upgrade-preview", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ planId: planIdCheckout, billing }),
+        });
+        const data = (await res.json()) as SubscriptionUpgradePreview & { error?: string };
+        if (!res.ok) throw new Error(data.error || "Could not load upgrade preview.");
+        setUpgradePreview(data);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Could not load upgrade preview.");
+        setUpgradeDialogOpen(false);
+        setPendingUpgradePlanId(null);
+      } finally {
+        setUpgradePreviewLoading(false);
+      }
+    },
+    [billing],
+  );
+
+  const confirmSubscriptionUpgrade = useCallback(async () => {
+    if (!pendingUpgradePlanId) return;
+    setUpgradeConfirmLoading(true);
+    try {
+      const res = await fetch("/api/stripe/subscription/upgrade-confirm", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          planId: pendingUpgradePlanId,
+          billing,
+          referral: window.linkjolt?.referral ?? "",
+        }),
+      });
+      const data = (await res.json()) as { url?: string; error?: string };
+      if (!res.ok) throw new Error(data.error || "Could not start upgrade checkout.");
+      if (data.url) {
+        window.location.href = data.url;
+        return;
+      }
+      throw new Error("No checkout URL returned");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Upgrade failed.");
+    } finally {
+      setUpgradeConfirmLoading(false);
+    }
+  }, [billing, pendingUpgradePlanId]);
+
+  const openDowngradeDialog = useCallback(
+    async (planIdTarget: string) => {
+      setPendingDowngradePlanId(planIdTarget);
+      setDowngradeDialogOpen(true);
+      setDowngradePreviewLoading(true);
+      setDowngradePreview(null);
+      try {
+        const res = await fetch("/api/stripe/subscription/downgrade-preview", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ planId: planIdTarget, billing }),
+        });
+        const data = (await res.json()) as SubscriptionDowngradePreview & { error?: string };
+        if (!res.ok) throw new Error(data.error || "Could not load downgrade preview.");
+        setDowngradePreview(data);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Could not load downgrade preview.");
+        setDowngradeDialogOpen(false);
+        setPendingDowngradePlanId(null);
+      } finally {
+        setDowngradePreviewLoading(false);
+      }
+    },
+    [billing],
+  );
+
+  const confirmDowngrade = useCallback(async () => {
+    if (!pendingDowngradePlanId) return;
+    setDowngradeConfirmLoading(true);
+    try {
+      const res = await fetch("/api/stripe/subscription/downgrade-confirm", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ planId: pendingDowngradePlanId, billing }),
+      });
+      const data = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok) throw new Error(data.error || "Could not process downgrade.");
+      toast.success("Downgrade scheduled", {
+        description: `Your plan will switch to ${downgradePreview?.target.name ?? "the new plan"} at your next renewal.`,
+      });
+      setDowngradeDialogOpen(false);
+      setDowngradePreview(null);
+      setPendingDowngradePlanId(null);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Downgrade failed.");
+    } finally {
+      setDowngradeConfirmLoading(false);
+    }
+  }, [billing, pendingDowngradePlanId, downgradePreview]);
+
+  const acceptRetentionDiscount = useCallback(async () => {
+    setCancelDiscountLoading(true);
+    try {
+      const res = await fetch("/api/stripe/subscription/apply-retention-discount", {
+        method: "POST",
+        credentials: "include",
+      });
+      const data = (await res.json()) as { ok?: boolean; error?: string };
+      if (!res.ok) throw new Error(data.error || "Could not apply discount.");
+      toast.success("30% discount applied!", {
+        description: "Your next billing cycle will be 30% off. Thank you for staying!",
+      });
+      setCancelDialogOpen(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not apply discount.");
+    } finally {
+      setCancelDiscountLoading(false);
+    }
+  }, []);
+
+  const proceedWithCancellation = useCallback(async () => {
+    setCancelPortalLoading(true);
+    try {
+      await openStripeBillingPortal();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not open billing portal");
+    } finally {
+      setCancelPortalLoading(false);
+      setCancelDialogOpen(false);
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;

@@ -38,8 +38,8 @@ type Body = {
 };
 
 /**
- * KIE now requires separate model names for text-to-video vs image-to-video.
- * The client still sends the generic picker id; we resolve here based on whether an image is present.
+ * KIE requires separate model names for text-to-video vs image-to-video.
+ * Client still sends picker ids; resolve here from presence of an image.
  */
 function resolveKieModelName(pickerModel: string, hasImage: boolean): string {
   switch (pickerModel) {
@@ -47,21 +47,35 @@ function resolveKieModelName(pickerModel: string, hasImage: boolean): string {
       return hasImage ? "kling-2.6/image-to-video" : "kling-2.6/text-to-video";
     case "openai/sora-2":
       return hasImage ? "sora-2-image-to-video" : "sora-2-text-to-video";
+    case "openai/sora-2-pro":
+      return hasImage ? "sora-2-pro-image-to-video" : "sora-2-pro-text-to-video";
     default:
       return pickerModel;
   }
 }
 
 function isKling26(model: string): boolean {
-  return model === "kling-2.6/video" || model === "kling-2.6/image-to-video" || model === "kling-2.6/text-to-video";
+  return (
+    model === "kling-2.6/video" ||
+    model === "kling-2.6/image-to-video" ||
+    model === "kling-2.6/text-to-video"
+  );
 }
 
 function isSora2(model: string): boolean {
-  return model === "openai/sora-2" || model === "sora-2-image-to-video" || model === "sora-2-text-to-video";
+  return (
+    model === "openai/sora-2" ||
+    model === "sora-2-image-to-video" ||
+    model === "sora-2-text-to-video"
+  );
 }
 
 function isSora2Pro(model: string): boolean {
-  return model === "openai/sora-2-pro";
+  return (
+    model === "openai/sora-2-pro" ||
+    model === "sora-2-pro-text-to-video" ||
+    model === "sora-2-pro-image-to-video"
+  );
 }
 
 function validateDurationForModel(model: string, duration: number | undefined) {
@@ -155,7 +169,7 @@ export async function POST(req: Request) {
   }
 
   try {
-    let input: any;
+    let input: Record<string, unknown>;
     if (model === "kling-3.0/video") {
       input = {
         prompt,
@@ -169,7 +183,6 @@ export async function POST(req: Request) {
       if (imageUrl) {
         input.image_urls = [imageUrl];
         // KIE docs: when first-frame image is provided, aspect_ratio is invalid.
-        // Safer: omit it to avoid server-side errors.
       } else {
         if (body.aspectRatio) input.aspect_ratio = body.aspectRatio;
       }
@@ -186,8 +199,7 @@ export async function POST(req: Request) {
       }
     } else if (isSora2(model) || isSora2Pro(model)) {
       const nFrames = String(body.duration ?? 10);
-      const soraAspect =
-        body.aspectRatio === "9:16" ? "portrait" : "landscape";
+      const soraAspect = body.aspectRatio === "9:16" ? "portrait" : "landscape";
       input = {
         prompt,
         n_frames: nFrames,
@@ -258,10 +270,7 @@ export async function POST(req: Request) {
       );
     }
 
-    const taskId = await kieMarketCreateTask(
-      { model, input },
-      personalKey,
-    );
+    const taskId = await kieMarketCreateTask({ model, input }, personalKey);
 
     return NextResponse.json({
       taskId,
@@ -274,4 +283,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: userFacingProviderErrorOrDefault(message) }, { status: 502 });
   }
 }
-

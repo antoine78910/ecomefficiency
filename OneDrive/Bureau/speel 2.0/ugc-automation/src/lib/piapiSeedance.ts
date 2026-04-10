@@ -49,7 +49,6 @@ export async function piapiCreateSeedanceTask(opts: {
   if (opts.imageUrl) {
     input.image_urls = [opts.imageUrl];
   }
-
   const res = await fetch(`${PIAPI_BASE}/api/v1/task`, {
     method: "POST",
     headers: {
@@ -60,6 +59,7 @@ export async function piapiCreateSeedanceTask(opts: {
       model: "seedance",
       task_type: opts.taskType,
       input,
+      // Avoid workspace default "private/HYA" pool quota surprises.
       config: {
         service_mode: "public",
       },

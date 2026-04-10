@@ -86,10 +86,11 @@ export function canUseStudioImagePickerModel(planId: AccountPlanId, pickerId: st
   return false;
 }
 
-/** KIE now splits some models into text-to-video / image-to-video variants; normalize to the picker id. */
+/** KIE splits some models into text-to-video / image-to-video; normalize to the picker id for gates. */
 function normalizeVideoModelForGate(id: string): string {
   if (id === "kling-2.6/image-to-video" || id === "kling-2.6/text-to-video") return "kling-2.6/video";
   if (id === "sora-2-image-to-video" || id === "sora-2-text-to-video") return "openai/sora-2";
+  if (id === "sora-2-pro-image-to-video" || id === "sora-2-pro-text-to-video") return "openai/sora-2-pro";
   return id;
 }
 
