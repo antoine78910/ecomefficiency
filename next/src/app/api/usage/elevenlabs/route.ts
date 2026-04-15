@@ -41,7 +41,7 @@ export async function OPTIONS(req: Request) {
 
 /**
  * GET /api/usage/elevenlabs?email=...
- * Returns total characters used by this email in the last 30 days (rolling window).
+ * Returns total characters used by this email today (UTC day window).
  */
 export async function GET(req: Request) {
   try {
@@ -56,7 +56,10 @@ export async function GET(req: Request) {
 
     const supabase = getSupabaseAdmin();
     const now = new Date();
-    const since = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString();
+    const sinceDate = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0)
+    );
+    const since = sinceDate.toISOString();
 
     const { data, error } = await supabase
       .from("elevenlabs_usage_events")
