@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Shield, Users, Activity, BarChart3, LayoutTemplate, ClipboardList, Star, Zap, Eye } from 'lucide-react'
+import { Shield, Users, Activity, BarChart3, LayoutTemplate, ClipboardList, Star, Zap, Eye, Mic } from 'lucide-react'
 
 const adminRoutes = [
   {
@@ -16,6 +16,12 @@ const adminRoutes = [
     label: 'Higgsfield',
     icon: Zap,
     description: 'Crédits Higgsfield consommés (extension)'
+  },
+  {
+    href: '/admin/elevenlabs',
+    label: 'ElevenLabs',
+    icon: Mic,
+    description: 'ElevenLabs characters consumed (extension + API tracking)'
   },
   {
     href: '/admin/reviews',

@@ -1,0 +1,88 @@
+{
+  "manifest_version": 3,
+  "name": "Ecom Efficiency",
+  "version": "1.0.1",
+  "description": "Injecte des scripts personnalisés sur des pages spécifiques pour automatiser la connexion.",
+  "permissions": [
+    "activeTab",
+    "scripting",
+    "webNavigation",
+    "storage",
+    "tabs",
+    "notifications",
+    "webRequest",
+    "webRequestBlocking"
+  ],
+  "host_permissions": [
+    "https://www.pipiads.com/*",
+    "https://elevenlabs.io/*",
+    "https://app.elevenlabs.io/*",
+    "https://app.foreplay.co/*",
+    "https://app.trendtrack.io/*",
+    "https://app.winninghunter.com/*",
+    "https://billing.stripe.com/*",
+    "https://one.google.com/*",
+    "https://www.kalodata.com/*",
+    "https://myaccount.google.com/*",
+    "http://51.83.103.21:20016/*",
+    "https://www.ecomefficiency.com/*",
+    "https://api.elevenlabs.io/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.pipiads.com/login*"
+      ],
+      "js": ["auto_login_pipiads.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://www.pipiads.com/fr/login*"
+      ],
+      "js": ["auto_login_pipiads_fr.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://elevenlabs.io/app/sign-in",
+        "https://app.elevenlabs.io/sign-in",
+        "https://elevenlabs.io/fr/login"
+      ],
+      "js": ["elevenlabs_auto_login.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://app.foreplay.co/manage-subscription"
+      ],
+      "js": ["elevenlabs_auto_login.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://elevenlabs.io/app/*",
+        "https://app.elevenlabs.io/*"
+      ],
+      "js": ["elevenlabs_ecom_subscription.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://elevenlabs.io/app/*"],
+      "js": ["elevenlabs_credits_notif.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": ["https://www.pipiads.com/*"],
+      "js": ["pipiads_credits_notif.js"],
+      "run_at": "document_end"
+    }
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  }
+}
+
