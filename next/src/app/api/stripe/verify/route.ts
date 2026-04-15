@@ -84,7 +84,13 @@ async function recordPartnerPayment(input: {
   } catch {}
 }
 
-const HIGGSFIELD_ORIGIN = "https://higgsfield.ai";
+const EXTENSION_ALLOWED_ORIGINS = [
+  "https://higgsfield.ai",
+  "https://www.higgsfield.ai",
+  "https://elevenlabs.io",
+  "https://www.elevenlabs.io",
+  "https://app.elevenlabs.io",
+];
 const LEGACY_DAILY_CREDIT_LIMIT = 10;
 const DEFAULT_DAILY_CREDIT_LIMIT = 100;
 
@@ -120,9 +126,13 @@ function applyHiggsfieldProOnlyGate(
   };
 }
 
-function withCors(res: NextResponse) {
+function withCors(res: NextResponse, req?: NextRequest | Request) {
   try {
-    res.headers.set("Access-Control-Allow-Origin", HIGGSFIELD_ORIGIN);
+    const origin = req?.headers?.get("origin") || "";
+    const allow = EXTENSION_ALLOWED_ORIGINS.includes(origin)
+      ? origin
+      : EXTENSION_ALLOWED_ORIGINS[0];
+    res.headers.set("Access-Control-Allow-Origin", allow);
     res.headers.set("Vary", "Origin");
     res.headers.set("Access-Control-Allow-Methods", "POST,OPTIONS");
     res.headers.set("Access-Control-Allow-Headers", "Content-Type");
@@ -130,8 +140,8 @@ function withCors(res: NextResponse) {
   return res;
 }
 
-export async function OPTIONS() {
-  return withCors(new NextResponse(null, { status: 204 }));
+export async function OPTIONS(req: NextRequest) {
+  return withCors(new NextResponse(null, { status: 204 }), req);
 }
 
 export async function POST(req: NextRequest) {
@@ -139,7 +149,7 @@ export async function POST(req: NextRequest) {
     if (!process.env.STRIPE_SECRET_KEY) {
       return withCors(
         NextResponse.json({ ok: false, error: "not_configured" }, { status: 500 })
-      );
+      , req);
     }
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-08-27.basil" });
 
@@ -162,7 +172,7 @@ export async function POST(req: NextRequest) {
             status: "no_connected_account",
             plan: null,
           })
-        );
+        , req);
       }
 
       // All customers on CONNECTED account for this email (multiple Customer records possible)
@@ -192,7 +202,7 @@ export async function POST(req: NextRequest) {
             status: partnerCustomersCount === 0 ? "no_customer" : "no_active_subscription",
             plan: null,
           })
-        );
+        , req);
       }
 
       // Partner offering: treat any active subscription as "pro" access inside the app.
@@ -233,7 +243,7 @@ export async function POST(req: NextRequest) {
               : null,
           })
         )
-      );
+      , req);
     }
 
     let customerId = customerHeader || undefined;
@@ -256,7 +266,7 @@ export async function POST(req: NextRequest) {
               status: "no_subscription",
               plan: null,
             })
-          );
+          , req);
         }
 
         // Retrieve subscription with expanded price/product for plan detection
@@ -290,7 +300,7 @@ export async function POST(req: NextRequest) {
               status: sub.status || "inactive",
               plan: null,
             })
-          );
+          , req);
         }
 
         customerId = sessCustomerId || (typeof (sub as any).customer === "string" ? (sub as any).customer : undefined) || customerId;
@@ -392,7 +402,7 @@ export async function POST(req: NextRequest) {
               daily_credit_limit: DEFAULT_DAILY_CREDIT_LIMIT,
             })
           )
-        );
+        , req);
       } catch (e: any) {
         // Fall through to email/customer based verification
       }
@@ -441,12 +451,12 @@ export async function POST(req: NextRequest) {
                 source: "legacy",
               })
             )
-          );
+          , req);
         }
       }
       return withCors(
         NextResponse.json({ ok: true, active: false, status: "no_customer", plan: null })
-      );
+      , req);
     }
 
     // Check for ACTIVE, TRIALING, or INCOMPLETE-BUT-PAID subscriptions
@@ -510,7 +520,7 @@ export async function POST(req: NextRequest) {
                 source: "legacy",
               })
             )
-          );
+          , req);
         }
       }
       return withCors(
@@ -520,7 +530,7 @@ export async function POST(req: NextRequest) {
           status: "no_active_subscription",
           plan: null,
         })
-      );
+      , req);
     }
 
     const status = latest.status;
@@ -708,14 +718,14 @@ export async function POST(req: NextRequest) {
     });
     return withCors(
       NextResponse.json(applyHiggsfieldProOnlyGate(req, { ...result }) as Record<string, unknown>)
-    );
+    , req);
   } catch (e: any) {
     return withCors(
       NextResponse.json(
         { ok: false, error: e?.message || "unknown_error" },
         { status: 500 }
       )
-    );
+    , req);
   }
 }
 
