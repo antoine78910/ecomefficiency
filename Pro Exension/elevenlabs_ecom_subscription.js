@@ -1,13 +1,13 @@
-// ElevenLabs EcomEfficiency: subscription verification + 1000 credits/month + concurrency-safe tracking
+// ElevenLabs EcomEfficiency: subscription verification + 1000 credits/month + real-time ElevenLabs balance
 // Runs in world:"MAIN" so fetch interceptor catches the page's real API calls.
 (function () {
   'use strict';
   try { console.log('[EE-EL-Ecom] subscription+credits script loaded on', location.href); } catch (_) {}
 
-  const host = (location.hostname || '').toLowerCase();
+  var host = (location.hostname || '').toLowerCase();
   if (host !== 'elevenlabs.io' && host !== 'www.elevenlabs.io' && host !== 'app.elevenlabs.io') return;
 
-  const CONFIG = window.EE_ELEVENLABS_ECOM_CONFIG || {
+  var CONFIG = window.EE_ELEVENLABS_ECOM_CONFIG || {
     API_BASE_URL: 'https://www.ecomefficiency.com',
     VERIFY_SUBSCRIPTION_PATH: '/api/stripe/verify',
     USAGE_LOG_PATH: '/api/usage/elevenlabs',
@@ -15,12 +15,12 @@
     MONTHLY_CREDIT_LIMIT: 1000
   };
 
-  const STORAGE_PREFIX = 'ee_el_ecom_';
-  const SESSION_VERIFIED_EMAIL = STORAGE_PREFIX + 'verified_email';
-  const SESSION_VERIFIED_AT = STORAGE_PREFIX + 'verified_at';
-  const LS_PERIOD_USAGE = STORAGE_PREFIX + 'period_usage';
+  var STORAGE_PREFIX = 'ee_el_ecom_';
+  var SESSION_VERIFIED_EMAIL = STORAGE_PREFIX + 'verified_email';
+  var SESSION_VERIFIED_AT = STORAGE_PREFIX + 'verified_at';
+  var LS_PERIOD_USAGE = STORAGE_PREFIX + 'period_usage';
 
-  const DEBUG = true;
+  var DEBUG = true;
   function log() { if (DEBUG) try { console.log.apply(console, ['[EE-EL-Ecom]'].concat(Array.prototype.slice.call(arguments))); } catch (_) {} }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -44,7 +44,7 @@
   // ═══════════════════════════════════════════════════════════════════
   //  BACKEND SYNC
   // ═══════════════════════════════════════════════════════════════════
-  var _origFetch = null; // set before any interception
+  var _origFetch = null;
 
   function apiFetch(url, opts) {
     var f = _origFetch || window.fetch;
@@ -71,13 +71,26 @@
     }).then(function (r) { log('logUsage', r.status, source, delta); }).catch(function () {});
   }
 
-  var _cachedGlobal = null; var _cachedGlobalAt = 0;
-  function fetchGlobalCredits() {
-    if (_cachedGlobal && (Date.now() - _cachedGlobalAt) < 15000) return Promise.resolve(_cachedGlobal);
+  // ═══════════════════════════════════════════════════════════════════
+  //  ELEVENLABS REAL BALANCE (via proxy API)
+  // ═══════════════════════════════════════════════════════════════════
+  var _elBalance = null;
+  var _elBalanceAt = 0;
+  var EL_BALANCE_CACHE_MS = 8000;
+
+  function fetchElBalance(forceRefresh) {
+    var now = Date.now();
+    if (!forceRefresh && _elBalance && (now - _elBalanceAt) < EL_BALANCE_CACHE_MS) return Promise.resolve(_elBalance);
     return apiFetch(CONFIG.API_BASE_URL + CONFIG.CREDITS_PROXY_PATH, { method: 'GET', credentials: 'omit' })
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (d) { if (d && d.ok) { _cachedGlobal = d; _cachedGlobalAt = Date.now(); log('global credits:', d.character_count, '/', d.character_limit); } return d; })
-      .catch(function () { return null; });
+      .then(function (d) {
+        if (d && d.ok) {
+          _elBalance = d;
+          _elBalanceAt = Date.now();
+          log('EL balance:', d.character_count, '/', d.character_limit);
+        }
+        return _elBalance;
+      }).catch(function () { return _elBalance; });
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -96,10 +109,9 @@
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  //  TEXT EDITOR READING (detect text before generation)
+  //  TEXT EDITOR READING
   // ═══════════════════════════════════════════════════════════════════
   function getEditorText() {
-    // Try multiple selectors for the ElevenLabs text editor
     var selectors = [
       'textarea',
       '[contenteditable="true"][role="textbox"]',
@@ -111,15 +123,12 @@
       var els = document.querySelectorAll(selectors[i]);
       for (var j = 0; j < els.length; j++) {
         var el = els[j];
-        if (el.closest && (el.closest('#ee-el-ecom-popup-root') || el.closest('#ee-el-ecom-widget'))) continue;
+        if (el.closest && (el.closest('#ee-el-ecom-popup-root') || el.closest('#ee-el-ecom-widget') || el.closest('#ee-el-ecom-cost-indicator'))) continue;
         var r = el.getBoundingClientRect();
-        if (r.width < 50 || r.height < 20) continue; // skip invisible
+        if (r.width < 50 || r.height < 20) continue;
         var txt = (el.value !== undefined ? el.value : el.innerText) || '';
         txt = txt.trim();
-        if (txt.length > 0) {
-          log('text found via "' + selectors[i] + '": ' + txt.length + ' chars');
-          return txt;
-        }
+        if (txt.length > 0) return txt;
       }
     }
     return '';
@@ -182,11 +191,11 @@
         submitBtn.disabled = false;
         if (res && res.allowed) {
           setVerifiedEmail(email);
-          setMsg('Active subscription detected. Syncing credits...', false);
-          syncUsageFromBackend(email).then(function () {
+          setMsg('Active subscription detected. Syncing\u2026', false);
+          Promise.all([syncUsageFromBackend(email), fetchElBalance(true)]).then(function () {
             var remaining = getRemaining();
             setMsg('Access granted. ' + remaining + ' / ' + CONFIG.MONTHLY_CREDIT_LIMIT + ' credits remaining.', false);
-            setTimeout(function () { root.remove(); removeShield(); ensureWidget(); refreshWidget(0); startTracking(); installButtonOverlayLoop(); eeFullyInitialized = true; }, 600);
+            setTimeout(function () { root.remove(); removeShield(); ensureWidget(); refreshWidget(0); startTracking(); installButtonOverlayLoop(); startCostIndicator(); eeFullyInitialized = true; }, 600);
           });
         } else if (res && res.reason === 'no_active_subscription') {
           setMsg('No active subscription for this email. Subscribe at ecomefficiency.com.', true);
@@ -198,23 +207,28 @@
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  //  WIDGET
+  //  WIDGET (shows EE limit + real ElevenLabs balance)
   // ═══════════════════════════════════════════════════════════════════
-  var widgetEl = null; var lastDelta = 0;
+  var widgetEl = null;
+  var lastDelta = 0;
 
   function ensureWidgetStyle() {
     if (document.getElementById('ee-el-ecom-widget-style')) return;
     var s = document.createElement('style'); s.id = 'ee-el-ecom-widget-style';
     s.textContent =
-      '#ee-el-ecom-widget{position:fixed;top:14px;right:14px;z-index:2147483645;width:220px;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;border-radius:16px;overflow:hidden;transition:box-shadow .3s,border-color .3s,opacity .2s;}' +
-      '#ee-el-ecom-widget .ee-w-bar-track{width:100%;height:5px;background:rgba(255,255,255,0.08);border-radius:3px;overflow:hidden;}' +
-      '#ee-el-ecom-widget .ee-w-bar-fill{height:100%;border-radius:3px;transition:width .5s;}' +
+      '#ee-el-ecom-widget{position:fixed;top:14px;right:14px;z-index:2147483645;width:240px;color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;border-radius:16px;overflow:hidden;transition:box-shadow .3s,border-color .3s,opacity .2s;}' +
+      '#ee-el-ecom-widget .ee-bar{width:100%;height:4px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;margin-top:4px;}' +
+      '#ee-el-ecom-widget .ee-bar-fill{height:100%;border-radius:2px;transition:width .5s;}' +
       '#ee-el-ecom-widget .ee-w-min-btn{cursor:pointer;border:1px solid rgba(149,65,224,.35);background:rgba(149,65,224,.12);color:#e9d5ff;border-radius:6px;font-size:14px;line-height:1;padding:0;width:22px;height:22px;display:flex;align-items:center;justify-content:center;position:absolute;top:8px;right:8px;z-index:3;}' +
       '#ee-el-ecom-widget .ee-w-min-btn:hover{background:rgba(149,65,224,.22);}' +
       '#ee-el-ecom-widget.ee-minimized .ee-w-full{display:none!important;}#ee-el-ecom-widget.ee-minimized .ee-w-pill{display:flex!important;}' +
       '#ee-el-ecom-widget.ee-minimized{width:auto!important;background:transparent!important;border:none!important;box-shadow:none!important;overflow:visible!important;border-radius:999px!important;}' +
       '#ee-el-ecom-widget .ee-w-pill{display:none;cursor:pointer;align-items:center;justify-content:center;width:36px;height:36px;border-radius:999px;background:linear-gradient(135deg,#9541e0,#7c30c7);border:2px solid rgba(149,65,224,.5);font-size:12px;font-weight:700;color:#fff;transition:transform .15s;}' +
-      '#ee-el-ecom-widget .ee-w-pill:hover{transform:scale(1.08);filter:brightness(1.1);}';
+      '#ee-el-ecom-widget .ee-w-pill:hover{transform:scale(1.08);filter:brightness(1.1);}' +
+      '#ee-el-ecom-widget .ee-section{padding:6px 0;border-top:1px solid rgba(255,255,255,0.06);}' +
+      '#ee-el-ecom-widget .ee-section:first-child{border-top:none;padding-top:0;}' +
+      '#ee-el-ecom-widget .ee-lbl{font-size:10px;color:rgba(255,255,255,.45);text-transform:uppercase;letter-spacing:.5px;margin-bottom:3px;}' +
+      '#ee-el-ecom-widget .ee-val{font-size:16px;font-weight:700;}';
     (document.head || document.documentElement).appendChild(s);
   }
 
@@ -226,38 +240,75 @@
     return widgetEl;
   }
 
+  function fmtNum(n) { return n != null ? Number(n).toLocaleString() : '?'; }
+
   function refreshWidget(genDelta) {
     var w = ensureWidget(); if (!w) return;
     var limit = CONFIG.MONTHLY_CREDIT_LIMIT;
     var used = getUsedThisPeriod();
     var remaining = Math.max(0, limit - used);
-    var pct = limit > 0 ? Math.round((remaining / limit) * 100) : 0;
+    var pctEE = limit > 0 ? Math.round((remaining / limit) * 100) : 0;
     var over = used >= limit;
     var email = getVerifiedEmail();
-    if (genDelta !== undefined) lastDelta = genDelta;
+    if (genDelta !== undefined && genDelta !== null) lastDelta = genDelta;
+
+    var elUsed = _elBalance ? _elBalance.character_count : null;
+    var elLimit = _elBalance ? _elBalance.character_limit : null;
+    var elRemaining = (elUsed != null && elLimit != null) ? Math.max(0, elLimit - elUsed) : null;
+    var pctEL = (elUsed != null && elLimit > 0) ? Math.round(((elLimit - elUsed) / elLimit) * 100) : null;
 
     var accent = over ? '#ef4444' : '#b54af3';
     var bg = over ? 'linear-gradient(170deg,#1a0a0a 0%,#2a1010 50%,#1a0a0a 100%)' : 'linear-gradient(170deg,#0f0f1a 0%,#1a1028 50%,#0f0f1a 100%)';
     var bdr = over ? 'rgba(239,68,68,.3)' : 'rgba(149,65,224,.25)';
-    var bar = remaining > 0 ? 'linear-gradient(90deg,#9541e0,#b54af3)' : 'linear-gradient(90deg,#ef4444,#dc2626)';
     w.style.background = bg; w.style.border = '1px solid ' + bdr;
     w.style.boxShadow = '0 8px 32px ' + (over ? 'rgba(239,68,68,.15)' : 'rgba(149,65,224,.15)');
 
-    var emailHtml = email ? '<div style="font-size:11px;color:#b54af3;word-break:break-all;opacity:.85;line-height:1.35;margin-bottom:8px;">' + String(email).replace(/</g, '&lt;') + '</div>' : '';
-    var lastHtml = lastDelta > 0 ? '<div style="display:flex;align-items:center;gap:4px;font-size:11px;color:rgba(255,255,255,.5);margin-top:8px;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="' + accent + '" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>Last: \u2212' + lastDelta + ' chars</div>' : '';
+    var emailHtml = email ? '<div style="font-size:11px;color:#b54af3;word-break:break-all;opacity:.85;line-height:1.35;margin-bottom:6px;">' + String(email).replace(/</g, '&lt;') + '</div>' : '';
+
+    // ElevenLabs real balance section
+    var elBarColor = (elRemaining != null && elRemaining <= 0) ? 'linear-gradient(90deg,#ef4444,#dc2626)' : 'linear-gradient(90deg,#10b981,#34d399)';
+    var elAccent = (elRemaining != null && elRemaining <= 0) ? '#ef4444' : '#10b981';
+    var elSection = '';
+    if (elUsed != null) {
+      elSection =
+        '<div class="ee-section">' +
+          '<div class="ee-lbl">\uD83C\uDFA4 ElevenLabs Account</div>' +
+          '<div style="display:flex;justify-content:space-between;align-items:baseline;">' +
+            '<span class="ee-val" style="color:' + elAccent + ';">' + fmtNum(elRemaining) + '</span>' +
+            '<span style="font-size:11px;color:rgba(255,255,255,.35);">/ ' + fmtNum(elLimit) + ' remaining</span>' +
+          '</div>' +
+          '<div class="ee-bar"><div class="ee-bar-fill" style="width:' + (pctEL || 0) + '%;background:' + elBarColor + ';"></div></div>' +
+        '</div>';
+    } else {
+      elSection = '<div class="ee-section"><div class="ee-lbl">\uD83C\uDFA4 ElevenLabs Account</div><div style="font-size:11px;color:rgba(255,255,255,.4);">Loading\u2026</div></div>';
+    }
+
+    // Last generation delta
+    var lastHtml = lastDelta > 0
+      ? '<div class="ee-section" style="padding-bottom:0;"><div style="display:flex;align-items:center;gap:4px;font-size:11px;color:rgba(255,255,255,.5);">' +
+        '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="' + accent + '" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>' +
+        'Last generation: \u2212' + fmtNum(lastDelta) + ' chars</div></div>'
+      : '';
+
+    var eeBarColor = remaining > 0 ? 'linear-gradient(90deg,#9541e0,#b54af3)' : 'linear-gradient(90deg,#ef4444,#dc2626)';
     var pill = remaining > 999 ? Math.round(remaining / 1000) + 'k' : String(remaining);
 
     w.innerHTML =
       '<div class="ee-w-full" style="position:relative;padding:12px 14px 10px;">' +
         '<button type="button" class="ee-w-min-btn" title="Minimize">\u2212</button>' +
         '<div style="position:absolute;top:-1px;left:50%;transform:translateX(-50%);width:50%;height:2px;background:linear-gradient(90deg,transparent,' + accent + ',transparent);border-radius:0 0 2px 2px;"></div>' +
-        '<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#b54af3;margin-bottom:8px;padding-right:28px;">Ecom Efficiency</div>' +
+        '<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#b54af3;margin-bottom:6px;padding-right:28px;">Ecom Efficiency</div>' +
         emailHtml +
-        '<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:6px;">' +
-          '<span style="font-size:11px;color:rgba(255,255,255,.5);">Remaining</span>' +
-          '<span style="font-size:20px;font-weight:700;color:' + accent + ';">' + remaining.toLocaleString() + '<span style="font-size:11px;font-weight:400;color:rgba(255,255,255,.35);"> / ' + limit.toLocaleString() + '</span></span>' +
+        // EE limit section
+        '<div class="ee-section">' +
+          '<div class="ee-lbl">\uD83D\uDCCA Your Monthly Limit</div>' +
+          '<div style="display:flex;justify-content:space-between;align-items:baseline;">' +
+            '<span class="ee-val" style="color:' + accent + ';">' + fmtNum(remaining) + '</span>' +
+            '<span style="font-size:11px;color:rgba(255,255,255,.35);">/ ' + fmtNum(limit) + ' remaining</span>' +
+          '</div>' +
+          '<div class="ee-bar"><div class="ee-bar-fill" style="width:' + pctEE + '%;background:' + eeBarColor + ';"></div></div>' +
         '</div>' +
-        '<div class="ee-w-bar-track"><div class="ee-w-bar-fill" style="width:' + pct + '%;background:' + bar + ';"></div></div>' +
+        elSection +
         lastHtml +
       '</div>' +
       '<button type="button" class="ee-w-pill" title="Credits: ' + remaining + '/' + limit + '">' + pill + '</button>';
@@ -268,6 +319,78 @@
     w.querySelector('.ee-w-pill').addEventListener('click', function (e) { e.preventDefault(); e.stopPropagation(); w.classList.remove('ee-minimized'); try { sessionStorage.removeItem('ee_el_ecom_widget_minimized'); } catch (_) {} });
     var fp = w.querySelector('.ee-w-full');
     if (fp) fp.addEventListener('click', function (e) { if (e.target.closest && (e.target.closest('button') || e.target.closest('a'))) return; w.classList.add('ee-minimized'); try { sessionStorage.setItem('ee_el_ecom_widget_minimized', '1'); } catch (_) {} });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  LIVE COST INDICATOR (above Generate button)
+  // ═══════════════════════════════════════════════════════════════════
+  var _costIndicatorEl = null;
+  var _costIndicatorInterval = null;
+
+  function ensureCostIndicatorStyle() {
+    if (document.getElementById('ee-el-ecom-ci-style')) return;
+    var s = document.createElement('style'); s.id = 'ee-el-ecom-ci-style';
+    s.textContent =
+      '#ee-el-ecom-cost-indicator{position:fixed;z-index:2147483645;pointer-events:none;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;transition:opacity .2s,transform .15s;}' +
+      '#ee-el-ecom-cost-indicator .ee-ci-inner{display:flex;align-items:center;gap:8px;background:rgba(0,0,0,0.85);border:1px solid rgba(149,65,224,0.35);border-radius:10px;padding:6px 12px;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);}' +
+      '#ee-el-ecom-cost-indicator .ee-ci-chars{font-size:13px;font-weight:700;color:#b54af3;}' +
+      '#ee-el-ecom-cost-indicator .ee-ci-sep{width:1px;height:14px;background:rgba(255,255,255,0.12);}' +
+      '#ee-el-ecom-cost-indicator .ee-ci-remain{font-size:11px;color:rgba(255,255,255,0.6);}' +
+      '#ee-el-ecom-cost-indicator .ee-ci-warn{color:#ef4444!important;}' +
+      '#ee-el-ecom-cost-indicator .ee-ci-ok{color:#10b981!important;}';
+    (document.head || document.documentElement).appendChild(s);
+  }
+
+  function findGenerateButton() {
+    return document.querySelector('button[data-testid="tts-generate"]') ||
+           document.querySelector('button[aria-label*="Generate speech"]') ||
+           document.querySelector('button[aria-label*="Generate"]');
+  }
+
+  function updateCostIndicator() {
+    var btn = findGenerateButton();
+    if (!btn) {
+      if (_costIndicatorEl) _costIndicatorEl.style.opacity = '0';
+      return;
+    }
+    var text = getEditorText();
+    var charCount = text.length;
+    var remaining = getRemaining();
+    var overLimit = charCount > remaining;
+    var elRem = (_elBalance && _elBalance.character_limit) ? Math.max(0, _elBalance.character_limit - _elBalance.character_count) : null;
+
+    ensureCostIndicatorStyle();
+
+    if (!_costIndicatorEl) {
+      _costIndicatorEl = document.createElement('div');
+      _costIndicatorEl.id = 'ee-el-ecom-cost-indicator';
+      document.body.appendChild(_costIndicatorEl);
+    }
+
+    var r = btn.getBoundingClientRect();
+    _costIndicatorEl.style.left = r.left + 'px';
+    _costIndicatorEl.style.top = Math.max(0, r.top - 40) + 'px';
+    _costIndicatorEl.style.opacity = charCount > 0 ? '1' : '0.4';
+
+    var costColor = overLimit ? 'ee-ci-warn' : 'ee-ci-ok';
+    var remainLabel = overLimit
+      ? '<span class="ee-ci-warn">\u274c ' + fmtNum(remaining) + ' left</span>'
+      : '<span class="ee-ci-ok">\u2713 ' + fmtNum(remaining) + ' left</span>';
+    var elLabel = elRem != null ? '<span class="ee-ci-sep"></span><span class="ee-ci-remain">\uD83C\uDFA4 ' + fmtNum(elRem) + ' EL</span>' : '';
+
+    _costIndicatorEl.innerHTML =
+      '<div class="ee-ci-inner">' +
+        '<span class="ee-ci-chars ' + costColor + '">\uD83D\uDCDD ' + fmtNum(charCount) + ' chars</span>' +
+        '<span class="ee-ci-sep"></span>' +
+        '<span class="ee-ci-remain">' + remainLabel + '</span>' +
+        elLabel +
+      '</div>';
+  }
+
+  function startCostIndicator() {
+    if (_costIndicatorInterval) return;
+    updateCostIndicator();
+    _costIndicatorInterval = setInterval(updateCostIndicator, 600);
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -299,7 +422,7 @@
           if (parsed && typeof parsed.text === 'string') charCount = parsed.text.length;
         }
       } catch (_) {}
-      if (charCount <= 0) charCount = 50; // fallback estimate
+      if (charCount <= 0) charCount = 50;
 
       var used = getUsedThisPeriod();
       var limit = CONFIG.MONTHLY_CREDIT_LIMIT;
@@ -309,17 +432,20 @@
 
       if (charCount > remaining) {
         log('TTS BLOCKED: need ' + charCount + ', have ' + remaining);
-        showToast('\u274c Not enough credits. Need <b>' + charCount + '</b> chars, <b>' + remaining + '</b> remaining.', 5000);
+        showToast('\u274c Not enough credits. Need <b>' + fmtNum(charCount) + '</b> chars, <b>' + fmtNum(remaining) + '</b> remaining.', 5000);
         refreshWidget(0);
         return Promise.resolve(new Response(JSON.stringify({ detail: { message: 'Ecom Efficiency: Credit limit reached (' + used + '/' + limit + ').' } }), { status: 429, headers: { 'Content-Type': 'application/json' } }));
       }
+
+      // Snapshot EL balance before generation
+      var elBefore = _elBalance ? _elBalance.character_count : null;
 
       addUsedThisPeriod(charCount);
       lastDelta = charCount;
       var newUsed = getUsedThisPeriod();
       logUsage(email, charCount, newUsed, 'tts_generate');
       log('TTS ALLOWED: -' + charCount + ' chars, used=' + newUsed + '/' + limit);
-      showToast('\u2713 Generating\u2026 <b>\u2212' + charCount + ' chars</b> (' + (limit - newUsed) + ' remaining)', 3000);
+      showToast('\u2713 Generating\u2026 <b>\u2212' + fmtNum(charCount) + ' chars</b> (' + fmtNum(limit - newUsed) + ' remaining)', 3000);
       refreshWidget(charCount);
 
       return _origFetch.apply(this, arguments).then(function (res) {
@@ -329,6 +455,23 @@
           logUsage(email, -charCount, getUsedThisPeriod(), 'tts_refund');
           refreshWidget(0);
           showToast('Generation failed \u2014 credits refunded.', 3000);
+        } else {
+          // Force-refresh ElevenLabs balance after successful generation
+          setTimeout(function () {
+            fetchElBalance(true).then(function (bal) {
+              if (bal && elBefore != null) {
+                var realCost = bal.character_count - elBefore;
+                var elRem = Math.max(0, bal.character_limit - bal.character_count);
+                log('EL real cost: ' + realCost + ' chars (before=' + elBefore + ' after=' + bal.character_count + ')');
+                showToast(
+                  '\u2705 Generated! <b>Real cost: ' + fmtNum(realCost) + ' chars</b><br>' +
+                  '<span style="font-size:11px;opacity:.7;">ElevenLabs: ' + fmtNum(elRem) + ' / ' + fmtNum(bal.character_limit) + ' remaining</span>',
+                  5000
+                );
+              }
+              refreshWidget(charCount);
+            });
+          }, 2000);
         }
         return res;
       });
@@ -342,12 +485,6 @@
   var _lastOverlaidBtn = null;
   var _syntheticClicks = typeof WeakSet !== 'undefined' ? new WeakSet() : null;
 
-  function findGenerateButton() {
-    return document.querySelector('button[data-testid="tts-generate"]') ||
-           document.querySelector('button[aria-label*="Generate speech"]') ||
-           document.querySelector('button[aria-label*="Generate"]');
-  }
-
   function installButtonOverlay() {
     var btn = findGenerateButton();
     if (!btn) {
@@ -356,10 +493,7 @@
       _lastOverlaidBtn = null;
       return;
     }
-    if (btn === _lastOverlaidBtn) {
-      repositionOverlay(btn);
-      return;
-    }
+    if (btn === _lastOverlaidBtn) { repositionOverlay(btn); return; }
     _lastOverlaidBtn = btn;
 
     var overlay = document.getElementById('ee-el-ecom-overlay');
@@ -401,14 +535,15 @@
     log('overlay click: text=' + charCount + ' chars, used=' + used + ', remaining=' + remaining);
 
     if (charCount > remaining) {
-      showToast('\u274c Not enough credits. This text is <b>' + charCount + '</b> chars, you have <b>' + remaining + '</b> remaining.', 5000);
+      showToast('\u274c Not enough credits. This text is <b>' + fmtNum(charCount) + '</b> chars, you have <b>' + fmtNum(remaining) + '</b> remaining.', 5000);
       refreshWidget(0);
       return;
     }
 
-    showToast('Generating\u2026 <b>~' + charCount + ' chars</b> (' + (remaining - charCount) + ' will remain)', 2500);
+    var elRem = (_elBalance && _elBalance.character_limit) ? Math.max(0, _elBalance.character_limit - _elBalance.character_count) : null;
+    var elInfo = elRem != null ? ' | EL: ' + fmtNum(elRem) + ' left' : '';
+    showToast('Generating\u2026 <b>~' + fmtNum(charCount) + ' chars</b> (' + fmtNum(remaining - charCount) + ' EE remaining' + elInfo + ')', 3000);
 
-    // Trigger the real button click
     var btn = findGenerateButton();
     if (btn) {
       if (_syntheticClicks) _syntheticClicks.add(btn);
@@ -418,21 +553,16 @@
     }
   }
 
-  // Block real clicks on the generate button (except our synthetic ones)
   function installClickBlocker() {
     document.addEventListener('click', function (e) {
       var el = e.target;
       if (!el) return;
-      if (el.closest && (el.closest('#ee-el-ecom-popup-root') || el.closest('#ee-el-ecom-widget') || el.closest('#ee-el-ecom-overlay'))) return;
+      if (el.closest && (el.closest('#ee-el-ecom-popup-root') || el.closest('#ee-el-ecom-widget') || el.closest('#ee-el-ecom-overlay') || el.closest('#ee-el-ecom-cost-indicator'))) return;
       var btn = el.closest ? el.closest('button[data-testid="tts-generate"], button[aria-label*="Generate speech"]') : null;
       if (!btn) return;
       if (_syntheticClicks && _syntheticClicks.has(btn)) return;
-
       var remaining = getRemaining();
-      if (remaining <= 0) {
-        e.preventDefault(); e.stopPropagation();
-        showToast('\u274c Monthly credit limit reached.', 4000);
-      }
+      if (remaining <= 0) { e.preventDefault(); e.stopPropagation(); showToast('\u274c Monthly credit limit reached.', 4000); }
     }, true);
   }
 
@@ -494,15 +624,28 @@
   function startTracking() {
     if (trackingActive) return; trackingActive = true;
     var email = getVerifiedEmail();
-    if (email) syncUsageFromBackend(email).then(function () { refreshWidget(0); });
+
+    // Initial sync + balance fetch
+    Promise.all([
+      email ? syncUsageFromBackend(email) : Promise.resolve(),
+      fetchElBalance(true)
+    ]).then(function () { refreshWidget(0); });
+
     refreshWidget(0);
-    setInterval(function () { refreshWidget(); }, 3000);
+
+    // Refresh widget + poll EL balance every 10s
+    setInterval(function () {
+      fetchElBalance(false).then(function () { refreshWidget(); });
+    }, 10000);
+
+    // Deep sync with backend every 30s
     setInterval(function () {
       var em = getVerifiedEmail();
       if (em) {
         syncUsageFromBackend(em);
-        fetchGlobalCredits().then(function (g) {
-          if (g && g.character_count >= g.character_limit) showToast('ElevenLabs account credits exhausted. Wait for reset.', 8000);
+        fetchElBalance(true).then(function (bal) {
+          if (bal && bal.character_count >= bal.character_limit) showToast('ElevenLabs account credits exhausted. Wait for reset.', 8000);
+          refreshWidget();
         });
       }
     }, 30000);
@@ -519,7 +662,7 @@
       att++;
       if (!document.getElementById('ee-el-ecom-popup-root')) createPopup();
       if (att < 10 && !document.getElementById('ee-el-ecom-popup-root')) setTimeout(tryShow, 1000);
-      else if (!document.getElementById('ee-el-ecom-popup-root')) { removeShield(); ensureWidget(); startTracking(); installButtonOverlayLoop(); eeFullyInitialized = true; }
+      else if (!document.getElementById('ee-el-ecom-popup-root')) { removeShield(); ensureWidget(); startTracking(); installButtonOverlayLoop(); startCostIndicator(); eeFullyInitialized = true; }
     })();
   }
 
