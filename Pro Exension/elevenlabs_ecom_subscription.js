@@ -1,4 +1,4 @@
-// ElevenLabs EcomEfficiency: subscription verification + 1000 credits/month + real-time ElevenLabs balance
+// ElevenLabs EcomEfficiency: subscription verification + 1000 credits/month + real-time balance tracking
 // Runs in world:"MAIN" so fetch interceptor catches the page's real API calls.
 (function () {
   'use strict';
@@ -76,7 +76,7 @@
   // ═══════════════════════════════════════════════════════════════════
   var _elBalance = null;
   var _elBalanceAt = 0;
-  var EL_BALANCE_CACHE_MS = 8000;
+  var EL_BALANCE_CACHE_MS = 5000;
 
   function fetchElBalance(forceRefresh) {
     var now = Date.now();
@@ -91,6 +91,56 @@
         }
         return _elBalance;
       }).catch(function () { return _elBalance; });
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  BALANCE WATCHER — detects EL balance changes and deducts credits
+  //  This is the PRIMARY tracking mechanism. Even if the fetch
+  //  interceptor misses a TTS call, this catches the balance change.
+  // ═══════════════════════════════════════════════════════════════════
+  var _watcherSnapshot = null; // character_count at last check
+  var _watcherActive = false;
+  var _interceptorHandled = false; // set to true when fetch interceptor processes a TTS call
+
+  function startBalanceWatcher() {
+    if (_watcherActive) return;
+    _watcherActive = true;
+
+    if (_elBalance) _watcherSnapshot = _elBalance.character_count;
+
+    setInterval(function () {
+      fetchElBalance(true).then(function (bal) {
+        if (!bal) return;
+
+        if (_watcherSnapshot === null) {
+          _watcherSnapshot = bal.character_count;
+          refreshWidget();
+          return;
+        }
+
+        var delta = bal.character_count - _watcherSnapshot;
+        _watcherSnapshot = bal.character_count;
+
+        if (delta > 0 && !_interceptorHandled) {
+          var email = getVerifiedEmail();
+          log('WATCHER detected usage: +' + delta + ' chars on EL account (interceptor did NOT catch it)');
+          addUsedThisPeriod(delta);
+          var newUsed = getUsedThisPeriod();
+          logUsage(email, delta, newUsed, 'watcher_detected');
+          lastDelta = delta;
+          showToast(
+            '\uD83D\uDCCA Generation detected: <b>\u2212' + fmtNum(delta) + ' chars</b><br>' +
+            '<span style="font-size:11px;opacity:.7;">EE: ' + fmtNum(getRemaining()) + ' left | EL: ' + fmtNum(Math.max(0, bal.character_limit - bal.character_count)) + ' left</span>',
+            5000
+          );
+        } else if (delta > 0 && _interceptorHandled) {
+          log('WATCHER saw +' + delta + ' on EL account (already handled by interceptor)');
+        }
+
+        _interceptorHandled = false;
+        refreshWidget();
+      });
+    }, 5000);
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -195,7 +245,11 @@
           Promise.all([syncUsageFromBackend(email), fetchElBalance(true)]).then(function () {
             var remaining = getRemaining();
             setMsg('Access granted. ' + remaining + ' / ' + CONFIG.MONTHLY_CREDIT_LIMIT + ' credits remaining.', false);
-            setTimeout(function () { root.remove(); removeShield(); ensureWidget(); refreshWidget(0); startTracking(); installButtonOverlayLoop(); startCostIndicator(); eeFullyInitialized = true; }, 600);
+            setTimeout(function () {
+              root.remove(); removeShield(); ensureWidget(); refreshWidget(0);
+              startTracking(); installButtonOverlayLoop(); startCostIndicator(); startBalanceWatcher();
+              eeFullyInitialized = true;
+            }, 600);
           });
         } else if (res && res.reason === 'no_active_subscription') {
           setMsg('No active subscription for this email. Subscribe at ecomefficiency.com.', true);
@@ -265,7 +319,6 @@
 
     var emailHtml = email ? '<div style="font-size:11px;color:#b54af3;word-break:break-all;opacity:.85;line-height:1.35;margin-bottom:6px;">' + String(email).replace(/</g, '&lt;') + '</div>' : '';
 
-    // ElevenLabs real balance section
     var elBarColor = (elRemaining != null && elRemaining <= 0) ? 'linear-gradient(90deg,#ef4444,#dc2626)' : 'linear-gradient(90deg,#10b981,#34d399)';
     var elAccent = (elRemaining != null && elRemaining <= 0) ? '#ef4444' : '#10b981';
     var elSection = '';
@@ -283,7 +336,6 @@
       elSection = '<div class="ee-section"><div class="ee-lbl">\uD83C\uDFA4 ElevenLabs Account</div><div style="font-size:11px;color:rgba(255,255,255,.4);">Loading\u2026</div></div>';
     }
 
-    // Last generation delta
     var lastHtml = lastDelta > 0
       ? '<div class="ee-section" style="padding-bottom:0;"><div style="display:flex;align-items:center;gap:4px;font-size:11px;color:rgba(255,255,255,.5);">' +
         '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="' + accent + '" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>' +
@@ -299,7 +351,6 @@
         '<div style="position:absolute;top:-1px;left:50%;transform:translateX(-50%);width:50%;height:2px;background:linear-gradient(90deg,transparent,' + accent + ',transparent);border-radius:0 0 2px 2px;"></div>' +
         '<div style="font-size:10px;font-weight:700;letter-spacing:1.5px;text-transform:uppercase;color:#b54af3;margin-bottom:6px;padding-right:28px;">Ecom Efficiency</div>' +
         emailHtml +
-        // EE limit section
         '<div class="ee-section">' +
           '<div class="ee-lbl">\uD83D\uDCCA Your Monthly Limit</div>' +
           '<div style="display:flex;justify-content:space-between;align-items:baseline;">' +
@@ -394,8 +445,19 @@
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  //  FETCH INTERCEPTOR — catches real TTS API calls in MAIN world
+  //  FETCH INTERCEPTOR — catches TTS API calls in MAIN world
+  //  Broadened URL matching + body reading from Request objects
   // ═══════════════════════════════════════════════════════════════════
+  function extractBodyText(input, init) {
+    // Try init.body first (most common: fetch(url, {body: '...'}))
+    if (init && init.body && typeof init.body === 'string') return init.body;
+    // Try Request object body (fetch(new Request(url, {body: '...'})))
+    if (input && typeof input === 'object' && input.body) {
+      try { if (typeof input.clone === 'function') return null; } catch (_) {} // can't sync-read streams
+    }
+    return null;
+  }
+
   function installFetchInterceptor() {
     _origFetch = window.fetch;
     if (!_origFetch) return;
@@ -404,8 +466,14 @@
       var url = typeof input === 'string' ? input : (input && input.url ? input.url : '');
       var method = ((init && init.method) || (typeof input === 'object' && input.method) || 'GET').toUpperCase();
 
-      var isTTS = /api\.elevenlabs\.io\/v1\/text-to-speech/i.test(url) && method === 'POST';
-      if (!isTTS) return _origFetch.apply(this, arguments);
+      // Broad matching: any POST to a URL containing /v1/text-to-speech
+      var isTTS = /\/v1\/text-to-speech/i.test(url) && method === 'POST';
+
+      if (isTTS) {
+        log('FETCH INTERCEPTOR caught TTS call:', url);
+      } else {
+        return _origFetch.apply(this, arguments);
+      }
 
       var email = getVerifiedEmail();
       if (!email) {
@@ -416,19 +484,27 @@
 
       var charCount = 0;
       try {
-        var body = init && init.body;
-        if (typeof body === 'string') {
-          var parsed = JSON.parse(body);
+        var bodyStr = extractBodyText(input, init);
+        if (bodyStr) {
+          var parsed = JSON.parse(bodyStr);
           if (parsed && typeof parsed.text === 'string') charCount = parsed.text.length;
+          log('TTS body parsed: charCount=' + charCount);
+        } else {
+          log('TTS body not a string, will use editor text as fallback');
+          var editorText = getEditorText();
+          if (editorText.length > 0) charCount = editorText.length;
         }
-      } catch (_) {}
-      if (charCount <= 0) charCount = 50;
+      } catch (e) { log('TTS body parse error:', e && e.message); }
+      if (charCount <= 0) {
+        charCount = 50;
+        log('TTS charCount fallback: 50');
+      }
 
       var used = getUsedThisPeriod();
       var limit = CONFIG.MONTHLY_CREDIT_LIMIT;
       var remaining = Math.max(0, limit - used);
 
-      log('TTS intercept: chars=' + charCount + ' used=' + used + ' remaining=' + remaining);
+      log('TTS pre-check: chars=' + charCount + ' used=' + used + ' remaining=' + remaining);
 
       if (charCount > remaining) {
         log('TTS BLOCKED: need ' + charCount + ', have ' + remaining);
@@ -437,9 +513,7 @@
         return Promise.resolve(new Response(JSON.stringify({ detail: { message: 'Ecom Efficiency: Credit limit reached (' + used + '/' + limit + ').' } }), { status: 429, headers: { 'Content-Type': 'application/json' } }));
       }
 
-      // Snapshot EL balance before generation
-      var elBefore = _elBalance ? _elBalance.character_count : null;
-
+      _interceptorHandled = true;
       addUsedThisPeriod(charCount);
       lastDelta = charCount;
       var newUsed = getUsedThisPeriod();
@@ -453,30 +527,76 @@
           log('TTS error ' + res.status + ': refunding ' + charCount);
           addUsedThisPeriod(-charCount);
           logUsage(email, -charCount, getUsedThisPeriod(), 'tts_refund');
+          _interceptorHandled = false;
           refreshWidget(0);
           showToast('Generation failed \u2014 credits refunded.', 3000);
-        } else {
-          // Force-refresh ElevenLabs balance after successful generation
-          setTimeout(function () {
-            fetchElBalance(true).then(function (bal) {
-              if (bal && elBefore != null) {
-                var realCost = bal.character_count - elBefore;
-                var elRem = Math.max(0, bal.character_limit - bal.character_count);
-                log('EL real cost: ' + realCost + ' chars (before=' + elBefore + ' after=' + bal.character_count + ')');
-                showToast(
-                  '\u2705 Generated! <b>Real cost: ' + fmtNum(realCost) + ' chars</b><br>' +
-                  '<span style="font-size:11px;opacity:.7;">ElevenLabs: ' + fmtNum(elRem) + ' / ' + fmtNum(bal.character_limit) + ' remaining</span>',
-                  5000
-                );
-              }
-              refreshWidget(charCount);
-            });
-          }, 2000);
         }
         return res;
       });
     };
-    log('fetch interceptor installed (MAIN world)');
+    log('fetch interceptor installed (MAIN world, broad URL match)');
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  XHR INTERCEPTOR — fallback for XMLHttpRequest-based TTS calls
+  // ═══════════════════════════════════════════════════════════════════
+  function installXhrInterceptor() {
+    var OrigXHR = window.XMLHttpRequest;
+    if (!OrigXHR) return;
+
+    var origOpen = OrigXHR.prototype.open;
+    var origSend = OrigXHR.prototype.send;
+
+    OrigXHR.prototype.open = function (method, url) {
+      this._eeMethod = method;
+      this._eeUrl = url;
+      return origOpen.apply(this, arguments);
+    };
+
+    OrigXHR.prototype.send = function (body) {
+      var isTTS = /\/v1\/text-to-speech/i.test(this._eeUrl) && (this._eeMethod || '').toUpperCase() === 'POST';
+
+      if (isTTS) {
+        log('XHR INTERCEPTOR caught TTS call:', this._eeUrl);
+        var email = getVerifiedEmail();
+        if (!email) {
+          log('XHR TTS blocked: no verified email');
+          return;
+        }
+
+        var charCount = 0;
+        try {
+          if (typeof body === 'string') {
+            var parsed = JSON.parse(body);
+            if (parsed && typeof parsed.text === 'string') charCount = parsed.text.length;
+          }
+        } catch (_) {}
+        if (charCount <= 0) {
+          var edText = getEditorText();
+          if (edText.length > 0) charCount = edText.length;
+        }
+        if (charCount <= 0) charCount = 50;
+
+        var remaining = getRemaining();
+        if (charCount > remaining) {
+          log('XHR TTS BLOCKED: need ' + charCount + ', have ' + remaining);
+          showToast('\u274c Not enough credits. Need <b>' + fmtNum(charCount) + '</b>, have <b>' + fmtNum(remaining) + '</b>.', 5000);
+          return;
+        }
+
+        _interceptorHandled = true;
+        addUsedThisPeriod(charCount);
+        lastDelta = charCount;
+        var newUsed = getUsedThisPeriod();
+        logUsage(email, charCount, newUsed, 'xhr_tts_generate');
+        log('XHR TTS ALLOWED: -' + charCount + ' chars');
+        showToast('\u2713 Generating\u2026 <b>\u2212' + fmtNum(charCount) + ' chars</b>', 3000);
+        refreshWidget(charCount);
+      }
+
+      return origSend.apply(this, arguments);
+    };
+    log('XHR interceptor installed');
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -625,7 +745,6 @@
     if (trackingActive) return; trackingActive = true;
     var email = getVerifiedEmail();
 
-    // Initial sync + balance fetch
     Promise.all([
       email ? syncUsageFromBackend(email) : Promise.resolve(),
       fetchElBalance(true)
@@ -633,21 +752,10 @@
 
     refreshWidget(0);
 
-    // Refresh widget + poll EL balance every 10s
-    setInterval(function () {
-      fetchElBalance(false).then(function () { refreshWidget(); });
-    }, 10000);
-
-    // Deep sync with backend every 30s
+    // Sync with backend every 30s
     setInterval(function () {
       var em = getVerifiedEmail();
-      if (em) {
-        syncUsageFromBackend(em);
-        fetchElBalance(true).then(function (bal) {
-          if (bal && bal.character_count >= bal.character_limit) showToast('ElevenLabs account credits exhausted. Wait for reset.', 8000);
-          refreshWidget();
-        });
-      }
+      if (em) syncUsageFromBackend(em);
     }, 30000);
   }
 
@@ -662,12 +770,16 @@
       att++;
       if (!document.getElementById('ee-el-ecom-popup-root')) createPopup();
       if (att < 10 && !document.getElementById('ee-el-ecom-popup-root')) setTimeout(tryShow, 1000);
-      else if (!document.getElementById('ee-el-ecom-popup-root')) { removeShield(); ensureWidget(); startTracking(); installButtonOverlayLoop(); startCostIndicator(); eeFullyInitialized = true; }
+      else if (!document.getElementById('ee-el-ecom-popup-root')) {
+        removeShield(); ensureWidget(); startTracking(); installButtonOverlayLoop();
+        startCostIndicator(); startBalanceWatcher(); eeFullyInitialized = true;
+      }
     })();
   }
 
   function init() {
     installFetchInterceptor();
+    installXhrInterceptor();
     installSpaWatcher();
     log('init', location.href, 'LIMIT=' + CONFIG.MONTHLY_CREDIT_LIMIT);
     if (isSignIn(location.pathname)) return;
