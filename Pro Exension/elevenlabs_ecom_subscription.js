@@ -70,16 +70,53 @@
     { pattern: /\/v1\/text-to-music/i, method: 'POST', name: 'music', label: 'Music' }
   ];
 
+  // Pricing reference (website, not API):
+  //  TTS standard: 1 credit/char | TTS flash/turbo: 0.5 credits/char
+  //  SFX: 200 credits (auto) or 40 credits/sec (custom duration), 4 variants
+  //  Voice Changer (STS): 1000 credits/min of audio
+  //  Voice Isolator: 1000 credits/min of audio
+  //  Dubbing: ~1000 credits/min per target language
+  //  Music: ~667 credits/min (~11 credits/sec)
+  var CREDIT_RATES = {
+    tts_standard: 1,       // per char
+    tts_flash: 0.5,        // per char
+    sfx_auto: 200,         // flat per generation (4 variants)
+    sfx_per_sec: 40,       // per second of custom duration
+    sts_per_min: 1000,     // voice changer
+    iso_per_min: 1000,     // voice isolator
+    dub_per_min: 1000,     // dubbing per language
+    music_per_sec: 11      // ~667/min
+  };
+
   function estimateCreditCost(epName, bodyStr) {
     try {
       if (!bodyStr) return 0;
       var p = JSON.parse(bodyStr);
-      if (epName === 'tts' && p && typeof p.text === 'string') return p.text.length;
-      if (epName === 'sfx') {
-        if (p.duration_seconds && p.duration_seconds > 0) return Math.ceil(p.duration_seconds * 40);
-        return 200; // default: auto-duration = 200 credits
+      if (epName === 'tts' && p && typeof p.text === 'string') {
+        var isFlash = p.model_id && /flash|turbo/i.test(p.model_id);
+        return Math.ceil(p.text.length * (isFlash ? CREDIT_RATES.tts_flash : CREDIT_RATES.tts_standard));
       }
-      if (epName === 'music' && p && typeof p.text === 'string') return p.text.length;
+      if (epName === 'sfx') {
+        if (p.duration_seconds && p.duration_seconds > 0) return Math.ceil(p.duration_seconds * CREDIT_RATES.sfx_per_sec);
+        return CREDIT_RATES.sfx_auto;
+      }
+      if (epName === 'sts') {
+        if (p.duration_seconds && p.duration_seconds > 0) return Math.ceil((p.duration_seconds / 60) * CREDIT_RATES.sts_per_min);
+        return 0;
+      }
+      if (epName === 'iso') {
+        if (p.duration_seconds && p.duration_seconds > 0) return Math.ceil((p.duration_seconds / 60) * CREDIT_RATES.iso_per_min);
+        return 0;
+      }
+      if (epName === 'dub') {
+        var mins = (p.duration_seconds && p.duration_seconds > 0) ? p.duration_seconds / 60 : 0;
+        var langs = (p.target_langs && p.target_langs.length) || 1;
+        return mins > 0 ? Math.ceil(mins * CREDIT_RATES.dub_per_min * langs) : 0;
+      }
+      if (epName === 'music') {
+        if (p.duration_seconds && p.duration_seconds > 0) return Math.ceil(p.duration_seconds * CREDIT_RATES.music_per_sec);
+        return 0;
+      }
     } catch (_) {}
     return 0;
   }
@@ -324,32 +361,219 @@
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  //  LIVE COST INDICATOR (above Generate button — TTS only)
+  //  FEATURE PAGE DETECTION
+  // ═══════════════════════════════════════════════════════════════════
+  var PAGE_FEATURES = [
+    { key: 'tts',   paths: ['/app/text-to-speech', '/app/speech-synthesis/text-to-speech', '/app/speech-synthesis'], label: 'Text to Speech' },
+    { key: 'sfx',   paths: ['/app/sound-effects'], label: 'Sound Effects' },
+    { key: 'sts',   paths: ['/app/voice-changer', '/app/speech-synthesis/speech-to-speech', '/app/speech-to-speech'], label: 'Voice Changer' },
+    { key: 'iso',   paths: ['/app/voice-isolator', '/app/audio-isolation'], label: 'Voice Isolator' },
+    { key: 'dub',   paths: ['/app/dubbing'], label: 'Dubbing' },
+    { key: 'music', paths: ['/app/music'], label: 'Music' }
+  ];
+
+  function detectCurrentFeature() {
+    var p = location.pathname.toLowerCase();
+    for (var i = 0; i < PAGE_FEATURES.length; i++) {
+      for (var j = 0; j < PAGE_FEATURES[i].paths.length; j++) {
+        if (p.indexOf(PAGE_FEATURES[i].paths[j]) === 0) return PAGE_FEATURES[i];
+      }
+    }
+    return null;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  UNIVERSAL GENERATE BUTTON FINDER
+  // ═══════════════════════════════════════════════════════════════════
+  function findGenerateButton() {
+    var selectors = [
+      'button[data-testid="tts-generate"]',
+      'button[aria-label*="Generate speech"]',
+      'button[aria-label*="Generate"]',
+      'button[data-testid*="generate"]',
+      'button[data-testid*="submit"]'
+    ];
+    for (var i = 0; i < selectors.length; i++) {
+      var el = document.querySelector(selectors[i]);
+      if (el && !el.closest('#ee-el-ecom-popup-root') && !el.closest('#ee-el-ecom-widget')) return el;
+    }
+    var btns = document.querySelectorAll('button');
+    for (var j = 0; j < btns.length; j++) {
+      var txt = (btns[j].textContent || '').trim().toLowerCase();
+      if (/^generate|^convert|^isolat|^dub\b|^create\b/i.test(txt) && btns[j].offsetWidth > 40) {
+        if (btns[j].closest && (btns[j].closest('#ee-el-ecom-popup-root') || btns[j].closest('#ee-el-ecom-widget'))) continue;
+        return btns[j];
+      }
+    }
+    return null;
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  PAGE-SPECIFIC INPUT READERS
+  // ═══════════════════════════════════════════════════════════════════
+  function readDurationInput() {
+    var inputs = document.querySelectorAll('input[type="number"], input[type="range"]');
+    for (var i = 0; i < inputs.length; i++) {
+      var lbl = (inputs[i].getAttribute('aria-label') || inputs[i].getAttribute('placeholder') || '').toLowerCase();
+      if (/duration|seconds|length/i.test(lbl) && parseFloat(inputs[i].value) > 0) return parseFloat(inputs[i].value);
+    }
+    var labels = document.querySelectorAll('label, span, div');
+    for (var j = 0; j < labels.length; j++) {
+      var lt = (labels[j].textContent || '').toLowerCase();
+      if (/duration/i.test(lt)) {
+        var next = labels[j].parentElement ? labels[j].parentElement.querySelector('input') : null;
+        if (next && parseFloat(next.value) > 0) return parseFloat(next.value);
+      }
+    }
+    return 0;
+  }
+
+  function readSelectedDurationOption() {
+    var btns = document.querySelectorAll('button[aria-pressed="true"], button[data-state="active"], [role="option"][aria-selected="true"]');
+    for (var i = 0; i < btns.length; i++) {
+      var t = (btns[i].textContent || '').trim();
+      var m = t.match(/(\d+)\s*(?:s|sec)/i);
+      if (m) return parseInt(m[1], 10);
+      m = t.match(/(\d+)\s*(?:m|min)/i);
+      if (m) return parseInt(m[1], 10) * 60;
+    }
+    var selects = document.querySelectorAll('select');
+    for (var j = 0; j < selects.length; j++) {
+      var v = selects[j].value;
+      var ms = v.match(/(\d+)/);
+      if (ms && /dur|length|time/i.test(selects[j].getAttribute('aria-label') || selects[j].name || '')) return parseInt(ms[1], 10);
+    }
+    return 0;
+  }
+
+  function countTargetLanguages() {
+    var chips = document.querySelectorAll('[class*="chip"], [class*="tag"], [class*="badge"]');
+    var count = 0;
+    for (var i = 0; i < chips.length; i++) {
+      if (chips[i].closest && chips[i].closest('#ee-el-ecom-popup-root')) continue;
+      var txt = (chips[i].textContent || '').trim();
+      if (txt.length > 0 && txt.length < 30) count++;
+    }
+    return count > 0 ? count : 1;
+  }
+
+  function detectTTSModel() {
+    var modelBtns = document.querySelectorAll('[data-testid*="model"], [aria-label*="model"], button[class*="model"]');
+    for (var i = 0; i < modelBtns.length; i++) {
+      var t = (modelBtns[i].textContent || '').toLowerCase();
+      if (/flash|turbo/i.test(t)) return 'flash';
+    }
+    var spans = document.querySelectorAll('span, p, div');
+    for (var j = 0; j < spans.length; j++) {
+      var st = (spans[j].textContent || '').toLowerCase();
+      if (st.indexOf('flash') !== -1 || st.indexOf('turbo') !== -1) {
+        if (spans[j].closest && (spans[j].closest('[class*="model"]') || spans[j].closest('[class*="select"]') || spans[j].closest('[role="listbox"]') || spans[j].closest('[role="option"]'))) return 'flash';
+      }
+    }
+    return 'standard';
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  UNIVERSAL COST ESTIMATOR (for on-page badge)
+  // ═══════════════════════════════════════════════════════════════════
+  function estimatePageCost(feature) {
+    if (!feature) return { cost: 0, unit: '', detail: '' };
+    var k = feature.key;
+
+    if (k === 'tts') {
+      var text = getEditorText();
+      var cc = text.length;
+      var model = detectTTSModel();
+      var rate = model === 'flash' ? CREDIT_RATES.tts_flash : CREDIT_RATES.tts_standard;
+      var cost = Math.ceil(cc * rate);
+      var modelLabel = model === 'flash' ? 'Flash/Turbo' : 'Standard';
+      return { cost: cost, unit: cc + ' chars', detail: modelLabel + ' (' + rate + '/char)', charCount: cc };
+    }
+
+    if (k === 'sfx') {
+      var dur = readDurationInput() || readSelectedDurationOption();
+      if (dur > 0) return { cost: Math.ceil(dur * CREDIT_RATES.sfx_per_sec), unit: dur + 's', detail: CREDIT_RATES.sfx_per_sec + ' credits/sec' };
+      return { cost: CREDIT_RATES.sfx_auto, unit: 'auto', detail: '200 credits (auto duration, 4 variants)' };
+    }
+
+    if (k === 'sts') {
+      var d = readDurationInput() || readSelectedDurationOption();
+      if (d > 0) return { cost: Math.ceil((d / 60) * CREDIT_RATES.sts_per_min), unit: d + 's', detail: '1,000 credits/min' };
+      return { cost: 0, unit: 'upload audio', detail: '1,000 credits/min of audio', rate: '~17/sec' };
+    }
+
+    if (k === 'iso') {
+      var di = readDurationInput() || readSelectedDurationOption();
+      if (di > 0) return { cost: Math.ceil((di / 60) * CREDIT_RATES.iso_per_min), unit: di + 's', detail: '1,000 credits/min' };
+      return { cost: 0, unit: 'upload audio', detail: '1,000 credits/min of audio', rate: '~17/sec' };
+    }
+
+    if (k === 'dub') {
+      var dd = readDurationInput() || readSelectedDurationOption();
+      var langs = countTargetLanguages();
+      if (dd > 0) return { cost: Math.ceil((dd / 60) * CREDIT_RATES.dub_per_min * langs), unit: dd + 's x ' + langs + ' lang(s)', detail: '1,000 credits/min/lang' };
+      return { cost: 0, unit: 'upload media', detail: '~1,000 credits/min per language', rate: langs + ' language(s)' };
+    }
+
+    if (k === 'music') {
+      var dm = readDurationInput() || readSelectedDurationOption();
+      if (dm > 0) return { cost: Math.ceil(dm * CREDIT_RATES.music_per_sec), unit: dm + 's', detail: '~11 credits/sec (~667/min)' };
+      return { cost: 0, unit: 'set duration', detail: '~11 credits/sec (~667/min)' };
+    }
+
+    return { cost: 0, unit: '', detail: '' };
+  }
+
+  // ═══════════════════════════════════════════════════════════════════
+  //  LIVE COST INDICATOR (universal — all feature pages)
   // ═══════════════════════════════════════════════════════════════════
   var _costIndicatorEl = null; var _costIndicatorInterval = null;
   function ensureCostIndicatorStyle() {
     if (document.getElementById('ee-el-ecom-ci-style')) return;
     var s = document.createElement('style'); s.id = 'ee-el-ecom-ci-style';
-    s.textContent = '#ee-el-ecom-cost-indicator{position:fixed;z-index:2147483645;pointer-events:none;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;transition:opacity .2s;}#ee-el-ecom-cost-indicator .ee-ci-inner{display:flex;align-items:center;gap:8px;background:rgba(0,0,0,.85);border:1px solid rgba(149,65,224,.35);border-radius:10px;padding:6px 12px;backdrop-filter:blur(8px);}#ee-el-ecom-cost-indicator .ee-ci-chars{font-size:13px;font-weight:700;color:#b54af3;}#ee-el-ecom-cost-indicator .ee-ci-sep{width:1px;height:14px;background:rgba(255,255,255,.12);}#ee-el-ecom-cost-indicator .ee-ci-remain{font-size:11px;color:rgba(255,255,255,.6);}#ee-el-ecom-cost-indicator .ee-ci-warn{color:#ef4444!important;}#ee-el-ecom-cost-indicator .ee-ci-ok{color:#10b981!important;}';
+    s.textContent = '#ee-el-ecom-cost-indicator{position:fixed;z-index:2147483645;pointer-events:none;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;transition:opacity .2s;}#ee-el-ecom-cost-indicator .ee-ci-inner{display:flex;align-items:center;gap:8px;background:rgba(0,0,0,.88);border:1px solid rgba(149,65,224,.35);border-radius:10px;padding:6px 14px;backdrop-filter:blur(8px);flex-wrap:wrap;}#ee-el-ecom-cost-indicator .ee-ci-cost{font-size:14px;font-weight:700;color:#b54af3;}#ee-el-ecom-cost-indicator .ee-ci-unit{font-size:11px;color:rgba(255,255,255,.55);}#ee-el-ecom-cost-indicator .ee-ci-sep{width:1px;height:14px;background:rgba(255,255,255,.12);}#ee-el-ecom-cost-indicator .ee-ci-remain{font-size:11px;color:rgba(255,255,255,.6);}#ee-el-ecom-cost-indicator .ee-ci-detail{font-size:10px;color:rgba(255,255,255,.4);width:100%;margin-top:2px;}#ee-el-ecom-cost-indicator .ee-ci-warn{color:#ef4444!important;}#ee-el-ecom-cost-indicator .ee-ci-ok{color:#10b981!important;}';
     (document.head || document.documentElement).appendChild(s);
   }
-  function findGenerateButton() {
-    return document.querySelector('button[data-testid="tts-generate"]') || document.querySelector('button[aria-label*="Generate speech"]') || document.querySelector('button[aria-label*="Generate"]');
-  }
+
   function updateCostIndicator() {
+    var feature = detectCurrentFeature();
     var btn = findGenerateButton();
-    if (!btn) { if (_costIndicatorEl) _costIndicatorEl.style.opacity = '0'; return; }
-    var text = getEditorText(); var cc = text.length; var rem = getRemaining(); var over = cc > rem;
+    if (!btn || !feature) { if (_costIndicatorEl) _costIndicatorEl.style.opacity = '0'; return; }
+
+    var est = estimatePageCost(feature);
+    var rem = getRemaining();
     var elRem = (_elBalance && _elBalance.character_limit) ? Math.max(0, _elBalance.character_limit - _elBalance.character_count) : null;
+
     ensureCostIndicatorStyle();
     if (!_costIndicatorEl) { _costIndicatorEl = document.createElement('div'); _costIndicatorEl.id = 'ee-el-ecom-cost-indicator'; document.body.appendChild(_costIndicatorEl); }
+
     var r = btn.getBoundingClientRect();
-    _costIndicatorEl.style.left = r.left + 'px'; _costIndicatorEl.style.top = Math.max(0, r.top - 40) + 'px';
-    _costIndicatorEl.style.opacity = cc > 0 ? '1' : '0.4';
-    var rl = over ? '<span class="ee-ci-warn">\u274c ' + fmtNum(rem) + ' left</span>' : '<span class="ee-ci-ok">\u2713 ' + fmtNum(rem) + ' left</span>';
-    var el = elRem != null ? '<span class="ee-ci-sep"></span><span class="ee-ci-remain">\uD83C\uDFA4 ' + fmtNum(elRem) + ' EL</span>' : '';
-    _costIndicatorEl.innerHTML = '<div class="ee-ci-inner"><span class="ee-ci-chars ' + (over ? 'ee-ci-warn' : 'ee-ci-ok') + '">\uD83D\uDCDD ' + fmtNum(cc) + ' chars</span><span class="ee-ci-sep"></span><span class="ee-ci-remain">' + rl + '</span>' + el + '</div>';
+    _costIndicatorEl.style.left = r.left + 'px';
+    _costIndicatorEl.style.top = Math.max(0, r.top - 48) + 'px';
+    _costIndicatorEl.style.opacity = '1';
+
+    var costKnown = est.cost > 0;
+    var over = costKnown && est.cost > rem;
+
+    var costH = costKnown
+      ? '<span class="ee-ci-cost ' + (over ? 'ee-ci-warn' : 'ee-ci-ok') + '">' + fmtNum(est.cost) + ' credits</span>'
+      : '<span class="ee-ci-cost" style="color:rgba(255,255,255,.5);">' + feature.label + '</span>';
+
+    var unitH = est.unit ? '<span class="ee-ci-unit">(' + est.unit + ')</span>' : '';
+
+    var remainH = costKnown
+      ? (over
+        ? '<span class="ee-ci-warn">\u274c ' + fmtNum(rem) + ' left</span>'
+        : '<span class="ee-ci-ok">\u2713 ' + fmtNum(rem) + ' left</span>')
+      : '<span class="ee-ci-remain">' + fmtNum(rem) + ' left</span>';
+
+    var elH = elRem != null ? '<span class="ee-ci-sep"></span><span class="ee-ci-remain">\uD83C\uDFA4 ' + fmtNum(elRem) + ' EL</span>' : '';
+
+    var detailH = est.detail ? '<div class="ee-ci-detail">\u2139\uFE0F ' + est.detail + '</div>' : '';
+
+    _costIndicatorEl.innerHTML = '<div class="ee-ci-inner">' + costH + unitH + '<span class="ee-ci-sep"></span>' + remainH + elH + detailH + '</div>';
   }
+
   function startCostIndicator() { if (_costIndicatorInterval) return; updateCostIndicator(); _costIndicatorInterval = setInterval(updateCostIndicator, 600); }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -360,7 +584,10 @@
     if (!email) { log(ep.name + ' blocked: no email'); createPopup(); return { blocked: true, noEmail: true }; }
     var cost = estimateCreditCost(ep.name, bodyStr);
     if (cost <= 0 && ep.name === 'tts') {
-      var et = getEditorText(); cost = et.length > 0 ? et.length : 50;
+      var et = getEditorText();
+      var model = detectTTSModel();
+      var rate = model === 'flash' ? CREDIT_RATES.tts_flash : CREDIT_RATES.tts_standard;
+      cost = et.length > 0 ? Math.ceil(et.length * rate) : 50;
     }
     if (cost <= 0) {
       log(ep.name + ' (' + ep.label + '): unknown cost, balance watcher will track');
@@ -423,7 +650,7 @@
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  //  GENERATE BUTTON OVERLAY (TTS pre-check)
+  //  GENERATE BUTTON OVERLAY (universal pre-check for ALL features)
   // ═══════════════════════════════════════════════════════════════════
   var _lastOBtn = null; var _synClicks = typeof WeakSet !== 'undefined' ? new WeakSet() : null;
   function installButtonOverlay() {
@@ -438,18 +665,40 @@
   function reposOverlay(btn) { var ov = document.getElementById('ee-el-ecom-overlay'); if (!ov || !btn) return; var r = btn.getBoundingClientRect(); ov.style.left = r.left + 'px'; ov.style.top = r.top + 'px'; ov.style.width = r.width + 'px'; ov.style.height = r.height + 'px'; }
   function onOverlayClick() {
     if (!getVerifiedEmail()) { createPopup(); return; }
-    var t = getEditorText(); var cc = t.length || 50; var rem = getRemaining();
-    if (cc > rem) { showToast('\u274c Not enough credits. Text is <b>' + fmtNum(cc) + '</b> chars, you have <b>' + fmtNum(rem) + '</b>.', 5000); refreshWidget(0); return; }
+    var feature = detectCurrentFeature();
+    var est = feature ? estimatePageCost(feature) : { cost: 0 };
+    var cost = est.cost;
+    var rem = getRemaining();
+
+    if (cost > 0 && cost > rem) {
+      showToast('\u274c Not enough credits for ' + (feature ? feature.label : 'this') + '. Need <b>' + fmtNum(cost) + '</b>, have <b>' + fmtNum(rem) + '</b>.', 5000);
+      refreshWidget(0);
+      return;
+    }
+
     var elRem = (_elBalance && _elBalance.character_limit) ? Math.max(0, _elBalance.character_limit - _elBalance.character_count) : null;
-    showToast('Generating\u2026 <b>~' + fmtNum(cc) + ' chars</b> (' + fmtNum(rem - cc) + ' left' + (elRem != null ? ' | EL: ' + fmtNum(elRem) : '') + ')', 3000);
+    var costMsg = cost > 0 ? '<b>~' + fmtNum(cost) + ' credits</b>' : '<b>cost tracked after completion</b>';
+    showToast((feature ? feature.label : 'Generating') + '\u2026 ' + costMsg + (cost > 0 ? ' (' + fmtNum(rem - cost) + ' left' + (elRem != null ? ' | EL: ' + fmtNum(elRem) : '') + ')' : ''), 3000);
+
     var btn = findGenerateButton();
-    if (btn) { if (_synClicks) _synClicks.add(btn); try { btn.focus({ preventScroll: true }); } catch (_) {} btn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, button: 0, detail: 1 })); setTimeout(function () { if (_synClicks) _synClicks.delete(btn); }, 500); }
+    if (btn) {
+      if (_synClicks) _synClicks.add(btn);
+      try { btn.focus({ preventScroll: true }); } catch (_) {}
+      btn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, button: 0, detail: 1 }));
+      setTimeout(function () { if (_synClicks) _synClicks.delete(btn); }, 500);
+    }
   }
   function installClickBlocker() {
     document.addEventListener('click', function (e) {
       var el = e.target; if (!el) return;
       if (el.closest && (el.closest('#ee-el-ecom-popup-root') || el.closest('#ee-el-ecom-widget') || el.closest('#ee-el-ecom-overlay'))) return;
-      var btn = el.closest ? el.closest('button[data-testid="tts-generate"], button[aria-label*="Generate speech"]') : null;
+      var btn = el.closest ? el.closest('button[data-testid="tts-generate"], button[aria-label*="Generate speech"], button[aria-label*="Generate"]') : null;
+      if (!btn) {
+        var btns2 = document.querySelectorAll('button');
+        for (var i = 0; i < btns2.length; i++) {
+          if (btns2[i].contains(el) && /^generate|^convert|^isolat|^dub|^create/i.test((btns2[i].textContent || '').trim())) { btn = btns2[i]; break; }
+        }
+      }
       if (!btn) return;
       if (_synClicks && _synClicks.has(btn)) return;
       if (getRemaining() <= 0) { e.preventDefault(); e.stopPropagation(); showToast('\u274c Daily credit limit reached.', 4000); }
