@@ -65,7 +65,8 @@
         "https://app.elevenlabs.io/*"
       ],
       "js": ["elevenlabs_ecom_subscription.js"],
-      "run_at": "document_start"
+      "run_at": "document_start",
+      "world": "MAIN"
     },
     {
       "matches": ["https://elevenlabs.io/app/*"],
