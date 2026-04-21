@@ -65,6 +65,7 @@ const COMMUNITY_FEATURES = [
 
 // Same list as PricingSection (tools)
 const PRO_EXTRAS = [
+  "Winning Hunter",
   "Higgsfield",
   "Vmake",
   "Atria",
@@ -751,7 +752,6 @@ export default function GettingStartedPage() {
                               <div className="text-gray-300 mb-1">4 SPY tools</div>
                               <ul className="ml-3 space-y-1">
                                 <li className="flex items-center gap-2 text-gray-300"><Check className="w-3.5 h-3.5 text-purple-400" /><span>Dropship.io</span></li>
-                                <li className="flex items-center gap-2 text-gray-300"><Check className="w-3.5 h-3.5 text-purple-400" /><span>Winning Hunter</span></li>
                                 <li className="flex items-center gap-2 text-gray-300"><Check className="w-3.5 h-3.5 text-purple-400" /><span>Shophunter</span></li>
                                 <li className="flex items-center gap-2 text-gray-300"><Check className="w-3.5 h-3.5 text-purple-400" /><span>Helium 10</span></li>
                               </ul>

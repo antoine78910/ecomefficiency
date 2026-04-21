@@ -18,7 +18,7 @@ type GalleryTool = { id: number; name: string; description: string; icon: string
 const galleryTools: GalleryTool[] = carouselTools.map((t, i) => ({ id: i + 1, name: t.name, description: t.description, icon: t.icon }));
 
 const STARTER_NAMES = [
-  'ChatGPT','Midjourney','SendShort','Capcut','Helium10','Dropship.io','ShopHunter','WinningHunter'
+  'ChatGPT','Midjourney','SendShort','Capcut','Helium10','Dropship.io','ShopHunter'
 ];
 const PRO_NAMES = [
   'Flair.ai','ChatGPT','Midjourney','Exploding Topics','Pipiads','Kalodata','WinningHunter','Capcut','SendShort','Helium10','Dropship.io','ShopHunter','Atria','Heygen','Fotor','ForePlay','ElevenLabs','Runway','Freepik','TurboScribe',

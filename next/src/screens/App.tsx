@@ -858,6 +858,7 @@ function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'sta
   const wlAccent = normalizeHex(String((typeof window !== 'undefined' ? (window as any).__wl_accent : '') || '#7c30c7'), '#7c30c7')
   const wlBtnText = bestTextColorOn(mixHex(wlMain, wlAccent, 0.5))
   const proExtras = [
+    'Winning Hunter',
     'Pipiads',
     'Atria',
     'Runway',
@@ -922,7 +923,6 @@ function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'sta
                 <div className="mb-4 md:mb-6 space-y-2">
                   <ul className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] text-gray-300">
                     <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5" style={{ color: wlAccent }} /><span>Dropship.io</span></li>
-                    <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5" style={{ color: wlAccent }} /><span>Winning Hunter</span></li>
                     <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5" style={{ color: wlAccent }} /><span>Shophunter</span></li>
                     <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5" style={{ color: wlAccent }} /><span>Helium 10</span></li>
                     <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5" style={{ color: wlAccent }} /><span>GPT</span></li>

@@ -62,6 +62,8 @@ $filesToInclude = @(
     "bootstrap_login.js",
     "brandsearch_cleanup.js",
     "crisp_remover.js",
+    "capcut_hide_titlebar_controls.js",
+    "capcut_remove_recent_projects.js",
     "cutout.js",
     "disable_overlay_pipiads.js",
     "ecomefficiency_auto_login.js",

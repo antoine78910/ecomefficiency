@@ -18,11 +18,10 @@ const STARTER_TOOL_NAMES = [
   'Helium10',
   'Dropship.io',
   'ShopHunter',
-  'WinningHunter',
 ];
 const PRO_ONLY_TOOL_NAMES = [
   'Flair.ai', 'Freepik', 'TurboScribe', 'Exploding Topics', 'Pipiads', 'Kalodata',
-  'Atria', 'Heygen', 'Fotor', 'ForePlay', 'ElevenLabs', 'Runway', 'Trendtrack', 'Higgsfield', 'Vmake'
+  'Atria', 'Heygen', 'Fotor', 'ForePlay', 'ElevenLabs', 'Runway', 'Trendtrack', 'Higgsfield', 'Vmake', 'WinningHunter'
 ];
 
 export default function StarterToolsPage() {

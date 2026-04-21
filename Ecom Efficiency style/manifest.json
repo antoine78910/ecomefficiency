@@ -337,7 +337,8 @@
       "matches": [
         "https://rankerfox.com/premium-plan/"
       ],
-      "js": ["remove_banner_rankerfox.js"]
+      "js": ["remove_banner_rankerfox.js"],
+      "run_at": "document_start"
     },
     {
       "matches": [
@@ -642,6 +643,13 @@
         "https://www.capcut.com/my-edit*"
       ],
       "js": ["capcut_remove_recent_projects.js"],
+      "run_at": "document_start"
+    }
+    ,
+    {
+      "matches": ["https://www.capcut.com/*"],
+      "exclude_matches": ["https://www.capcut.com/fr-fr/login*"],
+      "js": ["capcut_hide_titlebar_controls.js"],
       "run_at": "document_start"
     }
     ,

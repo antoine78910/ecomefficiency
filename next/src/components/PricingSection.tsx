@@ -73,6 +73,7 @@ function detectCurrencyFromLocale(): Currency {
 ];
 
 const proExtras = [
+  "Winning Hunter",
   "Vmake",
   "Atria",
   "Runway",
@@ -305,7 +306,6 @@ const PricingSection = ({
                           <div className="text-gray-300 mb-1">4 SPY tools</div>
                           <ul className="ml-3 space-y-1">
                             <li className="flex items-center gap-2 text-gray-300"><Check className="w-3.5 h-3.5 text-purple-400" /><span>Dropship.io</span></li>
-                            <li className="flex items-center gap-2 text-gray-300"><Check className="w-3.5 h-3.5 text-purple-400" /><span>Winning Hunter</span></li>
                             <li className="flex items-center gap-2 text-gray-300"><Check className="w-3.5 h-3.5 text-purple-400" /><span>Shophunter</span></li>
                             <li className="flex items-center gap-2 text-gray-300"><Check className="w-3.5 h-3.5 text-purple-400" /><span>Helium 10</span></li>
                           </ul>
