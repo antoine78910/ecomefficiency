@@ -4,9 +4,13 @@ import {
   searchCustomersByEmailAllPagesMerged,
   findBestCustomerWithActiveSubscription,
 } from "@/lib/stripeLegacySubscription"
+import { STRIPE_CUSTOMER_PORTAL_DISABLED } from "@/lib/stripeCustomerPortalDisabled"
 
 export async function POST(req: NextRequest) {
   try {
+    if (STRIPE_CUSTOMER_PORTAL_DISABLED) {
+      return NextResponse.json({ error: "portal_disabled" }, { status: 503 })
+    }
     const env = process.env as Record<string, string | undefined>
     if (!env.STRIPE_SECRET_KEY) {
       return NextResponse.redirect(new URL('/subscription?err=stripe_not_configured', req.url), { status: 303 })

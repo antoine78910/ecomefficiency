@@ -17,7 +17,6 @@ export default function SubscriptionPage() {
   const [userId, setUserId] = React.useState<string>('')
   const [firstName, setFirstName] = React.useState<string>('')
   const [upgradeLoading, setUpgradeLoading] = React.useState(false)
-  const [billingMessage, setBillingMessage] = React.useState<string | null>(null)
 
   React.useEffect(() => {
     (async () => {
@@ -138,22 +137,8 @@ export default function SubscriptionPage() {
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <button
-          onClick={async () => {
-            setBillingMessage(null)
-            if (customerId) {
-              try {
-                const res = await fetch('/api/stripe/portal', { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-stripe-customer-id': customerId } })
-                const data = await res.json()
-                if (data?.url) {
-                  window.location.href = data.url
-                  return
-                }
-              } catch {}
-            }
-            setBillingMessage(
-              'Self-service billing is temporarily unavailable. If you need to change payment or your plan, please contact support.'
-            )
-          }}
+          type="button"
+          onClick={() => {}}
           className="px-4 py-2 rounded-md border border-white/20 text-white hover:bg-white/10"
         >
           Manage billing
@@ -170,11 +155,6 @@ export default function SubscriptionPage() {
           </button>
         )}
       </div>
-      {billingMessage ? (
-        <p className="mt-3 text-sm text-amber-200/90 max-w-xl" role="status">
-          {billingMessage}
-        </p>
-      ) : null}
     </div>
   )
 }

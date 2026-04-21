@@ -1,8 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
+import { STRIPE_CUSTOMER_PORTAL_DISABLED } from "@/lib/stripeCustomerPortalDisabled";
 
 export async function POST(req: NextRequest) {
   try {
+    if (STRIPE_CUSTOMER_PORTAL_DISABLED) {
+      return NextResponse.json({ error: "portal_disabled" }, { status: 503 });
+    }
     if (!process.env.STRIPE_SECRET_KEY) {
       return NextResponse.json({ error: "Stripe not configured" }, { status: 500 });
     }

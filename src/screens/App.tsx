@@ -1300,17 +1300,7 @@ function CredentialsPanel({
     return () => { cancelled = true }
   }, [whiteLabel, partnerSlug])
 
-  const openPortal = async () => {
-    if (!customerId) { 
-      try { setShowBilling(true); } catch {}
-      return;
-    }
-    try {
-      const res = await fetch('/api/stripe/portal', { method: 'POST', headers: { 'x-stripe-customer-id': customerId } })
-      const data = await res.json()
-      if (data?.url) window.location.href = data.url
-    } catch {}
-  }
+  const openPortal = async () => {}
 
   const startCheckout = async (tier: 'starter' | 'pro', billing: 'monthly' | 'yearly', currency?: 'EUR' | 'USD') => {
     // console.log('[App startCheckout] 📥 Received params:', { tier, billing, currency });
@@ -1679,11 +1669,9 @@ function CredentialsPanel({
           )}
           {!whiteLabel ? (
             <div className="flex items-center justify-end mt-1">
-              <form method="POST" action="/create-customer-portal-session">
-                <input type="hidden" name="customerId" value={customerId || ''} />
-                <input type="hidden" name="email" value={email || ''} />
-                <button type="submit" className="text-white/80 underline cursor-pointer text-xs">Manage billing</button>
-              </form>
+              <button type="button" className="text-white/80 underline cursor-pointer text-xs" onClick={() => {}}>
+                Manage billing
+              </button>
             </div>
           ) : null}
         </div>
