@@ -749,7 +749,7 @@ export default function GettingStartedPage() {
                         <div className={`overflow-hidden transition-all duration-300 ${starterExpanded ? "max-h-[520px] opacity-100" : "max-h-0 opacity-0"}`}>
                           <ul className="mt-1 ml-1 space-y-2 text-xs">
                             <li>
-                              <div className="text-gray-300 mb-1">4 SPY tools</div>
+                              <div className="text-gray-300 mb-1">3 SPY tools</div>
                               <ul className="ml-3 space-y-1">
                                 <li className="flex items-center gap-2 text-gray-300"><Check className="w-3.5 h-3.5 text-purple-400" /><span>Dropship.io</span></li>
                                 <li className="flex items-center gap-2 text-gray-300"><Check className="w-3.5 h-3.5 text-purple-400" /><span>Shophunter</span></li>
