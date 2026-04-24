@@ -11,7 +11,6 @@ import { postGoal } from "@/lib/analytics";
 import { trackFirstPromoterReferral } from "@/lib/firstpromoterReferral";
 import { BillingCyberSwitch } from "@/components/BillingCyberSwitch";
 
-const TRUSTPILOT_REVIEW_URL = "https://www.trustpilot.com/review/ecomefficiency.com";
 const DISCORD_COMMUNITY_URL = "https://discord.gg/7UgABk3jKJ";
 
 type AcquisitionSource =
@@ -643,25 +642,6 @@ export default function GettingStartedPage() {
               />
 
               <div className="relative z-10 rounded-2xl border border-white/10 bg-[#0d0e12] p-5 md:p-6">
-              <div className="mb-0 -mt-0.5">
-                <Link
-                  href={TRUSTPILOT_REVIEW_URL}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block w-full max-w-[190px] sm:max-w-[214px] md:max-w-[240px] mx-auto leading-none"
-                >
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src="/trustpilot-setup-banner.png"
-                    alt="Trustpilot — Excellent"
-                    width={2500}
-                    height={500}
-                    className="block w-full h-auto mix-blend-lighten"
-                    loading="eager"
-                    decoding="async"
-                  />
-                </Link>
-              </div>
               <div className="text-center mb-4 mt-1">
                 <h2 className="text-xl md:text-2xl font-semibold">Choose a plan</h2>
                 <p className="text-gray-400 mt-1.5 text-sm">Subscribe to unlock the tools.</p>
