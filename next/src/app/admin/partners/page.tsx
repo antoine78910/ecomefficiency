@@ -18,6 +18,12 @@ function fmtMoney(n: number) {
   return new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 2 }).format(n);
 }
 
+function fmtDate(v: unknown) {
+  if (!v) return "—";
+  const d = new Date(String(v));
+  return Number.isNaN(d.getTime()) ? "—" : d.toLocaleString();
+}
+
 export default function AdminPartnersPage() {
   const router = useRouter();
   const [loading, setLoading] = React.useState(false);
@@ -306,6 +312,11 @@ export default function AdminPartnersPage() {
           {partners.map((p) => {
             const cfg = p.config || {};
             const onboarding = cfg.onboarding || {};
+            const hasStripe = Boolean(cfg.connectedAccountId);
+            const hasDomain = Boolean(cfg.customDomain);
+            const hasBranding = Boolean(cfg.saasName || cfg.tagline || cfg.logoUrl);
+            const monthly = cfg.monthlyPrice !== undefined && cfg.monthlyPrice !== null && String(cfg.monthlyPrice) !== "" ? String(cfg.monthlyPrice) : "—";
+            const yearly = cfg.yearlyPrice !== undefined && cfg.yearlyPrice !== null && String(cfg.yearlyPrice) !== "" ? String(cfg.yearlyPrice) : "—";
             const channels =
               Array.isArray(onboarding.audienceMainChannelLabels) && onboarding.audienceMainChannelLabels.length
                 ? onboarding.audienceMainChannelLabels
@@ -358,6 +369,64 @@ export default function AdminPartnersPage() {
                   <div className="rounded-xl border border-white/10 bg-white/5 p-3">
                     <div className="text-xs text-gray-400">Revenue</div>
                     <div className="text-xl font-semibold">{fmtMoney(p.stats?.revenue ?? 0)}</div>
+                  </div>
+                </div>
+
+                <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-3">
+                  <div className="text-xs text-gray-400 mb-2">Connected setup snapshot</div>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 text-sm">
+                    <div className="rounded-lg border border-white/10 bg-black/30 p-3">
+                      <div className="text-xs text-gray-500 mb-1">Title / branding</div>
+                      <div className="text-gray-200">
+                        <div><span className="text-gray-400">SaaS:</span> {cfg.saasName || "—"}</div>
+                        <div><span className="text-gray-400">Tagline:</span> {cfg.tagline || "—"}</div>
+                        <div><span className="text-gray-400">Logo:</span> {cfg.logoUrl ? "connected" : "—"}</div>
+                        <div><span className="text-gray-400">Favicon:</span> {cfg.faviconUrl ? "connected" : "—"}</div>
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-white/10 bg-black/30 p-3">
+                      <div className="text-xs text-gray-500 mb-1">Pricing / offer</div>
+                      <div className="text-gray-200">
+                        <div><span className="text-gray-400">Offer title:</span> {cfg.offerTitle || "—"}</div>
+                        <div><span className="text-gray-400">Monthly:</span> {monthly}</div>
+                        <div><span className="text-gray-400">Yearly:</span> {yearly}</div>
+                        <div><span className="text-gray-400">Promo codes:</span> {cfg.allowPromotionCodes ? "enabled" : "disabled"}</div>
+                      </div>
+                    </div>
+                    <div className="rounded-lg border border-white/10 bg-black/30 p-3">
+                      <div className="text-xs text-gray-500 mb-1">Connections</div>
+                      <div className="text-gray-200">
+                        <div><span className="text-gray-400">Stripe:</span> {hasStripe ? "connected" : "—"}</div>
+                        <div><span className="text-gray-400">Account ID:</span> {cfg.connectedAccountId || "—"}</div>
+                        <div><span className="text-gray-400">Domain:</span> {hasDomain ? String(cfg.customDomain) : "—"}</div>
+                        <div><span className="text-gray-400">Domain verified:</span> {cfg.domainVerified ? "yes" : "no"}</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div className="mt-3 text-xs text-gray-500 grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <div>
+                      <span className="text-gray-400">Preview:</span>{" "}
+                      <a
+                        href={`https://partners.ecomefficiency.com/dashboard?slug=${encodeURIComponent(p.slug)}&tab=page`}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="underline hover:text-gray-300"
+                      >
+                        open live preview
+                      </a>
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Domain checked:</span> {fmtDate(cfg.domainVerifiedAt || cfg.resendDomainLastCheckedAt)}
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Resend status:</span> {cfg.resendDomainStatus || "—"}
+                    </div>
+                    <div>
+                      <span className="text-gray-400">Connected summary:</span>{" "}
+                      {[hasBranding ? "branding" : null, hasStripe ? "stripe" : null, hasDomain ? "domain" : null]
+                        .filter(Boolean)
+                        .join(", ") || "nothing connected yet"}
+                    </div>
                   </div>
                 </div>
 
