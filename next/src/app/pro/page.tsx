@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 };
 
 export default function ProToolsHubPage() {
-  const ASSET_VERSION = "20260216";
+  const ASSET_VERSION = "20260430-claude-v3";
   return (
     <>
       {/* Font Awesome (as in legacy HTML) */}
@@ -179,8 +179,8 @@ h1 {
 .claude-logo {
   width: auto !important;
   height: auto !important;
-  max-width: 175px;
-  max-height: 70px;
+  max-width: 205px;
+  max-height: 78px;
   object-fit: contain;
   display: block;
   margin: 0 auto;
