@@ -443,6 +443,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     // Utiliser une fonction async immédiate pour éviter les problèmes de message channel
     (async () => {
       try {
+        const sinceTs = Number(message.sinceTs || 0);
         const tryUrls = [
           // Primary (current prod)
           'http://51.83.103.21:20016/otp'
@@ -483,7 +484,9 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         // Single attempt per request (caller does polling)
         for (let i = 0; i < tryUrls.length; i++) {
           const baseUrl = tryUrls[i];
-          const url = baseUrl + '?t=' + Date.now(); // cache-bust
+          const url = sinceTs > 0
+            ? `${baseUrl}?since=${encodeURIComponent(String(sinceTs))}&t=${Date.now()}`
+            : `${baseUrl}?t=${Date.now()}`; // cache-bust
           console.log('[EE-BG] Trying URL:', url);
           try {
             const controller = new AbortController();
@@ -523,6 +526,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             }
 
             const code = (json && json.code) ? String(json.code).trim() : '';
+            const echoedSinceTs = Number(json && json.sinceTs ? json.sinceTs : 0);
+            const matchedEmailTs = Number(json && json.matchedEmailTs ? json.matchedEmailTs : 0);
+            if (sinceTs > 0) {
+              if (echoedSinceTs !== sinceTs) {
+                lastErr = new Error('Server did not confirm sinceTs filter');
+                continue;
+              }
+              if (matchedEmailTs > 0 && matchedEmailTs < sinceTs) {
+                lastErr = new Error('Server returned a stale email');
+                continue;
+              }
+            }
             if (code && code.length >= 4) {
               const messageKey = pickMessageKey(json, rawText);
               console.log('[EE-BG] Success, sending code:', code, 'messageKey=', messageKey || '(none)');
@@ -534,7 +549,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 rawText: rawText ? String(rawText).slice(0, 500) : '',
                 status: res.status,
                 sourceUrl: baseUrl,
-                fetchedAt: Date.now()
+                fetchedAt: Date.now(),
+                sinceTs
               });
               return;
             }
@@ -547,7 +563,8 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               rawText: rawText ? String(rawText).slice(0, 500) : '',
               status: res.status,
               sourceUrl: baseUrl,
-              fetchedAt: Date.now()
+              fetchedAt: Date.now(),
+              sinceTs
             });
             return;
           } catch (e) {
@@ -726,7 +743,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             try {
               console.log('[EE-BG-FLAIR] Trying URL:', url);
               const controller = new AbortController();
-              const timeoutId = setTimeout(() => controller.abort(), 8000);
+              const timeoutId = setTimeout(() => controller.abort(), 12000);
 
               const res = await fetch(url, {
                 cache: 'no-store',
@@ -788,6 +805,107 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     })();
 
     return true;
+  }
+
+  // ============================================
+  // CLAUDE MAGIC LINK (email link sign-in)
+  // ============================================
+  if (message && message.type === 'FETCH_CLAUDE_MAGIC_LINK') {
+    console.log('[EE-BG] FETCH_CLAUDE_MAGIC_LINK request received');
+
+    (async () => {
+      try {
+        const baseUrls = [
+          'http://51.83.103.21:20016/claude-link',
+          'http://46.224.61.179:20016/claude-link'
+        ];
+        let lastErr = null;
+        const tried = [];
+
+        for (let i = 0; i < baseUrls.length; i++) {
+          const baseUrl = baseUrls[i];
+          const urlVariants = [
+            baseUrl + '?t=' + Date.now(),
+            baseUrl
+          ];
+
+          for (const url of urlVariants) {
+            tried.push(url);
+            try {
+              console.log('[EE-BG-CLAUDE] Trying URL:', url);
+              const controller = new AbortController();
+              const timeoutId = setTimeout(() => controller.abort(), 12000);
+
+              const res = await fetch(url, {
+                cache: 'no-store',
+                credentials: 'omit',
+                redirect: 'follow',
+                headers: {
+                  'Accept': 'application/json,text/plain,*/*',
+                  'Cache-Control': 'no-cache',
+                  'Pragma': 'no-cache'
+                },
+                signal: controller.signal
+              }).finally(() => {
+                try { clearTimeout(timeoutId); } catch (_) {}
+              });
+
+              const text = await res.text().catch(() => '');
+              let json = null;
+              try { json = text ? JSON.parse(text) : null; } catch (_) {}
+
+              if (!res.ok) {
+                const msg =
+                  (json && (json.error || json.message)) ||
+                  (text && text.slice(0, 240)) ||
+                  `HTTP ${res.status}`;
+                lastErr = new Error(msg);
+                continue;
+              }
+
+              let link = (json && json.link) ? String(json.link).trim() : '';
+              if (!link && text) {
+                const m = String(text).match(/https:\/\/claude\.ai\/[^\s"'<>\\]+/i);
+                if (m) link = String(m[0]).trim();
+              }
+
+              if (link && isValidClaudeLink(link)) {
+                console.log('[EE-BG-CLAUDE] ✓ Link received');
+                sendResponse({ ok: true, link, sourceUrl: url });
+                return;
+              }
+
+              sendResponse({ ok: true, noLink: true, sourceUrl: url });
+              return;
+            } catch (e) {
+              lastErr = e;
+            }
+          }
+        }
+
+        sendResponse({
+          ok: false,
+          error: lastErr ? (lastErr.message || String(lastErr)) : 'Claude link server not reachable',
+          tried: tried.slice(-12)
+        });
+      } catch (e) {
+        sendResponse({ ok: false, error: String(e && e.message ? e.message : e) });
+      }
+    })();
+
+    return true;
+  }
+
+  function isValidClaudeLink(link) {
+    const u = String(link || '').trim();
+    if (!/^https:\/\/claude\.ai\//i.test(u)) return false;
+    return (
+      /\/magic-link#/i.test(u) ||
+      /\/magic-link\?/i.test(u) ||
+      /\/auth\/(magic-)?link/i.test(u) ||
+      /\/auth\/verify/i.test(u) ||
+      /[?&](token|code|magic|email|verify)=/i.test(u)
+    );
   }
 
   // Higgsfield OTP (email verification)
@@ -886,6 +1004,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       const diagSteps = []; // collect step-by-step info for the content script overlay
       try {
         const baseUrls = [
+          // Local first (most reliable during local debugging / development)
+          'http://127.0.0.1:20016/otp-freepik',
+          'http://localhost:20016/otp-freepik',
+          'http://127.0.0.1:3005/otp-freepik',
+          'http://127.0.0.1:3000/otp-freepik',
+          'http://localhost:3005/otp-freepik',
+          'http://localhost:3000/otp-freepik',
+          // Remote fallbacks
           'http://51.83.103.21:20016/otp-freepik',
           'http://46.224.61.179:20016/otp-freepik'
         ];
@@ -900,7 +1026,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             try {
               _log('[EE-BG][FREEPIK] Trying URL:', url);
               const controller = new AbortController();
-              const timeoutId = setTimeout(() => controller.abort(), 8000);
+              const timeoutId = setTimeout(() => controller.abort(), 12000);
               const res = await fetch(url, {
                 cache: 'no-store',
                 credentials: 'omit',

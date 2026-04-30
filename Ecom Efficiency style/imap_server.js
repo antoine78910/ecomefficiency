@@ -1,6 +1,8 @@
 const express = require('express');
 const { ImapFlow } = require('imapflow');
+const { simpleParser } = require('mailparser');
 require('dotenv').config();
+const { pickBestOpenAiOtpEmail } = require('./openai_otp_utils');
 
 const app = express();
 
@@ -15,7 +17,7 @@ app.use((req, res, next) => {
     next();
   }
 });
-const PORT = process.env.PORT || process.env.IMAP_SERVER_PORT || 20016;
+const PORT = process.env.IMAP_SERVER_PORT || process.env.PORT || 20016;
 
 function mask(s) { return s ? s.replace(/.(?=.{4})/g, '*') : s; }
 
@@ -23,11 +25,29 @@ function mask(s) { return s ? s.replace(/.(?=.{4})/g, '*') : s; }
 const vmakeInflight = new Map(); // account -> { ts, promise }
 // Similar dedupe for Flair magic-link fetches (extension polls quickly)
 const flairInflight = new Map(); // "flair" -> { ts, promise }
+// Similar dedupe for GPT OTP fetches (extension can poll quickly)
+const gptInflight = new Map(); // "gpt" -> { ts, promise }
+// Similar dedupe for Claude magic-link fetches (extension polls quickly)
+const claudeInflight = new Map(); // "claude" -> { ts, promise }
 
 function pickFirstAddress(list) {
   try {
     const addr = list && list[0] && list[0].address;
     return addr ? String(addr) : '';
+  } catch (_) {
+    return '';
+  }
+}
+
+function addressListToText(list) {
+  try {
+    if (!Array.isArray(list)) return '';
+    return list.map((x) => {
+      if (!x) return '';
+      const name = x.name ? String(x.name) : '';
+      const address = x.address ? String(x.address) : '';
+      return `${name} ${address}`.trim();
+    }).filter(Boolean).join(' | ');
   } catch (_) {
     return '';
   }
@@ -103,13 +123,18 @@ function scoreEmailForService({ raw, from, subject, to }, service) {
     if (/verification\s+code|one[-\s]?time\s+code|otp/i.test(text)) score += 2;
   } else if (s === 'freepik') {
     if (/freepik/i.test(fromL)) score += 10;
+    if (/magnific/i.test(fromL)) score += 10;
     if (/info@freepik\.com/i.test(fromL)) score += 8;
+    if (/info@magnific\.com/i.test(fromL)) score += 10;
+    if (/noreply@magnific\.com/i.test(fromL)) score += 7;
     if (/noreply@freepik\.com/i.test(fromL)) score += 6;
     if (/freepik/i.test(subjectL)) score += 6;
+    if (/magnific/i.test(subjectL)) score += 8;
     if (/verif|code|confirm|one[-\s]?time/i.test(subjectL)) score += 3;
     if (/one[-\s]?time\s+(verification|login)\s+code/i.test(text)) score += 4;
     if (/verification\s+code|one[-\s]?time\s+code|otp|security\s+code/i.test(text)) score += 2;
     if (/freepik\s+account/i.test(text)) score += 3;
+    if (/magnific\s+account|magnific/i.test(text)) score += 4;
     if (looksOpenAI) score -= 20;
   } else if (s === 'flair') {
     // Flair magic-link login email
@@ -157,6 +182,14 @@ async function scanOtpFromMailbox(client, mailbox, service) {
         const toAddress = pickFirstAddress(env && env.to);
         const subject = envelopeSubject(env);
 
+        // Fast pre-filter for Freepik/Magnific OTP flow.
+        // Avoid downloading full MIME bodies for clearly unrelated messages.
+        if (service === 'freepik') {
+          const meta = `${safeStr(fromAddress)} ${safeStr(subject)}`.toLowerCase();
+          const likelyFreepikOtp = /(freepik|magnific|verif|otp|one[-\s]?time|security\s+code|confirm)/i.test(meta);
+          if (!likelyFreepikOtp) continue;
+        }
+
         // eslint-disable-next-line no-await-in-loop
         const { content } = await client.download(uid, null, { uid: true });
         const raw = await contentToUtf8(content);
@@ -198,8 +231,49 @@ async function scanOtpFromMailbox(client, mailbox, service) {
   }
 }
 
+async function sourceToSearchableText(source) {
+  const raw = await contentToUtf8(source);
+  if (!raw) return '';
+
+  try {
+    const parsed = await simpleParser(raw);
+    const html = typeof parsed.html === 'string'
+      ? parsed.html
+      : (parsed.html && typeof parsed.html.toString === 'function' ? parsed.html.toString() : '');
+    return [
+      raw,
+      safeStr(parsed.subject),
+      safeStr(parsed.from && parsed.from.text),
+      safeStr(parsed.to && parsed.to.text),
+      safeStr(parsed.text),
+      safeStr(html),
+    ].filter(Boolean).join('\n');
+  } catch (_) {
+    return raw;
+  }
+}
+
 app.get('/otp', async (req, res) => {
   console.log('[imap] OTP request received at', new Date().toISOString());
+  const sinceTs = Number(req && req.query && req.query.since ? req.query.since : 0);
+  const now = Date.now();
+  const inflightKey = `gpt:${sinceTs || 0}`;
+  const inflight = gptInflight.get(inflightKey);
+  if (inflight && (now - inflight.ts) < 25_000) {
+    console.log('[imap] Reusing in-flight IMAP attempt');
+    try {
+      const out = await inflight.promise;
+      return res.json(out);
+    } catch (e) {
+      return res.status(500).json({
+        error: (e && e.message) ? e.message : String(e),
+        response: e && e.response,
+        responseStatus: e && e.responseStatus,
+        responseText: e && e.responseText,
+        serverResponseCode: e && e.serverResponseCode
+      });
+    }
+  }
   const imapHost = process.env.IMAP_HOST; // e.g., "imap.neospace.email"
   const imapPort = Number(process.env.IMAP_PORT || 993);
   // Allow dedicated creds for GPT (/otp) while keeping IMAP_USER as fallback
@@ -225,41 +299,105 @@ app.get('/otp', async (req, res) => {
     host: imapHost,
     port: imapPort,
     secure: imapTLS,
-    auth: { user: imapUser, pass: imapPass, method: imapMethod }
+    auth: { user: imapUser, pass: imapPass, method: imapMethod },
+    logger: false,
   });
 
-  let code = '';
-  try {
-    await client.connect();
-    const lock = await client.getMailboxLock('INBOX');
+  const workPromise = (async () => {
+    let code = '';
+    let picked = null;
     try {
-      // Search latest 20 unseen first, else latest 20
-      let seq; 
-      const unseen = await client.search({ seen: false }, { uid: true });
-      if (unseen.length > 0) {
-        seq = unseen.slice(-20);
-      } else {
-        const all = await client.search({}, { uid: true });
-        seq = all.slice(-20);
-      }
-      seq = seq.reverse();
+      await client.connect();
+      const mailboxesToTry = ['INBOX', 'Junk', 'Spam', 'Bulk Mail', 'Junk E-mail'];
+      const candidates = [];
 
-      for (const uid of seq) {
-        const { content } = await client.download(uid, null, { uid: true });
-        const raw = await contentToUtf8(content);
-        // Quick filter to messages from OpenAI or referencing auth.openai.com
-        const looksLikeOpenAI = /openai|auth\.openai\.com/i.test(raw);
-        if (!looksLikeOpenAI) continue;
-        // Extract the first 6-digit code in the message
-        const m = raw.match(/\b(\d{6})\b/);
-        if (m && m[1]) { code = m[1]; break; }
+      for (const mailbox of mailboxesToTry) {
+        let lock = null;
+        try {
+          lock = await client.getMailboxLock(mailbox);
+
+          const unseen = await client.search({ seen: false }, { uid: true });
+          const all = await client.search({}, { uid: true });
+          const seq = Array.from(new Set(unseen.slice(-30).concat(all.slice(-30))))
+            .sort((a, b) => Number(b) - Number(a));
+
+          for (const uid of seq) {
+            try {
+              // eslint-disable-next-line no-await-in-loop
+              const msg = await client.fetchOne(uid, { envelope: true, flags: true, source: true }, { uid: true });
+              const env = msg && msg.envelope ? msg.envelope : null;
+              const fromAddress = pickFirstAddress(env && env.from);
+              const toAddress = pickFirstAddress(env && env.to);
+              const subject = envelopeSubject(env);
+              const source = msg && msg.source ? msg.source : null;
+              // eslint-disable-next-line no-await-in-loop
+              const raw = await sourceToSearchableText(source);
+              const flags = msg && msg.flags;
+              candidates.push({
+                mailbox,
+                uid,
+                date: env && env.date ? String(env.date) : '',
+                from: fromAddress,
+                to: toAddress,
+                subject,
+                seen: Array.isArray(flags)
+                  ? flags.includes('\\Seen')
+                  : !!(flags && typeof flags.has === 'function' && flags.has('\\Seen')),
+                raw,
+              });
+            } catch (_) {
+              continue;
+            }
+          }
+        } catch (_) {
+          continue;
+        } finally {
+          if (lock) lock.release();
+        }
       }
+
+      picked = pickBestOpenAiOtpEmail(candidates, {
+        nowMs: now,
+        sinceTs: sinceTs || 0,
+        maxAgeMs: 60 * 1000,
+      });
+      code = picked && picked.code ? picked.code : '';
     } finally {
-      lock.release();
+      try { await client.logout(); } catch (_) {}
     }
+
+    if (picked) {
+      console.log('[imap] Picked OpenAI email:', {
+        mailbox: picked.mailbox,
+        uid: picked.uid,
+        from: picked.from,
+        subject: picked.subject,
+        date: picked.date,
+        score: picked.score,
+        seen: picked.seen,
+        sinceTs: sinceTs || 0,
+        code,
+      });
+    } else {
+      console.log('[imap] No matching OpenAI OTP email found', { sinceTs: sinceTs || 0, freshnessMs: 60 * 1000 });
+    }
+
+    return {
+      code,
+      sinceTs: sinceTs || 0,
+      matchedEmailTs: picked && picked.date ? Date.parse(picked.date) || 0 : 0,
+      messageKey: picked ? `${picked.uid}:${picked.date}:${picked.mailbox}` : ''
+    };
+  })();
+
+  gptInflight.set(inflightKey, { ts: now, promise: workPromise });
+  try {
+    const out = await workPromise;
+    console.log('[imap] Sending response:', out);
+    return res.json(out);
   } catch (e) {
     console.error('[imap] Error while fetching OTP:', e);
-    return res.status(500).json({ 
+    return res.status(500).json({
       error: (e && e.message) ? e.message : String(e),
       response: e && e.response,
       responseStatus: e && e.responseStatus,
@@ -267,11 +405,9 @@ app.get('/otp', async (req, res) => {
       serverResponseCode: e && e.serverResponseCode
     });
   } finally {
-    try { await client.logout(); } catch (_) {}
+    const cur = gptInflight.get(inflightKey);
+    if (cur && cur.promise === workPromise) gptInflight.delete(inflightKey);
   }
-
-  console.log('[imap] Sending response:', { code });
-  res.json({ code });
 });
 
 // Higgsfield OTP (email verification). Use Katabump or dedicated host via IMAP_HIGGSFIELD_HOST(S).
@@ -304,7 +440,8 @@ app.get('/otp-higgsfield', async (req, res) => {
       host: imapHost,
       port: imapPort,
       secure: imapTLS,
-      auth: { user: imapUser, pass: imapPass, method: imapMethod }
+      auth: { user: imapUser, pass: imapPass, method: imapMethod },
+      logger: false
     });
     try {
       await client.connect();
@@ -435,6 +572,7 @@ async function handleOtpVmake(accountId, req, res) {
         port: imapPort,
         secure: imapTLS,
         auth: { user: imapUser, pass: imapPass, method: imapMethod },
+        logger: false,
         // ImapFlow timeouts (fix noisy 90s hangs; doesn't bypass network blocks)
         connectionTimeout,
         socketTimeout,
@@ -746,6 +884,7 @@ app.get('/otp-freepik', async (req, res) => {
       port: imapPort,
       secure: imapTLS,
       auth: { user: imapUser, pass: imapPass, method: imapMethod },
+      logger: false,
       tls: imapTLS ? { servername: imapHost } : undefined,
     });
 
@@ -754,7 +893,16 @@ app.get('/otp-freepik', async (req, res) => {
 
     try {
       await client.connect();
-      const mailboxesToTry = ['INBOX', 'Junk', 'Spam'];
+      const mailboxesToTry = [
+        'INBOX',
+        '[Gmail]/All Mail',
+        '[Google Mail]/All Mail',
+        'All Mail',
+        '[Gmail]/Spam',
+        '[Google Mail]/Spam',
+        'Junk',
+        'Spam'
+      ];
       for (const box of mailboxesToTry) {
         try {
           const best = await scanOtpFromMailbox(client, box, 'freepik');
@@ -848,6 +996,7 @@ async function handleFlairMagicLink(req, res) {
       port: imapPort,
       secure: imapTLS,
       auth: { user: imapUser, pass: imapPass, method: imapMethod },
+      logger: false,
       tls: imapTLS ? { servername: imapHost } : undefined,
     });
 
@@ -858,62 +1007,32 @@ async function handleFlairMagicLink(req, res) {
       await client.connect();
       const lock = await client.getMailboxLock('INBOX');
       try {
-        let seq;
-        const unseen = await client.search({ seen: false }, { uid: true });
-        // IMPORTANT: only use UNSEEN emails for Flair magic-link.
-        // Reusing an old (already seen) magic-link can cause redirect loops back to /login.
-        if (unseen.length > 0) seq = unseen.slice(-50);
-        else seq = [];
-        seq = seq.reverse(); // latest first
-
-        const NOW = Date.now();
-        const MAX_AGE_MS = 30 * 60 * 1000; // 30 min
-
-        let best = null; // { score, uid, from, subject, date, link }
-
-        for (const uid of seq) {
+        // Simpler strategy: always inspect the latest email only.
+        const all = await client.search({}, { uid: true });
+        if (Array.isArray(all) && all.length > 0) {
+          const latestUid = all[all.length - 1];
           try {
-            // eslint-disable-next-line no-await-in-loop
-            const msg = await client.fetchOne(uid, { envelope: true }, { uid: true });
+            const msg = await client.fetchOne(latestUid, { envelope: true }, { uid: true });
             const env = msg && msg.envelope ? msg.envelope : null;
-            const dt = env && env.date ? new Date(env.date).getTime() : 0;
-            if (dt && (NOW - dt) > MAX_AGE_MS) continue;
-
             const fromAddress = pickFirstAddress(env && env.from);
             const toAddress = pickFirstAddress(env && env.to);
             const subject = safeStr(env && env.subject);
-
-            // Quick sender filter (strong signal)
-            const fromOk = /hi\.flair\.ai/i.test(String(fromAddress || '')) || /mickey@hi\.flair\.ai/i.test(String(fromAddress || ''));
-            if (!fromOk) continue;
-
-            // eslint-disable-next-line no-await-in-loop
-            const { content } = await client.download(uid, null, { uid: true });
+            const { content } = await client.download(latestUid, null, { uid: true });
             const raw = await contentToUtf8(content);
-
             const extracted = extractFlairMagicLinkFromRaw(raw);
-            if (!extracted) continue;
 
-            const score = scoreEmailForService({ raw, from: fromAddress, subject, to: toAddress }, 'flair');
-            const candidate = {
-              score,
-              uid,
+            picked = {
+              uid: latestUid,
               from: fromAddress,
               to: toAddress,
               subject,
               date: env && env.date ? String(env.date) : '',
-              link: extracted
+              score: 0
             };
-            if (!best || candidate.score > best.score) best = candidate;
-            if (best && best.score >= 18) break; // very confident
+            link = extracted || '';
           } catch (_) {
-            continue;
+            // Keep default empty result on latest-mail read failure.
           }
-        }
-
-        if (best) {
-          picked = best;
-          link = best.link || '';
         }
       } finally {
         lock.release();
@@ -956,6 +1075,330 @@ async function handleFlairMagicLink(req, res) {
 }
 
 app.get('/flair-link', async (req, res) => handleFlairMagicLink(req, res));
+
+// =======================
+// Claude magic-link (email sign-in)
+// =======================
+function extractClaudeMagicLinkFromRaw(raw) {
+  const original = safeStr(raw);
+  if (!original) return '';
+
+  const variants = [original, decodeQuotedPrintable(original)];
+  for (const v of variants) {
+    const s = decodeHtmlEntitiesMinimal(String(v || ''))
+      .replace(/<wbr\b[^>]*>/gi, '')
+      .replace(/<\/wbr>/gi, '')
+      .replace(/[\u200B-\u200D\uFEFF]/g, '');
+
+    // Primary strategy: extract the explicit href from Claude sign-in CTA.
+    const hrefMatch = s.match(
+      /<a\b[^>]*\bhref=["'](https:\/\/claude\.ai\/magic-link#[^"']+)["'][^>]*>\s*Sign in to Claude\.ai\s*<\/a>/i
+    );
+    if (hrefMatch && hrefMatch[1] && isClaudeMagicLink(hrefMatch[1])) {
+      return String(hrefMatch[1]).trim();
+    }
+
+    const matches = Array.from(
+      s.matchAll(/https:\/\/claude\.ai\/[^\s"'<>\\]+/gi)
+    ).map((m) => String((m && m[0]) || '').trim()).filter(Boolean);
+
+    for (const url of matches) {
+      if (isClaudeMagicLink(url)) return url;
+    }
+  }
+
+  return '';
+}
+
+function isClaudeMagicLink(url) {
+  const u = safeStr(url).trim();
+  if (!/^https:\/\/claude\.ai\//i.test(u)) return false;
+
+  // Anthropic has changed sign-in URLs over time. Keep this broad enough to
+  // catch current and legacy email login links while avoiding unrelated URLs.
+  return (
+    /\/magic-link#/i.test(u) ||
+    /\/magic-link\?/i.test(u) ||
+    /\/auth\/(magic-)?link/i.test(u) ||
+    /\/auth\/verify/i.test(u) ||
+    /[?&](token|code|magic|email|verify)=/i.test(u)
+  );
+}
+
+async function handleClaudeMagicLink(req, res) {
+  console.log('[imap-claude] Magic-link request received at', new Date().toISOString());
+
+  const now = Date.now();
+  const inflight = claudeInflight.get('claude');
+  if (inflight && (now - inflight.ts) < 25_000) {
+    console.log('[imap-claude] Reusing in-flight IMAP attempt');
+    try {
+      const out = await inflight.promise;
+      return res.json(out);
+    } catch (e) {
+      return res.status(500).json({ error: (e && e.message) ? e.message : String(e) });
+    }
+  }
+
+  const imapHost = process.env.IMAP_CLAUDE_HOST || process.env.IMAP_HOST || 'imap.gmail.com';
+  const imapPort = Number(process.env.IMAP_CLAUDE_PORT || process.env.IMAP_PORT || 993);
+  const imapTLS  = String(process.env.IMAP_CLAUDE_TLS || process.env.IMAP_TLS || 'true') === 'true';
+  const imapMethod = (process.env.IMAP_CLAUDE_METHOD || process.env.IMAP_METHOD || 'LOGIN').toUpperCase();
+  const imapUser = process.env.IMAP_CLAUDE_USER || process.env.IMAP_USER;
+  const imapPass = process.env.IMAP_CLAUDE_PASS || process.env.IMAP_PASS;
+  const connectionTimeout = Number(process.env.IMAP_CLAUDE_CONNECTION_TIMEOUT_MS || process.env.IMAP_CONNECTION_TIMEOUT_MS || 12000);
+  const socketTimeout = Number(process.env.IMAP_CLAUDE_SOCKET_TIMEOUT_MS || process.env.IMAP_SOCKET_TIMEOUT_MS || 20000);
+  const greetingTimeout = Number(process.env.IMAP_CLAUDE_GREETING_TIMEOUT_MS || process.env.IMAP_GREETING_TIMEOUT_MS || 12000);
+
+  if (!imapHost || !imapUser || !imapPass) {
+    console.error('[imap-claude] Missing env vars', { host: !!imapHost, user: !!imapUser, pass: !!imapPass });
+    return res.status(500).json({ error: 'Missing IMAP_CLAUDE_* env vars' });
+  }
+
+  const workPromise = (async () => {
+    const client = new ImapFlow({
+      host: imapHost,
+      port: imapPort,
+      secure: imapTLS,
+      auth: { user: imapUser, pass: imapPass, method: imapMethod },
+      logger: false,
+      connectionTimeout,
+      socketTimeout,
+      greetingTimeout,
+      tls: imapTLS ? { servername: imapHost } : undefined,
+    });
+
+    let link = '';
+    let picked = null;
+    const anthropicDebug = [];
+    try {
+      await client.connect();
+      const boxesToTry = ['INBOX', '[Gmail]/All Mail', '[Google Mail]/All Mail', 'All Mail', '[Gmail]/Spam', 'Spam'];
+      let best = null;
+      let latestAnthropic = null;
+      let latestClaudeLinkAnySender = null;
+      const NOW = Date.now();
+      const MAX_AGE_MS = 6 * 60 * 60 * 1000; // 6 hours
+
+      for (const box of boxesToTry) {
+        let lock = null;
+        try {
+          // eslint-disable-next-line no-await-in-loop
+          lock = await client.getMailboxLock(box);
+          // eslint-disable-next-line no-await-in-loop
+          const unseen = await client.search({ seen: false }, { uid: true });
+          // eslint-disable-next-line no-await-in-loop
+          const allUids = await client.search({}, { uid: true });
+          // Keep this tight: we only need the latest Anthropic email, not deep history.
+          const unseenTail = unseen.slice(-10);
+          const allTail = allUids.slice(-20);
+          const recentUids = Array.from(new Set([].concat(unseenTail, allTail)))
+            .sort((a, b) => Number(b) - Number(a)); // newest first
+
+          for (const uid of recentUids) {
+            try {
+              // eslint-disable-next-line no-await-in-loop
+              const msg = await client.fetchOne(uid, { envelope: true }, { uid: true });
+              const env = msg && msg.envelope ? msg.envelope : null;
+              const fromAddress = pickFirstAddress(env && env.from);
+              const fromText = addressListToText(env && env.from);
+              const subjectRaw = safeStr(env && env.subject);
+              const dateStr = env && env.date ? String(env.date) : '';
+              const ts = env && env.date ? new Date(env.date).getTime() : 0;
+              if (ts && (NOW - ts) > MAX_AGE_MS) continue;
+              const envelopeSenderText = `${safeStr(fromAddress)} ${safeStr(fromText)}`.trim();
+              let senderOk = /anthropic/i.test(envelopeSenderText);
+              const likelyClaudeBySubject = /claude|sign in|magic link|verification/i.test(subjectRaw);
+              // Only inspect raw headers when envelope sender is missing/unclear and subject looks relevant.
+              const shouldFetchRawForSender = !senderOk && (!envelopeSenderText || likelyClaudeBySubject);
+
+              let raw = '';
+              if (shouldFetchRawForSender || senderOk) {
+                // eslint-disable-next-line no-await-in-loop
+                const { content } = await client.download(uid, null, { uid: true });
+                // eslint-disable-next-line no-await-in-loop
+                raw = await contentToUtf8(content);
+              }
+
+              if (!senderOk && raw) {
+                const rawHead = String(raw || '').slice(0, 14000);
+                senderOk =
+                  /(?:^|\r?\n)from:[^\r\n]*anthropic/i.test(rawHead) ||
+                  /(?:^|\r?\n)return-path:[^\r\n]*anthropic/i.test(rawHead) ||
+                  /(?:^|\r?\n)sender:[^\r\n]*anthropic/i.test(rawHead);
+              }
+              if (!senderOk) continue;
+
+              // If raw wasn't needed yet (sender already known by envelope), fetch now for extraction.
+              if (!raw) {
+                // eslint-disable-next-line no-await-in-loop
+                const { content } = await client.download(uid, null, { uid: true });
+                // eslint-disable-next-line no-await-in-loop
+                raw = await contentToUtf8(content);
+              }
+              const extracted = extractClaudeMagicLinkFromRaw(raw);
+              const candidate = {
+                mailbox: box,
+                uid,
+                from: fromAddress || fromText,
+                subject: subjectRaw,
+                date: dateStr,
+                ts,
+                link: extracted || ''
+              };
+              if (!latestAnthropic || Number(candidate.ts || 0) >= Number(latestAnthropic.ts || 0)) {
+                latestAnthropic = candidate;
+              }
+              if (anthropicDebug.length < 8) {
+                anthropicDebug.push({
+                  mailbox: candidate.mailbox,
+                  uid: candidate.uid,
+                  from: candidate.from,
+                  subject: candidate.subject,
+                  date: candidate.date,
+                  status: extracted ? 'link-found' : 'no-link-extracted'
+                });
+              }
+              if (extracted && (!best || Number(candidate.ts || 0) >= Number(best.ts || 0))) {
+                best = candidate;
+                break; // newest-first scan: first valid link in this mailbox is enough
+              }
+            } catch (_) {
+              continue;
+            }
+          }
+          // Fallback pass in same mailbox: newest Claude magic-link regardless sender.
+          if (!best) {
+            for (const uid of recentUids) {
+              try {
+                // eslint-disable-next-line no-await-in-loop
+                const msg = await client.fetchOne(uid, { envelope: true }, { uid: true });
+                const env = msg && msg.envelope ? msg.envelope : null;
+                const fromAddress = pickFirstAddress(env && env.from);
+                const fromText = addressListToText(env && env.from);
+                const subjectRaw = safeStr(env && env.subject);
+                const dateStr = env && env.date ? String(env.date) : '';
+                const ts = env && env.date ? new Date(env.date).getTime() : 0;
+                if (ts && (NOW - ts) > MAX_AGE_MS) continue;
+                if (!/claude|sign in|magic link|verification/i.test(subjectRaw)) continue;
+
+                // eslint-disable-next-line no-await-in-loop
+                const { content } = await client.download(uid, null, { uid: true });
+                // eslint-disable-next-line no-await-in-loop
+                const raw = await contentToUtf8(content);
+                const extracted = extractClaudeMagicLinkFromRaw(raw);
+                if (!extracted) continue;
+
+                const anyCandidate = {
+                  mailbox: box,
+                  uid,
+                  from: fromAddress || fromText,
+                  subject: subjectRaw,
+                  date: dateStr,
+                  ts,
+                  link: extracted
+                };
+                if (!latestClaudeLinkAnySender || Number(anyCandidate.ts || 0) >= Number(latestClaudeLinkAnySender.ts || 0)) {
+                  latestClaudeLinkAnySender = anyCandidate;
+                }
+                break;
+              } catch (_) {
+                continue;
+              }
+            }
+          }
+          if (best) break;
+        } catch (_) {
+          continue;
+        } finally {
+          if (lock) lock.release();
+        }
+      }
+
+      if (best) {
+        picked = {
+          mailbox: best.mailbox,
+          uid: best.uid,
+          from: best.from,
+          subject: best.subject,
+          date: best.date
+        };
+        link = best.link;
+      } else if (latestClaudeLinkAnySender) {
+        picked = {
+          mailbox: latestClaudeLinkAnySender.mailbox,
+          uid: latestClaudeLinkAnySender.uid,
+          from: latestClaudeLinkAnySender.from,
+          subject: latestClaudeLinkAnySender.subject,
+          date: latestClaudeLinkAnySender.date
+        };
+        link = latestClaudeLinkAnySender.link;
+      } else if (latestAnthropic) {
+        picked = {
+          mailbox: latestAnthropic.mailbox,
+          uid: latestAnthropic.uid,
+          from: latestAnthropic.from,
+          subject: latestAnthropic.subject,
+          date: latestAnthropic.date
+        };
+        link = '';
+      }
+    } finally {
+      try { await client.logout(); } catch (_) {}
+    }
+
+    if (picked && link) {
+      console.log('[imap-claude] Picked email:', {
+        mailbox: picked.mailbox,
+        uid: picked.uid,
+        from: picked.from,
+        subject: picked.subject,
+        date: picked.date
+      });
+      return { link };
+    }
+    if (picked && !link) {
+      console.log('[imap-claude] Latest Anthropic email had no extractable link:', {
+        mailbox: picked.mailbox,
+        uid: picked.uid,
+        from: picked.from,
+        subject: picked.subject,
+        date: picked.date
+      });
+    }
+    if (anthropicDebug.length) {
+      console.log('[imap-claude] Anthropic debug candidates (latest seen):', anthropicDebug);
+    } else {
+      console.log('[imap-claude] Anthropic debug: no sender matched anthropic.com');
+    }
+    console.log('[imap-claude] No matching Claude magic-link email found');
+    return { link: '' };
+  })();
+
+  claudeInflight.set('claude', { ts: now, promise: workPromise });
+  try {
+    const out = await Promise.race([
+      workPromise,
+      new Promise((resolve) => {
+        setTimeout(() => {
+          resolve({ link: '', timeout: true });
+        }, Number(process.env.IMAP_CLAUDE_FETCH_TIMEOUT_MS || 28_000));
+      })
+    ]);
+    if (out && out.timeout) {
+      console.warn('[imap-claude] Timeout while fetching Claude magic link');
+    }
+    return res.json(out);
+  } catch (e) {
+    console.error('[imap-claude] Error while fetching magic link:', e);
+    return res.status(500).json({ error: (e && e.message) ? e.message : String(e) });
+  } finally {
+    const cur = claudeInflight.get('claude');
+    if (cur && cur.promise === workPromise) claudeInflight.delete('claude');
+  }
+}
+
+app.get('/claude-link', async (req, res) => handleClaudeMagicLink(req, res));
 
 async function contentToUtf8(content) {
   if (!content) return '';
@@ -1081,7 +1524,7 @@ app.get('/health', (req, res) => {
 app.get('/', (req, res) => {
   res.json({ 
     message: 'IMAP Server is running', 
-    endpoints: ['/otp', '/otp-higgsfield', '/otp-vmake', '/otp-vmake1', '/otp-vmake2', '/otp-vmake3', '/otp-freepik', '/flair-link', '/health'],
+    endpoints: ['/otp', '/otp-higgsfield', '/otp-vmake', '/otp-vmake1', '/otp-vmake2', '/otp-vmake3', '/otp-freepik', '/flair-link', '/claude-link', '/health'],
     port: Number(PORT) 
   });
 });
