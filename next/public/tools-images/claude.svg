@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 92" role="img" aria-label="Claude logo">
+  <rect width="300" height="92" fill="transparent"/>
+  <g transform="translate(26 46)" fill="#dd6a43">
+    <rect x="-3" y="-24" width="6" height="48" rx="3"/>
+    <rect x="-3" y="-24" width="6" height="48" rx="3" transform="rotate(45)"/>
+    <rect x="-3" y="-24" width="6" height="48" rx="3" transform="rotate(90)"/>
+    <rect x="-3" y="-24" width="6" height="48" rx="3" transform="rotate(135)"/>
+  </g>
+  <text x="62" y="61" font-size="54" font-family="Georgia, 'Times New Roman', serif" fill="#171717">Claude</text>
+</svg>

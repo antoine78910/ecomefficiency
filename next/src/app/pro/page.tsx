@@ -176,6 +176,17 @@ h1 {
   transform: scale(1.12);
 }
 
+.claude-logo {
+  width: auto !important;
+  height: auto !important;
+  max-width: 175px;
+  max-height: 70px;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+  transform: none;
+}
+
 .tool-name {
   font-size: 13px;
   margin: 0;
@@ -370,6 +381,14 @@ button {
             </div>
           </a>
 
+          <a href="https://claude.ai/login" className="tool-card" target="_blank" rel="noopener noreferrer">
+            <div className="tool-icon">
+              <img src={`/tools-images/claude.svg?v=${ASSET_VERSION}`} alt="Claude" className="claude-logo" />
+            </div>
+            <div className="tool-name">Claude</div>
+            <div className="tool-description">AI assistant for writing, analysis, coding, and everyday business tasks.</div>
+          </a>
+
           <a href="https://www.midjourney.com/explore?tab=top" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
               <img src={`/tools-images/midjourney.png?v=${ASSET_VERSION}`} alt="Midjourney" />
@@ -524,7 +543,7 @@ button {
             <div className="tool-description">AI talking-head videos, background removal, subtitles, upscaling</div>
           </a>
 
-          <a href="https://www.freepik.com/log-in?client_id=freepik&lang=en" className="tool-card" target="_blank" rel="noopener noreferrer">
+          <a href="https://www.magnific.com/log-in" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
               <img src={`/tools-images/freepik.png?v=${ASSET_VERSION}`} alt="Freepik" />
             </div>
