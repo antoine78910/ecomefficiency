@@ -387,6 +387,7 @@ button {
             </div>
             <div className="tool-name">Claude</div>
             <div className="tool-description">AI assistant for writing, analysis, coding, and everyday business tasks.</div>
+            <div className="tool-badge">Newly Added !</div>
           </a>
 
           <a href="https://www.midjourney.com/explore?tab=top" className="tool-card" target="_blank" rel="noopener noreferrer">
@@ -557,7 +558,6 @@ button {
             </div>
             <div className="tool-name">Turboscribe</div>
             <div className="tool-description">AI audio &amp; video transcription, fast summaries, speaker detection, and export-ready text.</div>
-            <div className="tool-badge">Newly Added !</div>
           </a>
 
          
