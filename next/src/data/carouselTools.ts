@@ -34,7 +34,7 @@ export const carouselTools: CarouselTool[] = [
   { name: 'Claude', description: 'AI writing & thinking', icon: '/tools-logos/claude.png' },
   { name: 'Semrush', description: 'SEO/marketing analytics', icon: '/tools-logos/semrush.png' },
   { name: 'Canva', description: 'Graphic design platform', icon: '/tools-logos/canva.png' },
-  { name: 'Freepik', description: 'Stock graphics & assets', icon: '/tools-logos/freepik.png?v=3' },
+  { name: 'Freepik', description: 'Stock graphics & assets', icon: '/tools-logos/freepik.png?v=4' },
   { name: 'ShopHunter', description: 'Shopify sales tracker', icon: '/tools-logos/shophunter.png' },
   { name: 'WinningHunter', description: 'Winning ad finder', icon: '/tools-logos/winninghunter.png' },
   { name: 'Pipiads', description: 'TikTok/Facebook ad spy', icon: '/tools-logos/pipiads.png' },

@@ -546,7 +546,7 @@ button {
 
           <a href="https://www.magnific.com/log-in" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src="/tools-logos/freepik.png?v=3" alt="Freepik" />
+              <img src="/tools-logos/freepik.png?v=4" alt="Freepik" />
             </div>
             <div className="tool-name">Freepik</div>
             <div className="tool-description">AI tools, smart features, and high-quality stock assets to design and create without ever leaving Freepik</div>

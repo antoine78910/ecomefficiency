@@ -16,7 +16,7 @@ type LogoData = {
 const LOGOS: LogoData[] = [
   { src: "/tools-logos/semrush.png", alt: "Semrush", initialX: -40, initialY: -20, size: 56, delay: 0.0 },
   { src: "/tools-logos/ubersuggest.png", alt: "Ubersuggest", initialX: 42, initialY: -18, size: 52, delay: 0.05 },
-  { src: "/tools-logos/freepik.png?v=3", alt: "Freepik", initialX: -28, initialY: 10, size: 54, delay: 0.1 },
+  { src: "/tools-logos/freepik.png?v=4", alt: "Freepik", initialX: -28, initialY: 10, size: 54, delay: 0.1 },
   { src: "/tools-logos/midjourney.png", alt: "Midjourney", initialX: 35, initialY: 22, size: 58, delay: 0.15 },
   { src: "/tools-logos/runway.png", alt: "Runway", initialX: -10, initialY: -30, size: 54, delay: 0.2 },
   { src: "/tools-logos/elevenlabs.png", alt: "ElevenLabs", initialX: -46, initialY: 28, size: 52, delay: 0.25 },

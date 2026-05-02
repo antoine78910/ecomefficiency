@@ -46,7 +46,7 @@ export default function UpgradePage() {
               </div>
               <div className="rounded-2xl border border-emerald-500/30 bg-[linear-gradient(180deg,rgba(16,185,129,0.06)_0%,rgba(5,150,105,0.06)_100%)] p-6">
                 <div className="flex items-center gap-3 mb-4">
-                  <img src="/tools-logos/freepik.png?v=3" alt="Freepik" className="w-16 h-16 object-contain" />
+                  <img src="/tools-logos/freepik.png?v=4" alt="Freepik" className="w-16 h-16 object-contain" />
                   <h3 className="text-lg font-semibold">Freepik</h3>
                 </div>
                 <p className="text-sm text-gray-300">Stock graphics, templates and design assets for creatives.</p>
