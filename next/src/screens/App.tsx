@@ -861,6 +861,7 @@ function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'sta
     'Winning Hunter',
     'Pipiads',
     'Atria',
+    'Claude',
     'Runway',
     'Heygen',
     'Freepik',

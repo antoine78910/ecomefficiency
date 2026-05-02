@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
               </p>
 
               <p style="margin: 0 0 24px; font-size: 16px; line-height: 1.6; color: #e0e0e0;">
-                You now have access to <strong>${tier === 'starter' ? '40+' : '50+'} premium tools</strong> including ChatGPT, Midjourney, Helium10, ${tier === 'pro' ? 'Pipiads, Runway, ElevenLabs, ' : ''}and many more!
+                You now have access to <strong>${tier === 'starter' ? '40+' : '50+'} premium tools</strong> including ChatGPT, Midjourney, Helium10, ${tier === 'pro' ? 'Claude, Pipiads, Runway, ElevenLabs, ' : ''}and many more!
               </p>
 
               <!-- CTA Button -->
@@ -125,7 +125,7 @@ Hi ${firstName},
 
 Thank you for subscribing to the ${planName} Plan!
 
-You now have access to ${tier === 'starter' ? '40+' : '50+'} premium tools including ChatGPT, Midjourney, Helium10, ${tier === 'pro' ? 'Pipiads, Runway, ElevenLabs, ' : ''}and many more!
+You now have access to ${tier === 'starter' ? '40+' : '50+'} premium tools including ChatGPT, Midjourney, Helium10, ${tier === 'pro' ? 'Claude, Pipiads, Runway, ElevenLabs, ' : ''}and many more!
 
 What's Next?
 1. Download AdsPower from your dashboard

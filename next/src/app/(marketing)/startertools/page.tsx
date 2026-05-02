@@ -21,7 +21,7 @@ const STARTER_TOOL_NAMES = [
 ];
 const PRO_ONLY_TOOL_NAMES = [
   'Flair.ai', 'Freepik', 'TurboScribe', 'Exploding Topics', 'Pipiads', 'Kalodata',
-  'Atria', 'Heygen', 'Fotor', 'ForePlay', 'ElevenLabs', 'Runway', 'Trendtrack', 'Higgsfield', 'Vmake', 'WinningHunter'
+  'Atria', 'Heygen', 'Fotor', 'ForePlay', 'ElevenLabs', 'Runway', 'Trendtrack', 'Higgsfield', 'Vmake', 'WinningHunter', 'Claude'
 ];
 
 export default function StarterToolsPage() {

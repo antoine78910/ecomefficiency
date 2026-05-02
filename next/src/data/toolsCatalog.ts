@@ -162,6 +162,19 @@ export const toolsCatalog: ToolCatalogItem[] = [
     ],
   },
   {
+    slug: "claude",
+    name: "Claude",
+    category: "AI (LLM)",
+    shortDescription: "Anthropic's AI assistant for complex reasoning, writing, and technical tasks—helpful, nuanced, and conversational.",
+    bestFor: ["solo founders", "developers", "content teams", "research"],
+    aliases: ["Claude AI", "Anthropic Claude"],
+    practicalUseCases: [
+      "Draft and refine long-form content with strong structure and tone control.",
+      "Reason through product decisions, edge cases, and technical trade-offs.",
+      "Turn messy notes into clear briefs, SOPs, and customer-facing copy.",
+    ],
+  },
+  {
     slug: "dinorank",
     name: "Dinorank",
     category: "SEO",

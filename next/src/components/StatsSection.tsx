@@ -9,7 +9,7 @@ const StatsSection = () => {
       <div className="text-center mb-12">
         <h2 className="text-3xl font-bold mb-6">Pricing Plans</h2>
         <p className="text-lg text-[#cfd3d8]/80 max-w-3xl mx-auto">
-          Access all 47+ premium tools at a fraction of their combined price
+          Access all 48+ premium tools at a fraction of their combined price
         </p>
       </div>
       

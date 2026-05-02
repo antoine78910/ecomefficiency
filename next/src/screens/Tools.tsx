@@ -21,7 +21,7 @@ const STARTER_NAMES = [
   'ChatGPT','Midjourney','SendShort','Capcut','Helium10','Dropship.io','ShopHunter'
 ];
 const PRO_NAMES = [
-  'Flair.ai','ChatGPT','Midjourney','Exploding Topics','Pipiads','Kalodata','WinningHunter','Capcut','SendShort','Helium10','Dropship.io','ShopHunter','Atria','Heygen','Fotor','ForePlay','ElevenLabs','Runway','Freepik','TurboScribe',
+  'Flair.ai','ChatGPT','Claude','Midjourney','Exploding Topics','Pipiads','Kalodata','WinningHunter','Capcut','SendShort','Helium10','Dropship.io','ShopHunter','Atria','Heygen','Fotor','ForePlay','ElevenLabs','Runway','Freepik','TurboScribe',
   'Higgsfield','Vmake'
 ];
 

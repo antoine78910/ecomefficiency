@@ -12,6 +12,7 @@ export default function ProToolsPage() {
     '+30 SEO Tools': 'https://rankerfox.com/login/',
     // starter set
     'ChatGPT': 'https://chatgpt.com/',
+    'Claude': 'https://claude.ai/',
     'Midjourney': 'https://www.midjourney.com/explore?tab=top',
     'SendShort': 'https://app.sendshort.ai/en/home',
     'Capcut': 'https://www.capcut.com/fr-fr/login',
@@ -44,7 +45,7 @@ export default function ProToolsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {[seoTile, ...carouselTools
               .filter(t => [
-                'Flair.ai','ChatGPT','Freepik','TurboScribe','Midjourney','Exploding Topics','Pipiads','Kalodata','WinningHunter','Capcut','SendShort','Helium10','Dropship.io','ShopHunter','Atria','Heygen','Fotor','ForePlay','ElevenLabs','Trendtrack','Higgsfield','Vmake'
+                'Flair.ai','ChatGPT','Claude','Freepik','TurboScribe','Midjourney','Exploding Topics','Pipiads','Kalodata','WinningHunter','Capcut','SendShort','Helium10','Dropship.io','ShopHunter','Atria','Heygen','Fotor','ForePlay','ElevenLabs','Trendtrack','Higgsfield','Vmake'
               ].includes(t.name))
               .filter(t => t.name !== 'Canva' && t.name !== 'Brain.fm')
             ].map((tool) => (

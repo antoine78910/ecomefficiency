@@ -21,6 +21,7 @@ const tools: Tool[] = [
   { id: 5, name: "Canva Pro", description: "Design creation", category: "Design" },
   { id: 6, name: "CapCut Pro", description: "Video editing", category: "Video" },
   { id: 7, name: "Chat GPT Plus", description: "Advanced AI language model", category: "AI" },
+  { id: 48, name: "Claude", description: "Anthropic AI assistant for reasoning, writing, and technical work", category: "AI" },
   { id: 8, name: "Cutout.pro", description: "Photo/Video Enhancer", category: "Design" },
   { id: 9, name: "Dinorank", description: "SEO ranking & performance tool", category: "SEO" },
   { id: 10, name: "Dropship.io", description: "Store sales follow-up", category: "E-commerce" },
@@ -103,7 +104,7 @@ const FeaturesSection = () => {
             </PopoverTrigger>
             <PopoverContent className="w-80 md:w-96 max-h-[70vh] overflow-y-auto bg-[#202031]/95 backdrop-blur-sm border-[#5c3dfa]/50 text-white p-0">
               <div className="sticky top-0 bg-[#202031] border-b border-[#5c3dfa]/30 p-2 z-10">
-                <h4 className="font-bold text-lg text-gradient px-2 pt-1">All 47 Included Tools</h4>
+                <h4 className="font-bold text-lg text-gradient px-2 pt-1">All 48 Included Tools</h4>
                 <div className="flex flex-wrap gap-1 my-2">
                   {categories.map(category => (
                     <Button 

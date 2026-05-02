@@ -20,6 +20,7 @@ export const logoDomainMap: Record<string, string> = {
   'midjourney': 'midjourney.com',
   'higgsfield': 'higgsfield.ai',
   'vmake': 'vmake.ai',
+  'claude': 'claude.ai',
 };
 
 export const carouselTools: CarouselTool[] = [
@@ -30,6 +31,11 @@ export const carouselTools: CarouselTool[] = [
   { name: 'Midjourney', description: 'AI image generation', icon: '/tools-logos/midjourney.png' },
   { name: 'ElevenLabs', description: 'AI voice synthesis', icon: '/tools-logos/elevenlabs.png' },
   { name: 'ChatGPT', description: 'AI writing assistant', icon: '/tools-logos/chatgpt.png' },
+  {
+    name: 'Claude',
+    description: 'Next-gen AI by Anthropic for reasoning, writing, and technical work—nuanced and conversational.',
+    icon: '/tools-logos/claude.png',
+  },
   { name: 'Semrush', description: 'SEO/marketing analytics', icon: '/tools-logos/semrush.png' },
   { name: 'Canva', description: 'Graphic design platform', icon: '/tools-logos/canva.png' },
   { name: 'Freepik', description: 'Stock graphics & assets', icon: '/tools-logos/freepik.png' },

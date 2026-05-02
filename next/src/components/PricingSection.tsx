@@ -76,6 +76,7 @@ const proExtras = [
   "Winning Hunter",
   "Vmake",
   "Atria",
+  "Claude",
   "Runway",
   "Heygen",
   "Freepik",
