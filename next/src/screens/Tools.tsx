@@ -15,12 +15,7 @@ import { useRouter, usePathname } from "next/navigation";
 
 type GalleryTool = { id: number; name: string; description: string; icon: string };
 
-const galleryTools: GalleryTool[] = carouselTools.map((t, i) => ({
-  id: i + 1,
-  name: t.name,
-  description: t.description,
-  icon: t.carouselIcon ?? t.icon,
-}));
+const galleryTools: GalleryTool[] = carouselTools.map((t, i) => ({ id: i + 1, name: t.name, description: t.description, icon: t.icon }));
 
 const STARTER_NAMES = [
   'ChatGPT','Midjourney','SendShort','Capcut','Helium10','Dropship.io','ShopHunter'

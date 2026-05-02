@@ -19,7 +19,7 @@ const logos: Array<{ src: string; alt: string }> = [
   { src: "/tools-logos/sendshort.png", alt: "SendShort" },
   { src: "/tools-logos/flair.png", alt: "Flair AI" },
   { src: "/tools-logos/fotor.png", alt: "Fotor" },
-  { src: "/tools-logos/freepik.png", alt: "Freepik" },
+  { src: "/tools-logos/freepik.png?v=3", alt: "Freepik" },
   { src: "/tools-logos/heygen.png", alt: "Heygen" },
   { src: "/tools-logos/kalodata.png", alt: "Kalodata" },
   { src: "/tools-logos/runway.png", alt: "Runway" },

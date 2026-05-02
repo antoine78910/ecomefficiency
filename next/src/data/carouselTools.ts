@@ -1,10 +1,4 @@
-export type CarouselTool = {
-  name: string;
-  description: string;
-  icon: string;
-  /** LP carousel only: alternate artwork (e.g. gradient logo). Defaults to `icon`. */
-  carouselIcon?: string;
-};
+export type CarouselTool = { name: string; description: string; icon: string };
 
 // Map tool names to fallback logo domains (Clearbit). Used if local image is missing.
 export const logoDomainMap: Record<string, string> = {
@@ -37,15 +31,10 @@ export const carouselTools: CarouselTool[] = [
   { name: 'Midjourney', description: 'AI image generation', icon: '/tools-logos/midjourney.png' },
   { name: 'ElevenLabs', description: 'AI voice synthesis', icon: '/tools-logos/elevenlabs.png' },
   { name: 'ChatGPT', description: 'AI writing assistant', icon: '/tools-logos/chatgpt.png' },
-  {
-    name: 'Claude',
-    description: 'AI writing & thinking',
-    icon: '/tools-logos/claude.png',
-    carouselIcon: '/tools-logos/claude-carousel.png',
-  },
+  { name: 'Claude', description: 'AI writing & thinking', icon: '/tools-logos/claude.png' },
   { name: 'Semrush', description: 'SEO/marketing analytics', icon: '/tools-logos/semrush.png' },
   { name: 'Canva', description: 'Graphic design platform', icon: '/tools-logos/canva.png' },
-  { name: 'Freepik', description: 'Stock graphics & assets', icon: '/tools-logos/freepik.png' },
+  { name: 'Freepik', description: 'Stock graphics & assets', icon: '/tools-logos/freepik.png?v=3' },
   { name: 'ShopHunter', description: 'Shopify sales tracker', icon: '/tools-logos/shophunter.png' },
   { name: 'WinningHunter', description: 'Winning ad finder', icon: '/tools-logos/winninghunter.png' },
   { name: 'Pipiads', description: 'TikTok/Facebook ad spy', icon: '/tools-logos/pipiads.png' },

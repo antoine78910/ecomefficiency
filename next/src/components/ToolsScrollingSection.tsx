@@ -1,10 +1,6 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { carouselTools, type CarouselTool } from "@/data/carouselTools";
-
-function carouselCardSrc(tool: CarouselTool) {
-  return tool.carouselIcon ?? tool.icon;
-}
+import { carouselTools } from "@/data/carouselTools";
 
 const ToolsScrollingSection = () => {
   const tools = carouselTools;
@@ -50,7 +46,7 @@ const ToolsScrollingSection = () => {
                           {/* Use plain <img> to avoid huge next/image variants on the LP */}
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
-                            src={carouselCardSrc(tool)}
+                            src={tool.icon}
                             alt={tool.name}
                             title={tool.name}
                             width={160}
@@ -130,7 +126,7 @@ const ToolsScrollingSection = () => {
                     <div className="w-full h-32 md:h-36 mb-4 rounded-xl overflow-hidden">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={carouselCardSrc(tool)}
+                        src={tool.icon}
                         alt={tool.name}
                         title={tool.name}
                         width={160}
@@ -158,7 +154,7 @@ const ToolsScrollingSection = () => {
                     <div className="w-full h-32 md:h-36 mb-4 rounded-xl overflow-hidden">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={carouselCardSrc(tool)}
+                        src={tool.icon}
                         alt={tool.name}
                         title={tool.name}
                         width={160}
@@ -186,7 +182,7 @@ const ToolsScrollingSection = () => {
                     <div className="w-full h-32 md:h-36 mb-4 rounded-xl overflow-hidden">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={carouselCardSrc(tool)}
+                        src={tool.icon}
                         alt={tool.name}
                         title={tool.name}
                         width={160}

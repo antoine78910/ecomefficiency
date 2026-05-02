@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 };
 
 export default function ProToolsHubPage() {
-  const ASSET_VERSION = "20260430-claude-v3";
+  const ASSET_VERSION = "20260502-freepik-v1";
   return (
     <>
       {/* Font Awesome (as in legacy HTML) */}
