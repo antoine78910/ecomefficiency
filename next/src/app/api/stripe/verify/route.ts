@@ -160,90 +160,76 @@ export async function POST(req: NextRequest) {
     const email = body.email || emailHeader;
     const sessionId = String(body.session_id || "").trim();
 
-    // White-label / partner domains: subscription lives on the partner Stripe Connect account.
+    // White-label / partner: subscription may live on the partner Stripe Connect account.
+    // If there is no active Connect subscription, fall through to **platform** Stripe — the same user may
+    // pay Ecom Efficiency Pro while only using the partners portal (no Connect checkout yet).
     if (partnerSlugHeader) {
       const cfg: any = await readPartnerConfig(partnerSlugHeader);
       const connectedAccountId = String(cfg?.connectedAccountId || "").trim();
-      if (!connectedAccountId) {
-        return withCors(
-          NextResponse.json({
-            ok: true,
-            active: false,
-            status: "no_connected_account",
-            plan: null,
-          })
-        , req);
-      }
-
-      // All customers on CONNECTED account for this email (multiple Customer records possible)
-      let customerId: string | undefined = undefined;
-      let latest: Stripe.Subscription | undefined;
-      let partnerCustomersCount = 0;
-      if (email) {
+      if (connectedAccountId && email) {
+        let partnerCustomerId: string | undefined;
+        let partnerLatest: Stripe.Subscription | undefined;
         try {
           const customers = await searchCustomersByEmailAllPagesMerged(stripe, email, {
             stripeAccount: connectedAccountId,
           } as Stripe.RequestOptions);
-          partnerCustomersCount = customers.length;
           const best = await findBestCustomerWithActiveSubscription(stripe, customers, {
             stripeAccount: connectedAccountId,
           } as Stripe.RequestOptions);
           if (best) {
-            customerId = best.customerId;
-            latest = best.sub;
+            partnerCustomerId = best.customerId;
+            partnerLatest = best.sub;
           }
         } catch {}
-      }
-      if (!customerId || !latest) {
-        return withCors(
-          NextResponse.json({
-            ok: true,
-            active: false,
-            status: partnerCustomersCount === 0 ? "no_customer" : "no_active_subscription",
-            plan: null,
-          })
-        , req);
-      }
 
-      // Partner offering: treat any active subscription as "pro" access inside the app.
-      const plan: "pro" = "pro";
+        if (partnerCustomerId && partnerLatest) {
+          const plan: "pro" = "pro";
 
-      // Best-effort stats sync (in case Connect webhook isn't delivering).
-      try {
-        const invoiceId = typeof latest.latest_invoice === "string" ? latest.latest_invoice : (latest.latest_invoice as any)?.id;
-        if (invoiceId) {
-          const inv = await stripe.invoices.retrieve(String(invoiceId), { stripeAccount: connectedAccountId } as any);
-          if (inv?.status === "paid") {
-            await recordPartnerPayment({
-              partnerSlug: partnerSlugHeader,
-              invoiceId: inv.id ? String(inv.id) : null,
-              amount: (Number(inv.amount_paid || 0) || 0) / 100,
-              currency: inv.currency ? String(inv.currency).toUpperCase() : null,
-              email: email || null,
-              createdAt: inv.created ? new Date(inv.created * 1000).toISOString() : new Date().toISOString(),
-            });
-          }
+          try {
+            const invoiceId =
+              typeof partnerLatest.latest_invoice === "string"
+                ? partnerLatest.latest_invoice
+                : (partnerLatest.latest_invoice as any)?.id;
+            if (invoiceId) {
+              const inv = await stripe.invoices.retrieve(String(invoiceId), { stripeAccount: connectedAccountId } as any);
+              if (inv?.status === "paid") {
+                await recordPartnerPayment({
+                  partnerSlug: partnerSlugHeader,
+                  invoiceId: inv.id ? String(inv.id) : null,
+                  amount: (Number(inv.amount_paid || 0) || 0) / 100,
+                  currency: inv.currency ? String(inv.currency).toUpperCase() : null,
+                  email: email || null,
+                  createdAt: inv.created ? new Date(inv.created * 1000).toISOString() : new Date().toISOString(),
+                });
+              }
+            }
+          } catch {}
+
+          return withCors(
+            NextResponse.json(
+              applyHiggsfieldProOnlyGate(req, {
+                ok: true,
+                active: true,
+                status: partnerLatest.status,
+                plan,
+                customer_id: partnerCustomerId,
+                subscription_id: partnerLatest.id,
+                subscription_created_at: partnerLatest.created
+                  ? new Date(partnerLatest.created * 1000).toISOString()
+                  : null,
+                subscription_current_period_start_at: (partnerLatest as any)?.current_period_start
+                  ? new Date(((partnerLatest as any).current_period_start as number) * 1000).toISOString()
+                  : null,
+                verify_source: "partner_connect",
+              })
+            )
+          , req);
         }
-      } catch {}
-
-      return withCors(
-        NextResponse.json(
-          applyHiggsfieldProOnlyGate(req, {
-            ok: true,
-            active: true,
-            status: latest.status,
-            plan,
-            customer_id: customerId,
-            subscription_id: latest.id,
-            subscription_created_at: latest.created
-              ? new Date(latest.created * 1000).toISOString()
-              : null,
-            subscription_current_period_start_at: (latest as any)?.current_period_start
-              ? new Date(((latest as any).current_period_start as number) * 1000).toISOString()
-              : null,
-          })
-        )
-      , req);
+      }
+      console.log("[VERIFY] Partner Connect miss or no connected account — falling through to platform Stripe", {
+        partnerSlug: partnerSlugHeader,
+        hasConnectedAccount: Boolean(connectedAccountId),
+      });
     }
 
     let customerId = customerHeader || undefined;
@@ -496,6 +482,31 @@ export async function POST(req: NextRequest) {
             console.error("[VERIFY] Failed to check invoice for incomplete sub:", e);
           }
         }
+      }
+    }
+
+    // Stale/wrong stripe_customer_id in Supabase metadata (duplicate Stripe customers for same email):
+    // retry across every platform customer with this email when the header customer had no valid sub.
+    if (!latest && email && !emailResolvedBest) {
+      try {
+        const customers = await searchCustomersByEmailAllPagesMerged(stripe, email);
+        const best = await findBestCustomerWithActiveSubscription(stripe, customers);
+        if (best) {
+          latest = best.sub;
+          invoiceStatus = best.invoiceStatus;
+          customerId = best.customerId;
+          emailResolvedBest = {
+            customerId: best.customerId,
+            sub: best.sub,
+            invoiceStatus: best.invoiceStatus,
+          };
+          console.log("[VERIFY] Resolved subscription via email fallback (metadata customer was stale)", {
+            email,
+            customerId: best.customerId,
+          });
+        }
+      } catch (e) {
+        console.error("[VERIFY] Email fallback after stale customerId failed:", e);
       }
     }
 

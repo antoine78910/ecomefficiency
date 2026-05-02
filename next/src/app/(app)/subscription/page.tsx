@@ -1,6 +1,7 @@
 "use client";
 import React from "react";
 import { supabase } from "@/integrations/supabase/client";
+import { isMainEcomEfficiencyWorkspaceHost } from "@/lib/eeAppHost";
 
 function detectCheckoutCurrency(): 'EUR' | 'USD' {
   try {
@@ -45,10 +46,10 @@ export default function SubscriptionPage() {
         if (meta.stripe_customer_id) headers['x-stripe-customer-id'] = meta.stripe_customer_id
         // White-label: detect partnerSlug from global variable (set by DomainAppClient)
         let partnerSlug: string | undefined = undefined
-        if (typeof window !== 'undefined') {
+        if (typeof window !== "undefined" && !isMainEcomEfficiencyWorkspaceHost()) {
           partnerSlug = (window as any).__wl_partner_slug
         }
-        if (partnerSlug) headers['x-partner-slug'] = partnerSlug
+        if (partnerSlug) headers["x-partner-slug"] = partnerSlug
         const r = await fetch('/api/stripe/verify', { method:'POST', headers, body: JSON.stringify({ email: user?.email || '' }) })
         const j = await r.json().catch(() => ({}))
         const stripeCid = j?.customer_id

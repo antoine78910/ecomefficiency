@@ -13,6 +13,7 @@ import { bestTextColorOn, hexWithAlpha, mixHex, normalizeHex } from "@/lib/color
 import WhiteLabelPricingModal from "@/components/WhiteLabelPricingModal";
 import { CheckoutSuccessEffects } from "@/components/CheckoutSuccessEffects";
 import { ReviewPromptModal } from "@/components/ReviewPromptModal";
+import { isMainEcomEfficiencyWorkspaceHost } from "@/lib/eeAppHost";
 
 const App = ({
   showAffiliateCta = true,
@@ -341,7 +342,8 @@ const App = ({
         if (email) headers['x-user-email'] = email
         if (customerId) headers['x-stripe-customer-id'] = customerId
         // White-label: allow credentials endpoint to validate subscription on partner Stripe Connect account.
-        if (!showAffiliateCta && detectedPartnerSlug) headers['x-partner-slug'] = String(detectedPartnerSlug)
+        if (!showAffiliateCta && detectedPartnerSlug && !isMainEcomEfficiencyWorkspaceHost())
+          headers["x-partner-slug"] = String(detectedPartnerSlug)
         const res = await fetch('/api/credentials', { headers, cache: 'no-store' }).catch(() => null)
         if (!res) return
         const json = await res.json().catch(() => ({}))
@@ -375,7 +377,8 @@ const App = ({
         if (email) headers['x-user-email'] = email
         if (customerId) headers['x-stripe-customer-id'] = customerId
         // White-label: allow credentials endpoint to validate subscription on partner Stripe Connect account.
-        if (!showAffiliateCta && detectedPartnerSlug) headers['x-partner-slug'] = String(detectedPartnerSlug)
+        if (!showAffiliateCta && detectedPartnerSlug && !isMainEcomEfficiencyWorkspaceHost())
+          headers["x-partner-slug"] = String(detectedPartnerSlug)
         const res = await fetch('/api/credentials', { headers, cache: 'no-store' }).catch(() => null)
         if (res) {
           const json = await res.json().catch(() => ({}))
@@ -438,7 +441,8 @@ const App = ({
             if (email) verifyHeaders['x-user-email'] = email
             if (customerId) verifyHeaders['x-stripe-customer-id'] = customerId
             // White-label: subscription is on partner's Stripe Connect account
-            if (!showAffiliateCta && detectedPartnerSlug) verifyHeaders['x-partner-slug'] = String(detectedPartnerSlug)
+            if (!showAffiliateCta && detectedPartnerSlug && !isMainEcomEfficiencyWorkspaceHost())
+              verifyHeaders["x-partner-slug"] = String(detectedPartnerSlug)
             const vr = await fetch('/api/stripe/verify', {
               method: 'POST',
               headers: verifyHeaders,
@@ -724,7 +728,8 @@ function PlanBadgeInline({ whiteLabel, partnerSlug }: { whiteLabel?: boolean; pa
           const headers: Record<string, string> = { 'Content-Type': 'application/json' }
           if (data.user?.email) headers['x-user-email'] = data.user.email
           if (meta.stripe_customer_id) headers['x-stripe-customer-id'] = meta.stripe_customer_id as string
-          if (whiteLabel && partnerSlug) headers['x-partner-slug'] = String(partnerSlug)
+          if (whiteLabel && partnerSlug && !isMainEcomEfficiencyWorkspaceHost())
+            headers["x-partner-slug"] = String(partnerSlug)
           const r = await fetch('/api/stripe/verify', { method: 'POST', headers, body: JSON.stringify({ email: data.user?.email || '' }) })
           const j = await r.json().catch(() => ({}))
           const p = (j?.plan as string)?.toLowerCase()
@@ -1350,7 +1355,8 @@ function CredentialsPanel({
         const headers: Record<string, string> = {};
         if (effectiveEmail) headers['x-user-email'] = effectiveEmail;
         if (effectiveCustomerId) headers['x-stripe-customer-id'] = effectiveCustomerId;
-        if (whiteLabel && detectedPartnerSlug) headers['x-partner-slug'] = String(detectedPartnerSlug);
+        if (whiteLabel && detectedPartnerSlug && !isMainEcomEfficiencyWorkspaceHost())
+          headers["x-partner-slug"] = String(detectedPartnerSlug);
 
         if (!effectiveEmail && !effectiveCustomerId) {
           if (active) {
@@ -1478,7 +1484,12 @@ function CredentialsPanel({
               'Content-Type': 'application/json',
               ...(email ? { 'x-user-email': email } : {}),
               ...(meta.stripe_customer_id ? { 'x-stripe-customer-id': meta.stripe_customer_id } : {}),
-              ...(whiteLabel && partnerSlug ? { 'x-partner-slug': String(partnerSlug) } : {}),
+              ...(whiteLabel &&
+              partnerSlug &&
+              typeof window !== "undefined" &&
+              !isMainEcomEfficiencyWorkspaceHost()
+                ? { "x-partner-slug": String(partnerSlug) }
+                : {}),
             },
             body: JSON.stringify({ email, session_id: checkoutSessionId || undefined })
           })

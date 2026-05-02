@@ -5,6 +5,7 @@ import Image from "next/image";
 import { supabase } from "@/integrations/supabase/client";
 import { Crown } from "lucide-react";
 import { hexWithAlpha, normalizeHex } from "@/lib/color";
+import { isMainEcomEfficiencyWorkspaceHost } from "@/lib/eeAppHost";
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -42,10 +43,10 @@ export default function AppTopNav({
       
       // White-label: detect partnerSlug from global variable (set by DomainAppClient)
       let partnerSlug: string | undefined = undefined;
-      if (typeof window !== 'undefined') {
+      if (typeof window !== "undefined" && !isMainEcomEfficiencyWorkspaceHost()) {
         partnerSlug = (window as any).__wl_partner_slug;
       }
-      if (partnerSlug) headers['x-partner-slug'] = String(partnerSlug);
+      if (partnerSlug) headers["x-partner-slug"] = String(partnerSlug);
       
       // CRITICAL: ONLY trust Stripe verification, NEVER user_metadata
       try {
