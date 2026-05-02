@@ -1,13 +1,17 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
-import { carouselTools } from "@/data/carouselTools";
+import { carouselTools, type CarouselTool } from "@/data/carouselTools";
+
+function carouselCardSrc(tool: CarouselTool) {
+  return tool.carouselIcon ?? tool.icon;
+}
 
 const ToolsScrollingSection = () => {
   const tools = carouselTools;
 
   const leftColumn = tools.slice(0, 9);
   const middleColumn = tools.slice(9, 17);
-  const rightColumn = tools.slice(17, 25);
+  const rightColumn = tools.slice(17);
 
   return (
     <div className="bg-black py-20 overflow-hidden relative">
@@ -46,7 +50,7 @@ const ToolsScrollingSection = () => {
                           {/* Use plain <img> to avoid huge next/image variants on the LP */}
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
-                            src={tool.icon}
+                            src={carouselCardSrc(tool)}
                             alt={tool.name}
                             title={tool.name}
                             width={160}
@@ -126,7 +130,7 @@ const ToolsScrollingSection = () => {
                     <div className="w-full h-32 md:h-36 mb-4 rounded-xl overflow-hidden">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={tool.icon}
+                        src={carouselCardSrc(tool)}
                         alt={tool.name}
                         title={tool.name}
                         width={160}
@@ -154,7 +158,7 @@ const ToolsScrollingSection = () => {
                     <div className="w-full h-32 md:h-36 mb-4 rounded-xl overflow-hidden">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={tool.icon}
+                        src={carouselCardSrc(tool)}
                         alt={tool.name}
                         title={tool.name}
                         width={160}
@@ -182,7 +186,7 @@ const ToolsScrollingSection = () => {
                     <div className="w-full h-32 md:h-36 mb-4 rounded-xl overflow-hidden">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={tool.icon}
+                        src={carouselCardSrc(tool)}
                         alt={tool.name}
                         title={tool.name}
                         width={160}

@@ -103,6 +103,7 @@ function pickRecommendedTools(post: BlogPost): RecommendedTool[] {
 
   const addAi = () => {
     push({ href: "/tools/chatgpt", title: "ChatGPT", description: "Write ads, scripts, and SEO content with structured prompts." });
+    push({ href: "/tools/claude", title: "Claude", description: "Long-form writing, careful reasoning, and structured ecommerce briefs." });
     push({ href: "/tools/turboscribe", title: "TurboScribe", description: "Transcribe and repurpose long videos into clips and text." });
     push({ href: "/tools/elevenlabs", title: "ElevenLabs", description: "AI voiceovers for UGC-style ads and video narration." });
   };

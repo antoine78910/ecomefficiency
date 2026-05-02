@@ -21,7 +21,7 @@ const tools: Tool[] = [
   { id: 5, name: "Canva Pro", description: "Design creation", category: "Design" },
   { id: 6, name: "CapCut Pro", description: "Video editing", category: "Video" },
   { id: 7, name: "Chat GPT Plus", description: "Advanced AI language model", category: "AI" },
-  { id: 48, name: "Claude", description: "Anthropic AI assistant for reasoning, writing, and technical work", category: "AI" },
+  { id: 48, name: "Claude", description: "AI writing & thinking", category: "AI" },
   { id: 8, name: "Cutout.pro", description: "Photo/Video Enhancer", category: "Design" },
   { id: 9, name: "Dinorank", description: "SEO ranking & performance tool", category: "SEO" },
   { id: 10, name: "Dropship.io", description: "Store sales follow-up", category: "E-commerce" },

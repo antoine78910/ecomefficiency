@@ -165,7 +165,8 @@ export const toolsCatalog: ToolCatalogItem[] = [
     slug: "claude",
     name: "Claude",
     category: "AI (LLM)",
-    shortDescription: "Anthropic's AI assistant for complex reasoning, writing, and technical tasks—helpful, nuanced, and conversational.",
+    shortDescription:
+      "Anthropic's Claude: long-form AI writing, careful reasoning, and structured workflows for ecommerce teams—plus how it compares to ChatGPT and fits your stack.",
     bestFor: ["solo founders", "developers", "content teams", "research"],
     aliases: ["Claude AI", "Anthropic Claude"],
     practicalUseCases: [

@@ -264,7 +264,12 @@ export default function ChatGPTChapters() {
       <section id="chatgpt-alternatives" className="scroll-mt-24">
         <h2 className="text-2xl font-bold text-white mb-3">🔁 ChatGPT alternatives (depending on your needs)</h2>
         <ul className="list-disc list-inside space-y-2 text-gray-300">
-          <li>Claude: long-form reasoning & writing</li>
+          <li>
+            <Link href="/tools/claude" className="text-purple-200 hover:text-white underline underline-offset-4" title="Claude tool page">
+              Claude
+            </Link>
+            : long-form reasoning &amp; writing
+          </li>
           <li>Gemini: Google ecosystem & research</li>
           <li>Perplexity: search-focused AI</li>
           <li>Copilot: code-first assistance</li>

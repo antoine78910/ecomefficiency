@@ -29,7 +29,7 @@ const popularTools: PricingTool[] = [
   { id: 14, name: "Unbounce", price: 90, category: "Landing Page" },
   { id: 15, name: "Grammarly", price: 30, category: "Writing" },
   { id: 16, name: "ChatGPT Plus", price: 20, category: "AI" },
-  { id: 21, name: "Claude Pro", price: 20, category: "AI" },
+  { id: 21, name: "Claude Pro", price: 100, category: "AI" },
   { id: 17, name: "Notion", price: 8, category: "Productivity" },
   { id: 18, name: "Moz Pro", price: 99, category: "SEO" },
   { id: 19, name: "Hootsuite", price: 49, category: "Social Media" },

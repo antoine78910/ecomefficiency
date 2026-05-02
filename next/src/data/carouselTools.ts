@@ -1,4 +1,10 @@
-export type CarouselTool = { name: string; description: string; icon: string };
+export type CarouselTool = {
+  name: string;
+  description: string;
+  icon: string;
+  /** LP carousel only: alternate artwork (e.g. gradient logo). Defaults to `icon`. */
+  carouselIcon?: string;
+};
 
 // Map tool names to fallback logo domains (Clearbit). Used if local image is missing.
 export const logoDomainMap: Record<string, string> = {
@@ -33,8 +39,9 @@ export const carouselTools: CarouselTool[] = [
   { name: 'ChatGPT', description: 'AI writing assistant', icon: '/tools-logos/chatgpt.png' },
   {
     name: 'Claude',
-    description: 'Next-gen AI by Anthropic for reasoning, writing, and technical work—nuanced and conversational.',
+    description: 'AI writing & thinking',
     icon: '/tools-logos/claude.png',
+    carouselIcon: '/tools-logos/claude-carousel.png',
   },
   { name: 'Semrush', description: 'SEO/marketing analytics', icon: '/tools-logos/semrush.png' },
   { name: 'Canva', description: 'Graphic design platform', icon: '/tools-logos/canva.png' },

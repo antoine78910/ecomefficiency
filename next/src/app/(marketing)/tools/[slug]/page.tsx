@@ -27,6 +27,7 @@ import CapCutChapters, { capcutFaq, capcutToc } from "./CapCutChapters";
 import TurboScribeChapters, { turboscribeFaq, turboscribeToc } from "./TurboScribeChapters";
 import Helium10Chapters, { helium10Faq, helium10Toc } from "./Helium10Chapters";
 import ChatGPTChapters, { chatgptFaq, chatgptToc } from "./ChatGPTChapters";
+import ClaudeChapters, { claudeFaq, claudeToc } from "./ClaudeChapters";
 import CanvaChapters, { canvaFaq, canvaToc } from "./CanvaChapters";
 import FotorChapters, { fotorFaq, fotorToc } from "./FotorChapters";
 import BrainFmChapters, { brainFmFaq, brainFmToc } from "./BrainFmChapters";
@@ -397,6 +398,24 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
     };
   }
 
+  if (tool.slug === "claude") {
+    const title = "Claude: Anthropic AI for writing, analysis & ecommerce | Ecom Efficiency";
+    const description =
+      "Claude (Anthropic) review: long-form AI writing, careful reasoning, ecommerce workflows—pricing context, limits, Claude vs ChatGPT, FAQs, and Pro bundle access.";
+    return {
+      title,
+      description,
+      alternates: { canonical: `/tools/${tool.slug}` },
+      openGraph: {
+        type: "article",
+        url: `/tools/${tool.slug}`,
+        title,
+        description,
+        images: [{ url: "/header_ee.png?v=8", width: 1200, height: 630, alt: "Claude AI" }],
+      },
+    };
+  }
+
   if (tool.slug === "canva") {
     const title = "Canva: fast design tool for ads, ecommerce & templates | Ecom Efficiency";
     const description =
@@ -729,6 +748,19 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
         }
       : null;
 
+  const claudeFaqJsonLd =
+    tool.slug === "claude"
+      ? {
+          "@context": "https://schema.org",
+          "@type": "FAQPage",
+          mainEntity: claudeFaq.map((f) => ({
+            "@type": "Question",
+            name: f.q,
+            acceptedAnswer: { "@type": "Answer", text: f.a },
+          })),
+        }
+      : null;
+
   const canvaFaqJsonLd =
     tool.slug === "canva"
       ? {
@@ -806,13 +838,15 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
                                       ? helium10Faq
                                       : tool.slug === "chatgpt"
                                         ? chatgptFaq
-                                        : tool.slug === "canva"
-                                          ? canvaFaq
-                                          : tool.slug === "fotor"
-                                            ? fotorFaq
-                                            : tool.slug === "brain-fm"
-                                              ? brainFmFaq
-                                              : null;
+                                        : tool.slug === "claude"
+                                          ? claudeFaq
+                                          : tool.slug === "canva"
+                                            ? canvaFaq
+                                            : tool.slug === "fotor"
+                                              ? fotorFaq
+                                              : tool.slug === "brain-fm"
+                                                ? brainFmFaq
+                                                : null;
 
   return (
     <div className="min-h-screen bg-black">
@@ -873,6 +907,9 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
         ) : null}
         {chatgptFaqJsonLd ? (
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(chatgptFaqJsonLd) }} />
+        ) : null}
+        {claudeFaqJsonLd ? (
+          <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(claudeFaqJsonLd) }} />
         ) : null}
         {canvaFaqJsonLd ? (
           <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(canvaFaqJsonLd) }} />
@@ -989,6 +1026,11 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
             <p className="mt-4 text-lg text-gray-300">
               <strong>ChatGPT</strong> is an <strong>AI assistant</strong> to structure ideas, write better copy, generate SEO content, and automate workflows—so you
               move from questions to execution faster.
+            </p>
+          ) : tool.slug === "claude" ? (
+            <p className="mt-4 text-lg text-gray-300">
+              <strong>Claude</strong> is an <strong>Anthropic AI assistant</strong> for long-form writing, careful reasoning, and structured decisions—built for teams
+              that want clarity and credibility while scaling content and ops.
             </p>
           ) : tool.slug === "canva" ? (
             <p className="mt-4 text-lg text-gray-300">
@@ -1668,6 +1710,43 @@ export default async function ToolPage({ params }: { params: Promise<{ slug: str
             </aside>
             <div className="min-w-0">
               <ChatGPTChapters />
+
+              {related.length ? (
+                <section className="mt-12">
+                  <h2 className="text-2xl font-bold text-white mb-4">Similar tools</h2>
+                  <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {related.map((r) => (
+                      <Link
+                        key={r.slug}
+                        href={`/tools/${r.slug}`}
+                        title={`${r.name} tool page`}
+                        className="rounded-2xl border border-white/10 bg-gray-900/30 p-4 hover:border-purple-500/30 transition-colors"
+                      >
+                        <div className="text-white font-semibold">{r.name}</div>
+                        <div className="text-sm text-gray-400 mt-1">{r.shortDescription}</div>
+                      </Link>
+                    ))}
+                  </div>
+                </section>
+              ) : null}
+            </div>
+          </div>
+        ) : tool.slug === "claude" ? (
+          <div className="grid lg:grid-cols-[320px_1fr] gap-10">
+            <aside className="lg:sticky lg:top-24 self-start flex flex-col max-h-[calc(100vh-7rem)]">
+              <div
+                className="min-h-0 overflow-y-auto pr-1
+                  [scrollbar-width:none] [-ms-overflow-style:none]
+                  [&::-webkit-scrollbar]:hidden"
+              >
+                <ToolToc items={claudeToc} defaultActiveId={claudeToc[0]?.id} collapseSubheadings />
+              </div>
+              <div className="mt-6 shrink-0">
+                <EcomToolsCta compact />
+              </div>
+            </aside>
+            <div className="min-w-0">
+              <ClaudeChapters />
 
               {related.length ? (
                 <section className="mt-12">
