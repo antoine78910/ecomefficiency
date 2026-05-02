@@ -4,6 +4,7 @@ import Link from "next/link";
 import EcomToolsCta from "@/components/EcomToolsCta";
 import Footer from "@/components/Footer";
 import NewNavbar from "@/components/NewNavbar";
+import ToolToc, { type TocItem } from "@/components/ToolToc";
 import { CANONICAL_ORIGIN } from "@/lib/canonicalOrigin";
 
 const YEAR = 2026;
@@ -56,19 +57,22 @@ const faqItems: Array<{ q: string; a: string }> = [
   },
 ];
 
+const toc: TocItem[] = [
+  { id: "what-is-spycrew", label: "What is SpyCrew?", level: 2 },
+  { id: "what-is-ecomefficiency", label: "What is Ecom Efficiency?", level: 2 },
+  { id: "side-by-side", label: "Side-by-side comparison", level: 2 },
+  { id: "where-spycrew-wins", label: "Where SpyCrew wins", level: 2 },
+  { id: "where-ecomefficiency-wins", label: "Where Ecom Efficiency wins", level: 2 },
+  { id: "who-should-choose", label: "Who should choose what?", level: 2 },
+  { id: "verdict", label: "Final verdict", level: 2 },
+  { id: "faq", label: "FAQ", level: 2 },
+];
+
 function SectionTitle({ id, children }: { id: string; children: React.ReactNode }) {
   return (
-    <h2 id={id} className="text-2xl md:text-3xl font-bold text-white mt-12 mb-4 scroll-mt-24">
+    <h2 id={id} className="text-2xl md:text-3xl font-bold text-white mt-12 mb-4 scroll-mt-28">
       {children}
     </h2>
-  );
-}
-
-function SubTitle({ id, children }: { id: string; children: React.ReactNode }) {
-  return (
-    <h3 id={id} className="text-xl font-semibold text-white mt-8 mb-3 scroll-mt-24">
-      {children}
-    </h3>
   );
 }
 
@@ -105,7 +109,7 @@ export default function SpyCrewAlternativePage() {
     <div className="min-h-screen bg-black">
       <NewNavbar />
 
-      <article className="max-w-3xl mx-auto px-6 lg:px-8 py-12">
+      <article className="max-w-6xl mx-auto px-6 lg:px-8 py-12">
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdWebPage) }} />
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLdFaq) }} />
 
@@ -117,8 +121,8 @@ export default function SpyCrewAlternativePage() {
           <span className="text-gray-300">SpyCrew</span>
         </nav>
 
-        <header className="mb-10">
-          <div className="flex flex-wrap items-center gap-3 mb-4">
+        <header className="max-w-3xl mx-auto mb-10 text-center">
+          <div className="flex flex-wrap items-center justify-center gap-3 mb-4">
             <span className="text-xs px-3 py-1 rounded-full bg-purple-500/20 text-purple-300 border border-purple-500/30">
               SpyCrew alternative
             </span>
@@ -137,6 +141,22 @@ export default function SpyCrewAlternativePage() {
           </p>
         </header>
 
+        <div className="mt-10 grid gap-10 lg:grid-cols-[320px_1fr] lg:items-start">
+          <aside className="hidden lg:block lg:sticky lg:top-24 self-start flex flex-col">
+            <div
+              className="min-h-0 overflow-y-auto pr-1
+                [scrollbar-width:none] [-ms-overflow-style:none]
+                [&::-webkit-scrollbar]:hidden"
+              style={{ maxHeight: "calc(100vh - 7rem - 220px)" }}
+            >
+              <ToolToc items={toc} defaultActiveId={toc[0]?.id} collapseSubheadings />
+            </div>
+            <div className="mt-6">
+              <EcomToolsCta compact totalTools={50} />
+            </div>
+          </aside>
+
+          <div className="min-w-0 max-w-3xl mx-auto lg:mx-0">
         <div className="prose prose-invert prose-lg max-w-none">
           <SectionTitle id="what-is-spycrew">What is SpyCrew?</SectionTitle>
           <p className="text-gray-300 leading-relaxed">
@@ -303,7 +323,7 @@ export default function SpyCrewAlternativePage() {
             </li>
           </ol>
 
-          <SubTitle id="who-should-choose">Who should choose what?</SubTitle>
+          <SectionTitle id="who-should-choose">Who should choose what?</SectionTitle>
           <p className="text-gray-300 leading-relaxed font-medium text-white">Choose SpyCrew if:</p>
           <ul className="list-disc list-inside text-gray-300 space-y-2 mt-2">
             <li>Spy tools are your absolute top priority and you want as many as possible under one brand.</li>
@@ -331,11 +351,7 @@ export default function SpyCrewAlternativePage() {
           </p>
         </div>
 
-        <div className="mt-12 p-6 rounded-2xl bg-gradient-to-br from-purple-900/40 to-black border border-purple-500/30">
-          <EcomToolsCta compact totalTools={50} />
-        </div>
-
-        <section className="mt-16 border-t border-white/10 pt-10">
+        <section id="faq" className="mt-16 border-t border-white/10 pt-10 scroll-mt-28">
           <h2 className="text-2xl font-bold text-white mb-6">FAQ</h2>
           <div className="space-y-6">
             {faqItems.map((f) => (
@@ -366,6 +382,8 @@ export default function SpyCrewAlternativePage() {
               Pricing
             </Link>
           </p>
+        </div>
+          </div>
         </div>
       </article>
 
