@@ -24,6 +24,9 @@ export default function aiSitemap(): MetadataRoute.Sitemap {
     { path: "/freetools/shopify-theme-detector", priority: 0.7, changeFrequency: "weekly" },
     { path: "/freetools/customer-lifetime-value-calculator", priority: 0.7, changeFrequency: "weekly" },
     { path: "/affiliate", priority: 0.6, changeFrequency: "monthly" },
+    { path: "/alternatives", priority: 0.75, changeFrequency: "monthly" },
+    { path: "/alternatives/toolsuite", priority: 0.78, changeFrequency: "monthly" },
+    { path: "/alternatives/spycrew", priority: 0.78, changeFrequency: "monthly" },
   ];
 
   return urls.map((u) => ({

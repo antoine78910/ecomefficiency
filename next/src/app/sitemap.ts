@@ -103,6 +103,9 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     { url: `${BASE_URL}/freetools/shopify-app-detector`, changeFrequency: "weekly", priority: 0.7 },
     { url: `${BASE_URL}/freetools/shopify-theme-detector`, changeFrequency: "weekly", priority: 0.7 },
     { url: `${BASE_URL}/freetools/customer-lifetime-value-calculator`, changeFrequency: "weekly", priority: 0.7 },
+    { url: `${BASE_URL}/alternatives`, changeFrequency: "monthly", priority: 0.75 },
+    { url: `${BASE_URL}/alternatives/toolsuite`, changeFrequency: "monthly", priority: 0.78 },
+    { url: `${BASE_URL}/alternatives/spycrew`, changeFrequency: "monthly", priority: 0.78 },
   ];
 
   const base = [
