@@ -13,7 +13,7 @@
 
   function onTarget() {
     try {
-      return location.hostname === 'www.freepik.com' && String(location.pathname || '').startsWith('/log-in');
+      return location.hostname === 'www.magnific.com' && String(location.pathname || '').startsWith('/log-in');
     } catch (_) {
       return false;
     }

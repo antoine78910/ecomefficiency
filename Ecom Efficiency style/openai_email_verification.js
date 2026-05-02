@@ -45,6 +45,7 @@
   let pollTimer = null;
   let pollStartedAt = 0;
   let pollIntervalMs = 1000;
+  let otpEarliestAcceptedAt = 0;
 
   function loadCachedCode() {
     try {
@@ -308,7 +309,10 @@
           reject(new Error('Request timeout after 15 seconds'));
         }, 15000);
 
-        chrome.runtime.sendMessage({ type: 'FETCH_OPENAI_OTP' }, (resp) => {
+        chrome.runtime.sendMessage({
+          type: 'FETCH_OPENAI_OTP',
+          sinceTs: otpEarliestAcceptedAt || pollStartedAt || Date.now()
+        }, (resp) => {
           clearTimeout(timeout);
           if (chrome.runtime.lastError) {
             reject(new Error(chrome.runtime.lastError.message));
@@ -356,6 +360,7 @@
   function startPolling() {
     if (pollTimer) return;
     pollStartedAt = Date.now();
+    otpEarliestAcceptedAt = pollStartedAt;
     pollIntervalMs = 1000; // fast start
     setLabelText('waiting for your code…');
 
@@ -412,6 +417,11 @@
     // - If there is NO unread email yet, keep waiting until a new one arrives.
     // - Do not "change" the displayed code unless it's a new unread email (or user Retry/Resend).
     if (!lastCode) loadCachedCode();
+
+    // Never reuse a stale cached OTP on a new email-otp polling session.
+    if (isEmailOtpPage()) {
+      clearCachedCode();
+    }
 
     // Always poll while we are on target pages. Do NOT show "errors" when no code.
     startPolling();
@@ -589,6 +599,7 @@
       if (t.includes('resend') || t.includes('send again') || t.includes('send code again')) {
         console.log('[EE-OTP] Resend CTA clicked → allowing code refresh');
         forceRefreshOnce = true;
+        otpEarliestAcceptedAt = Date.now();
         clearCachedCode();
         isRequesting = false;
         setTimeout(() => { try { requestOtp(); } catch (_) {} }, 400);

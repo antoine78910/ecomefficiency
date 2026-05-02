@@ -11,6 +11,7 @@
     // Allow debugging on HeyGen auth (needed for auto-login fixes)
     if (h === 'auth.heygen.com' || h === 'app.heygen.com') return;
     if (h === 'www.freepik.com' || h === 'freepik.com') return;
+    if (h === 'www.magnific.com' || h === 'magnific.com') return;
   } catch (_) {}
 
   // Silence extension logs in the content-script world.

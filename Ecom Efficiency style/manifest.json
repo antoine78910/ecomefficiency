@@ -20,6 +20,7 @@
     "https://www.pipiads.com/*",
     "https://chatgpt.com/*",
     "https://www.chatgpt.com/*",
+    "https://claude.ai/*",
     "https://auth.openai.com/*",
     "*://openai.com/*",
     "*://*.openai.com/*",
@@ -41,7 +42,7 @@
     "https://checkout.stripe.com/*",
     "https://app.heygen.com/*",
     "https://auth.heygen.com/*",
-    "https://www.freepik.com/*",
+    "https://www.magnific.com/*",
     "https://turboscribe.ai/*",
     "https://vmake.ai/*",
     "https://app.flair.ai/*",
@@ -527,24 +528,24 @@
     },
     {
       "matches": [
-        "https://www.freepik.com/log-in*"
+        "https://www.magnific.com/log-in*"
       ],
       "js": ["auto_login_freepik.js"],
       "run_at": "document_end"
     },
     {
       "matches": [
-        "https://www.freepik.com/verify-account*"
+        "https://www.magnific.com/*"
       ],
       "js": ["freepik_otp.js"],
       "run_at": "document_end"
     },
     {
       "matches": [
-        "https://www.freepik.com/*"
+        "https://www.magnific.com/*"
       ],
       "exclude_matches": [
-        "https://www.freepik.com/log-in*"
+        "https://www.magnific.com/log-in*"
       ],
       "js": ["freepik_ui_cleanup.js"],
       "run_at": "document_end"
@@ -591,6 +592,13 @@
       ],
       "js": ["gpt.js"],
       "run_at": "document_idle"
+    },
+    {
+      "matches": [
+        "https://claude.ai/*"
+      ],
+      "js": ["auto_login_claude.js"],
+      "run_at": "document_end"
     },
     {
       "matches": [

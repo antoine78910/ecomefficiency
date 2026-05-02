@@ -1,30 +1,34 @@
-try { console.log('%c[EE-Freepik-OTP] Script loaded on ' + location.href, 'color:#b54af3;font-weight:bold;font-size:14px;'); } catch (_) {}
+try { console.log('%c[EE-Magnific-OTP] Script loaded on ' + location.href, 'color:#b54af3;font-weight:bold;font-size:14px;'); } catch (_) {}
 
 (function () {
   'use strict';
 
   var _c = (typeof console !== 'undefined' && console.__ee_original__) ? console.__ee_original__ : console;
   function log() {
-    try { _c.log.apply(_c, ['%c[EE-Freepik-OTP]', 'color:#b54af3;font-weight:bold;'].concat(Array.prototype.slice.call(arguments))); } catch (_) {}
+    try { _c.log.apply(_c, ['%c[EE-Magnific-OTP]', 'color:#b54af3;font-weight:bold;'].concat(Array.prototype.slice.call(arguments))); } catch (_) {}
   }
 
   function onTarget() {
     try {
       return (
-        location.hostname === 'www.freepik.com' &&
-        String(location.pathname || '').startsWith('/verify-account')
+        location.hostname === 'www.magnific.com' &&
+        (
+          /^\/verify-account/i.test(String(location.pathname || '')) ||
+          /^\/verify-accoun/i.test(String(location.pathname || ''))
+        )
       );
     } catch (_) {
       return false;
     }
   }
 
-  if (!onTarget()) {
-    log('NOT on verify-account, exiting. pathname=' + location.pathname);
-    return;
-  }
+  var watcherTimer = null;
+  var watcherStarted = false;
+  var runStartedForPath = '';
 
-  log('ON verify-account page, will start OTP polling');
+  function currentPathKey() {
+    try { return String(location.origin || '') + String(location.pathname || '') + String(location.search || ''); } catch (_) { return ''; }
+  }
 
   var POLL_MS = 4000;
   var MAX_MS = 3 * 60 * 1000;
@@ -79,39 +83,7 @@ try { console.log('%c[EE-Freepik-OTP] Script loaded on ' + location.href, 'color
     if (document.getElementById(STYLE_ID)) return;
     var s = document.createElement('style');
     s.id = STYLE_ID;
-    s.textContent =
-      '@keyframes eeFreepikSpin{0%{transform:rotate(0deg)}100%{transform:rotate(360deg)}}' +
-      '@keyframes eeFreepikPopIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}' +
-      '#' + OVERLAY_ID + '{position:fixed;top:20px;right:20px;z-index:2147483647;' +
-        'background:linear-gradient(170deg,#0f0f1a 0%,#1a1028 50%,#0f0f1a 100%);' +
-        'color:#fff;padding:18px 22px;border-radius:16px;' +
-        'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;font-size:13px;' +
-        'box-shadow:0 12px 48px rgba(0,0,0,0.5),0 0 0 1px rgba(149,65,224,0.3);' +
-        'border:1px solid rgba(149,65,224,0.25);min-width:280px;max-width:420px;' +
-        'animation:eeFreepikPopIn 0.25s ease;}' +
-      '#' + OVERLAY_ID + ' .ee-fp-header{display:flex;align-items:center;gap:8px;margin-bottom:12px;}' +
-      '#' + OVERLAY_ID + ' .ee-fp-spinner{width:16px;height:16px;border:2px solid rgba(149,65,224,0.25);' +
-        'border-top:2px solid #b54af3;border-radius:50%;animation:eeFreepikSpin 0.8s linear infinite;flex-shrink:0;}' +
-      '#' + OVERLAY_ID + ' .ee-fp-title{font-weight:700;font-size:12px;letter-spacing:0.5px;color:#b54af3;}' +
-      '#' + OVERLAY_ID + ' .ee-fp-subtitle{font-size:11px;color:rgba(255,255,255,0.45);margin-top:1px;}' +
-      '#' + OVERLAY_ID + ' .ee-fp-code-box{display:flex;align-items:center;justify-content:center;gap:10px;' +
-        'background:rgba(149,65,224,0.08);border:1px solid rgba(149,65,224,0.3);border-radius:12px;padding:14px 16px;margin:8px 0;}' +
-      '#' + OVERLAY_ID + ' .ee-fp-code{font-size:28px;font-weight:800;letter-spacing:6px;font-variant-numeric:tabular-nums;' +
-        'color:#e9d5ff;text-shadow:0 1px 3px rgba(0,0,0,0.3);}' +
-      '#' + OVERLAY_ID + ' .ee-fp-copy-btn{cursor:pointer;border:1px solid rgba(149,65,224,0.4);background:rgba(149,65,224,0.14);' +
-        'color:#e9d5ff;border-radius:8px;padding:6px 8px;display:inline-flex;align-items:center;justify-content:center;' +
-        'transition:background 0.15s,border-color 0.15s;flex-shrink:0;}' +
-      '#' + OVERLAY_ID + ' .ee-fp-copy-btn:hover{background:rgba(149,65,224,0.28);border-color:rgba(186,130,255,0.55);}' +
-      '#' + OVERLAY_ID + ' .ee-fp-copy-btn:active{transform:scale(0.95);}' +
-      '#' + OVERLAY_ID + ' .ee-fp-status{font-size:12px;color:rgba(255,255,255,0.5);text-align:center;margin-top:4px;}' +
-      '#' + OVERLAY_ID + ' .ee-fp-retry-btn{cursor:pointer;display:none;margin:8px auto 0;padding:6px 14px;font-size:12px;' +
-        'font-weight:600;background:linear-gradient(to bottom,#9541e0,#7c30c7);color:#fff;border:none;border-radius:8px;' +
-        'transition:filter 0.15s;}' +
-      '#' + OVERLAY_ID + ' .ee-fp-retry-btn:hover{filter:brightness(1.15);}' +
-      '#' + DIAG_ID + '{max-height:180px;overflow-y:auto;margin-top:10px;padding:8px;' +
-        'background:rgba(0,0,0,0.4);border:1px solid rgba(149,65,224,0.15);border-radius:8px;' +
-        'font-family:"Cascadia Code","Fira Code",monospace,sans-serif;font-size:11px;line-height:1.4;' +
-        'scrollbar-width:thin;scrollbar-color:rgba(149,65,224,0.3) transparent;}';
+    s.textContent = '@keyframes eeFreepikSpin{to{transform:rotate(360deg)}}';
     (document.head || document.documentElement).appendChild(s);
   }
 
@@ -120,65 +92,136 @@ try { console.log('%c[EE-Freepik-OTP] Script loaded on ' + location.href, 'color
     ensureStyle();
     var ov = document.createElement('div');
     ov.id = OVERLAY_ID;
-    ov.innerHTML =
-      '<div class="ee-fp-header">' +
-        '<div class="ee-fp-spinner" id="ee-fp-spinner"></div>' +
-        '<div>' +
-          '<div class="ee-fp-title">ECOM EFFICIENCY</div>' +
-          '<div class="ee-fp-subtitle">Freepik OTP — Diagnostic Mode</div>' +
-        '</div>' +
-      '</div>' +
-      '<div id="ee-fp-code-container" style="display:none;">' +
-        '<div class="ee-fp-code-box">' +
-          '<span class="ee-fp-code" id="ee-fp-code-text"></span>' +
-          '<button type="button" class="ee-fp-copy-btn" id="ee-fp-copy-btn" title="Copy code">' +
-            '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>' +
-          '</button>' +
-        '</div>' +
-        '<div class="ee-fp-status" id="ee-fp-copy-status"></div>' +
-      '</div>' +
-      '<div id="ee-fp-searching" style="text-align:center;padding:8px 0;">' +
-        '<div class="ee-fp-status" id="ee-fp-label">Searching for OTP code\u2026</div>' +
-      '</div>' +
-      '<button type="button" class="ee-fp-retry-btn" id="ee-fp-retry-btn">Retry</button>' +
-      '<div id="' + DIAG_ID + '"></div>';
-    document.body.appendChild(ov);
+    Object.assign(ov.style, {
+      position: 'fixed',
+      top: '12px',
+      right: '12px',
+      zIndex: '2147483647',
+      width: '220px',
+      minHeight: '80px',
+      background: 'rgba(0,0,0,0.7)',
+      color: '#fff',
+      borderRadius: '10px',
+      padding: '12px',
+      display: 'flex',
+      flexDirection: 'column',
+      alignItems: 'center',
+      gap: '8px',
+      boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
+      fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
+    });
+
+    var spinner = document.createElement('div');
+    spinner.id = 'ee-fp-spinner';
+    Object.assign(spinner.style, {
+      width: '28px',
+      height: '28px',
+      border: '3px solid rgba(255,255,255,0.3)',
+      borderTopColor: '#fff',
+      borderRadius: '50%',
+      animation: 'eeFreepikSpin 1s linear infinite'
+    });
+
+    var searching = document.createElement('div');
+    searching.id = 'ee-fp-searching';
+    Object.assign(searching.style, { textAlign: 'center' });
+
+    var label = document.createElement('div');
+    label.id = 'ee-fp-label';
+    label.textContent = 'loading for your code';
+    Object.assign(label.style, { fontSize: '12px', opacity: '0.9' });
+    searching.appendChild(label);
+
+    var codeContainer = document.createElement('div');
+    codeContainer.id = 'ee-fp-code-container';
+    codeContainer.style.display = 'none';
+
+    var codeText = document.createElement('div');
+    codeText.id = 'ee-fp-code-text';
+    Object.assign(codeText.style, {
+      fontSize: '16px',
+      fontWeight: 'bold',
+      textAlign: 'center'
+    });
+
+    var copyStatus = document.createElement('div');
+    copyStatus.id = 'ee-fp-copy-status';
+    Object.assign(copyStatus.style, { fontSize: '12px', textAlign: 'center', marginTop: '4px', opacity: '0.9' });
+
+    var copyBtn = document.createElement('button');
+    copyBtn.type = 'button';
+    copyBtn.id = 'ee-fp-copy-btn';
+    copyBtn.textContent = 'Copy code';
+    Object.assign(copyBtn.style, {
+      display: 'none',
+      fontSize: '12px',
+      padding: '6px 10px',
+      borderRadius: '6px',
+      border: '1px solid #888',
+      background: '#222',
+      color: '#fff',
+      cursor: 'pointer'
+    });
+
+    var retryBtn = document.createElement('button');
+    retryBtn.type = 'button';
+    retryBtn.id = 'ee-fp-retry-btn';
+    retryBtn.textContent = 'Retry';
+    Object.assign(retryBtn.style, {
+      display: 'none',
+      fontSize: '12px',
+      padding: '6px 10px',
+      borderRadius: '6px',
+      border: '1px solid #888',
+      background: '#222',
+      color: '#fff',
+      cursor: 'pointer'
+    });
+
+    codeContainer.appendChild(codeText);
+    codeContainer.appendChild(copyStatus);
+    ov.appendChild(spinner);
+    ov.appendChild(searching);
+    ov.appendChild(codeContainer);
+    ov.appendChild(copyBtn);
+    ov.appendChild(retryBtn);
+    document.documentElement.appendChild(ov);
     log('Overlay injected into page');
     addDiag('Overlay created. Polling will start...', 'step');
 
-    var copyBtn = document.getElementById('ee-fp-copy-btn');
+    if (retryBtn) {
+      retryBtn.addEventListener('click', function () {
+        retryBtn.style.display = 'none';
+        if (spinner) spinner.style.display = '';
+        if (searching) searching.style.display = '';
+        if (label) { label.textContent = 'Retrying\u2026'; }
+        codeFound = false;
+        pollCount = 0;
+        addDiag('Manual retry triggered', 'step');
+        startPolling();
+      });
+    }
+
     if (copyBtn) {
       copyBtn.addEventListener('click', function () {
         var code = lastCode;
         if (!code) return;
         try {
           navigator.clipboard.writeText(code).then(function () {
-            var st = document.getElementById('ee-fp-copy-status');
-            if (st) { st.textContent = 'Copied!'; st.style.color = '#86efac'; }
-            setTimeout(function () { if (st) { st.textContent = 'Paste this code in the input field'; st.style.color = ''; } }, 2000);
-          }).catch(function () {
-            fallbackCopy(code);
-          });
+            if (copyStatus) {
+              copyStatus.textContent = 'Copied!';
+              copyStatus.style.color = '#86efac';
+            }
+            setTimeout(function () {
+              if (copyStatus) {
+                copyStatus.textContent = 'Paste this code in the input field';
+                copyStatus.style.color = '';
+              }
+            }, 2000);
+          }).catch(function () { fallbackCopy(code); });
         } catch (_) {
           fallbackCopy(code);
         }
-      });
-    }
-
-    var retryBtn = document.getElementById('ee-fp-retry-btn');
-    if (retryBtn) {
-      retryBtn.addEventListener('click', function () {
-        retryBtn.style.display = 'none';
-        var spinner = document.getElementById('ee-fp-spinner');
-        if (spinner) spinner.style.display = '';
-        var searching = document.getElementById('ee-fp-searching');
-        if (searching) searching.style.display = '';
-        var label = document.getElementById('ee-fp-label');
-        if (label) { label.textContent = 'Retrying\u2026'; }
-        codeFound = false;
-        pollCount = 0;
-        addDiag('Manual retry triggered', 'step');
-        startPolling();
       });
     }
   }
@@ -204,11 +247,17 @@ try { console.log('%c[EE-Freepik-OTP] Script loaded on ' + location.href, 'color
     var spinner = document.getElementById('ee-fp-spinner');
     var codeEl = document.getElementById('ee-fp-code-text');
     var statusEl = document.getElementById('ee-fp-copy-status');
+    var copyBtn = document.getElementById('ee-fp-copy-btn');
+    var retryBtn = document.getElementById('ee-fp-retry-btn');
+    var label = document.getElementById('ee-fp-label');
 
     if (container) container.style.display = '';
     if (searching) searching.style.display = 'none';
     if (spinner) spinner.style.display = 'none';
     if (codeEl) codeEl.textContent = code;
+    if (copyBtn) copyBtn.style.display = 'inline-block';
+    if (retryBtn) retryBtn.style.display = 'none';
+    if (label) label.textContent = 'code received';
     if (statusEl) { statusEl.textContent = 'Paste this code in the input field'; statusEl.style.color = ''; }
   }
 
@@ -227,7 +276,7 @@ try { console.log('%c[EE-Freepik-OTP] Script loaded on ' + location.href, 'color
     }
     inFlight = true;
     pollCount++;
-    addDiag('Poll #' + pollCount + ': sending FETCH_FREEPIK_OTP to background\u2026', 'step');
+    addDiag('Poll #' + pollCount + ': requesting OTP from server\u2026', 'step');
 
     try {
       if (!chrome || !chrome.runtime || !chrome.runtime.sendMessage) {
@@ -341,21 +390,35 @@ try { console.log('%c[EE-Freepik-OTP] Script loaded on ' + location.href, 'color
   }
 
   function run() {
-    if (!onTarget()) {
-      log('run() - not on target, exiting');
-      return;
-    }
+    if (!onTarget()) return;
+    var key = currentPathKey();
+    if (runStartedForPath === key) return;
+    runStartedForPath = key;
     addDiag('Page: ' + location.href, 'step');
     addDiag('Extension ID: ' + (chrome && chrome.runtime && chrome.runtime.id ? chrome.runtime.id : 'UNKNOWN'), 'info');
-    addDiag('Starting OTP polling in 500ms\u2026', 'step');
-    setTimeout(startPolling, 500);
+    addDiag('Starting OTP polling now\u2026', 'step');
+    setTimeout(startPolling, 0);
+  }
+
+  function startWatcher() {
+    if (watcherStarted) return;
+    watcherStarted = true;
+    watcherTimer = setInterval(function () {
+      try {
+        if (onTarget()) run();
+      } catch (_) {}
+    }, 500);
   }
 
   if (document.readyState === 'loading') {
     log('readyState=loading, waiting for DOMContentLoaded');
-    document.addEventListener('DOMContentLoaded', run, { once: true });
+    document.addEventListener('DOMContentLoaded', function () {
+      startWatcher();
+      run();
+    }, { once: true });
   } else {
     log('readyState=' + document.readyState + ', running immediately');
+    startWatcher();
     run();
   }
 })();

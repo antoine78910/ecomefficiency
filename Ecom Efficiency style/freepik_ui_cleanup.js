@@ -3,7 +3,7 @@
 
   function onTarget() {
     try {
-      if (location.hostname !== 'www.freepik.com') return false;
+      if (location.hostname !== 'www.magnific.com') return false;
       // Don't touch the login flow (handled by auto_login_freepik.js)
       if (String(location.pathname || '').startsWith('/log-in')) return false;
       return true;

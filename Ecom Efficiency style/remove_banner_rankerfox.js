@@ -4,7 +4,7 @@
   const STYLE_ID = 'ee-rankerfox-premium-hide-kloow-sections';
 
   /** Elementor top sections: Kloow promo / tool tiles on premium-plan */
-  const HIDE_SECTION_DATA_IDS = ['c30f32e', '45ae63d', '3d70e89', '30c038e'];
+  const HIDE_SECTION_DATA_IDS = ['c30f32e', '45ae63d', '3d70e89', '30c038e', '46e2fab3'];
 
   function removeStaticChrome() {
     try {
@@ -30,9 +30,24 @@
     } catch (_) {}
   }
 
+  function removeKloowPromoSectionsByContent() {
+    try {
+      const sections = Array.from(document.querySelectorAll('section.elementor-top-section.elementor-element'));
+      for (const sec of sections) {
+        const txt = String(sec.textContent || '').toLowerCase();
+        const hasKloowBadge = txt.includes('opens in kloow');
+        const hasKloowBtn = txt.includes('download kloow');
+        if (hasKloowBadge && hasKloowBtn) {
+          sec.remove();
+        }
+      }
+    } catch (_) {}
+  }
+
   function run() {
     removeStaticChrome();
     ensureHideStyle();
+    removeKloowPromoSectionsByContent();
   }
 
   run();

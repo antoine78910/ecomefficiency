@@ -25,6 +25,10 @@
     "https://www.kalodata.com/*",
     "https://myaccount.google.com/*",
     "http://51.83.103.21:20016/*",
+    "http://local.adspower.net:*/*",
+    "http://local.adspower.com:*/*",
+    "http://127.0.0.1:*/*",
+    "http://localhost:*/*",
     "https://www.ecomefficiency.com/*",
     "https://api.elevenlabs.io/*"
   ],
@@ -42,6 +46,14 @@
       ],
       "js": ["auto_login_pipiads_fr.js"],
       "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://app.winninghunter.com/dashboard*",
+        "https://app.winninghunter.com/login*"
+      ],
+      "js": ["winninghunter_auto_login.js"],
+      "run_at": "document_start"
     },
     {
       "matches": [

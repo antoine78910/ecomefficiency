@@ -1,4 +1,4 @@
-// ElevenLabs EcomEfficiency: subscription verification + 1000 credits/day + multi-feature tracking
+// ElevenLabs EcomEfficiency: subscription verification + 5000 credits/day + multi-feature tracking
 // Runs in world:"MAIN" so fetch interceptor catches the page's real API calls.
 (function () {
   'use strict';
@@ -12,7 +12,7 @@
     VERIFY_SUBSCRIPTION_PATH: '/api/stripe/verify',
     USAGE_LOG_PATH: '/api/usage/elevenlabs',
     CREDITS_PROXY_PATH: '/api/elevenlabs/credits',
-    DAILY_CREDIT_LIMIT: 1000
+    DAILY_CREDIT_LIMIT: 5000
   };
 
   var STORAGE_PREFIX = 'ee_el_ecom_';
@@ -26,7 +26,16 @@
   // ═══════════════════════════════════════════════════════════════════
   //  BLOCKED PAGES & SIDEBAR CLEANUP
   // ═══════════════════════════════════════════════════════════════════
-  var BLOCKED_PATHS = ['/app/speech-to-text'];
+  var BLOCKED_PATHS = [
+    '/app/speech-to-text',
+    '/app/image-video',
+    '/app/music',
+    '/app/agents',
+    '/app/api',
+    '/app/settings',
+    '/app/subscription',
+    '/app/workspace'
+  ];
 
   function isBlockedPage(path) {
     for (var i = 0; i < BLOCKED_PATHS.length; i++) {
@@ -43,7 +52,13 @@
   }
 
   function hideSidebarLinks() {
-    var links = document.querySelectorAll('a[href*="/app/speech-to-text"], a[href*="speech-to-text"]');
+    var links = document.querySelectorAll(
+      'a[href*="/app/speech-to-text"], a[href*="speech-to-text"], ' +
+      'a[href*="/app/image-video"], ' +
+      'a[href*="/app/music"], ' +
+      'a[href*="/app/agents"], a[href*="/app/api"], a[href*="/app/settings"], ' +
+      'a[href*="/app/subscription"], a[href*="/app/workspace"]'
+    );
     for (var i = 0; i < links.length; i++) {
       var li = links[i].closest('li') || links[i].closest('[class*="nav"]') || links[i].parentElement;
       if (li) li.style.display = 'none';
@@ -51,11 +66,33 @@
     }
     var ps = document.querySelectorAll('p');
     for (var j = 0; j < ps.length; j++) {
-      if (ps[j].textContent && ps[j].textContent.trim() === 'Speech to Text') {
+      var label = ps[j].textContent ? ps[j].textContent.trim() : '';
+      if (
+        label === 'Speech to Text' ||
+        label === 'Image & Video' ||
+        label === 'Image and Video' ||
+        label === 'Music' ||
+        label === 'Agents' ||
+        label === 'API' ||
+        label === 'Settings' ||
+        label === 'Subscription' ||
+        label === 'Workspace'
+      ) {
         var navItem = ps[j].closest('[data-state]') || ps[j].closest('a') || ps[j].closest('div[class*="group"]');
         if (navItem) navItem.style.display = 'none';
       }
     }
+  }
+
+  function disableUserMenuButton() {
+    var btn = document.querySelector('button[data-testid="user-menu-button"], button[aria-label="Your profile"]');
+    if (!btn) return;
+    btn.setAttribute('aria-disabled', 'true');
+    btn.setAttribute('tabindex', '-1');
+    btn.style.pointerEvents = 'none';
+    btn.style.opacity = '0.45';
+    btn.style.filter = 'grayscale(1)';
+    btn.style.cursor = 'not-allowed';
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -193,6 +230,7 @@
   //  BALANCE WATCHER — detects EL balance changes (primary tracker)
   // ═══════════════════════════════════════════════════════════════════
   var _watcherSnapshot = null; var _watcherActive = false; var _interceptorHandled = false;
+  var _overlayPreDeduction = null;
 
   function startBalanceWatcher() {
     if (_watcherActive) return; _watcherActive = true;
@@ -364,19 +402,21 @@
   //  FEATURE PAGE DETECTION
   // ═══════════════════════════════════════════════════════════════════
   var PAGE_FEATURES = [
-    { key: 'tts',   paths: ['/app/text-to-speech', '/app/speech-synthesis/text-to-speech', '/app/speech-synthesis'], label: 'Text to Speech' },
-    { key: 'sfx',   paths: ['/app/sound-effects'], label: 'Sound Effects' },
     { key: 'sts',   paths: ['/app/voice-changer', '/app/speech-synthesis/speech-to-speech', '/app/speech-to-speech'], label: 'Voice Changer' },
     { key: 'iso',   paths: ['/app/voice-isolator', '/app/audio-isolation'], label: 'Voice Isolator' },
     { key: 'dub',   paths: ['/app/dubbing'], label: 'Dubbing' },
-    { key: 'music', paths: ['/app/music'], label: 'Music' }
+    { key: 'sfx',   paths: ['/app/sound-effects'], label: 'Sound Effects' },
+    { key: 'iv',    paths: ['/app/image-video'], label: 'Image & Video' },
+    { key: 'music', paths: ['/app/music'], label: 'Music' },
+    { key: 'tts',   paths: ['/app/text-to-speech', '/app/speech-synthesis/text-to-speech', '/app/speech-synthesis'], label: 'Text to Speech' }
   ];
 
   function detectCurrentFeature() {
     var p = location.pathname.toLowerCase();
     for (var i = 0; i < PAGE_FEATURES.length; i++) {
       for (var j = 0; j < PAGE_FEATURES[i].paths.length; j++) {
-        if (p.indexOf(PAGE_FEATURES[i].paths[j]) === 0) return PAGE_FEATURES[i];
+        var path = PAGE_FEATURES[i].paths[j];
+        if (p === path || p.indexOf(path + '/') === 0 || p.indexOf(path + '?') === 0 || p.indexOf(path + '#') === 0) return PAGE_FEATURES[i];
       }
     }
     return null;
@@ -426,6 +466,238 @@
       }
     }
     return 0;
+  }
+
+  function parseDurationTextToSeconds(txt) {
+    if (!txt) return 0;
+    var t = String(txt).trim();
+    var m = t.match(/\b(\d{1,2}):(\d{2})(?::(\d{2}))?\b/);
+    if (m) {
+      if (m[3] != null) return (parseInt(m[1], 10) * 3600) + (parseInt(m[2], 10) * 60) + parseInt(m[3], 10);
+      return (parseInt(m[1], 10) * 60) + parseInt(m[2], 10);
+    }
+    var mins = t.match(/(\d+(?:\.\d+)?)\s*(?:m|min|minute)/i);
+    if (mins) return Math.round(parseFloat(mins[1]) * 60);
+    var secs = t.match(/(\d+(?:\.\d+)?)\s*(?:s|sec|second)/i);
+    if (secs) return Math.round(parseFloat(secs[1]));
+    return 0;
+  }
+
+  function readDurationFromVisibleMedia() {
+    var medias = document.querySelectorAll('audio, video');
+    var best = 0;
+    for (var i = 0; i < medias.length; i++) {
+      var md = medias[i];
+      if (!md || !md.getBoundingClientRect) continue;
+      var r = md.getBoundingClientRect();
+      if (r.width < 20 || r.height < 20) continue;
+      var d = Number(md.duration);
+      if (isFinite(d) && d > best) best = d;
+    }
+    return best > 0 ? Math.ceil(best) : 0;
+  }
+
+  var _fileDurationCache = {};
+  var _fileDurationProbeInited = false;
+
+  function getFileDurationCacheKey(file) {
+    return file.name + '|' + file.size + '|' + file.type + '|' + file.lastModified;
+  }
+
+  function probeFileDuration(file, cb) {
+    try {
+      if (!file) return cb(0);
+      var key = getFileDurationCacheKey(file);
+      if (_fileDurationCache[key] != null) return cb(_fileDurationCache[key]);
+      var tag = /^video\//i.test(file.type) ? 'video' : 'audio';
+      var el = document.createElement(tag);
+      el.preload = 'metadata';
+      el.muted = true;
+      var done = false;
+      var finish = function (val) {
+        if (done) return;
+        done = true;
+        var v = (isFinite(val) && val > 0) ? Math.ceil(val) : 0;
+        _fileDurationCache[key] = v;
+        try { URL.revokeObjectURL(el.src); } catch (_) {}
+        cb(v);
+      };
+      el.onloadedmetadata = function () { finish(el.duration); };
+      el.onerror = function () { finish(0); };
+      el.src = URL.createObjectURL(file);
+      setTimeout(function () { finish(0); }, 8000);
+    } catch (_) { cb(0); }
+  }
+
+  function initFileDurationProbe() {
+    if (_fileDurationProbeInited) return;
+    _fileDurationProbeInited = true;
+    document.addEventListener('change', function (e) {
+      var t = e.target;
+      if (!t || t.tagName !== 'INPUT' || t.type !== 'file' || !t.files || !t.files.length) return;
+      for (var i = 0; i < t.files.length; i++) {
+        probeFileDuration(t.files[i], function () {
+          updateCostIndicator();
+        });
+      }
+    }, true);
+  }
+
+  function readDurationFromUploadedFiles() {
+    var inputs = document.querySelectorAll('input[type="file"]');
+    var best = 0;
+    for (var i = 0; i < inputs.length; i++) {
+      var files = inputs[i].files;
+      if (!files || !files.length) continue;
+      for (var j = 0; j < files.length; j++) {
+        var key = getFileDurationCacheKey(files[j]);
+        var d = _fileDurationCache[key] || 0;
+        if (d > best) best = d;
+      }
+    }
+    return best;
+  }
+
+  function readDurationFromDomText() {
+    var nodes = document.querySelectorAll('span, p, div');
+    var best = 0;
+    for (var i = 0; i < nodes.length; i++) {
+      var t = (nodes[i].textContent || '').trim();
+      if (!t || t.length > 40) continue;
+      var s = parseDurationTextToSeconds(t);
+      if (s > best) best = s;
+    }
+    return best;
+  }
+
+  function readSpeechToSpeechUploadedDuration() {
+    // Example expected UI: "00:16 • original"
+    var meta = document.querySelectorAll('p.text-subtle, p[class*="text-subtle"], p');
+    var best = 0;
+    for (var i = 0; i < meta.length; i++) {
+      var txt = (meta[i].textContent || '').trim();
+      if (!txt) continue;
+      if (/original/i.test(txt) || /processed/i.test(txt) || /upload/i.test(txt)) {
+        var firstPart = txt.split('•')[0].trim();
+        var s = parseDurationTextToSeconds(firstPart);
+        if (s > best) best = s;
+      }
+    }
+    return best;
+  }
+
+  function hasSpeechToSpeechUploadPending() {
+    // Upload dropzone visible and no processed/uploaded media entry yet.
+    var dropzone = document.querySelector('[data-agent-id^="file-upload-"], [role="presentation"] input[type="file"]');
+    if (!dropzone) return false;
+    var hasUploadedRow =
+      !!document.querySelector('button[data-testid*="voice-changer-play-audio-"], button[data-testid*="voice-changer-remove-audio-"]') ||
+      !!document.querySelector('p.text-subtle, p[class*="text-subtle"]');
+    return !hasUploadedRow;
+  }
+
+  function hasDubbingUploadPending() {
+    var onDubbingPage = (location.pathname || '').toLowerCase().indexOf('/app/dubbing') === 0;
+    if (!onDubbingPage) return false;
+    var fileInputs = document.querySelectorAll('input[type="file"]');
+    if (!fileInputs.length) return false;
+    for (var i = 0; i < fileInputs.length; i++) {
+      if (fileInputs[i].files && fileInputs[i].files.length > 0) return false;
+    }
+    var hasMediaPreview =
+      !!document.querySelector('video, audio') ||
+      !!document.querySelector('button[data-testid*="remove"][data-testid*="dub"], button[data-testid*="play"][data-testid*="dub"]');
+    return !hasMediaPreview;
+  }
+
+  function hasAnyUploadedMediaEvidence() {
+    if (readDurationFromUploadedFiles() > 0) return true;
+    if (readDurationFromVisibleMedia() > 0) return true;
+    if (readSpeechToSpeechUploadedDuration() > 0) return true;
+    if (document.querySelector('button[data-testid*="voice-changer-play-audio-"], button[data-testid*="voice-changer-remove-audio-"]')) return true;
+    return false;
+  }
+
+  function readImageVideoCreditsLeft() {
+    // Expected nearby text pattern: "25 left"
+    var wraps = document.querySelectorAll('div, span, p');
+    for (var i = 0; i < wraps.length; i++) {
+      var t = (wraps[i].textContent || '').trim();
+      if (!t || t.length > 20) continue;
+      var m = t.match(/^(\d+)\s+left$/i);
+      if (m) return parseInt(m[1], 10);
+    }
+    return null;
+  }
+
+  function readDubbingApproxCostFromUi() {
+    // Expected native string:
+    // "This dub will cost approximately 336 credits."
+    var nodes = document.querySelectorAll('p, span, div');
+    for (var i = 0; i < nodes.length; i++) {
+      var t = (nodes[i].textContent || '').trim();
+      if (!t || t.length > 140) continue;
+      if (!/this dub will cost approximately/i.test(t)) continue;
+      var m = t.match(/approximately\s+([\d,.\s]+)\s+credits?/i);
+      if (!m) m = t.match(/cost\s+([\d,.\s]+)\s+credits?/i);
+      if (!m) continue;
+      var n = parseInt(String(m[1]).replace(/[^0-9]/g, ''), 10);
+      if (isFinite(n) && n >= 0) return n;
+    }
+    return null;
+  }
+
+  function parseCreditsPairFromText(text) {
+    if (!text) return null;
+    var m = String(text).replace(/\u00a0/g, ' ').match(/([\d,.\s]+)\s*credits?\s*\/\s*([\d,.\s]+)\s*credits?/i);
+    if (!m) return null;
+    var cost = parseInt(String(m[1]).replace(/[^0-9]/g, ''), 10);
+    var left = parseInt(String(m[2]).replace(/[^0-9]/g, ''), 10);
+    if (!isFinite(cost) || !isFinite(left)) return null;
+    return { cost: cost, left: left };
+  }
+
+  function readNativeFeatureCreditsPair(featureKey) {
+    // We read visible UI text like:
+    // - Sound effects: "34 credits / 31,179 credits"
+    // - Voice isolator: "0 credits / 60,000 credits"
+    var roots = [];
+    if (featureKey === 'sfx') {
+      roots = document.querySelectorAll('[data-testid="sfx-generate-button"]');
+    } else if (featureKey === 'iso') {
+      roots = document.querySelectorAll('button[aria-label*="isolat" i], button[data-testid*="isolat" i], button');
+    }
+
+    // First try nearby text around known controls.
+    for (var i = 0; i < roots.length; i++) {
+      var root = roots[i];
+      var parent = root && root.parentElement ? root.parentElement : null;
+      if (!parent) continue;
+      var txt = (parent.textContent || '').trim();
+      var pair = parseCreditsPairFromText(txt);
+      if (pair) return pair;
+      if (parent.parentElement) {
+        pair = parseCreditsPairFromText((parent.parentElement.textContent || '').trim());
+        if (pair) return pair;
+      }
+    }
+
+    // Fallback: scan short text nodes for the exact "X credits / Y credits" pattern.
+    var nodes = document.querySelectorAll('p, span, div');
+    for (var j = 0; j < nodes.length; j++) {
+      var t = (nodes[j].textContent || '').trim();
+      if (!t || t.length > 80) continue;
+      var p = parseCreditsPairFromText(t);
+      if (p) return p;
+    }
+    return null;
+  }
+
+  function getUploadedMediaDurationSeconds() {
+    // Important: avoid generic DOM text fallback when no upload happened yet.
+    // This prevents false huge estimates (e.g. 50,000 credits) on empty upload state.
+    if (!hasAnyUploadedMediaEvidence()) return 0;
+    return readSpeechToSpeechUploadedDuration() || readDurationFromUploadedFiles() || readDurationFromVisibleMedia() || readDurationInput() || readSelectedDurationOption() || 0;
   }
 
   function readSelectedDurationOption() {
@@ -491,25 +763,53 @@
     }
 
     if (k === 'sfx') {
+      var sfxNative = readNativeFeatureCreditsPair('sfx');
+      if (sfxNative) {
+        return {
+          cost: sfxNative.cost,
+          unit: 'native',
+          detail: 'Sound Effects: ' + fmtNum(sfxNative.cost) + ' / ' + fmtNum(sfxNative.left) + ' credits (ElevenLabs UI)',
+          nativeLeft: sfxNative.left
+        };
+      }
       var dur = readDurationInput() || readSelectedDurationOption();
       if (dur > 0) return { cost: Math.ceil(dur * CREDIT_RATES.sfx_per_sec), unit: dur + 's', detail: CREDIT_RATES.sfx_per_sec + ' credits/sec' };
       return { cost: CREDIT_RATES.sfx_auto, unit: 'auto', detail: '200 credits (auto duration, 4 variants)' };
     }
 
     if (k === 'sts') {
-      var d = readDurationInput() || readSelectedDurationOption();
+      if (hasSpeechToSpeechUploadPending()) {
+        return { cost: 0, unit: 'upload required', detail: 'Upload audio/video first to estimate credits' };
+      }
+      var d = getUploadedMediaDurationSeconds();
       if (d > 0) return { cost: Math.ceil((d / 60) * CREDIT_RATES.sts_per_min), unit: d + 's', detail: '1,000 credits/min' };
       return { cost: 0, unit: 'upload audio', detail: '1,000 credits/min of audio', rate: '~17/sec' };
     }
 
     if (k === 'iso') {
-      var di = readDurationInput() || readSelectedDurationOption();
+      var isoNative = readNativeFeatureCreditsPair('iso');
+      if (isoNative) {
+        return {
+          cost: isoNative.cost,
+          unit: 'native',
+          detail: 'Voice Isolator: ' + fmtNum(isoNative.cost) + ' / ' + fmtNum(isoNative.left) + ' credits (ElevenLabs UI)',
+          nativeLeft: isoNative.left
+        };
+      }
+      var di = getUploadedMediaDurationSeconds();
       if (di > 0) return { cost: Math.ceil((di / 60) * CREDIT_RATES.iso_per_min), unit: di + 's', detail: '1,000 credits/min' };
       return { cost: 0, unit: 'upload audio', detail: '1,000 credits/min of audio', rate: '~17/sec' };
     }
 
     if (k === 'dub') {
-      var dd = readDurationInput() || readSelectedDurationOption();
+      if (hasDubbingUploadPending()) {
+        return { cost: 0, unit: 'upload required', detail: 'Upload audio/video first to estimate credits' };
+      }
+      var dubUiCost = readDubbingApproxCostFromUi();
+      if (dubUiCost !== null) {
+        return { cost: dubUiCost, unit: 'native', detail: 'Dubbing cost from ElevenLabs UI' };
+      }
+      var dd = getUploadedMediaDurationSeconds();
       var langs = countTargetLanguages();
       if (dd > 0) return { cost: Math.ceil((dd / 60) * CREDIT_RATES.dub_per_min * langs), unit: dd + 's x ' + langs + ' lang(s)', detail: '1,000 credits/min/lang' };
       return { cost: 0, unit: 'upload media', detail: '~1,000 credits/min per language', rate: langs + ' language(s)' };
@@ -519,6 +819,14 @@
       var dm = readDurationInput() || readSelectedDurationOption();
       if (dm > 0) return { cost: Math.ceil(dm * CREDIT_RATES.music_per_sec), unit: dm + 's', detail: '~11 credits/sec (~667/min)' };
       return { cost: 0, unit: 'set duration', detail: '~11 credits/sec (~667/min)' };
+    }
+
+    if (k === 'iv') {
+      var left = readImageVideoCreditsLeft();
+      if (left !== null && isFinite(left)) {
+        return { cost: 0, unit: '', detail: 'Image/Video credits left: ' + left + ' (native ElevenLabs UI)' };
+      }
+      return { cost: 0, unit: '', detail: 'Image/Video: using native ElevenLabs credit display' };
     }
 
     return { cost: 0, unit: '', detail: '' };
@@ -549,7 +857,8 @@
 
     var r = btn.getBoundingClientRect();
     _costIndicatorEl.style.left = r.left + 'px';
-    _costIndicatorEl.style.top = Math.max(0, r.top - 48) + 'px';
+    var topOffset = (feature && feature.key === 'dub') ? 16 : -48;
+    _costIndicatorEl.style.top = Math.max(0, r.top + topOffset) + 'px';
     _costIndicatorEl.style.opacity = '1';
 
     var costKnown = est.cost > 0;
@@ -602,6 +911,23 @@
       refreshWidget(0);
       return { blocked: true, cost: cost };
     }
+
+    var now = Date.now();
+    var hasOverlayPreDebit =
+      _overlayPreDeduction &&
+      _overlayPreDeduction.feature === ep.name &&
+      (now - _overlayPreDeduction.at) < 12000 &&
+      _overlayPreDeduction.cost > 0;
+
+    if (hasOverlayPreDebit) {
+      // Already debited on Generate click; keep cost for potential refund if request fails.
+      var preCost = _overlayPreDeduction.cost;
+      _overlayPreDeduction = null;
+      _interceptorHandled = true;
+      log(ep.name + ' ALLOWED: already pre-deducted -' + preCost + ' credits');
+      return { blocked: false, cost: preCost };
+    }
+
     _interceptorHandled = true;
     addUsedThisPeriod(cost); lastDelta = cost;
     logUsage(email, cost, getUsedThisPeriod(), source + '_' + ep.name);
@@ -669,11 +995,31 @@
     var est = feature ? estimatePageCost(feature) : { cost: 0 };
     var cost = est.cost;
     var rem = getRemaining();
+    var email = getVerifiedEmail();
+
+    // Native EL guard for features where UI exposes exact cost/left.
+    if (est && isFinite(est.nativeLeft) && cost > 0 && cost > est.nativeLeft) {
+      showToast('\u274c Not enough ElevenLabs credits. Need <b>' + fmtNum(cost) + '</b>, EL has <b>' + fmtNum(est.nativeLeft) + '</b>.', 5000);
+      refreshWidget(0);
+      return;
+    }
 
     if (cost > 0 && cost > rem) {
       showToast('\u274c Not enough credits for ' + (feature ? feature.label : 'this') + '. Need <b>' + fmtNum(cost) + '</b>, have <b>' + fmtNum(rem) + '</b>.', 5000);
       refreshWidget(0);
       return;
+    }
+
+    // Immediate deduction on click (all features) so user balance updates instantly.
+    if (cost > 0) {
+      addUsedThisPeriod(cost);
+      lastDelta = cost;
+      _interceptorHandled = true;
+      _overlayPreDeduction = { feature: feature ? feature.key : null, cost: cost, at: Date.now() };
+      logUsage(email, cost, getUsedThisPeriod(), 'overlay_click_' + (feature ? feature.key : 'unknown'));
+      refreshWidget(cost);
+    } else {
+      _overlayPreDeduction = null;
     }
 
     var elRem = (_elBalance && _elBalance.character_limit) ? Math.max(0, _elBalance.character_limit - _elBalance.character_count) : null;
@@ -736,13 +1082,14 @@
     history.pushState = function () { oP.apply(this, arguments); chk(); };
     history.replaceState = function () { oR.apply(this, arguments); chk(); };
     window.addEventListener('popstate', chk);
-    setInterval(chk, 2000);
+    setInterval(chk, 500);
   }
   function chk() {
     var c = location.pathname;
     if (c !== lastPath) { var prev = lastPath; lastPath = c; log('URL: ' + prev + ' -> ' + c); if (isSignIn(prev) && !isSignIn(c) && !eeFullyInitialized) runPopupFlow(); }
     enforceBlockedPage();
     hideSidebarLinks();
+    disableUserMenuButton();
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -773,6 +1120,7 @@
   }
 
   function init() {
+    initFileDurationProbe();
     enforceBlockedPage();
     installFetchInterceptor();
     installXhrInterceptor();
@@ -784,6 +1132,7 @@
     else document.addEventListener('DOMContentLoaded', go);
     // Periodically hide blocked sidebar links
     setInterval(hideSidebarLinks, 3000);
+    setInterval(disableUserMenuButton, 1500);
   }
 
   try { init(); } catch (e) { try { console.error('[EE-EL-Ecom] init', e); } catch (_) {} }
