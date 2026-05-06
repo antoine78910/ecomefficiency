@@ -20,6 +20,26 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith('/api/admin/')
 
   if (isAdminSurface) {
+    // Admin UI must live on the main domain (not app.*) to avoid auth cookie scope issues.
+    // Redirect app.* → www. for all /admin routes.
+    try {
+      const hostHeader = String(req.headers.get('host') || '')
+      const hostname = hostHeader.toLowerCase().split(':')[0]
+      const bareHostname = hostname.replace(/^www\./, '')
+      const isLocalhostHost =
+        hostname === 'localhost' ||
+        hostname === '127.0.0.1' ||
+        hostname.endsWith('.localhost')
+
+      if (!isLocalhostHost && bareHostname.startsWith('app.')) {
+        const target = req.nextUrl.clone()
+        target.protocol = 'https:'
+        target.hostname = 'www.ecomefficiency.com'
+        target.port = ''
+        return NextResponse.redirect(target, 302)
+      }
+    } catch (_) {}
+
     // New behavior (requested): allow /admin if the user is already authenticated in the app.
     // We treat any valid Supabase auth cookie as "logged in".
     const hasUserAuth = (() => {
