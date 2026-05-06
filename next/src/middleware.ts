@@ -116,9 +116,22 @@ export async function middleware(req: NextRequest) {
     // If not authorized, send to /admin/login (no "Unauthorized" HTML page).
     if (!legacyTokenOk && !sessionOk) {
       if (pathname.startsWith('/admin')) {
+        const hostHeader = String(req.headers.get('host') || '')
+        const hostname = hostHeader.toLowerCase().split(':')[0]
+        const isLocalhostHost =
+          hostname === 'localhost' ||
+          hostname === '127.0.0.1' ||
+          hostname.endsWith('.localhost')
+
         const target = req.nextUrl.clone()
         target.pathname = '/admin/login'
         target.search = ''
+        // Ensure we never redirect users to app.* for admin login (it doesn't exist there).
+        if (!isLocalhostHost) {
+          target.protocol = 'https:'
+          target.hostname = 'ecomefficiency.com'
+          target.port = ''
+        }
         const res = NextResponse.redirect(target, 302)
         res.headers.set('X-Robots-Tag', 'noindex, nofollow')
         res.headers.set('Cache-Control', 'no-store')
