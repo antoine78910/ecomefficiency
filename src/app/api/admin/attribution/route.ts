@@ -39,18 +39,18 @@ async function mapWithLimit<T, R>(items: T[], limit: number, fn: (item: T, idx: 
 export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
-    const token = String(searchParams.get("token") || "");
-    const expected = process.env.ADMIN_PANEL_TOKEN || "Zjhfc82005ad";
-    // Allow either query param token OR httpOnly cookie token (set by middleware)
+    // Auth: allow only if the user is already logged in (Supabase cookies present).
     const cookieHeader = String((req as any)?.headers?.get?.("cookie") || "");
-    const cookieToken = (() => {
-      const m = cookieHeader.match(/(?:^|;\s*)ee_admin_token=([^;]+)/);
-      return m ? decodeURIComponent(m[1]) : "";
+    const hasUserAuth = (() => {
+      try {
+        // Heuristic: any sb-* cookie with a non-trivial value indicates a logged-in session
+        const parts = cookieHeader.split(";").map((s: string) => s.trim());
+        return parts.some((p: string) => /^sb-[^=]+=/.test(p) && p.length > 20) || parts.some((p: string) => /^ee-auth=1(?:$|;)/.test(p));
+      } catch {
+        return false;
+      }
     })();
-    const provided = token || cookieToken;
-    if (!expected || provided !== expected) {
-      return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
-    }
+    if (!hasUserAuth) return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;

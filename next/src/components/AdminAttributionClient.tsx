@@ -33,12 +33,11 @@ export default function AdminAttributionClient({ token }: { token?: string }) {
     try {
       const url = new URL("/api/admin/attribution", window.location.origin);
       url.searchParams.set("limit", "200");
-      if (token) url.searchParams.set("token", token);
       const r = await fetch(url.toString(), { cache: "no-store" });
       const j = await r.json().catch(() => ({} as any));
       if (!r.ok || !j?.ok) {
         if (r.status === 401) {
-          if (!token) window.location.href = "/admin/login";
+          window.location.href = "/sign-in";
           return;
         }
         throw new Error(String(j?.error || "Failed to load"));
@@ -79,7 +78,7 @@ export default function AdminAttributionClient({ token }: { token?: string }) {
   return (
     <div className="min-h-screen bg-black text-white px-6 py-10">
       <div className="max-w-7xl mx-auto">
-        {!token ? <AdminNavigation /> : null}
+        <AdminNavigation />
 
         <div className="mb-6">
           <h1 className="text-3xl font-bold flex items-center gap-3">
@@ -89,12 +88,6 @@ export default function AdminAttributionClient({ token }: { token?: string }) {
           <p className="text-gray-400 text-sm mt-2">
             Source choisie sur <code className="text-gray-300">/getting-started</code> + statut payé (Stripe).
           </p>
-          {token ? (
-            <p className="text-gray-500 text-xs mt-2">
-              Page protégée par <code className="text-gray-300">ADMIN_PANEL_TOKEN</code>. Ouvre{" "}
-              <code className="text-gray-300">/admin/attribution?token=…</code>.
-            </p>
-          ) : null}
           {!stripeEnabled ? (
             <p className="text-yellow-300/80 text-xs mt-2 flex items-center gap-2">
               <HelpCircle className="h-4 w-4" />
@@ -132,7 +125,7 @@ export default function AdminAttributionClient({ token }: { token?: string }) {
             {loading ? <span className="text-gray-400 text-sm">Loading…</span> : null}
             {error ? <span className="text-red-400 text-sm">{error}</span> : null}
             <div className="ml-auto">
-              {!token ? <AdminLogoutButton /> : null}
+              <AdminLogoutButton />
             </div>
           </div>
         </div>

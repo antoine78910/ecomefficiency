@@ -134,21 +134,7 @@ function buildSummaries(rows: any[]): GroupSummary[] {
   return summaries
 }
 
-export default async function AdminSessionsPage({ searchParams }: { searchParams: Promise<{ token?: string }> }) {
-  // Protection simple par token via query (?token=...)
-  const { token = '' } = await searchParams
-  const expected = process.env.ADMIN_PANEL_TOKEN || ''
-  if (!expected || token !== expected) {
-    return (
-      <div className="min-h-screen bg-black text-white flex items-center justify-center px-6">
-        <div className="max-w-xl text-center">
-          <h1 className="text-2xl font-bold mb-2">Unauthorized</h1>
-          <p className="text-gray-400">Provide a valid token to access this page.</p>
-        </div>
-      </div>
-    )
-  }
-
+export default async function AdminSessionsPage() {
   const rows = await fetchSessions()
   const summaries = buildSummaries(rows)
   
@@ -175,9 +161,6 @@ export default async function AdminSessionsPage({ searchParams }: { searchParams
           )}
         </div>
         
-        <p className="text-gray-500 mt-6 text-xs">
-          Protect this page via env var <code>ADMIN_PANEL_TOKEN</code> and open <code>/admin/sessions?token=...</code>.
-        </p>
       </div>
     </div>
   )
