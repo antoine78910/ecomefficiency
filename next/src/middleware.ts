@@ -87,6 +87,24 @@ export async function middleware(req: NextRequest) {
     const legacyTokenOk = Boolean(expectedAdminToken && provided === expectedAdminToken)
     const sessionOk = await verifyAdminSessionCookie(req.cookies.get('admin_session')?.value)
 
+    // Always allow the admin login page to load (otherwise it can redirect-loop).
+    // If already authorized, bounce to the admin dashboard.
+    if (pathname === '/admin/login' || pathname.startsWith('/admin/login/')) {
+      if (legacyTokenOk || sessionOk) {
+        const target = req.nextUrl.clone()
+        target.pathname = '/admin/sessions'
+        target.search = ''
+        const res = NextResponse.redirect(target, 302)
+        res.headers.set('X-Robots-Tag', 'noindex, nofollow')
+        res.headers.set('Cache-Control', 'no-store')
+        return res
+      }
+      const res = NextResponse.next({ request: { headers: req.headers } })
+      res.headers.set('X-Robots-Tag', 'noindex, nofollow')
+      res.headers.set('Cache-Control', 'no-store')
+      return res
+    }
+
     // If token is provided via query, store it once as cookie (legacy flow).
     const shouldSetCookie =
       Boolean(expectedAdminToken) &&
