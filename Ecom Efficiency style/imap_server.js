@@ -954,11 +954,14 @@ app.get('/otp-freepik', async (req, res) => {
 // =======================
 async function handleFlairMagicLink(req, res) {
   console.log('[imap-flair] Magic-link request received at', new Date().toISOString());
-  const FLAIR_EXTRACT_VERSION = '2026-02-08-flairlink-v3-validate';
+  const FLAIR_EXTRACT_VERSION = '2026-05-02-flairlink-v5-fresh-1m';
 
-  // Deduplicate in-flight requests (extension can poll quickly)
+  const sinceMsReq = Number(req.query && req.query.sinceMs != null ? req.query.sinceMs : 0) || 0;
+  const inflightKey = `flair:${sinceMsReq}`;
+
+  // Deduplicate in-flight requests (extension can poll quickly); scope by sinceMs
   const now = Date.now();
-  const inflight = flairInflight.get('flair');
+  const inflight = flairInflight.get(inflightKey);
   if (inflight && (now - inflight.ts) < 25_000) {
     console.log('[imap-flair] Reusing in-flight IMAP attempt');
     try {
@@ -982,7 +985,9 @@ async function handleFlairMagicLink(req, res) {
     port: imapPort,
     user: imapUser ? imapUser.substring(0, 3) + '***' : 'missing',
     tls: imapTLS,
-    method: imapMethod
+    method: imapMethod,
+    sinceMs: sinceMsReq || undefined,
+    maxAgeSec: 60
   });
 
   if (!imapHost || !imapUser || !imapPass) {
@@ -1007,32 +1012,65 @@ async function handleFlairMagicLink(req, res) {
       await client.connect();
       const lock = await client.getMailboxLock('INBOX');
       try {
-        // Simpler strategy: always inspect the latest email only.
         const all = await client.search({}, { uid: true });
-        if (Array.isArray(all) && all.length > 0) {
-          const latestUid = all[all.length - 1];
-          try {
-            const msg = await client.fetchOne(latestUid, { envelope: true }, { uid: true });
-            const env = msg && msg.envelope ? msg.envelope : null;
-            const fromAddress = pickFirstAddress(env && env.from);
-            const toAddress = pickFirstAddress(env && env.to);
-            const subject = safeStr(env && env.subject);
-            const { content } = await client.download(latestUid, null, { uid: true });
-            const raw = await contentToUtf8(content);
-            const extracted = extractFlairMagicLinkFromRaw(raw);
+        if (!Array.isArray(all) || all.length === 0) {
+          console.log('[imap-flair] INBOX empty');
+        } else {
+          const NOW = Date.now();
+          /** Only consider emails received in the last minute (avoid stale Flair messages). */
+          const MAX_AGE_MS = 60 * 1000;
+          /** When the extension passes sinceMs (user clicked Continue), ignore older envelope dates. */
+          const SINCE_SLACK_MS = 45 * 1000;
+          const uids = all.slice(-60);
+          let bestDt = 0;
+          let best = { score: -1, link: '', picked: null };
 
-            picked = {
-              uid: latestUid,
-              from: fromAddress,
-              to: toAddress,
-              subject,
-              date: env && env.date ? String(env.date) : '',
-              score: 0
-            };
-            link = extracted || '';
-          } catch (_) {
-            // Keep default empty result on latest-mail read failure.
+          for (let i = uids.length - 1; i >= 0; i--) {
+            const uid = uids[i];
+            try {
+              // eslint-disable-next-line no-await-in-loop
+              const msg = await client.fetchOne(uid, { envelope: true }, { uid: true });
+              const env = msg && msg.envelope ? msg.envelope : null;
+              const dt = env && env.date ? new Date(env.date).getTime() : 0;
+              if (!dt) continue;
+              if (NOW - dt > MAX_AGE_MS) continue;
+              if (sinceMsReq > 0 && dt < sinceMsReq - SINCE_SLACK_MS) continue;
+
+              const fromAddress = pickFirstAddress(env && env.from);
+              const toAddress = pickFirstAddress(env && env.to);
+              const subject = envelopeSubject(env);
+              // eslint-disable-next-line no-await-in-loop
+              const { content } = await client.download(uid, null, { uid: true });
+              // eslint-disable-next-line no-await-in-loop
+              const raw = await contentToUtf8(content);
+              const extracted = extractFlairMagicLinkFromRaw(raw);
+              if (!extracted) continue;
+
+              const score = scoreEmailForService(
+                { raw, from: fromAddress, subject, to: toAddress },
+                'flair'
+              );
+              if (score < 8) continue;
+
+              const row = {
+                uid,
+                from: fromAddress,
+                to: toAddress,
+                subject,
+                date: env && env.date ? String(env.date) : '',
+                score
+              };
+              if (dt > bestDt || (dt === bestDt && score > best.score)) {
+                bestDt = dt;
+                best = { score, link: extracted, picked: row };
+              }
+            } catch (_) {
+              continue;
+            }
           }
+
+          link = best.link || '';
+          picked = best.picked;
         }
       } finally {
         lock.release();
@@ -1061,7 +1099,7 @@ async function handleFlairMagicLink(req, res) {
     return out;
   })();
 
-  flairInflight.set('flair', { ts: now, promise: workPromise });
+  flairInflight.set(inflightKey, { ts: now, promise: workPromise });
   try {
     const out = await workPromise;
     return res.json(out);
@@ -1069,8 +1107,8 @@ async function handleFlairMagicLink(req, res) {
     console.error('[imap-flair] Error while fetching magic link:', e);
     return res.status(500).json({ error: (e && e.message) ? e.message : String(e) });
   } finally {
-    const cur = flairInflight.get('flair');
-    if (cur && cur.promise === workPromise) flairInflight.delete('flair');
+    const cur = flairInflight.get(inflightKey);
+    if (cur && cur.promise === workPromise) flairInflight.delete(inflightKey);
   }
 }
 

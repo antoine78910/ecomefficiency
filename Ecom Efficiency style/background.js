@@ -723,6 +723,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     (async () => {
       try {
+        const sinceMs =
+          message && message.sinceMs != null && Number.isFinite(Number(message.sinceMs))
+            ? Math.floor(Number(message.sinceMs))
+            : 0;
+
         const baseUrls = [
           'http://51.83.103.21:20016/flair-link',
           'http://46.224.61.179:20016/flair-link'
@@ -730,13 +735,17 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
         let lastErr = null;
         const tried = [];
 
+        function flairLinkUrl(baseUrl) {
+          const q = new URLSearchParams();
+          q.set('t', String(Date.now()));
+          if (sinceMs > 0) q.set('sinceMs', String(sinceMs));
+          return `${baseUrl}?${q.toString()}`;
+        }
+
         // Single attempt per request (caller does polling)
         for (let i = 0; i < baseUrls.length; i++) {
           const baseUrl = baseUrls[i];
-          const urlVariants = [
-            baseUrl + '?t=' + Date.now(),
-            baseUrl
-          ];
+          const urlVariants = [flairLinkUrl(baseUrl)];
 
           for (const url of urlVariants) {
             tried.push(url);
@@ -1129,6 +1138,7 @@ function blockChromeURLs() {
     'chrome://extensions/',
     'https://app.trendtrack.io/en/workspace/w-1-z0L28yN/settings*',
     'https://app.trendtrack.io/en/workspace/w-1-YiSH7pB/settings*',
+    'https://claude.ai/settings*',
     'https://myaccount.google.com/*',
     'https://app.winninghunter.com/profile',
     'https://www.kalodata.com/me*',
@@ -1279,6 +1289,11 @@ chrome.webRequest.onBeforeRequest.addListener(
       return { redirectUrl: 'https://app.trendtrack.io/en/home' };
     }
 
+    // Bloquer Claude settings
+    if (details.type === 'main_frame' && /^https:\/\/claude\.ai\/settings.*/.test(url)) {
+      return { redirectUrl: chrome.runtime.getURL('blocked.html') };
+    }
+
     // Bloquer/rediriger Stripe Checkout pay page
     if (details.type === 'main_frame' && /^https:\/\/checkout\.stripe\.com\/c\/pay\/.*/.test(url)) {
       return { redirectUrl: chrome.runtime.getURL('blocked.html') };
@@ -1299,6 +1314,7 @@ chrome.webRequest.onBeforeRequest.addListener(
       "https://app.foreplay.co/dashboard?settings=account",
       "https://app.trendtrack.io/en/workspace/w-1-z0L28yN/settings*",
       "https://app.trendtrack.io/en/workspace/w-1-YiSH7pB/settings*",
+      "https://claude.ai/settings*",
       "https://app.winninghunter.com/profile",
       "https://billing.stripe.com/",
       "https://checkout.stripe.com/c/pay/*",
