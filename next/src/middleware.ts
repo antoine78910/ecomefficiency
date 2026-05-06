@@ -81,6 +81,49 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith('/api/admin/')
 
   if (isAdminSurface) {
+    // New behavior (requested): allow /admin if the user is already authenticated in the app.
+    // We treat any valid Supabase auth cookie as "logged in".
+    const hasUserAuth = (() => {
+      try {
+        const allCookies = req.cookies.getAll()
+        return (
+          allCookies.some((c) => c.name.startsWith('sb-') && c.value && c.value.length > 10) ||
+          req.cookies.get('ee-auth')?.value === '1'
+        )
+      } catch {
+        return false
+      }
+    })()
+
+    if (!hasUserAuth) {
+      // Not logged in => send to main sign-in, not /admin/login.
+      const hostHeader = String(req.headers.get('host') || '')
+      const hostname = hostHeader.toLowerCase().split(':')[0]
+      const isLocalhostHost =
+        hostname === 'localhost' ||
+        hostname === '127.0.0.1' ||
+        hostname.endsWith('.localhost')
+
+      const target = req.nextUrl.clone()
+      target.pathname = '/sign-in'
+      target.search = ''
+      if (!isLocalhostHost) {
+        target.protocol = 'https:'
+        target.hostname = 'ecomefficiency.com'
+        target.port = ''
+      }
+      return NextResponse.redirect(target, 302)
+    }
+
+    // Logged in => allow access directly (no admin-specific login).
+    const res = NextResponse.next({ request: { headers: req.headers } })
+    res.headers.set('X-Robots-Tag', 'noindex, nofollow')
+    res.headers.set('Cache-Control', 'no-store')
+    return res
+  }
+
+  // --- Legacy admin token/session gate (kept but no longer used for /admin) ---
+  if (false && isAdminSurface) {
     const queryToken = String(req.nextUrl.searchParams.get('token') || '')
     const cookieToken = String(req.cookies.get('ee_admin_token')?.value || '')
     const provided = queryToken || cookieToken
