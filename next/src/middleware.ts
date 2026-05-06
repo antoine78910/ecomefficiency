@@ -4,6 +4,63 @@ import { updateSession } from './integrations/supabase/middleware'
 import { performSecurityCheck, getClientIP } from './lib/security'
 import { getAdminPanelToken } from './lib/adminSecrets'
 
+function base64UrlToBytes(b64url: string): Uint8Array {
+  const b64 = b64url.replace(/-/g, '+').replace(/_/g, '/')
+  const pad = b64.length % 4 === 0 ? '' : '='.repeat(4 - (b64.length % 4))
+  const str = atob(b64 + pad)
+  const bytes = new Uint8Array(str.length)
+  for (let i = 0; i < str.length; i++) bytes[i] = str.charCodeAt(i)
+  return bytes
+}
+
+function bytesToBase64Url(bytes: ArrayBuffer | Uint8Array): string {
+  const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
+  let s = ''
+  for (let i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i])
+  const b64 = btoa(s)
+  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
+}
+
+function getAdminSessionSecret() {
+  return (
+    process.env.ADMIN_SESSION_SECRET ||
+    process.env.SUPABASE_SERVICE_ROLE_KEY ||
+    process.env.STRIPE_SECRET_KEY ||
+    'dev_insecure_admin_session_secret'
+  )
+}
+
+async function verifyAdminSessionCookie(raw: string | null | undefined): Promise<boolean> {
+  try {
+    const token = String(raw || '')
+    const [payloadB64, sig] = token.split('.', 2)
+    if (!payloadB64 || !sig) return false
+
+    const secret = getAdminSessionSecret()
+    const key = await crypto.subtle.importKey(
+      'raw',
+      new TextEncoder().encode(secret),
+      { name: 'HMAC', hash: 'SHA-256' },
+      false,
+      ['sign']
+    )
+    const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payloadB64))
+    const expectedSig = bytesToBase64Url(mac)
+    if (sig !== expectedSig) return false
+
+    const payloadStr = new TextDecoder().decode(base64UrlToBytes(payloadB64))
+    const payload = JSON.parse(payloadStr || '{}') as { email?: string; exp?: number }
+    const allowedEmail = (process.env.ADMIN_EMAIL || 'anto.delbo@gmail.com').toLowerCase().trim()
+    const email = String(payload?.email || '').toLowerCase().trim()
+    const exp = Number(payload?.exp || 0)
+    if (!email || email !== allowedEmail) return false
+    if (!exp || Date.now() > exp) return false
+    return true
+  } catch {
+    return false
+  }
+}
+
 export async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname
   const userAgent = req.headers.get('user-agent') || ''
@@ -15,7 +72,7 @@ export async function middleware(req: NextRequest) {
 
   // 🔐 Admin token gate (protects /admin and /api/admin)
   // In production, ADMIN_PANEL_TOKEN must be set in env (Vercel / .env.production).
-  // Access with /admin?token=<your_token> once, it sets a httpOnly cookie.
+  // Access via /admin/login (signed session cookie) or legacy token (?token=... -> ee_admin_token cookie).
   const expectedAdminToken = getAdminPanelToken()
   const isAdminSurface =
     pathname === '/admin' ||
@@ -24,35 +81,21 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith('/api/admin/')
 
   if (isAdminSurface) {
-    if (!expectedAdminToken) {
-      return new NextResponse(
-        `<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Configuration required</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#000;color:#fff;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial} .card{max-width:520px;padding:28px;border:1px solid rgba(255,255,255,.12);border-radius:14px;background:rgba(255,255,255,.04)} .muted{color:rgba(255,255,255,.65);font-size:14px;line-height:1.5} code{background:rgba(255,255,255,.08);padding:.12rem .35rem;border-radius:.4rem}</style></head><body><div class="card"><h1 style="margin:0 0 10px;font-size:22px">Configuration required</h1><p class="muted" style="margin:0 0 14px">Set <code>ADMIN_PANEL_TOKEN</code> in your environment (e.g. Vercel project settings).</p><p class="muted" style="margin:0">No hardcoded fallback in production.</p></div></body></html>`,
-        { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8', 'Cache-Control': 'no-store' } }
-      )
-    }
     const queryToken = String(req.nextUrl.searchParams.get('token') || '')
     const cookieToken = String(req.cookies.get('ee_admin_token')?.value || '')
     const provided = queryToken || cookieToken
+    const legacyTokenOk = Boolean(expectedAdminToken && provided === expectedAdminToken)
+    const sessionOk = await verifyAdminSessionCookie(req.cookies.get('admin_session')?.value)
 
-    if (provided !== expectedAdminToken) {
-      return new NextResponse(
-        `<!doctype html><html lang="en"><head><meta charset="utf-8"/><meta name="viewport" content="width=device-width,initial-scale=1"/><title>Unauthorized</title><style>body{margin:0;min-height:100vh;display:grid;place-items:center;background:#000;color:#fff;font-family:ui-sans-serif,system-ui,-apple-system,Segoe UI,Roboto,Arial} .card{max-width:520px;padding:28px;border:1px solid rgba(255,255,255,.12);border-radius:14px;background:rgba(255,255,255,.04)} .muted{color:rgba(255,255,255,.65);font-size:14px;line-height:1.5} code{background:rgba(255,255,255,.08);padding:.12rem .35rem;border-radius:.4rem}</style></head><body><div class="card"><h1 style="margin:0 0 10px;font-size:22px">Unauthorized</h1><p class="muted" style="margin:0 0 14px">This area is protected.</p><p class="muted" style="margin:0">Open <code>/admin?token=…</code> with the correct token.</p></div></body></html>`,
-        {
-          status: 401,
-          headers: {
-            'Content-Type': 'text/html; charset=utf-8',
-            'Cache-Control': 'no-store',
-            'X-Robots-Tag': 'noindex, nofollow',
-          },
-        }
-      )
-    }
-
-    // If token is provided via query, store it once as cookie.
-    const shouldSetCookie = queryToken && queryToken === expectedAdminToken && cookieToken !== expectedAdminToken
+    // If token is provided via query, store it once as cookie (legacy flow).
+    const shouldSetCookie =
+      Boolean(expectedAdminToken) &&
+      queryToken &&
+      queryToken === expectedAdminToken &&
+      cookieToken !== expectedAdminToken
 
     // For page routes, clean the URL (remove token) after setting cookie.
-    if (pathname.startsWith('/admin') && queryToken) {
+    if (pathname.startsWith('/admin') && queryToken && legacyTokenOk) {
       const clean = req.nextUrl.clone()
       clean.searchParams.delete('token')
       const res = NextResponse.redirect(clean, 302)
@@ -68,6 +111,21 @@ export async function middleware(req: NextRequest) {
       res.headers.set('X-Robots-Tag', 'noindex, nofollow')
       res.headers.set('Cache-Control', 'no-store')
       return res
+    }
+
+    // If not authorized, send to /admin/login (no "Unauthorized" HTML page).
+    if (!legacyTokenOk && !sessionOk) {
+      if (pathname.startsWith('/admin')) {
+        const target = req.nextUrl.clone()
+        target.pathname = '/admin/login'
+        target.search = ''
+        const res = NextResponse.redirect(target, 302)
+        res.headers.set('X-Robots-Tag', 'noindex, nofollow')
+        res.headers.set('Cache-Control', 'no-store')
+        return res
+      }
+      // Note: /api/* is excluded by matcher in this repo, but keep a safe fallback anyway.
+      return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
     }
 
     const res = NextResponse.next({ request: { headers: req.headers } })

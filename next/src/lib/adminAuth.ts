@@ -25,7 +25,7 @@ export async function requireAdminSession() {
   const sessionCookie = cookieStore.get("admin_session");
   if (!sessionCookie?.value) return { ok: false as const, status: 401 };
 
-  const allowedEmail = (process.env.ADMIN_EMAIL || "anto.delbos@gmail.com").toLowerCase().trim();
+  const allowedEmail = (process.env.ADMIN_EMAIL || "anto.delbo@gmail.com").toLowerCase().trim();
   const secret = getAdminSessionSecret();
 
   try {

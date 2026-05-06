@@ -80,7 +80,7 @@ export default async function AdminHiggsfieldPage() {
 
   if (!hasToken) {
     try {
-      const allowedEmail = (process.env.ADMIN_EMAIL || 'anto.delbos@gmail.com').toLowerCase().trim()
+      const allowedEmail = (process.env.ADMIN_EMAIL || 'anto.delbo@gmail.com').toLowerCase().trim()
       const secret =
         process.env.ADMIN_SESSION_SECRET ||
         process.env.SUPABASE_SERVICE_ROLE_KEY ||
