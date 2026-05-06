@@ -2,64 +2,6 @@ import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { updateSession } from './integrations/supabase/middleware'
 import { performSecurityCheck, getClientIP } from './lib/security'
-import { getAdminPanelToken } from './lib/adminSecrets'
-
-function base64UrlToBytes(b64url: string): Uint8Array {
-  const b64 = b64url.replace(/-/g, '+').replace(/_/g, '/')
-  const pad = b64.length % 4 === 0 ? '' : '='.repeat(4 - (b64.length % 4))
-  const str = atob(b64 + pad)
-  const bytes = new Uint8Array(str.length)
-  for (let i = 0; i < str.length; i++) bytes[i] = str.charCodeAt(i)
-  return bytes
-}
-
-function bytesToBase64Url(bytes: ArrayBuffer | Uint8Array): string {
-  const u8 = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes)
-  let s = ''
-  for (let i = 0; i < u8.length; i++) s += String.fromCharCode(u8[i])
-  const b64 = btoa(s)
-  return b64.replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/g, '')
-}
-
-function getAdminSessionSecret() {
-  return (
-    process.env.ADMIN_SESSION_SECRET ||
-    process.env.SUPABASE_SERVICE_ROLE_KEY ||
-    process.env.STRIPE_SECRET_KEY ||
-    'dev_insecure_admin_session_secret'
-  )
-}
-
-async function verifyAdminSessionCookie(raw: string | null | undefined): Promise<boolean> {
-  try {
-    const token = String(raw || '')
-    const [payloadB64, sig] = token.split('.', 2)
-    if (!payloadB64 || !sig) return false
-
-    const secret = getAdminSessionSecret()
-    const key = await crypto.subtle.importKey(
-      'raw',
-      new TextEncoder().encode(secret),
-      { name: 'HMAC', hash: 'SHA-256' },
-      false,
-      ['sign']
-    )
-    const mac = await crypto.subtle.sign('HMAC', key, new TextEncoder().encode(payloadB64))
-    const expectedSig = bytesToBase64Url(mac)
-    if (sig !== expectedSig) return false
-
-    const payloadStr = new TextDecoder().decode(base64UrlToBytes(payloadB64))
-    const payload = JSON.parse(payloadStr || '{}') as { email?: string; exp?: number }
-    const allowedEmail = (process.env.ADMIN_EMAIL || 'anto.delbo@gmail.com').toLowerCase().trim()
-    const email = String(payload?.email || '').toLowerCase().trim()
-    const exp = Number(payload?.exp || 0)
-    if (!email || email !== allowedEmail) return false
-    if (!exp || Date.now() > exp) return false
-    return true
-  } catch {
-    return false
-  }
-}
 
 export async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname
@@ -71,9 +13,6 @@ export async function middleware(req: NextRequest) {
     )
 
   // 🔐 Admin token gate (protects /admin and /api/admin)
-  // In production, ADMIN_PANEL_TOKEN must be set in env (Vercel / .env.production).
-  // Access via /admin/login (signed session cookie) or legacy token (?token=... -> ee_admin_token cookie).
-  const expectedAdminToken = getAdminPanelToken()
   const isAdminSurface =
     pathname === '/admin' ||
     pathname.startsWith('/admin/') ||
@@ -117,101 +56,6 @@ export async function middleware(req: NextRequest) {
 
     // Logged in => allow access directly (no admin-specific login).
     const res = NextResponse.next({ request: { headers: req.headers } })
-    res.headers.set('X-Robots-Tag', 'noindex, nofollow')
-    res.headers.set('Cache-Control', 'no-store')
-    return res
-  }
-
-  // --- Legacy admin token/session gate (kept but no longer used for /admin) ---
-  if (false && isAdminSurface) {
-    const queryToken = String(req.nextUrl.searchParams.get('token') || '')
-    const cookieToken = String(req.cookies.get('ee_admin_token')?.value || '')
-    const provided = queryToken || cookieToken
-    const legacyTokenOk = Boolean(expectedAdminToken && provided === expectedAdminToken)
-    const sessionOk = await verifyAdminSessionCookie(req.cookies.get('admin_session')?.value)
-
-    // Always allow the admin login page to load (otherwise it can redirect-loop).
-    // If already authorized, bounce to the admin dashboard.
-    if (pathname === '/admin/login' || pathname.startsWith('/admin/login/')) {
-      if (legacyTokenOk || sessionOk) {
-        const target = req.nextUrl.clone()
-        target.pathname = '/admin/sessions'
-        target.search = ''
-        const res = NextResponse.redirect(target, 302)
-        res.headers.set('X-Robots-Tag', 'noindex, nofollow')
-        res.headers.set('Cache-Control', 'no-store')
-        return res
-      }
-      const res = NextResponse.next({ request: { headers: req.headers } })
-      res.headers.set('X-Robots-Tag', 'noindex, nofollow')
-      res.headers.set('Cache-Control', 'no-store')
-      return res
-    }
-
-    // If token is provided via query, store it once as cookie (legacy flow).
-    const shouldSetCookie =
-      Boolean(expectedAdminToken) &&
-      queryToken &&
-      queryToken === expectedAdminToken &&
-      cookieToken !== expectedAdminToken
-
-    // For page routes, clean the URL (remove token) after setting cookie.
-    if (pathname.startsWith('/admin') && queryToken && legacyTokenOk) {
-      const clean = req.nextUrl.clone()
-      clean.searchParams.delete('token')
-      const res = NextResponse.redirect(clean, 302)
-      if (shouldSetCookie) {
-        res.cookies.set('ee_admin_token', expectedAdminToken, {
-          httpOnly: true,
-          sameSite: 'lax',
-          secure: req.nextUrl.protocol === 'https:',
-          path: '/',
-          maxAge: 60 * 60 * 24 * 30, // 30 days
-        })
-      }
-      res.headers.set('X-Robots-Tag', 'noindex, nofollow')
-      res.headers.set('Cache-Control', 'no-store')
-      return res
-    }
-
-    // If not authorized, send to /admin/login (no "Unauthorized" HTML page).
-    if (!legacyTokenOk && !sessionOk) {
-      if (pathname.startsWith('/admin')) {
-        const hostHeader = String(req.headers.get('host') || '')
-        const hostname = hostHeader.toLowerCase().split(':')[0]
-        const isLocalhostHost =
-          hostname === 'localhost' ||
-          hostname === '127.0.0.1' ||
-          hostname.endsWith('.localhost')
-
-        const target = req.nextUrl.clone()
-        target.pathname = '/admin/login'
-        target.search = ''
-        // Ensure we never redirect users to app.* for admin login (it doesn't exist there).
-        if (!isLocalhostHost) {
-          target.protocol = 'https:'
-          target.hostname = 'ecomefficiency.com'
-          target.port = ''
-        }
-        const res = NextResponse.redirect(target, 302)
-        res.headers.set('X-Robots-Tag', 'noindex, nofollow')
-        res.headers.set('Cache-Control', 'no-store')
-        return res
-      }
-      // Note: /api/* is excluded by matcher in this repo, but keep a safe fallback anyway.
-      return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
-    }
-
-    const res = NextResponse.next({ request: { headers: req.headers } })
-    if (shouldSetCookie) {
-      res.cookies.set('ee_admin_token', expectedAdminToken, {
-        httpOnly: true,
-        sameSite: 'lax',
-        secure: req.nextUrl.protocol === 'https:',
-        path: '/',
-        maxAge: 60 * 60 * 24 * 30, // 30 days
-      })
-    }
     res.headers.set('X-Robots-Tag', 'noindex, nofollow')
     res.headers.set('Cache-Control', 'no-store')
     return res
