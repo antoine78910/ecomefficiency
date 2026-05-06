@@ -1048,9 +1048,54 @@
     }
   }
 
+  function readWalletCreditsOnce(cb) {
+    try {
+      if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local || !chrome.storage.local.get) {
+        cb(null);
+        return;
+      }
+      chrome.storage.local.get(['ee_hf_wallet'], function (data) {
+        try {
+          var w = data && data.ee_hf_wallet;
+          var credits = w && (w.creditsRemaining !== undefined ? w.creditsRemaining : (w.credits !== undefined ? w.credits : null));
+          if (typeof credits === 'number' && isFinite(credits)) return cb(credits);
+          cb(null);
+        } catch (_) {
+          cb(null);
+        }
+      });
+    } catch (_) {
+      cb(null);
+    }
+  }
+
+  function waitForWalletCredits(timeoutMs, cb) {
+    var done = false;
+    var start = Date.now();
+
+    function finish(v) {
+      if (done) return;
+      done = true;
+      try { if (timer) clearInterval(timer); } catch (_) {}
+      cb(v);
+    }
+
+    readWalletCreditsOnce(function (v) {
+      if (typeof v === 'number') return finish(v);
+      // Poll briefly: wallet is filled asynchronously by higgsfield_http_logger.js -> higgsfield_safety.js
+      // so the first click after page load might be too early.
+      var timer = setInterval(function () {
+        if (Date.now() - start > timeoutMs) return finish(null);
+        readWalletCreditsOnce(function (vv) {
+          if (typeof vv === 'number') finish(vv);
+        });
+      }, 200);
+    });
+  }
+
   function runPaidGenerationPrecheck(source, buttonFinder) {
     log('verifying generation cost...', source);
-    showGenerateStatus('Checking daily credits...', 0);
+    showGenerateStatus('Checking credits...', 0);
     var actualBtn = buttonFinder ? buttonFinder() : null;
     const costInfo = getGenerationCostInfo(actualBtn);
     const limit = CONFIG.DAILY_CREDIT_LIMIT;
@@ -1059,33 +1104,50 @@
     const email = getVerifiedEmail();
     log('generation cost resolved', source, 'cost=' + costInfo.cost, 'used=' + used, 'remaining=' + remaining, 'limit=' + limit);
 
-    if ((used + costInfo.cost) > limit) {
-      var hours = getHoursUntilReset();
-      showGenerateStatus('No more credits for the day.', 6000);
-      log('generation blocked: daily limit reached', source, 'used=' + used, 'cost=' + costInfo.cost, 'limit=' + limit, 'resetIn=' + hours + 'h');
-      return;
-    }
-
-    log('authorizing generation...', source);
-    showGenerateStatus('Authorizing...', 0);
-    addUsedToday(costInfo.cost);
-    lastDelta = costInfo.cost;
-    const usedToday = getUsedToday();
-    logUsage(email, costInfo.cost, usedToday, source);
-    log('generation authorized', source, 'cost=' + costInfo.cost, 'usedToday=' + usedToday, 'remaining=' + getDailyRemaining());
-    updateWidget(usedToday, limit, usedToday >= limit, costInfo.cost);
-
-    log('triggering generation...', source);
-    showGenerateStatus('Generating...', 0);
-    setTimeout(function () {
-      try {
-        var btn = buttonFinder();
-        if (btn) triggerGenerateButtonClick(btn);
-        setTimeout(function () { showGenerateStatus('', 1); }, 800);
-      } catch (_) {
-        showGenerateStatus('', 1);
+    waitForWalletCredits(3000, function (walletCredits) {
+      // If we cannot read wallet credits yet, be conservative to prevent Higgsfield's own "No more credits" modal.
+      if (walletCredits === null) {
+        showGenerateStatus('Loading Higgsfield credits… retry in a second.', 3200);
+        log('wallet credits not available yet; blocking click to avoid Higgsfield modal', source);
+        return;
       }
-    }, 120);
+
+      // Block if Higgsfield wallet itself is empty (monthly/plan credits).
+      if (walletCredits < costInfo.cost) {
+        showGenerateStatus('No more Higgsfield credits available.', 6000);
+        log('generation blocked: wallet credits insufficient', source, 'wallet=' + walletCredits, 'cost=' + costInfo.cost);
+        return;
+      }
+
+      // Also enforce our daily limit.
+      if ((used + costInfo.cost) > limit) {
+        var hours = getHoursUntilReset();
+        showGenerateStatus('No more credits for the day.', 6000);
+        log('generation blocked: daily limit reached', source, 'used=' + used, 'cost=' + costInfo.cost, 'limit=' + limit, 'resetIn=' + hours + 'h');
+        return;
+      }
+
+      log('authorizing generation...', source);
+      showGenerateStatus('Authorizing...', 0);
+      addUsedToday(costInfo.cost);
+      lastDelta = costInfo.cost;
+      const usedToday = getUsedToday();
+      logUsage(email, costInfo.cost, usedToday, source);
+      log('generation authorized', source, 'cost=' + costInfo.cost, 'usedToday=' + usedToday, 'remaining=' + getDailyRemaining(), 'wallet=' + walletCredits);
+      updateWidget(usedToday, limit, usedToday >= limit, costInfo.cost);
+
+      log('triggering generation...', source);
+      showGenerateStatus('Generating...', 0);
+      setTimeout(function () {
+        try {
+          var btn = buttonFinder();
+          if (btn) triggerGenerateButtonClick(btn);
+          setTimeout(function () { showGenerateStatus('', 1); }, 800);
+        } catch (_) {
+          showGenerateStatus('', 1);
+        }
+      }, 120);
+    });
   }
 
   function installStandardGenerateButtonOverlay() {

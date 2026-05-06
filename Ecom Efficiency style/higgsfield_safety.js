@@ -237,6 +237,20 @@
         backdrop-filter: none !important;
         -webkit-backdrop-filter: none !important;
       }
+
+      /* Requested: hide Higgsfield marketing blocks for CLI / Canvas / MCP */
+      a[aria-label="Try Canvas"][href="/canvas"] { display: none !important; }
+      a[href="/canvas"],
+      a[href^="https://higgsfield.ai/canvas"],
+      a[href^="https://www.higgsfield.ai/canvas"],
+      a[href^="https://higgsfield.ai/cli"],
+      a[href^="https://www.higgsfield.ai/cli"],
+      a[href^="https://higgsfield.ai/mcp"],
+      a[href^="https://www.higgsfield.ai/mcp"] {
+        display: none !important;
+        visibility: hidden !important;
+        pointer-events: none !important;
+      }
     `;
     document.documentElement.appendChild(style);
 
@@ -850,6 +864,41 @@
     } catch (_) {}
   }
 
+  function removeBlockedPromoLinks() {
+    try {
+      const links = Array.from(
+        document.querySelectorAll(
+          'a[href="/canvas"],a[href^="https://higgsfield.ai/cli"],a[href^="https://www.higgsfield.ai/cli"],a[href^="https://higgsfield.ai/canvas"],a[href^="https://www.higgsfield.ai/canvas"],a[href^="https://higgsfield.ai/mcp"],a[href^="https://www.higgsfield.ai/mcp"]'
+        )
+      );
+
+      for (const a of links) {
+        try {
+          // Remove full cards in lists (your <li> examples)
+          const li = a.closest && a.closest('li');
+          if (li) {
+            li.remove();
+            continue;
+          }
+          // Remove the big home banner anchor ("Try Canvas")
+          const banner = a.closest && a.closest('a[aria-label="Try Canvas"][href="/canvas"]');
+          if (banner) {
+            banner.remove();
+            continue;
+          }
+          // Fallback: remove nearest block container
+          const block = a.closest && a.closest('div.group, div.relative.isolate, figure, section');
+          if (block && block !== document.body && block !== document.documentElement) {
+            block.remove();
+            continue;
+          }
+          // Last resort: just remove the link itself (CSS already hides it too)
+          a.remove();
+        } catch (_) {}
+      }
+    } catch (_) {}
+  }
+
   function runUiBlockers() {
     removePromoBanner();
     // IMPORTANT: detect "Payment required" BEFORE we hide dialogs/portals (otherwise they can be marked data-ee-hidden too early).
@@ -859,6 +908,7 @@
     removeCreditsLimitPopup(); // popup "100 per day per person"
     unblurPage();
     restoreInteractivity();
+    removeBlockedPromoLinks();
   }
 
   function installPaymentRequiredWatchers() {

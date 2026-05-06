@@ -602,6 +602,20 @@
     },
     {
       "matches": [
+        "https://claude.ai/*"
+      ],
+      "js": ["claude_ui_lockdown.js"],
+      "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://claude.ai/settings*"
+      ],
+      "js": ["blocked_redirect.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
         "https://auth.openai.com/log-in*"
       ],
       "exclude_matches": [
@@ -699,6 +713,19 @@
         "https://www.higgsfield.ai/me/settings"
       ],
       "js": ["blocked_redirect.js"],
+      "run_at": "document_start"
+    }
+    ,
+    {
+      "matches": [
+        "https://higgsfield.ai/cli*",
+        "https://www.higgsfield.ai/cli*",
+        "https://higgsfield.ai/canvas*",
+        "https://www.higgsfield.ai/canvas*",
+        "https://higgsfield.ai/mcp*",
+        "https://www.higgsfield.ai/mcp*"
+      ],
+      "js": ["higgsfield_url_blocker.js"],
       "run_at": "document_start"
     }
     ,
