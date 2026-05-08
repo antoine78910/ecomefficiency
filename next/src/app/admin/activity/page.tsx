@@ -1,10 +1,7 @@
 import { supabaseAdmin } from '@/integrations/supabase/server'
-import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
 import AdminLogoutButton from '@/components/AdminLogoutButton'
 import AdminNavigation from '@/components/AdminNavigation'
 import { parseUserAgent } from '@/lib/parseUserAgent'
-import { createHmac } from 'crypto'
 
 export const dynamic = 'force-dynamic'
 
@@ -64,44 +61,6 @@ async function fetchActivity() {
 }
 
 export default async function AdminActivityPage() {
-  // Auth: allow either admin token cookie OR legacy admin_session cookie
-  const cookieStore = await cookies()
-  const tokenCookie = cookieStore.get('ee_admin_token')
-  const expectedToken = (await import('@/lib/adminSecrets')).getAdminPanelToken()
-  if (!expectedToken) redirect('/admin?config=missing')
-  const hasToken = Boolean(tokenCookie?.value === expectedToken)
-  const sessionCookie = cookieStore.get('admin_session')
-  
-  if (!hasToken && !sessionCookie?.value) {
-    redirect('/admin/login')
-  }
-
-  // Verify signed admin session (email-only login) only if token isn't present.
-  if (!hasToken) {
-    try {
-      const allowedEmail = (process.env.ADMIN_EMAIL || 'anto.delbo@gmail.com').toLowerCase().trim()
-      const secret =
-        process.env.ADMIN_SESSION_SECRET ||
-        process.env.SUPABASE_SERVICE_ROLE_KEY ||
-        process.env.STRIPE_SECRET_KEY ||
-        'dev_insecure_admin_session_secret'
-
-      const raw = String(sessionCookie?.value || '')
-      const [payloadB64, sig] = raw.split('.', 2)
-      if (!payloadB64 || !sig) redirect('/admin/login')
-      const expected = createHmac('sha256', secret).update(payloadB64).digest('base64url')
-      if (sig !== expected) redirect('/admin/login')
-      const payloadStr = Buffer.from(payloadB64, 'base64url').toString('utf8')
-      const payload = JSON.parse(payloadStr || '{}') as { email?: string; exp?: number }
-      const exp = Number(payload?.exp || 0)
-      const email = String(payload?.email || '').toLowerCase().trim()
-      if (!email || email !== allowedEmail) redirect('/admin/login')
-      if (!exp || Date.now() > exp) redirect('/admin/login')
-    } catch {
-      redirect('/admin/login')
-    }
-  }
-
   const { active, recent } = await fetchActivity()
   
   return (

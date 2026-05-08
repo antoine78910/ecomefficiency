@@ -17,7 +17,7 @@ export async function POST(request: Request) {
   try {
     const { email } = await request.json()
 
-    const allowedEmail = (process.env.ADMIN_EMAIL || 'anto.delbo@gmail.com').toLowerCase().trim()
+    const allowedEmail = (process.env.ADMIN_EMAIL || 'anto.delbos@gmail.com').toLowerCase().trim()
 
     const normalizedEmail = String(email || '').toLowerCase().trim()
     if (!normalizedEmail || normalizedEmail !== allowedEmail) {

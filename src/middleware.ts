@@ -1,6 +1,61 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
+function decodeBase64Url(value: string): string | null {
+  try {
+    const normalized = String(value || '').replace(/-/g, '+').replace(/_/g, '/')
+    const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4)
+    return atob(padded)
+  } catch {
+    return null
+  }
+}
+
+function extractEmailFromJwt(token: string): string | null {
+  try {
+    const parts = String(token || '').split('.')
+    if (parts.length < 2) return null
+    const payloadRaw = decodeBase64Url(parts[1])
+    if (!payloadRaw) return null
+    const payload = JSON.parse(payloadRaw) as { email?: string }
+    const email = String(payload?.email || '').toLowerCase().trim()
+    return email || null
+  } catch {
+    return null
+  }
+}
+
+function extractSupabaseSessionEmail(req: NextRequest): string | null {
+  try {
+    const allCookies = req.cookies.getAll()
+    for (const cookie of allCookies) {
+      if (!cookie?.name?.startsWith('sb-')) continue
+      const raw = decodeURIComponent(String(cookie.value || ''))
+      const candidates = [raw]
+      if (raw.startsWith('base64-')) {
+        const decoded = decodeBase64Url(raw.slice('base64-'.length))
+        if (decoded) candidates.push(decoded)
+      }
+      const jwtMatch = raw.match(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/)
+      if (jwtMatch?.[0]) {
+        const email = extractEmailFromJwt(jwtMatch[0])
+        if (email) return email
+      }
+      for (const c of candidates) {
+        try {
+          const parsed = JSON.parse(c) as any
+          const directEmail = String(parsed?.email || parsed?.user?.email || parsed?.[0]?.email || parsed?.[0]?.user?.email || '').toLowerCase().trim()
+          if (directEmail) return directEmail
+          const at = String(parsed?.access_token || parsed?.[0]?.access_token || '')
+          const fromJwt = extractEmailFromJwt(at)
+          if (fromJwt) return fromJwt
+        } catch {}
+      }
+    }
+  } catch {}
+  return null
+}
+
 // Host-based routing for the app subdomain.
 // - app.localhost:5000/      → /app
 // - app.localhost:5000/tools → /tools (unchanged)
@@ -16,27 +71,9 @@ export function middleware(req: NextRequest) {
     pathname.startsWith('/api/admin/')
 
   if (isAdminSurface) {
-    // Admin UI must live on the main domain (not app.*).
-    // Redirect app.* → www. for /admin routes to avoid auth cookie scope issues.
-    try {
-      const hostHeader = String(req.headers.get('host') || '')
-      const hostname = hostHeader.toLowerCase().split(':')[0]
-      const bareHostname = hostname.replace(/^www\./, '')
-      const isLocalhostHost =
-        hostname === 'localhost' ||
-        hostname === '127.0.0.1' ||
-        hostname.endsWith('.localhost')
-
-      if (!isLocalhostHost && bareHostname.startsWith('app.')) {
-        const target = req.nextUrl.clone()
-        target.protocol = 'https:'
-        target.hostname = 'www.ecomefficiency.com'
-        target.port = ''
-        return NextResponse.redirect(target, 302)
-      }
-    } catch (_) {}
-
-    // Requested behavior: allow admin only if the user is already authenticated (Supabase cookies).
+    // Requested behavior: allow admin only for the expected signed-in session user.
+    const allowedAdminEmail = (process.env.ADMIN_EMAIL || 'anto.delbos@gmail.com').toLowerCase().trim()
+    const sessionEmail = extractSupabaseSessionEmail(req)
     const hasUserAuth = (() => {
       try {
         const allCookies = req.cookies.getAll()
@@ -48,8 +85,9 @@ export function middleware(req: NextRequest) {
         return false
       }
     })()
+    const hasAllowedSession = Boolean(sessionEmail && sessionEmail === allowedAdminEmail)
 
-    if (!hasUserAuth) {
+    if (!hasUserAuth || !hasAllowedSession) {
       const target = req.nextUrl.clone()
       target.pathname = '/sign-in'
       target.search = ''

@@ -1,6 +1,3 @@
-import { cookies } from 'next/headers'
-import { redirect } from 'next/navigation'
-import { createHmac } from 'crypto'
 import AdminNavigation from '@/components/AdminNavigation'
 import { Zap } from 'lucide-react'
 import { supabaseAdmin } from '@/integrations/supabase/server'
@@ -67,41 +64,6 @@ async function fetchHiggsfieldUsage() {
 }
 
 export default async function AdminHiggsfieldPage() {
-  const cookieStore = await cookies()
-  const tokenCookie = cookieStore.get('ee_admin_token')
-  const expectedToken = (await import('@/lib/adminSecrets')).getAdminPanelToken()
-  if (!expectedToken) redirect('/admin?config=missing')
-  const hasToken = Boolean(tokenCookie?.value === expectedToken)
-  const sessionCookie = cookieStore.get('admin_session')
-
-  if (!hasToken && !sessionCookie?.value) {
-    redirect('/admin/login')
-  }
-
-  if (!hasToken) {
-    try {
-      const allowedEmail = (process.env.ADMIN_EMAIL || 'anto.delbo@gmail.com').toLowerCase().trim()
-      const secret =
-        process.env.ADMIN_SESSION_SECRET ||
-        process.env.SUPABASE_SERVICE_ROLE_KEY ||
-        process.env.STRIPE_SECRET_KEY ||
-        'dev_insecure_admin_session_secret'
-      const raw = String(sessionCookie?.value || '')
-      const [payloadB64, sig] = raw.split('.', 2)
-      if (!payloadB64 || !sig) redirect('/admin/login')
-      const expected = createHmac('sha256', secret).update(payloadB64).digest('base64url')
-      if (sig !== expected) redirect('/admin/login')
-      const payloadStr = Buffer.from(payloadB64, 'base64url').toString('utf8')
-      const payload = JSON.parse(payloadStr || '{}') as { email?: string; exp?: number }
-      const exp = Number(payload?.exp || 0)
-      const email = String(payload?.email || '').toLowerCase().trim()
-      if (!email || email !== allowedEmail) redirect('/admin/login')
-      if (!exp || Date.now() > exp) redirect('/admin/login')
-    } catch {
-      redirect('/admin/login')
-    }
-  }
-
   const { events, totalCredits, byEmail, unlimitedClicks, unlimitedCredits, standardClicks, standardCredits } = await fetchHiggsfieldUsage()
 
   return (

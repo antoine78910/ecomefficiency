@@ -3,6 +3,71 @@ import { NextResponse } from 'next/server'
 import { updateSession } from './integrations/supabase/middleware'
 import { performSecurityCheck, getClientIP } from './lib/security'
 
+function decodeBase64Url(value: string): string | null {
+  try {
+    const normalized = String(value || '').replace(/-/g, '+').replace(/_/g, '/')
+    const padded = normalized + '='.repeat((4 - (normalized.length % 4)) % 4)
+    return atob(padded)
+  } catch {
+    return null
+  }
+}
+
+function extractEmailFromJwt(token: string): string | null {
+  try {
+    const parts = String(token || '').split('.')
+    if (parts.length < 2) return null
+    const payloadRaw = decodeBase64Url(parts[1])
+    if (!payloadRaw) return null
+    const payload = JSON.parse(payloadRaw) as { email?: string }
+    const email = String(payload?.email || '').toLowerCase().trim()
+    return email || null
+  } catch {
+    return null
+  }
+}
+
+function extractSupabaseSessionEmail(req: NextRequest): string | null {
+  try {
+    const allCookies = req.cookies.getAll()
+    for (const cookie of allCookies) {
+      if (!cookie?.name?.startsWith('sb-')) continue
+      const raw = decodeURIComponent(String(cookie.value || ''))
+      const candidates = [raw]
+      if (raw.startsWith('base64-')) {
+        const decoded = decodeBase64Url(raw.slice('base64-'.length))
+        if (decoded) candidates.push(decoded)
+      }
+      // Try direct JWT extraction from raw string.
+      const jwtMatch = raw.match(/eyJ[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/)
+      if (jwtMatch?.[0]) {
+        const email = extractEmailFromJwt(jwtMatch[0])
+        if (email) return email
+      }
+      for (const c of candidates) {
+        try {
+          const parsed = JSON.parse(c) as any
+          if (Array.isArray(parsed) && parsed[0]) {
+            const p0 = parsed[0]
+            const directEmail = String(p0?.email || p0?.user?.email || '').toLowerCase().trim()
+            if (directEmail) return directEmail
+            const at = String(p0?.access_token || '')
+            const fromJwt = extractEmailFromJwt(at)
+            if (fromJwt) return fromJwt
+          } else if (parsed && typeof parsed === 'object') {
+            const directEmail = String(parsed?.email || parsed?.user?.email || '').toLowerCase().trim()
+            if (directEmail) return directEmail
+            const at = String(parsed?.access_token || '')
+            const fromJwt = extractEmailFromJwt(at)
+            if (fromJwt) return fromJwt
+          }
+        } catch {}
+      }
+    }
+  } catch {}
+  return null
+}
+
 export async function middleware(req: NextRequest) {
   const pathname = req.nextUrl.pathname
   const userAgent = req.headers.get('user-agent') || ''
@@ -20,29 +85,10 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith('/api/admin/')
 
   if (isAdminSurface) {
-    // Admin UI must live on the main domain (not app.*) to avoid auth cookie scope issues.
-    // Redirect app.* → www. for all /admin routes.
-    try {
-      const hostHeader = String(req.headers.get('host') || '')
-      const hostname = hostHeader.toLowerCase().split(':')[0]
-      const bareHostname = hostname.replace(/^www\./, '')
-      const isLocalhostHost =
-        hostname === 'localhost' ||
-        hostname === '127.0.0.1' ||
-        hostname.endsWith('.localhost')
-
-      if (!isLocalhostHost && bareHostname.startsWith('app.')) {
-        const target = req.nextUrl.clone()
-        target.protocol = 'https:'
-        target.hostname = 'www.ecomefficiency.com'
-        target.port = ''
-        return NextResponse.redirect(target, 302)
-      }
-    } catch (_) {}
-
-    // New behavior (requested): allow /admin if the user is already authenticated in the app.
-    // We treat any valid Supabase auth cookie as "logged in".
-    const hasUserAuth = (() => {
+    // Only allow /admin for the expected signed-in session user.
+    const allowedAdminEmail = (process.env.ADMIN_EMAIL || 'anto.delbos@gmail.com').toLowerCase().trim()
+    const sessionEmail = extractSupabaseSessionEmail(req)
+    const hasUserAuthHint = (() => {
       try {
         const allCookies = req.cookies.getAll()
         return (
@@ -53,8 +99,9 @@ export async function middleware(req: NextRequest) {
         return false
       }
     })()
+    const hasAllowedSession = Boolean(sessionEmail && sessionEmail === allowedAdminEmail)
 
-    if (!hasUserAuth) {
+    if (!hasUserAuthHint || !hasAllowedSession) {
       // Not logged in => send to main sign-in, not /admin/login.
       const hostHeader = String(req.headers.get('host') || '')
       const hostname = hostHeader.toLowerCase().split(':')[0]

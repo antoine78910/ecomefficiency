@@ -12,10 +12,8 @@
     USAGE_LOG_PATH: '/api/usage/higgsfield',
     DAILY_CREDIT_LIMIT: 100
   };
-  // Fixed local reset hour (0..23). Default: midnight local time.
-  const DAILY_RESET_HOUR_LOCAL = Number(
-    (window.EE_HIGGSFIELD_ECOM_CONFIG && window.EE_HIGGSFIELD_ECOM_CONFIG.DAILY_RESET_HOUR_LOCAL) ?? 0
-  );
+  // Fixed UTC reset hour (requested): 00:00 UTC every day.
+  const DAILY_RESET_HOUR_UTC = 0;
   const GENERATION_COSTS_BY_QUALITY = (window.EE_HIGGSFIELD_ECOM_CONFIG && window.EE_HIGGSFIELD_ECOM_CONFIG.GENERATION_COSTS_BY_QUALITY) || {
     AUTO: 12,
     '1K': 12,
@@ -82,12 +80,14 @@
   function getDayKeyFromDate(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
   function getResetBucketDate(now) {
     var d = new Date(now || Date.now());
-    var h = Number.isFinite(DAILY_RESET_HOUR_LOCAL) ? Math.max(0, Math.min(23, Math.floor(DAILY_RESET_HOUR_LOCAL))) : 0;
-    // Before reset hour -> still previous daily bucket.
-    if (d.getHours() < h) d.setDate(d.getDate() - 1);
-    return d;
+    // Before reset hour UTC -> still previous daily bucket.
+    if (d.getUTCHours() < DAILY_RESET_HOUR_UTC) d.setUTCDate(d.getUTCDate() - 1);
+    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
   }
-  function getTodayKey() { return getDayKeyFromDate(getResetBucketDate(Date.now())); }
+  function getTodayKey() {
+    var b = getResetBucketDate(Date.now());
+    return b.getUTCFullYear() + '-' + String(b.getUTCMonth() + 1).padStart(2, '0') + '-' + String(b.getUTCDate()).padStart(2, '0');
+  }
   function getUsedToday() { const u = getDailyUsage(); return u[getTodayKey()] || 0; }
   function addUsedToday(delta) {
     const u = getDailyUsage();
@@ -372,13 +372,30 @@
 
   // --- Daily credits helpers ---
   function getHoursUntilReset() {
-    var now = new Date();
-    var h = Number.isFinite(DAILY_RESET_HOUR_LOCAL) ? Math.max(0, Math.min(23, Math.floor(DAILY_RESET_HOUR_LOCAL))) : 0;
-    var nextReset = new Date(now);
-    nextReset.setHours(h, 0, 0, 0);
-    if (now >= nextReset) nextReset.setDate(nextReset.getDate() + 1);
-    var diffMs = nextReset - now;
+    var nowMs = Date.now();
+    var now = new Date(nowMs);
+    var nextReset = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), DAILY_RESET_HOUR_UTC, 0, 0, 0);
+    if (nowMs >= nextReset) {
+      nextReset = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, DAILY_RESET_HOUR_UTC, 0, 0, 0);
+    }
+    var diffMs = nextReset - nowMs;
     return Math.ceil(diffMs / (1000 * 60 * 60));
+  }
+  function getResetCountdownLabel() {
+    try {
+      var nowMs = Date.now();
+      var now = new Date(nowMs);
+      var nextReset = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), DAILY_RESET_HOUR_UTC, 0, 0, 0);
+      if (nowMs >= nextReset) {
+        nextReset = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1, DAILY_RESET_HOUR_UTC, 0, 0, 0);
+      }
+      var diff = Math.max(0, nextReset - nowMs);
+      var hours = Math.floor(diff / (1000 * 60 * 60));
+      var mins = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      return 'Reset in ' + hours + 'h ' + mins + 'm (00:00 UTC)';
+    } catch (_) {
+      return 'Reset in --h --m (00:00 UTC)';
+    }
   }
 
   function getDailyRemaining() {
@@ -799,6 +816,10 @@
           '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="' + accentColor + '" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>' +
           'Last: \u2212' + lastGenDelta + ' credits</div>'
       : '';
+    var resetHtml =
+      '<div style="margin-top:7px;font-size:10px;color:rgba(255,255,255,0.48);line-height:1.25;">' +
+        getResetCountdownLabel() +
+      '</div>';
 
     var upgradeHtml = (limitVal < 100)
       ? (
@@ -854,6 +875,7 @@
           '</span>' +
         '</div>' +
         '<div class="ee-w-bar-track"><div class="ee-w-bar-fill" style="width:' + pct + '%;background:' + barColor + ';"></div></div>' +
+        resetHtml +
         lastHtml +
         upgradeHtml +
       '</div>' +
@@ -937,6 +959,8 @@
   let lastDelta = 0;
   let syntheticGenerateButtons = typeof Set !== 'undefined' ? new Set() : null;
   let widgetRefreshInterval = null;
+  var generateClickBlockerInstalled = false;
+  var generateOverlayObserverInstalled = false;
 
   function startTracking() {
     if (widgetRefreshInterval) return;
@@ -967,7 +991,7 @@
   // glued to the cost number with no whitespace between spans.
   function eeButtonLooksLikeGenerate(btn) {
     if (!btn) return false;
-    var t = (btn.textContent || '').toLowerCase();
+    var t = (btn.textContent || btn.value || (btn.getAttribute ? (btn.getAttribute('aria-label') || '') : '') || '').toLowerCase();
     if (!t) return false;
     if (t.indexOf('unlimited') !== -1) return false;
     return (
@@ -976,13 +1000,63 @@
     );
   }
 
+  function eeIsButtonVisibleAndEnabled(btn) {
+    if (!btn || !btn.getBoundingClientRect) return false;
+    try {
+      if (btn.disabled) return false;
+      if (btn.getAttribute && btn.getAttribute('aria-disabled') === 'true') return false;
+      var cs = window.getComputedStyle ? window.getComputedStyle(btn) : null;
+      if (cs && (cs.display === 'none' || cs.visibility === 'hidden' || Number(cs.opacity || '1') === 0)) return false;
+    } catch (_) {}
+    var r = btn.getBoundingClientRect();
+    if (!r || r.width <= 0 || r.height <= 0) return false;
+    // Keep only in-viewport actionable buttons.
+    if (r.bottom < 0 || r.right < 0) return false;
+    if (r.top > (window.innerHeight || 0) || r.left > (window.innerWidth || 0)) return false;
+    return true;
+  }
+
+  function eePickBestGenerateButton(candidates, preferredBtn) {
+    var best = null;
+    var bestScore = -1e9;
+    for (var i = 0; i < candidates.length; i++) {
+      var b = candidates[i];
+      if (!b) continue;
+      if (!eeButtonLooksLikeGenerate(b)) continue;
+      if (isUnlimitedGenerateButton(b)) continue;
+      if (!eeIsButtonVisibleAndEnabled(b)) continue;
+      if (b.getAttribute && b.getAttribute('data-ee-our-button') === '1') continue;
+
+      var score = 0;
+      var txt = (b.textContent || b.value || (b.getAttribute ? (b.getAttribute('aria-label') || '') : '') || '').toLowerCase();
+      if (txt.indexOf('generate') !== -1 || txt.indexOf('g\u00e9n\u00e9rer') !== -1) score += 50;
+      if (b.className && String(b.className).toLowerCase().indexOf('group') !== -1) score += 5;
+      if (b.hasAttribute && b.hasAttribute('data-rac')) score += 20;
+      if (b.type === 'button') score += 10;
+      var r = b.getBoundingClientRect();
+      score += Math.min(60, Math.round((r.width * r.height) / 400));
+      // Prefer lower/right CTA zones (common on Higgsfield cards).
+      score += Math.round(Math.max(0, r.top) / 25);
+      score += Math.round(Math.max(0, r.left) / 40);
+      if (preferredBtn && b === preferredBtn) score += 200;
+
+      if (score > bestScore) {
+        best = b;
+        bestScore = score;
+      }
+    }
+    return best;
+  }
+
   function installGenerateClickBlocker() {
-    document.addEventListener('click', function (e) {
+    if (generateClickBlockerInstalled) return;
+    generateClickBlockerInstalled = true;
+    function handleGenerateIntent(e) {
       if (isUnlimitedMode()) return;
       var el = e.target;
       if (!el) return;
       if (el.closest && (el.closest('#ee-hf-ecom-popup-root') || el.closest('#ee-hf-ecom-widget') || el.closest('#ee-hf-ecom-overlay-root'))) return;
-      var btn = el.closest ? el.closest('button') : null;
+      var btn = el.closest ? el.closest('button,[role="button"],input[type="submit"],input[type="button"]') : null;
       if (!btn) return;
       if (btn.getAttribute && btn.getAttribute('data-ee-our-button') === '1') return;
       if (syntheticGenerateButtons && syntheticGenerateButtons.has(btn)) return;
@@ -1012,21 +1086,18 @@
       // (up to ~3s): if the original button ref becomes detached, fall back to the closest
       // visible "Generate"-like button so getBoundingClientRect() yields valid coords.
       runPaidGenerationPrecheck('intercepted_generate', function () {
-        if (btn && btn.isConnected) return btn;
+        if (btn && btn.isConnected && eeIsButtonVisibleAndEnabled(btn)) return btn;
         try {
-          var nodes = document.querySelectorAll('button');
-          for (var i = 0; i < nodes.length; i++) {
-            var b = nodes[i];
-            if (!eeButtonLooksLikeGenerate(b)) continue;
-            if (isUnlimitedGenerateButton(b)) continue;
-            if (b.getAttribute && b.getAttribute('data-ee-our-button') === '1') continue;
-            var r = b.getBoundingClientRect && b.getBoundingClientRect();
-            if (r && r.width > 0 && r.height > 0) return b;
-          }
+          var nodes = document.querySelectorAll('button,[role="button"],input[type="submit"],input[type="button"]');
+          var best = eePickBestGenerateButton(nodes, btn);
+          if (best) return best;
         } catch (_) {}
         return btn || null;
       });
-    }, true);
+    }
+    // Pointerdown fires before click: this closes the race where users click before checker.
+    document.addEventListener('pointerdown', handleGenerateIntent, true);
+    document.addEventListener('click', handleGenerateIntent, true);
   }
 
   function isUnlimitedGenerateButton(el) {
@@ -1052,16 +1123,20 @@
 
   function findStandardGenerateButton() {
     var unlimited = findUnlimitedGenerateButton();
-    var candidates = document.querySelectorAll('button[type="submit"], aside button, button');
+    var candidates = document.querySelectorAll('button[type="submit"], aside button, button, [role="button"], input[type="submit"], input[type="button"]');
+    var filtered = [];
     for (var i = 0; i < candidates.length; i++) {
       var btn = candidates[i];
       if (btn === unlimited) continue;
       if (isUnlimitedGenerateButton(btn)) continue;
-      var txt = (btn.textContent || '').trim();
-      if (/^generate$|^g[e\u00e9]n[e\u00e9]rer$/i.test(txt) || (txt.toLowerCase().indexOf('generate') !== -1 && txt.toLowerCase().indexOf('unlimited') === -1)) return btn;
-      if (btn.type === 'submit' && btn.closest && btn.closest('form') && /generate|g[e\u00e9]n[e\u00e9]rer|create|cr[e\u00e9]er/i.test((btn.closest('form').textContent || ''))) return btn;
+      var txt = (btn.textContent || btn.value || (btn.getAttribute ? (btn.getAttribute('aria-label') || '') : '') || '').trim();
+      var low = txt.toLowerCase();
+      var formLooksLikeGenerate = (btn.type === 'submit' || (btn.getAttribute && btn.getAttribute('role') === 'button')) && btn.closest && btn.closest('form') && /generate|g[e\u00e9]n[e\u00e9]rer|create|cr[e\u00e9]er/i.test((btn.closest('form').textContent || ''));
+      if (/^generate$|^g[e\u00e9]n[e\u00e9]rer$/i.test(txt) || (low.indexOf('generate') !== -1 && low.indexOf('unlimited') === -1) || formLooksLikeGenerate) {
+        filtered.push(btn);
+      }
     }
-    return null;
+    return eePickBestGenerateButton(filtered, null);
   }
 
   function restoreButton(btn) {
@@ -1241,12 +1316,12 @@
     const email = getVerifiedEmail();
     log('generation cost resolved', source, 'cost=' + costInfo.cost, 'used=' + used, 'remaining=' + remaining, 'limit=' + limit);
 
-    waitForWalletCredits(3000, function (walletCredits) {
-      // If we cannot read wallet credits yet, be conservative to prevent Higgsfield's own "No more credits" modal.
+    waitForWalletCredits(600, function (walletCredits) {
+      // If wallet credits are not readable yet, do NOT hard-block.
+      // In production this can happen transiently even with valid credits.
       if (walletCredits === null) {
-        showGenerateStatus('Loading Higgsfield credits… retry in a second.', 3200);
-        log('wallet credits not available yet; blocking click to avoid Higgsfield modal', source);
-        return;
+        log('wallet credits unavailable; continuing with daily-limit check only', source);
+        walletCredits = Number.POSITIVE_INFINITY;
       }
 
       // Block if Higgsfield wallet itself is empty (monthly/plan credits).
@@ -1270,7 +1345,7 @@
       lastDelta = costInfo.cost;
       const usedToday = getUsedToday();
       logUsage(email, costInfo.cost, usedToday, source);
-      log('generation authorized', source, 'cost=' + costInfo.cost, 'usedToday=' + usedToday, 'remaining=' + getDailyRemaining(), 'wallet=' + walletCredits);
+      log('generation authorized', source, 'cost=' + costInfo.cost, 'usedToday=' + usedToday, 'remaining=' + getDailyRemaining(), 'wallet=' + (isFinite(walletCredits) ? walletCredits : 'unknown'));
       updateWidget(usedToday, limit, usedToday >= limit, costInfo.cost);
 
       log('triggering generation...', source);
@@ -1355,12 +1430,32 @@
 
   function setupBlockingObserver() {
     installGenerateClickBlocker();
-    setInterval(installUnlimitedButtonOverlay, 2500);
-    setInterval(installStandardGenerateButtonOverlay, 2500);
+    installUnlimitedButtonOverlay();
+    installStandardGenerateButtonOverlay();
+    if (!generateOverlayObserverInstalled && typeof MutationObserver !== 'undefined') {
+      generateOverlayObserverInstalled = true;
+      var t = null;
+      var kick = function () {
+        if (t) return;
+        t = setTimeout(function () {
+          t = null;
+          try { installUnlimitedButtonOverlay(); } catch (_) {}
+          try { installStandardGenerateButtonOverlay(); } catch (_) {}
+        }, 220);
+      };
+      var mo = new MutationObserver(function () { kick(); });
+      try { mo.observe(document.documentElement, { childList: true, subtree: true }); } catch (_) {}
+      document.addEventListener('click', function () { kick(); }, true);
+      setInterval(function () { kick(); }, 2500);
+    } else {
+      setInterval(installUnlimitedButtonOverlay, 2500);
+      setInterval(installStandardGenerateButtonOverlay, 2500);
+    }
   }
 
   function scheduleBlockingObserver() {
-    setTimeout(setupBlockingObserver, 3000);
+    installGenerateClickBlocker();
+    setTimeout(setupBlockingObserver, 400);
   }
 
   // --- Shield ---
@@ -1514,6 +1609,9 @@
     log('init', location.href, 'SIMULATE_CONNECTED=', SIMULATE_CONNECTED, 'DAILY_CREDIT_LIMIT=', CONFIG.DAILY_CREDIT_LIMIT);
 
     installSpaWatcher();
+    // Arm generate click interception immediately so users cannot click through
+    // before popup/tracking initialization has finished.
+    installGenerateClickBlocker();
 
     if (isAuthPage(location.pathname)) {
       log('on /auth page, waiting for SPA navigation to app...');
