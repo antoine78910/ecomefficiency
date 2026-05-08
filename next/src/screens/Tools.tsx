@@ -1,5 +1,6 @@
 "use client";
 import React, { useState } from 'react';
+import ReactDOM from 'react-dom';
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Search, ArrowLeft } from "lucide-react";
@@ -35,6 +36,7 @@ const Tools = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [tier, setTier] = useState<'starter'|'pro'>("pro");
   const [seoOpen, setSeoOpen] = useState(false)
+  const [isMounted, setIsMounted] = useState(false)
 
   const closeSeoModal = React.useCallback(() => {
     setSeoOpen(false);
@@ -60,12 +62,20 @@ const Tools = () => {
   }, [normalizeSeoName]);
 
   React.useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  React.useEffect(() => {
     if (!seoOpen) return;
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") closeSeoModal();
     };
+    try { document.body.style.overflow = "hidden"; } catch {}
     window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
+    return () => {
+      try { document.body.style.overflow = ""; } catch {}
+      window.removeEventListener("keydown", onKeyDown);
+    };
   }, [seoOpen, closeSeoModal]);
 
   // Build list with "+30 SEO Tools" tile replacing Ubersuggest/Semrush
@@ -213,121 +223,112 @@ const Tools = () => {
 
           {/* Tools Grid - using same visual style as the carousel cards */}
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-4 md:gap-6">
-            {filteredTools.map((tool) => (
-              <div key={tool.id}>
-                {(() => {
-                  const isFreepik = String(tool.name || '').trim().toLowerCase() === 'freepik';
-                  const cardIcon = isFreepik ? '/tools-logos/freepik.png?v=4' : tool.icon;
-                  return (
-                    <>
-                {tool.name === '+30 SEO Tools' ? (
-                  <div>
-                    <button
-                      type="button"
-                      onClick={() => setSeoOpen((prev) => !prev)}
-                      className="w-full text-left"
-                      aria-expanded={seoOpen}
-                      aria-controls="seo-tools-inline-panel"
-                    >
-                      <Card
-                      className={`relative p-3 md:p-4 bg-gray-900 border border-white/10 hover:border-white/20 transition-all duration-300 hover:scale-105 group cursor-pointer rounded-2xl`}
-                    >
-                      {isProOnly(tool.name) && (
-                        <span className="absolute -top-2 -left-2 text-[10px] px-2 py-0.5 rounded-full bg-[linear-gradient(135deg,#ffd70055,#ffcc00)] text-white border border-[#ffcc00]/30 shadow-[0_0_12px_rgba(255,215,0,0.45)]">
-                          Pro only
-                        </span>
-                      )}
-                      {renderPrice(tool.name)}
-                      <div className="w-full h-28 md:h-40 rounded-xl overflow-hidden mb-3 md:mb-4">
-                        <ToolImage toolName={tool.name} icon={cardIcon} />
-                      </div>
-                      <h3 className="text-white font-semibold text-sm md:text-base mb-1">{tool.name}</h3>
-                      <p className="text-gray-400 text-xs md:text-sm leading-relaxed">{tool.description}</p>
-                      {/* Removed explicit CTA chip per request */}
-                    </Card>
-                    </button>
-                    {seoOpen && (
-                      <div
-                        id="seo-tools-inline-panel"
-                        className="mt-3 bg-gray-900 border border-white/10 rounded-2xl p-5 w-full"
-                        role="dialog"
-                        aria-modal="false"
-                        aria-label="+30 SEO Tools"
-                      >
-                        <div className="flex items-center justify-between mb-3">
-                          <h3 className="text-white font-semibold">+30 SEO Tools</h3>
-                          <button onClick={closeSeoModal} className="text-white/70 hover:text-white">✕</button>
-                        </div>
-                        <p className="text-gray-400 text-sm mb-3">Included tools with short descriptions.</p>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {seoToolsCatalog.map((t) => (
-                            <Link
-                              key={t.slug}
-                              href={`/tools/seo/${t.slug}`}
-                              title={`${t.name} SEO tool page`}
-                              className="block hover:brightness-110 transition"
-                            >
-                              <div className="rounded-lg border border-white/10 p-3 bg-black/30">
-                                <div className="text-white font-medium text-sm">{t.name}</div>
-                                <div className="text-gray-400 text-xs">{t.shortDescription}</div>
-                              </div>
-                            </Link>
-                          ))}
-                        </div>
-                      </div>
-                    )}
+            {filteredTools.map((tool) => {
+              const isFreepik = String(tool.name || '').trim().toLowerCase() === 'freepik';
+              const cardIcon = isFreepik ? '/tools-logos/freepik.png' : tool.icon;
+              const card = (
+                <Card
+                  className={`relative p-3 md:p-4 bg-gray-900 border border-white/10 rounded-2xl ${
+                    tool.name === '+30 SEO Tools'
+                      ? 'hover:border-white/20 transition-all duration-300 hover:scale-105 group cursor-pointer'
+                      : 'cursor-default'
+                  }`}
+                >
+                  {isProOnly(tool.name) && (
+                    <span className="absolute -top-2 -left-2 text-[10px] px-2 py-0.5 rounded-full bg-[linear-gradient(135deg,#ffd70055,#ffcc00)] text-white border border-[#ffcc00]/30 shadow-[0_0_12px_rgba(255,215,0,0.45)]">
+                      Pro only
+                    </span>
+                  )}
+                  {renderPrice(tool.name)}
+                  <div className="w-full h-28 md:h-40 rounded-xl overflow-hidden mb-3 md:mb-4">
+                    <ToolImage toolName={tool.name} icon={cardIcon} />
                   </div>
-                ) : (
-                  (() => {
-                    const rawName = String(tool.name || "")
-                    const cleanName = rawName.trim()
-                    const normalizedKey = cleanName.toLowerCase().replace(/\s+/g, "").replace(/\./g, "")
-                    // Ensure common "no-space" variants always resolve to the correct internal tool page.
-                    const forcedSlug =
-                      normalizedKey === "winninghunter"
-                        ? "winninghunter"
-                        : normalizedKey === "shophunter"
-                          ? "shophunter"
-                          : normalizedKey === "brainfm"
-                            ? "brain-fm"
-                            : null
+                  <h3 className="text-white font-semibold text-sm md:text-base mb-1">{tool.name}</h3>
+                  <p className="text-gray-400 text-xs md:text-sm leading-relaxed">{tool.description}</p>
+                </Card>
+              );
 
-                    const slug = forcedSlug || resolveToolSlug(cleanName) || SLUG_OVERRIDES[cleanName] || SLUG_OVERRIDES[rawName] || null
-                    const href = slug ? `/tools/${slug}` : null
-                    const card = (
-                      <Card
-                        className={`relative p-3 md:p-4 bg-gray-900 border border-white/10 rounded-2xl ${
-                          href ? "cursor-pointer hover:border-white/20 transition-all duration-300 hover:scale-105 group" : "cursor-default"
-                        }`}
-                      >
-                        {isProOnly(tool.name) && (
-                          <span className="absolute -top-2 -left-2 text-[10px] px-2 py-0.5 rounded-full bg-[linear-gradient(135deg,#ffd70055,#ffcc00)] text-white border border-[#ffcc00]/30 shadow-[0_0_12px_rgba(255,215,0,0.45)]">
-                            Pro only
-                          </span>
-                        )}
-                        {renderPrice(tool.name)}
-                        <div className="w-full h-28 md:h-40 rounded-xl overflow-hidden mb-3 md:mb-4">
-                          <ToolImage toolName={tool.name} icon={cardIcon} />
-                        </div>
-                        <h3 className="text-white font-semibold text-sm md:text-base mb-1">{tool.name}</h3>
-                        <p className="text-gray-400 text-xs md:text-sm leading-relaxed">{tool.description}</p>
-                      </Card>
-                    )
-                    return href ? (
-                      <Link href={href} title={`${tool.name} tool page`} className="block">
-                        {card}
-                      </Link>
-                    ) : (
-                      card
-                    )
-                  })()
-                )}
-                    </>
-                  );
-                })()}
-              </div>
-            ))}
+              if (tool.name === '+30 SEO Tools') {
+                return (
+                  <button
+                    key={tool.id}
+                    type="button"
+                    onClick={() => setSeoOpen(true)}
+                    className="block w-full text-left"
+                    aria-expanded={seoOpen}
+                    aria-controls="seo-tools-fullscreen-modal"
+                  >
+                    {card}
+                  </button>
+                );
+              }
+
+              const rawName = String(tool.name || "");
+              const cleanName = rawName.trim();
+              const normalizedKey = cleanName.toLowerCase().replace(/\s+/g, "").replace(/\./g, "");
+              const forcedSlug =
+                normalizedKey === "winninghunter"
+                  ? "winninghunter"
+                  : normalizedKey === "shophunter"
+                    ? "shophunter"
+                    : normalizedKey === "brainfm"
+                      ? "brain-fm"
+                      : null;
+              const slug = forcedSlug || resolveToolSlug(cleanName) || SLUG_OVERRIDES[cleanName] || SLUG_OVERRIDES[rawName] || null;
+              const href = slug ? `/tools/${slug}` : null;
+
+              return (
+                <div key={tool.id}>
+                  {href ? (
+                    <Link href={href} title={`${tool.name} tool page`} className="block">
+                      {card}
+                    </Link>
+                  ) : (
+                    card
+                  )}
+                </div>
+              );
+            })}
           </div>
+          {seoOpen && isMounted && ReactDOM.createPortal(
+            <div className="fixed inset-0 z-[2147483647] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
+              <button
+                type="button"
+                aria-label="Close"
+                onClick={closeSeoModal}
+                className="absolute inset-0 cursor-pointer"
+              />
+              <div
+                id="seo-tools-fullscreen-modal"
+                className="relative z-10 bg-[#0b1220] border border-white/20 rounded-2xl p-5 w-[min(980px,95vw)] max-h-[88vh] overflow-auto shadow-2xl"
+                role="dialog"
+                aria-modal="true"
+                aria-label="+30 SEO Tools"
+              >
+                <div className="flex items-center justify-between mb-3">
+                  <h3 className="text-white font-semibold">+30 SEO Tools</h3>
+                  <button onClick={closeSeoModal} className="text-white/70 hover:text-white">✕</button>
+                </div>
+                <p className="text-gray-300 text-sm mb-3">Included tools with short descriptions.</p>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {seoToolsCatalog.map((t) => (
+                    <Link
+                      key={t.slug}
+                      href={`/tools/seo/${t.slug}`}
+                      title={`${t.name} SEO tool page`}
+                      className="block hover:brightness-110 transition"
+                    >
+                      <div className="rounded-lg border border-white/10 p-3 bg-black/25">
+                        <div className="text-white font-medium text-sm">{t.name}</div>
+                        <div className="text-gray-300 text-xs">{t.shortDescription}</div>
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              </div>
+            </div>,
+            document.body
+          )}
           {/* No Results */}
           {filteredTools.length === 0 && (
             <div className="text-center py-16">
