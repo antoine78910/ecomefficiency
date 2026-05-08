@@ -1604,7 +1604,47 @@ function CredentialsPanel({
     return () => { cancelled = true }
   }, [whiteLabel, partnerSlug])
 
-  const openPortal = async () => {}
+  const openPortal = async () => {
+    try {
+      if (typeof window === 'undefined') return
+
+      const mod = await import("@/integrations/supabase/client")
+      const { data } = await mod.supabase.auth.getUser()
+      const userEmail = data.user?.email || email || undefined
+      const sessionUserId = data.user?.id || userId || undefined
+      const meta = (data.user?.user_metadata as any) || {}
+      const stripeCustomerFromMeta = (meta.stripe_customer_id as string | undefined) || customerId || undefined
+
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
+      if (userEmail) headers['x-user-email'] = userEmail
+      if (sessionUserId) headers['x-user-id'] = sessionUserId
+      if (stripeCustomerFromMeta) headers['x-stripe-customer-id'] = stripeCustomerFromMeta
+
+      const res = await fetch('/api/stripe/portal', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({}),
+      })
+      const json = await res.json().catch(() => ({} as any))
+
+      if (res.ok && json?.url) {
+        window.location.href = String(json.url)
+        return
+      }
+
+      // If no Stripe customer is resolvable yet, open the billing page as fallback.
+      if (json?.error === 'missing_customer') {
+        window.location.href = '/subscription?billing=1'
+        return
+      }
+
+      setShowBilling(true)
+      setBanner('Unable to open billing portal right now. Please try again.')
+    } catch {
+      try { setShowBilling(true) } catch {}
+      try { setBanner('Unable to open billing portal right now. Please try again.') } catch {}
+    }
+  }
 
   const startCheckout = async (tier: 'starter' | 'pro', billing: 'monthly' | 'yearly', currency?: 'EUR' | 'USD') => {
     // console.log('[App startCheckout] 📥 Received params:', { tier, billing, currency });

@@ -2,6 +2,7 @@ import type { NextRequest } from 'next/server'
 import { NextResponse } from 'next/server'
 import { updateSession } from './integrations/supabase/middleware'
 import { performSecurityCheck, getClientIP } from './lib/security'
+import { getAdminPanelToken } from './lib/adminSecrets'
 
 function decodeBase64Url(value: string): string | null {
   try {
@@ -85,44 +86,36 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith('/api/admin/')
 
   if (isAdminSurface) {
-    // Only allow /admin for the expected signed-in session user.
-    const allowedAdminEmail = (process.env.ADMIN_EMAIL || 'anto.delbos@gmail.com').toLowerCase().trim()
-    const sessionEmail = extractSupabaseSessionEmail(req)
-    const hasUserAuthHint = (() => {
-      try {
-        const allCookies = req.cookies.getAll()
-        return (
-          allCookies.some((c) => c.name.startsWith('sb-') && c.value && c.value.length > 10) ||
-          req.cookies.get('ee-auth')?.value === '1'
-        )
-      } catch {
-        return false
-      }
-    })()
-    const hasAllowedSession = Boolean(sessionEmail && sessionEmail === allowedAdminEmail)
-
-    if (!hasUserAuthHint || !hasAllowedSession) {
-      // Not logged in => send to main sign-in, not /admin/login.
-      const hostHeader = String(req.headers.get('host') || '')
-      const hostname = hostHeader.toLowerCase().split(':')[0]
-      const isLocalhostHost =
-        hostname === 'localhost' ||
-        hostname === '127.0.0.1' ||
-        hostname.endsWith('.localhost')
-
-      const target = req.nextUrl.clone()
-      target.pathname = '/sign-in'
-      target.search = ''
-      if (!isLocalhostHost) {
-        target.protocol = 'https:'
-        target.hostname = 'ecomefficiency.com'
-        target.port = ''
-      }
-      return NextResponse.redirect(target, 302)
+    const expectedToken = getAdminPanelToken()
+    if (!expectedToken) {
+      return new NextResponse('Admin token not configured.', { status: 503 })
     }
 
-    // Logged in => allow access directly (no admin-specific login).
+    const queryToken = String(req.nextUrl.searchParams.get('token') || '')
+    const cookieToken = String(req.cookies.get('ee_admin_token')?.value || '')
+    const hasValidToken = queryToken === expectedToken || cookieToken === expectedToken
+
+    if (!hasValidToken) {
+      if (pathname.startsWith('/api/admin')) {
+        return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
+      }
+      return new NextResponse(
+        'Unauthorized. This area is protected. Open /admin?token=... with the correct token.',
+        { status: 401, headers: { 'content-type': 'text/plain; charset=utf-8' } }
+      )
+    }
+
+    // Persist token in cookie so future /admin visits work without querystring.
     const res = NextResponse.next({ request: { headers: req.headers } })
+    if (queryToken === expectedToken && cookieToken !== expectedToken) {
+      res.cookies.set('ee_admin_token', expectedToken, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        path: '/',
+        maxAge: 60 * 60 * 24 * 30,
+      })
+    }
     res.headers.set('X-Robots-Tag', 'noindex, nofollow')
     res.headers.set('Cache-Control', 'no-store')
     return res

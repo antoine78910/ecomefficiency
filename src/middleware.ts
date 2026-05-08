@@ -1,6 +1,11 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
+function getAdminPanelToken(): string | null {
+  const token = process.env.ADMIN_PANEL_TOKEN?.trim()
+  return token || 'Zjhfc82005AD'
+}
+
 function decodeBase64Url(value: string): string | null {
   try {
     const normalized = String(value || '').replace(/-/g, '+').replace(/_/g, '/')
@@ -71,30 +76,34 @@ export function middleware(req: NextRequest) {
     pathname.startsWith('/api/admin/')
 
   if (isAdminSurface) {
-    // Requested behavior: allow admin only for the expected signed-in session user.
-    const allowedAdminEmail = (process.env.ADMIN_EMAIL || 'anto.delbos@gmail.com').toLowerCase().trim()
-    const sessionEmail = extractSupabaseSessionEmail(req)
-    const hasUserAuth = (() => {
-      try {
-        const allCookies = req.cookies.getAll()
-        return (
-          allCookies.some((c) => c.name.startsWith('sb-') && c.value && c.value.length > 10) ||
-          req.cookies.get('ee-auth')?.value === '1'
-        )
-      } catch {
-        return false
-      }
-    })()
-    const hasAllowedSession = Boolean(sessionEmail && sessionEmail === allowedAdminEmail)
+    const expectedToken = getAdminPanelToken()
+    if (!expectedToken) {
+      return new NextResponse('Admin token not configured.', { status: 503 })
+    }
 
-    if (!hasUserAuth || !hasAllowedSession) {
-      const target = req.nextUrl.clone()
-      target.pathname = '/sign-in'
-      target.search = ''
-      return NextResponse.redirect(target, 302)
+    const queryToken = String(req.nextUrl.searchParams.get('token') || '')
+    const cookieToken = String(req.cookies.get('ee_admin_token')?.value || '')
+    const hasValidToken = queryToken === expectedToken || cookieToken === expectedToken
+    if (!hasValidToken) {
+      if (pathname.startsWith('/api/admin')) {
+        return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
+      }
+      return new NextResponse(
+        'Unauthorized. This area is protected. Open /admin?token=... with the correct token.',
+        { status: 401, headers: { 'content-type': 'text/plain; charset=utf-8' } }
+      )
     }
 
     const res = NextResponse.next()
+    if (queryToken === expectedToken && cookieToken !== expectedToken) {
+      res.cookies.set('ee_admin_token', expectedToken, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        path: '/',
+        maxAge: 60 * 60 * 24 * 30,
+      })
+    }
     res.headers.set('X-Robots-Tag', 'noindex, nofollow')
     res.headers.set('Cache-Control', 'no-store')
     return res
