@@ -10,10 +10,16 @@
 
   // Credit tracking: wallet (workspaces/wallet), generation start/end, daily limit 100, reset at midnight.
   var MAX_DAILY_CREDITS = (window.EE_HIGGSFIELD_ECOM_CONFIG && window.EE_HIGGSFIELD_ECOM_CONFIG.DAILY_CREDIT_LIMIT) || 100;
+  var DAILY_RESET_HOUR_LOCAL = Number((window.EE_HIGGSFIELD_ECOM_CONFIG && window.EE_HIGGSFIELD_ECOM_CONFIG.DAILY_RESET_HOUR_LOCAL) ?? 0);
   var HIDE_WALLET_WIDGET = true; // ne pas afficher le widget "Crédits Higgsfield" en haut à droite
-  function todayStr() {
-    var d = new Date();
+  function dayKey(d) {
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function resetBucketKey() {
+    var d = new Date();
+    var h = Number.isFinite(DAILY_RESET_HOUR_LOCAL) ? Math.max(0, Math.min(23, Math.floor(DAILY_RESET_HOUR_LOCAL))) : 0;
+    if (d.getHours() < h) d.setDate(d.getDate() - 1);
+    return dayKey(d);
   }
 
   // Réception des données wallet (page → content script) pour stockage + widget
@@ -25,7 +31,7 @@
     var limitReachedMessage = false;
 
     function applyDailyReset(data) {
-      var today = todayStr();
+      var today = resetBucketKey();
       if (!data.ee_hf_credit_tracking) data.ee_hf_credit_tracking = { todayUsage: 0, lastResetDate: today };
       var t = data.ee_hf_credit_tracking;
       if (t.lastResetDate !== today) {
@@ -75,7 +81,7 @@
       chrome.storage.local.get('ee_hf_credit_tracking', function (data) {
         var t = applyDailyReset(data);
         t.todayUsage = todayUsage !== undefined ? todayUsage : t.todayUsage;
-        t.lastResetDate = t.lastResetDate || todayStr();
+        t.lastResetDate = t.lastResetDate || resetBucketKey();
         chrome.storage.local.set({ ee_hf_wallet: payload, ee_hf_credit_tracking: t });
         setBlockGenerations(t.todayUsage >= MAX_DAILY_CREDITS);
         updateWalletWidget(credits, t.todayUsage, t.todayUsage >= MAX_DAILY_CREDITS || limitReached);
@@ -116,7 +122,7 @@
               isGenerating = false;
               creditsBeforeGeneration = null;
             }
-            t.lastResetDate = t.lastResetDate || todayStr();
+            t.lastResetDate = t.lastResetDate || resetBucketKey();
             chrome.storage.local.set({ ee_hf_credit_tracking: t });
             setBlockGenerations(t.todayUsage >= MAX_DAILY_CREDITS);
             var used = p.used !== undefined && p.used !== null ? p.used : (t.todayUsage || 0);
@@ -241,6 +247,10 @@
       /* Requested: hide Higgsfield marketing blocks for CLI / Canvas / MCP */
       a[aria-label="Try Canvas"][href="/canvas"] { display: none !important; }
       a[href="/canvas"],
+      a[href="/cli"],
+      a[href="/mcp"],
+      a[data-header-active-on*="/cli"],
+      a[data-header-active-on*="/mcp"],
       a[href^="https://higgsfield.ai/canvas"],
       a[href^="https://www.higgsfield.ai/canvas"],
       a[href^="https://higgsfield.ai/cli"],
@@ -868,7 +878,7 @@
     try {
       const links = Array.from(
         document.querySelectorAll(
-          'a[href="/canvas"],a[href^="https://higgsfield.ai/cli"],a[href^="https://www.higgsfield.ai/cli"],a[href^="https://higgsfield.ai/canvas"],a[href^="https://www.higgsfield.ai/canvas"],a[href^="https://higgsfield.ai/mcp"],a[href^="https://www.higgsfield.ai/mcp"]'
+          'a[href="/canvas"],a[href="/cli"],a[href="/mcp"],a[data-header-active-on*="/cli"],a[data-header-active-on*="/mcp"],a[href^="https://higgsfield.ai/cli"],a[href^="https://www.higgsfield.ai/cli"],a[href^="https://higgsfield.ai/canvas"],a[href^="https://www.higgsfield.ai/canvas"],a[href^="https://higgsfield.ai/mcp"],a[href^="https://www.higgsfield.ai/mcp"]'
         )
       );
 
@@ -899,6 +909,83 @@
     } catch (_) {}
   }
 
+  // ===== Requested (home): remove remaining marketing upsells (Seedance / Marketing Studio / extra promos) =====
+  function removeHomeMarketingBlocks() {
+    try {
+      // Only apply on the home landing pages to avoid breaking in-app UI.
+      const p = String(location.pathname || '');
+      const isHome = p === '/' || p === '/home';
+      if (!isHome) return;
+
+      const phrases = [
+        'get seedance',
+        'seedance 2.0',
+        'special offer',
+        'try marketing studio',
+        'marketing studio hooks',
+        'buy more',
+        'buy extra',
+        'pricing'
+      ];
+
+      function hasPhrase(txt) {
+        const s = String(txt || '').toLowerCase();
+        if (!s) return false;
+        return phrases.some((ph) => s.includes(ph));
+      }
+
+      function removeClosestBlock(el) {
+        if (!el || !el.closest) return false;
+        const block =
+          el.closest('section') ||
+          el.closest('figure') ||
+          el.closest('li') ||
+          el.closest('div[class*="rounded"]') ||
+          el.closest('div[class*="border"]') ||
+          el.closest('div[class*="bg-"]') ||
+          el.closest('div');
+        if (!block) return false;
+        if (block === document.body || block === document.documentElement) return false;
+        try { block.remove(); return true; } catch (_) {}
+        try { hideElementHard(block, 'home-marketing'); return true; } catch (_) {}
+        return false;
+      }
+
+      // 1) Remove specific CTA buttons/links and their container blocks.
+      const ctas = Array.from(document.querySelectorAll('a,button,[role="button"]')).slice(0, 800);
+      for (const n of ctas) {
+        try {
+          if (!n || n.nodeType !== 1) continue;
+          if (n.hasAttribute && n.hasAttribute('data-ee-hidden')) continue;
+          const t = String(n.textContent || '').trim();
+          const aria = String(n.getAttribute && n.getAttribute('aria-label') ? n.getAttribute('aria-label') : '');
+          const href = String(n.getAttribute && n.getAttribute('href') ? n.getAttribute('href') : '');
+          if (!hasPhrase(t) && !hasPhrase(aria) && !hasPhrase(href)) continue;
+
+          // Avoid killing top nav pricing link if present: we already disable sensitive header elsewhere.
+          if (href === '/pricing') continue;
+
+          if (removeClosestBlock(n)) continue;
+          try { n.remove(); } catch (_) { hideElementHard(n, 'home-cta'); }
+        } catch (_) {}
+      }
+
+      // 2) Fallback: remove any big block that contains "World's best video model" type promo copy.
+      const blocks = Array.from(document.querySelectorAll('section, div')).slice(0, 1200);
+      for (const b of blocks) {
+        try {
+          if (!b || b.nodeType !== 1) continue;
+          if (b.hasAttribute && b.hasAttribute('data-ee-hidden')) continue;
+          const txt = String(b.textContent || '').toLowerCase();
+          if (!txt) continue;
+          if (txt.includes("world's best video model") && txt.includes('off')) {
+            hideElementHard(b, 'home-promo-copy');
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
+  }
+
   function runUiBlockers() {
     removePromoBanner();
     // IMPORTANT: detect "Payment required" BEFORE we hide dialogs/portals (otherwise they can be marked data-ee-hidden too early).
@@ -909,6 +996,7 @@
     unblurPage();
     restoreInteractivity();
     removeBlockedPromoLinks();
+    removeHomeMarketingBlocks();
   }
 
   function installPaymentRequiredWatchers() {

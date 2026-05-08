@@ -18,6 +18,7 @@
   var STORAGE_PREFIX = 'ee_el_ecom_';
   var SESSION_VERIFIED_EMAIL = STORAGE_PREFIX + 'verified_email';
   var SESSION_VERIFIED_AT = STORAGE_PREFIX + 'verified_at';
+  var SESSION_USER_SCOPE = STORAGE_PREFIX + 'user_scope';
   var LS_PERIOD_USAGE = STORAGE_PREFIX + 'period_usage';
 
   var DEBUG = true;
@@ -172,8 +173,69 @@
   // ═══════════════════════════════════════════════════════════════════
   function getVerifiedEmail() { try { return sessionStorage.getItem(SESSION_VERIFIED_EMAIL); } catch (_) { return null; } }
   function setVerifiedEmail(email) { try { sessionStorage.setItem(SESSION_VERIFIED_EMAIL, email || ''); sessionStorage.setItem(SESSION_VERIFIED_AT, String(Date.now())); } catch (_) {} }
+  function getElevenLabsSessionId() {
+    try {
+      var keys = [];
+      for (var i = 0; i < localStorage.length; i++) keys.push(localStorage.key(i));
+      for (var j = 0; j < keys.length; j++) {
+        var k = String(keys[j] || '');
+        if (!k) continue;
+        if (!/session|auth|user|account|clerk|supabase|next/i.test(k)) continue;
+        var raw = localStorage.getItem(k);
+        if (!raw || raw.length < 6) continue;
+        var m = String(raw).match(/(user_[a-z0-9_-]{6,}|usr_[a-z0-9_-]{6,}|sess_[a-z0-9_-]{6,}|[a-f0-9]{24,})/i);
+        if (m && m[1]) return String(m[1]);
+        if ((raw[0] === '{' || raw[0] === '[') && raw.length < 200000) {
+          try {
+            var o = JSON.parse(raw);
+            var id = (o && (o.user_id || o.userId || o.id || o.sub || (o.user && (o.user.id || o.user.user_id)))) || null;
+            if (id && typeof id === 'string' && id.length >= 6) return id;
+          } catch (_) {}
+        }
+      }
+    } catch (_) {}
+    try {
+      var sid = sessionStorage.getItem(STORAGE_PREFIX + 'fallback_sid');
+      if (!sid) {
+        sid = 'el_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
+        sessionStorage.setItem(STORAGE_PREFIX + 'fallback_sid', sid);
+      }
+      return sid;
+    } catch (_) {}
+    return '';
+  }
+  function buildUserScope(email) {
+    var e = String(email || '').trim().toLowerCase();
+    var sid = getElevenLabsSessionId();
+    if (sid && e) return 'el_sid:' + sid + '|email:' + e;
+    if (sid) return 'el_sid:' + sid;
+    if (e) return 'email:' + e;
+    return '';
+  }
+  function getUserScope() {
+    try {
+      var email = getVerifiedEmail();
+      var computed = buildUserScope(email);
+      var stored = String(sessionStorage.getItem(SESSION_USER_SCOPE) || '');
+      if (computed && stored !== computed) {
+        sessionStorage.setItem(SESSION_USER_SCOPE, computed);
+        return computed;
+      }
+      return stored || computed || '';
+    } catch (_) {
+      return '';
+    }
+  }
+  function setUserScope(email) {
+    try {
+      var scope = buildUserScope(email);
+      if (scope) sessionStorage.setItem(SESSION_USER_SCOPE, scope);
+    } catch (_) {}
+  }
 
   function getUserStorageKey() {
+    var scope = getUserScope();
+    if (scope) return LS_PERIOD_USAGE + '_' + scope.toLowerCase().replace(/[^a-z0-9@._:-]/g, '');
     var email = getVerifiedEmail();
     if (email) return LS_PERIOD_USAGE + '_' + email.toLowerCase().replace(/[^a-z0-9@._-]/g, '');
     return LS_PERIOD_USAGE;
@@ -196,7 +258,12 @@
 
   function syncUsageFromBackend(email) {
     if (!email) return Promise.resolve();
-    return apiFetch(CONFIG.API_BASE_URL + CONFIG.USAGE_LOG_PATH + '?email=' + encodeURIComponent(email), { method: 'GET', credentials: 'omit' })
+    var scope = getUserScope();
+    var sid = getElevenLabsSessionId();
+    var url = CONFIG.API_BASE_URL + CONFIG.USAGE_LOG_PATH + '?email=' + encodeURIComponent(email);
+    if (scope) url += '&user_scope=' + encodeURIComponent(scope);
+    if (sid) url += '&el_session_id=' + encodeURIComponent(sid);
+    return apiFetch(url, { method: 'GET', credentials: 'omit' })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (data) {
         if (data && data.ok && typeof data.used_this_period === 'number') {
@@ -208,9 +275,19 @@
 
   function logUsage(email, delta, usedThisPeriod, source) {
     if (!delta) return;
+    var scope = getUserScope();
+    var sid = getElevenLabsSessionId();
     apiFetch(CONFIG.API_BASE_URL + CONFIG.USAGE_LOG_PATH, {
       method: 'POST', headers: { 'Content-Type': 'application/json' }, credentials: 'omit',
-      body: JSON.stringify({ email: email || null, delta: delta, usedThisPeriod: usedThisPeriod, at: new Date().toISOString(), source: source || null })
+      body: JSON.stringify({
+        email: email || null,
+        user_scope: scope || null,
+        el_session_id: sid || null,
+        delta: delta,
+        usedThisPeriod: usedThisPeriod,
+        at: new Date().toISOString(),
+        source: source || null
+      })
     }).catch(function () {});
   }
 
@@ -336,6 +413,7 @@
         submitBtn.disabled = false;
         if (res && res.allowed) {
           setVerifiedEmail(email);
+          setUserScope(email);
           setMsg('Subscription found. Syncing\u2026', false);
           Promise.all([syncUsageFromBackend(email), fetchElBalance(true)]).then(function () {
             setMsg('Access granted. ' + getRemaining() + ' / ' + CONFIG.DAILY_CREDIT_LIMIT + ' credits remaining today.', false);

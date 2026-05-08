@@ -12,6 +12,10 @@
     USAGE_LOG_PATH: '/api/usage/higgsfield',
     DAILY_CREDIT_LIMIT: 100
   };
+  // Fixed local reset hour (0..23). Default: midnight local time.
+  const DAILY_RESET_HOUR_LOCAL = Number(
+    (window.EE_HIGGSFIELD_ECOM_CONFIG && window.EE_HIGGSFIELD_ECOM_CONFIG.DAILY_RESET_HOUR_LOCAL) ?? 0
+  );
   const GENERATION_COSTS_BY_QUALITY = (window.EE_HIGGSFIELD_ECOM_CONFIG && window.EE_HIGGSFIELD_ECOM_CONFIG.GENERATION_COSTS_BY_QUALITY) || {
     AUTO: 12,
     '1K': 12,
@@ -75,7 +79,15 @@
     } catch (_) { return {}; }
   }
   function setDailyUsage(usage) { try { localStorage.setItem(getUserStorageKey(), JSON.stringify(usage)); } catch (_) {} }
-  function getTodayKey() { const d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function getDayKeyFromDate(d) { return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+  function getResetBucketDate(now) {
+    var d = new Date(now || Date.now());
+    var h = Number.isFinite(DAILY_RESET_HOUR_LOCAL) ? Math.max(0, Math.min(23, Math.floor(DAILY_RESET_HOUR_LOCAL))) : 0;
+    // Before reset hour -> still previous daily bucket.
+    if (d.getHours() < h) d.setDate(d.getDate() - 1);
+    return d;
+  }
+  function getTodayKey() { return getDayKeyFromDate(getResetBucketDate(Date.now())); }
   function getUsedToday() { const u = getDailyUsage(); return u[getTodayKey()] || 0; }
   function addUsedToday(delta) {
     const u = getDailyUsage();
@@ -361,10 +373,11 @@
   // --- Daily credits helpers ---
   function getHoursUntilReset() {
     var now = new Date();
-    var tomorrow = new Date(now);
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    tomorrow.setHours(0, 0, 0, 0);
-    var diffMs = tomorrow - now;
+    var h = Number.isFinite(DAILY_RESET_HOUR_LOCAL) ? Math.max(0, Math.min(23, Math.floor(DAILY_RESET_HOUR_LOCAL))) : 0;
+    var nextReset = new Date(now);
+    nextReset.setHours(h, 0, 0, 0);
+    if (now >= nextReset) nextReset.setDate(nextReset.getDate() + 1);
+    var diffMs = nextReset - now;
     return Math.ceil(diffMs / (1000 * 60 * 60));
   }
 
@@ -394,26 +407,66 @@
     return 'AUTO';
   }
 
+  // Detects a Higgsfield "strike line" decoration: an absolutely-positioned, rotated
+  // child element used to draw a diagonal bar over the original (pre-discount) price.
+  // Example: <span class="... opacity-70"><span>48</span><span class="absolute ... rotate-[30deg] bg-white/80"></span></span>
+  function eeContainsStrikeDecoration(el) {
+    if (!el || !el.querySelector) return false;
+    try {
+      if (el.querySelector('[class*="absolute"][class*="rotate-"]')) return true;
+    } catch (_) {}
+    return false;
+  }
+  function eeIsInsideStrikeWrapper(el, root) {
+    var p = el && el.parentElement;
+    while (p && p !== root && p !== document.body) {
+      var cls = (p && p.className && typeof p.className === 'string') ? p.className : '';
+      if (cls && /\bopacity-70\b/.test(cls) && eeContainsStrikeDecoration(p)) return true;
+      // Generic fallback: parent contains a strike-line directly as a sibling of `el`.
+      try {
+        var sibs = p.children || [];
+        for (var i = 0; i < sibs.length; i++) {
+          var sCls = (sibs[i] && sibs[i].className && typeof sibs[i].className === 'string') ? sibs[i].className : '';
+          if (sCls && /\babsolute\b/.test(sCls) && /\brotate-/.test(sCls)) return true;
+        }
+      } catch (_) {}
+      p = p.parentElement;
+    }
+    return false;
+  }
+
   function readCostFromButton(btn) {
     if (!btn) return null;
     var children = btn.querySelectorAll('span, div');
+    var candidates = [];
     for (var i = 0; i < children.length; i++) {
       var el = children[i];
+      // Skip elements that contain a strike-line decoration (their textContent merges
+      // the original + discounted prices, e.g. "4840" which would be misread).
+      if (eeContainsStrikeDecoration(el)) continue;
+      // Skip the inner number span that lives inside a strike-through wrapper (the dimmed original price).
+      if (eeIsInsideStrikeWrapper(el, btn)) continue;
+
+      var raw;
       if (el.querySelector && el.querySelector('svg')) {
         var clone = el.cloneNode(true);
         var svgs = clone.querySelectorAll('svg');
         for (var s = 0; s < svgs.length; s++) svgs[s].remove();
-        var raw = (clone.textContent || '').trim();
-        if (/^\d+(\.\d+)?$/.test(raw)) {
-          var n = parseFloat(raw);
-          if (n > 0) { log('cost from button child (svg-cleaned):', n); return n; }
-        }
+        raw = (clone.textContent || '').trim();
+      } else {
+        raw = (el.textContent || '').trim();
       }
-      var raw2 = (el.textContent || '').trim();
-      if (/^\d+(\.\d+)?$/.test(raw2)) {
-        var n2 = parseFloat(raw2);
-        if (n2 > 0) { log('cost from button child:', n2); return n2; }
+      if (/^\d+(\.\d+)?$/.test(raw)) {
+        var n = parseFloat(raw);
+        if (n > 0) candidates.push(n);
       }
+    }
+    if (candidates.length > 0) {
+      // Prefer the LAST visible numeric token so the discounted price (which always
+      // renders after the strike-through original) wins over earlier matches.
+      var cost = candidates[candidates.length - 1];
+      log('cost from button (visible numbers):', JSON.stringify(candidates), '-> picked:', cost);
+      return cost;
     }
     var allText = (btn.textContent || '').replace(/generate/gi, '').replace(/unlimited/gi, '').trim();
     var m = allText.match(/(\d+(?:\.\d+)?)/);
@@ -909,6 +962,20 @@
     widgetRefreshInterval = setInterval(refreshWidgetFromState, 2500);
   }
 
+  // Loose match: handles concatenated text like "GENERATE4840" (Marketing Studio
+  // button), where word-boundary regexes (\bgenerate\b) fail because the word is
+  // glued to the cost number with no whitespace between spans.
+  function eeButtonLooksLikeGenerate(btn) {
+    if (!btn) return false;
+    var t = (btn.textContent || '').toLowerCase();
+    if (!t) return false;
+    if (t.indexOf('unlimited') !== -1) return false;
+    return (
+      t.indexOf('generate') !== -1 ||
+      t.indexOf('g\u00e9n\u00e9rer') !== -1
+    );
+  }
+
   function installGenerateClickBlocker() {
     document.addEventListener('click', function (e) {
       if (isUnlimitedMode()) return;
@@ -920,14 +987,45 @@
       if (btn.getAttribute && btn.getAttribute('data-ee-our-button') === '1') return;
       if (syntheticGenerateButtons && syntheticGenerateButtons.has(btn)) return;
       if (isUnlimitedGenerateButton(btn)) return;
-      if (!/\bgenerate\b|\bg\u00e9n\u00e9rer\b|\bcreate\b|\bcr\u00e9er\b/i.test(btn.textContent || '')) return;
+      if (!eeButtonLooksLikeGenerate(btn)) return;
+
+      // The blocker is the safety net for any "Generate" button that does NOT have one of
+      // our overlays installed on top (e.g. Marketing Studio's pink GENERATE button, which
+      // has a custom layout and isn't always picked up by findStandardGenerateButton()).
+      // Without this, those clicks reach Higgsfield directly and never increment our daily
+      // counter, allowing unlimited paid generations to be spammed past the daily limit.
+      e.preventDefault();
+      e.stopPropagation();
+
       var used = getUsedToday();
       var limit = CONFIG.DAILY_CREDIT_LIMIT;
       if (used >= limit) {
-        e.preventDefault();
-        e.stopPropagation();
         showGenerateStatus('Daily credit limit reached.', 4500);
+        log('blocker rejected click: limit already reached', 'used=' + used, 'limit=' + limit);
+        return;
       }
+
+      // Route through the standard precheck so we read the cost, validate the wallet,
+      // increment the daily counter, log usage, then dispatch a synthetic click that the
+      // blocker will let through (via syntheticGenerateButtons).
+      // The finder must tolerate React re-renders that happen during waitForWalletCredits
+      // (up to ~3s): if the original button ref becomes detached, fall back to the closest
+      // visible "Generate"-like button so getBoundingClientRect() yields valid coords.
+      runPaidGenerationPrecheck('intercepted_generate', function () {
+        if (btn && btn.isConnected) return btn;
+        try {
+          var nodes = document.querySelectorAll('button');
+          for (var i = 0; i < nodes.length; i++) {
+            var b = nodes[i];
+            if (!eeButtonLooksLikeGenerate(b)) continue;
+            if (isUnlimitedGenerateButton(b)) continue;
+            if (b.getAttribute && b.getAttribute('data-ee-our-button') === '1') continue;
+            var r = b.getBoundingClientRect && b.getBoundingClientRect();
+            if (r && r.width > 0 && r.height > 0) return b;
+          }
+        } catch (_) {}
+        return btn || null;
+      });
     }, true);
   }
 
@@ -1034,17 +1132,56 @@
   function triggerGenerateButtonClick(btn) {
     if (!btn) return;
     if (syntheticGenerateButtons) syntheticGenerateButtons.add(btn);
+
+    function safeDispatch(target, EventCtor, type, init) {
+      try { target.dispatchEvent(new EventCtor(type, init)); } catch (_) {}
+    }
+
     try {
+      // React Aria buttons (data-rac) require valid clientX/clientY because their
+      // usePress hook calls isOverTarget(e, target) on both pointerdown (gating
+      // state.isPressed) and pointerup (gating onPress firing). Without coordinates
+      // inside the button's bounding rect, the press is silently discarded and the
+      // generation never starts. Use the button's geometric center.
+      var rect = (btn.getBoundingClientRect && btn.getBoundingClientRect()) || null;
+      var cx = rect ? Math.round(rect.left + rect.width / 2) : 0;
+      var cy = rect ? Math.round(rect.top + rect.height / 2) : 0;
+      var pointerId = 1;
+
+      var mouseDown = { bubbles: true, cancelable: true, composed: true, view: window, button: 0, buttons: 1, detail: 1, clientX: cx, clientY: cy, screenX: cx, screenY: cy };
+      var mouseUp   = { bubbles: true, cancelable: true, composed: true, view: window, button: 0, buttons: 0, detail: 1, clientX: cx, clientY: cy, screenX: cx, screenY: cy };
+      var mouseHover = Object.assign({}, mouseUp, { detail: 0 });
+
+      var pointerCommon = { pointerId: pointerId, pointerType: 'mouse', isPrimary: true, width: 1, height: 1 };
+      var pointerDown = Object.assign({}, mouseDown, pointerCommon, { pressure: 0.5 });
+      var pointerUp   = Object.assign({}, mouseUp,   pointerCommon, { pressure: 0 });
+      var pointerHover = Object.assign({}, mouseHover, pointerCommon, { pressure: 0 });
+
       try { btn.focus({ preventScroll: true }); } catch (_) {}
-      try { btn.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, cancelable: true, composed: true, pointerType: 'mouse', isPrimary: true, button: 0, buttons: 1 })); } catch (_) {}
-      try { btn.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, composed: true, button: 0, buttons: 1, detail: 1 })); } catch (_) {}
-      try { btn.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, cancelable: true, composed: true, pointerType: 'mouse', isPrimary: true, button: 0, buttons: 0 })); } catch (_) {}
-      try { btn.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, composed: true, button: 0, buttons: 0, detail: 1 })); } catch (_) {}
-      btn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, composed: true, button: 0, buttons: 0, detail: 1 }));
+
+      // Hover sequence first so React Aria's hover/press bookkeeping is consistent
+      // (some versions of usePress also gate on isOverTarget for pointerover).
+      safeDispatch(btn, PointerEvent, 'pointerover',  pointerHover);
+      safeDispatch(btn, PointerEvent, 'pointerenter', Object.assign({}, pointerHover, { bubbles: false }));
+      safeDispatch(btn, MouseEvent,   'mouseover',    mouseHover);
+      safeDispatch(btn, MouseEvent,   'mouseenter',   Object.assign({}, mouseHover, { bubbles: false }));
+
+      // Press start.
+      safeDispatch(btn, PointerEvent, 'pointerdown', pointerDown);
+      safeDispatch(btn, MouseEvent,   'mousedown',   mouseDown);
+
+      // Press end (still over the target — this is what fires React Aria's onPress).
+      safeDispatch(btn, PointerEvent, 'pointerup', pointerUp);
+      safeDispatch(btn, MouseEvent,   'mouseup',   mouseUp);
+
+      // Synthetic click for plain onClick handlers (non-React-Aria buttons).
+      // React Aria itself ignores non-virtual clicks (detail !== 0), so this does
+      // not double-trigger onPress when pointer events have already fired it.
+      safeDispatch(btn, MouseEvent, 'click', mouseUp);
     } finally {
       setTimeout(function () {
         try { if (syntheticGenerateButtons) syntheticGenerateButtons.delete(btn); } catch (_) {}
-      }, 600);
+      }, 800);
     }
   }
 

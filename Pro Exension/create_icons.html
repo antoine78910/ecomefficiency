@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Générateur d'icônes - Ecom Efficiency</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: linear-gradient(135deg, #0a0a0a 0%, #1a1a1a 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .logo {
+            color: #8b45c4;
+            font-size: 2em;
+            font-weight: 900;
+            letter-spacing: 2px;
+            margin-bottom: 20px;
+        }
+        
+        .icon-container {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            align-items: center;
+            margin: 40px 0;
+            flex-wrap: wrap;
+        }
+        
+        .icon-preview {
+            text-align: center;
+            background: rgba(255, 255, 255, 0.05);
+            padding: 20px;
+            border-radius: 10px;
+        }
+        
+        .icon-preview h3 {
+            color: #8b45c4;
+            margin-bottom: 10px;
+        }
+        
+        .download-btn {
+            background: linear-gradient(135deg, #8b45c4 0%, #6b35a4 100%);
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            margin: 5px;
+            transition: all 0.3s ease;
+        }
+        
+        .download-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(139, 69, 196, 0.4);
+        }
+        
+        .instructions {
+            background: rgba(255, 255, 255, 0.05);
+            padding: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
+        }
+        
+        .instructions h3 {
+            color: #8b45c4;
+            margin-bottom: 15px;
+        }
+        
+        .instructions ol {
+            margin-left: 20px;
+        }
+        
+        .instructions li {
+            margin-bottom: 10px;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <div class="logo">ECOM EFFICIENCY</div>
+        <h2>Générateur d'icônes pour l'extension Chrome</h2>
+    </div>
+
+    <div class="instructions">
+        <h3>📋 Instructions</h3>
+        <ol>
+            <li><strong>Cliquez sur "Télécharger"</strong> pour chaque taille d'icône</li>
+            <li><strong>Renommez les fichiers</strong> téléchargés :
+                <ul>
+                    <li>16x16 → <code>icon16.png</code></li>
+                    <li>48x48 → <code>icon48.png</code></li>
+                    <li>128x128 → <code>icon128.png</code></li>
+                </ul>
+            </li>
+            <li><strong>Placez les fichiers</strong> dans le dossier de votre extension</li>
+            <li><strong>Mettez à jour le manifest.json</strong> (voir code ci-dessous)</li>
+        </ol>
+    </div>
+
+    <div class="icon-container">
+        <div class="icon-preview">
+            <h3>16x16 pixels</h3>
+            <canvas id="canvas16" width="16" height="16" style="border: 1px solid #333; background: #000;"></canvas>
+            <br><br>
+            <button class="download-btn" onclick="downloadIcon('canvas16', 'icon16.png')">Télécharger 16x16</button>
+        </div>
+        
+        <div class="icon-preview">
+            <h3>48x48 pixels</h3>
+            <canvas id="canvas48" width="48" height="48" style="border: 1px solid #333; background: #000;"></canvas>
+            <br><br>
+            <button class="download-btn" onclick="downloadIcon('canvas48', 'icon48.png')">Télécharger 48x48</button>
+        </div>
+        
+        <div class="icon-preview">
+            <h3>128x128 pixels</h3>
+            <canvas id="canvas128" width="128" height="128" style="border: 1px solid #333; background: #000;"></canvas>
+            <br><br>
+            <button class="download-btn" onclick="downloadIcon('canvas128', 'icon128.png')">Télécharger 128x128</button>
+        </div>
+    </div>
+
+    <div class="instructions">
+        <h3>🔧 Code pour manifest.json</h3>
+        <p>Ajoutez ce code à votre <code>manifest.json</code> après avoir créé les icônes :</p>
+        <pre style="background: rgba(0,0,0,0.3); padding: 15px; border-radius: 5px; overflow-x: auto;">
+  "icons": {
+    "16": "icon16.png",
+    "48": "icon48.png",
+    "128": "icon128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": {
+      "16": "icon16.png",
+      "48": "icon48.png",
+      "128": "icon128.png"
+    }
+  }</pre>
+    </div>
+
+    <script>
+        // Fonction pour dessiner l'icône sur le canvas
+        function drawIcon(canvas, size) {
+            const ctx = canvas.getContext('2d');
+            
+            // Effacer le canvas
+            ctx.clearRect(0, 0, size, size);
+            
+            // Créer un gradient de fond
+            const bgGradient = ctx.createLinearGradient(0, 0, size, size);
+            bgGradient.addColorStop(0, '#0a0a0a');
+            bgGradient.addColorStop(1, '#1a1a1a');
+            
+            // Dessiner le fond avec coins arrondis
+            const cornerRadius = size * 0.15;
+            ctx.fillStyle = bgGradient;
+            ctx.beginPath();
+            ctx.roundRect(0, 0, size, size, cornerRadius);
+            ctx.fill();
+            
+            // Créer un gradient pour le texte
+            const textGradient = ctx.createLinearGradient(0, 0, size, size);
+            textGradient.addColorStop(0, '#8b45c4');
+            textGradient.addColorStop(1, '#6b35a4');
+            
+            // Dessiner le "E" principal
+            ctx.fillStyle = textGradient;
+            ctx.font = `bold ${size * 0.6}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('E', size / 2, size / 2 - size * 0.05);
+            
+            // Dessiner le petit "E" si la taille le permet
+            if (size >= 48) {
+                ctx.font = `bold ${size * 0.2}px Arial`;
+                ctx.fillText('E', size / 2, size / 2 + size * 0.25);
+            }
+            
+            // Dessiner les éléments décoratifs si la taille le permet
+            if (size >= 32) {
+                ctx.fillStyle = '#8b45c4';
+                ctx.globalAlpha = 0.6;
+                const dotSize = size * 0.03;
+                const margin = size * 0.25;
+                
+                ctx.beginPath();
+                ctx.arc(margin, margin, dotSize, 0, 2 * Math.PI);
+                ctx.fill();
+                
+                ctx.beginPath();
+                ctx.arc(size - margin, margin, dotSize, 0, 2 * Math.PI);
+                ctx.fill();
+                
+                ctx.beginPath();
+                ctx.arc(margin, size - margin, dotSize, 0, 2 * Math.PI);
+                ctx.fill();
+                
+                ctx.beginPath();
+                ctx.arc(size - margin, size - margin, dotSize, 0, 2 * Math.PI);
+                ctx.fill();
+                
+                ctx.globalAlpha = 1;
+            }
+        }
+        
+        // Fonction pour télécharger l'icône
+        function downloadIcon(canvasId, filename) {
+            const canvas = document.getElementById(canvasId);
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL('image/png');
+            link.click();
+        }
+        
+        // Dessiner les icônes au chargement de la page
+        window.onload = function() {
+            drawIcon(document.getElementById('canvas16'), 16);
+            drawIcon(document.getElementById('canvas48'), 48);
+            drawIcon(document.getElementById('canvas128'), 128);
+        };
+        
+        // Ajouter la méthode roundRect si elle n'existe pas (pour les anciens navigateurs)
+        if (!CanvasRenderingContext2D.prototype.roundRect) {
+            CanvasRenderingContext2D.prototype.roundRect = function(x, y, width, height, radius) {
+                this.beginPath();
+                this.moveTo(x + radius, y);
+                this.lineTo(x + width - radius, y);
+                this.quadraticCurveTo(x + width, y, x + width, y + radius);
+                this.lineTo(x + width, y + height - radius);
+                this.quadraticCurveTo(x + width, y + height, x + width - radius, y + height);
+                this.lineTo(x + radius, y + height);
+                this.quadraticCurveTo(x, y + height, x, y + height - radius);
+                this.lineTo(x, y + radius);
+                this.quadraticCurveTo(x, y, x + radius, y);
+                this.closePath();
+            };
+        }
+    </script>
+</body>
+</html>

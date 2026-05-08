@@ -3,6 +3,8 @@ import { createClient } from "@supabase/supabase-js";
 
 type ElevenlabsUsageEvent = {
   email: string | null;
+  user_scope?: string | null;
+  el_session_id?: string | null;
   delta: number;
   used_this_period: number | null;
   at: string;
@@ -47,9 +49,11 @@ export async function GET(req: Request) {
   try {
     const { searchParams } = new URL(req.url);
     const email = (searchParams.get("email") || "").trim().toLowerCase();
-    if (!email) {
+    const userScope = (searchParams.get("user_scope") || "").trim().toLowerCase();
+    const elSessionId = (searchParams.get("el_session_id") || "").trim();
+    if (!email && !userScope && !elSessionId) {
       return withCors(
-        NextResponse.json({ ok: false, error: "missing_email" }, { status: 400 }),
+        NextResponse.json({ ok: false, error: "missing_identity" }, { status: 400 }),
         req
       );
     }
@@ -61,12 +65,33 @@ export async function GET(req: Request) {
     );
     const since = sinceDate.toISOString();
 
-    const { data, error } = await supabase
+    let query = supabase
       .from("elevenlabs_usage_events")
       .select("delta")
-      .eq("email", email)
       .gte("at", since)
       .gt("delta", 0);
+
+    // Prefer the strongest identity first, then fallback.
+    if (userScope) query = query.eq("user_scope", userScope);
+    else if (elSessionId) query = query.eq("el_session_id", elSessionId);
+    else query = query.eq("email", email);
+
+    let { data, error } = await query;
+
+    // Backward-compatible fallback when new columns don't exist yet.
+    if (
+      error &&
+      (error.message?.includes("user_scope") || error.message?.includes("el_session_id"))
+    ) {
+      const fallback = await supabase
+        .from("elevenlabs_usage_events")
+        .select("delta")
+        .eq("email", email)
+        .gte("at", since)
+        .gt("delta", 0);
+      data = fallback.data;
+      error = fallback.error;
+    }
 
     if (error) {
       console.warn("[API] elevenlabs usage GET error", error.message);
@@ -82,7 +107,14 @@ export async function GET(req: Request) {
     );
 
     return withCors(
-      NextResponse.json({ ok: true, email, used_this_period: usedThisPeriod, since }),
+      NextResponse.json({
+        ok: true,
+        email: email || null,
+        user_scope: userScope || null,
+        el_session_id: elSessionId || null,
+        used_this_period: usedThisPeriod,
+        since,
+      }),
       req
     );
   } catch (e: any) {
@@ -101,6 +133,8 @@ export async function POST(req: Request) {
   try {
     const json = (await req.json().catch(() => ({}))) as {
       email?: string | null;
+      user_scope?: string | null;
+      el_session_id?: string | null;
       delta?: number;
       usedThisPeriod?: number;
       at?: string;
@@ -109,6 +143,14 @@ export async function POST(req: Request) {
 
     const rawEmail = typeof json.email === "string" ? json.email.trim() : "";
     const email = rawEmail || null;
+    const userScope =
+      typeof json.user_scope === "string" && json.user_scope.trim()
+        ? json.user_scope.trim().slice(0, 256).toLowerCase()
+        : null;
+    const elSessionId =
+      typeof json.el_session_id === "string" && json.el_session_id.trim()
+        ? json.el_session_id.trim().slice(0, 128)
+        : null;
     const delta = Number(json.delta || 0);
     const usedThisPeriod =
       json.usedThisPeriod != null && !Number.isNaN(Number(json.usedThisPeriod))
@@ -132,6 +174,8 @@ export async function POST(req: Request) {
 
     const event: ElevenlabsUsageEvent = {
       email,
+      user_scope: userScope,
+      el_session_id: elSessionId,
       delta,
       used_this_period: usedThisPeriod,
       at,
@@ -144,12 +188,14 @@ export async function POST(req: Request) {
     if (
       result.error &&
       (result.error.message?.includes("source") ||
+        result.error.message?.includes("user_scope") ||
+        result.error.message?.includes("el_session_id") ||
         result.error.message?.includes("column"))
     ) {
-      const { source: _s, ...eventWithoutSource } = event;
+      const { source: _s, user_scope: _u, el_session_id: _sid, ...eventWithoutNewCols } = event;
       result = await supabase
         .from("elevenlabs_usage_events")
-        .insert(eventWithoutSource);
+        .insert(eventWithoutNewCols);
     }
     const { error } = result;
 

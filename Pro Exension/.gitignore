@@ -1,0 +1,22 @@
+# Extension Chrome
+*.crx
+*.pem
+
+# Fichiers temporaires
+*.tmp
+*.log
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Node (si vous ajoutez des outils de build plus tard)
+node_modules/
+package-lock.json
+

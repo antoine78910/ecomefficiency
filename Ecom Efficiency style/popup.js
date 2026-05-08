@@ -6,7 +6,20 @@ document.addEventListener('DOMContentLoaded', () => {
     const tracking = data && data.ee_hf_credit_tracking;
     const block = document.getElementById('ee-hf-credits');
     if (!block) return;
-    const today = new Date().toISOString().slice(0, 10);
+    const resetHour = 0; // fixed daily local reset hour
+    const getBucketKey = () => {
+      const d = new Date();
+      if (d.getHours() < resetHour) d.setDate(d.getDate() - 1);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+    const getNextResetLabel = () => {
+      const now = new Date();
+      const next = new Date(now);
+      next.setHours(resetHour, 0, 0, 0);
+      if (now >= next) next.setDate(next.getDate() + 1);
+      return next.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    };
+    const today = getBucketKey();
     const lastReset = tracking && tracking.lastResetDate;
     const todayUsage = (lastReset === today) ? (tracking.todayUsage || 0) : 0;
     const dailyLimit = (data && data.ee_hf_daily_limit) || 100;
@@ -15,9 +28,11 @@ document.addEventListener('DOMContentLoaded', () => {
       block.style.display = 'block';
       const creditsEl = document.getElementById('ee-hf-credits-value');
       const usedEl = document.getElementById('ee-hf-used-value');
+      const resetEl = document.getElementById('ee-hf-reset-value');
       const limitMsg = document.getElementById('ee-hf-limit-msg');
       if (creditsEl) creditsEl.textContent = wallet && (wallet.credits !== undefined && wallet.credits !== null) ? wallet.credits : '–';
       if (usedEl) usedEl.textContent = todayUsage + ' / ' + dailyLimit;
+      if (resetEl) resetEl.textContent = 'Every day at ' + getNextResetLabel() + ' (local)';
       if (limitMsg) { limitMsg.textContent = 'Daily limit reached (' + dailyLimit + ' credits).'; limitMsg.style.display = limitReached ? 'block' : 'none'; }
     } else {
       block.style.display = 'none';
