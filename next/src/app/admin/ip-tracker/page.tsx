@@ -56,6 +56,9 @@ type SessionRow = {
   region?: string | null
   timezone?: string | null
   isp?: string | null
+  device_name?: string | null
+  device_fingerprint?: string | null
+  fingerprint_version?: string | null
 }
 
 type RiskSignal = {
@@ -72,6 +75,7 @@ type UserSummary = {
   user_id: string
   uniqueIps: string[]
   uniqueLocations: string[]
+  uniqueFingerprints: string[]
   totalEvents: number
   copyPasswordCount: number
   lastSeen: string
@@ -170,6 +174,7 @@ function computeRisk(
   sessions: SessionRow[],
   uniqueIps: string[],
   uniqueLocations: string[],
+  uniqueFingerprints: string[],
   copyPasswordCount: number,
 ): { score: number; level: 'safe' | 'watch' | 'suspicious' | 'critical'; signals: RiskSignal[] } {
   const signals: RiskSignal[] = []
@@ -256,13 +261,36 @@ function computeRisk(
     signals.push({ id: 'few_ips', emoji: '🔗', label: `${uniqueIps.length} IPs distinctes`, detail: 'Plusieurs IPs utilisées', severity: 'medium', score: 10 })
   }
 
-  // ── Signal 6: Multi-city same country ────────────────────────────────
+  // ── Signal 6: Multi-device fingerprint ────────────────────────────────
+  if (uniqueFingerprints.length >= 3) {
+    score += 25
+    signals.push({
+      id: 'multi_device',
+      emoji: '📱',
+      label: `${uniqueFingerprints.length} devices distincts`,
+      detail: 'Empreintes appareil multiples détectées pour le même compte',
+      severity: 'high',
+      score: 25,
+    })
+  } else if (uniqueFingerprints.length === 2) {
+    score += 10
+    signals.push({
+      id: 'multi_device_2',
+      emoji: '📱',
+      label: '2 devices distincts',
+      detail: 'Deux empreintes appareil différentes',
+      severity: 'medium',
+      score: 10,
+    })
+  }
+
+  // ── Signal 7: Multi-city same country ────────────────────────────────
   if (cities.size >= 3 && countries.size <= 1) {
     score += 15
     signals.push({ id: 'multi_city', emoji: '🏙️', label: `${cities.size} villes distinctes`, detail: [...cities].join(', '), severity: 'medium', score: 15 })
   }
 
-  // ── Signal 7: High password copy count ───────────────────────────────
+  // ── Signal 8: High password copy count ───────────────────────────────
   if (copyPasswordCount >= 5) {
     score += 10
     signals.push({ id: 'pw_copies', emoji: '🔑', label: `${copyPasswordCount} copies MDP`, detail: 'Nombre élevé de copies de mot de passe', severity: 'medium', score: 10 })
@@ -293,7 +321,7 @@ async function fetchData() {
   let sessions: SessionRow[] = []
   const extended = await supabaseAdmin
     .from('user_sessions')
-    .select('user_id, email, ip_address, created_at, ended_at, duration_seconds, is_active, last_activity, country, city, region, timezone, isp')
+    .select('user_id, email, ip_address, created_at, ended_at, duration_seconds, is_active, last_activity, country, city, region, timezone, isp, device_name, device_fingerprint, fingerprint_version')
     .order('created_at', { ascending: false })
     .limit(5000)
   if (extended.error && (extended.error.message?.includes('column') || extended.error.message?.includes('does not exist'))) {
@@ -316,12 +344,12 @@ function buildUserSummaries(events: IpEvent[], sessions: SessionRow[]): UserSumm
   const byUser = new Map<string, {
     email: string; user_id: string
     events: IpEvent[]; sessions: SessionRow[]
-    sessionIps: Set<string>; locations: Set<string>
+    sessionIps: Set<string>; locations: Set<string>; fingerprints: Set<string>
   }>()
 
   for (const ev of events) {
     const key = ev.email || ev.user_id || 'unknown'
-    const entry = byUser.get(key) || { email: ev.email || '', user_id: ev.user_id, events: [], sessions: [], sessionIps: new Set(), locations: new Set() }
+    const entry = byUser.get(key) || { email: ev.email || '', user_id: ev.user_id, events: [], sessions: [], sessionIps: new Set(), locations: new Set(), fingerprints: new Set() }
     entry.events.push(ev)
     if (!entry.email && ev.email) entry.email = ev.email
     const loc = eventLocation(ev)
@@ -331,9 +359,10 @@ function buildUserSummaries(events: IpEvent[], sessions: SessionRow[]): UserSumm
 
   for (const s of sessions) {
     const key = String(s.email || s.user_id || 'unknown')
-    const entry = byUser.get(key) || { email: s.email || '', user_id: String(s.user_id || ''), events: [], sessions: [], sessionIps: new Set(), locations: new Set() }
+    const entry = byUser.get(key) || { email: s.email || '', user_id: String(s.user_id || ''), events: [], sessions: [], sessionIps: new Set(), locations: new Set(), fingerprints: new Set() }
     if (!entry.email && s.email) entry.email = s.email
     if (s.ip_address) entry.sessionIps.add(String(s.ip_address))
+    if (s.device_fingerprint) entry.fingerprints.add(String(s.device_fingerprint))
     const loc = compactLocation(s.city, s.region, s.country)
     if (loc) entry.locations.add(loc)
     entry.sessions.push(s)
@@ -347,16 +376,18 @@ function buildUserSummaries(events: IpEvent[], sessions: SessionRow[]): UserSumm
     const allIps = new Set([...eventIps, ...entry.sessionIps])
     const uniqueIps = Array.from(allIps).filter(ip => ip && ip !== 'unknown')
     const uniqueLocations = Array.from(entry.locations).filter(Boolean)
+    const uniqueFingerprints = Array.from(entry.fingerprints).filter(Boolean)
     const copyPasswordCount = entry.events.filter(e => e.action === 'copy_password').length
     const lastSeen = entry.events[0]?.created_at || entry.sessions[0]?.last_activity || ''
 
-    const { score, level, signals } = computeRisk(entry.events, entry.sessions, uniqueIps, uniqueLocations, copyPasswordCount)
+    const { score, level, signals } = computeRisk(entry.events, entry.sessions, uniqueIps, uniqueLocations, uniqueFingerprints, copyPasswordCount)
 
     summaries.push({
       email: entry.email,
       user_id: entry.user_id,
       uniqueIps,
       uniqueLocations,
+      uniqueFingerprints,
       totalEvents: entry.events.length,
       copyPasswordCount,
       lastSeen,
@@ -474,8 +505,9 @@ const LEVEL_LABEL: Record<string, string> = {
 }
 
 function UserCard({ summary }: { summary: UserSummary }) {
-  const { email, user_id, uniqueIps, uniqueLocations, totalEvents, copyPasswordCount, lastSeen, events, riskScore, riskLevel, riskSignals } = summary
+  const { email, user_id, uniqueIps, uniqueLocations, uniqueFingerprints, totalEvents, copyPasswordCount, lastSeen, events, sessions, riskScore, riskLevel, riskSignals } = summary
   const s = LEVEL_STYLES[riskLevel]
+  const uniqueDeviceNames = Array.from(new Set((sessions || []).map((x) => String(x.device_name || '').trim()).filter(Boolean)))
 
   return (
     <details className={`group border rounded-xl overflow-hidden ${s.border} ${s.bg}`}>
@@ -522,6 +554,7 @@ function UserCard({ summary }: { summary: UserSummary }) {
             <div className="flex items-center gap-3 text-xs text-gray-400 flex-wrap">
               <span>🌐 {uniqueIps.length} IP{uniqueIps.length > 1 ? 's' : ''}</span>
               <span>🗺️ {uniqueLocations.length} lieu{uniqueLocations.length > 1 ? 'x' : ''}</span>
+              <span>📱 {uniqueFingerprints.length} device{uniqueFingerprints.length > 1 ? 's' : ''}</span>
               <span>🔑 {copyPasswordCount} MDP</span>
               <span>📊 {totalEvents} events</span>
               <span>🕒 {fmtDate(lastSeen)}</span>
@@ -574,6 +607,20 @@ function UserCard({ summary }: { summary: UserSummary }) {
               <span key={loc} className="px-2 py-1 rounded bg-amber-500/10 border border-amber-500/25 text-xs text-amber-200">{loc}</span>
             ))}
             {!uniqueLocations.length && <span className="text-gray-500 text-xs">Lieu précis indisponible</span>}
+          </div>
+        </div>
+
+        {/* Devices */}
+        <div>
+          <h4 className="text-sm font-semibold text-gray-300 mb-2">📱 Devices détectés</h4>
+          <div className="flex flex-wrap gap-2">
+            {uniqueDeviceNames.map((name) => (
+              <span key={name} className="px-2 py-1 rounded bg-cyan-500/10 border border-cyan-500/25 text-xs text-cyan-200">{name}</span>
+            ))}
+            {!uniqueDeviceNames.length && <span className="text-gray-500 text-xs">Nom device indisponible</span>}
+          </div>
+          <div className="mt-2 text-[11px] text-gray-500">
+            Empreintes uniques: {uniqueFingerprints.length}
           </div>
         </div>
 
