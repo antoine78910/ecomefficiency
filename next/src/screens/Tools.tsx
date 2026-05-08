@@ -11,7 +11,6 @@ import { carouselTools } from "@/data/carouselTools";
 import { resolveToolSlug } from "@/data/toolsCatalog";
 import { seoToolsCatalog } from "@/data/seoToolsCatalog";
 import ToolImage from "@/components/ToolImage";
-import { useRouter, usePathname } from "next/navigation";
 
 type GalleryTool = { id: number; name: string; description: string; icon: string };
 
@@ -36,17 +35,10 @@ const Tools = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [tier, setTier] = useState<'starter'|'pro'>("pro");
   const [seoOpen, setSeoOpen] = useState(false)
-  const router = useRouter();
-  const pathname = usePathname();
 
   const closeSeoModal = React.useCallback(() => {
-    try {
-      router.push('/tools');
-    } catch (error) {
-      console.warn('[Tools] Router push error:', error);
-      setSeoOpen(false);
-    }
-  }, [router]);
+    setSeoOpen(false);
+  }, []);
 
   const normalizeSeoName = React.useCallback((input: string) => {
     return String(input || "")
@@ -66,29 +58,6 @@ const Tools = () => {
     }
     return m;
   }, [normalizeSeoName]);
-
-  React.useEffect(() => {
-    try {
-      let p: string = '';
-      if (pathname) {
-        p = pathname;
-      } else if (typeof window !== 'undefined') {
-        try {
-          p = window.location.pathname || '';
-        } catch {
-          p = '';
-        }
-      }
-      if (p && p.endsWith('/tools/seo')) {
-        setSeoOpen(true);
-      } else {
-        setSeoOpen(false);
-      }
-    } catch (error) {
-      // Silently handle errors
-      setSeoOpen(false);
-    }
-  }, [pathname])
 
   React.useEffect(() => {
     if (!seoOpen) return;
@@ -246,16 +215,21 @@ const Tools = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-4 md:gap-6">
             {filteredTools.map((tool) => (
               <div key={tool.id}>
+                {(() => {
+                  const isFreepik = String(tool.name || '').trim().toLowerCase() === 'freepik';
+                  const cardIcon = isFreepik ? '/tools-logos/freepik.png?v=4' : tool.icon;
+                  return (
+                    <>
                 {tool.name === '+30 SEO Tools' ? (
-                  <div onClick={()=>{ 
-                    try { 
-                      router.push('/tools/seo');
-                    } catch (error) { 
-                      console.warn('[Tools] Router push error:', error);
-                      setSeoOpen(true);
-                    }
-                  }}>
-              <Card
+                  <div>
+                    <button
+                      type="button"
+                      onClick={() => setSeoOpen((prev) => !prev)}
+                      className="w-full text-left"
+                      aria-expanded={seoOpen}
+                      aria-controls="seo-tools-inline-panel"
+                    >
+                      <Card
                       className={`relative p-3 md:p-4 bg-gray-900 border border-white/10 hover:border-white/20 transition-all duration-300 hover:scale-105 group cursor-pointer rounded-2xl`}
                     >
                       {isProOnly(tool.name) && (
@@ -265,13 +239,44 @@ const Tools = () => {
                       )}
                       {renderPrice(tool.name)}
                       <div className="w-full h-28 md:h-40 rounded-xl overflow-hidden mb-3 md:mb-4">
-                        <ToolImage toolName={tool.name} icon={tool.icon} />
+                        <ToolImage toolName={tool.name} icon={cardIcon} />
                       </div>
                       <h3 className="text-white font-semibold text-sm md:text-base mb-1">{tool.name}</h3>
                       <p className="text-gray-400 text-xs md:text-sm leading-relaxed">{tool.description}</p>
                       {/* Removed explicit CTA chip per request */}
                     </Card>
-                </div>
+                    </button>
+                    {seoOpen && (
+                      <div
+                        id="seo-tools-inline-panel"
+                        className="mt-3 bg-gray-900 border border-white/10 rounded-2xl p-5 w-full"
+                        role="dialog"
+                        aria-modal="false"
+                        aria-label="+30 SEO Tools"
+                      >
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="text-white font-semibold">+30 SEO Tools</h3>
+                          <button onClick={closeSeoModal} className="text-white/70 hover:text-white">✕</button>
+                        </div>
+                        <p className="text-gray-400 text-sm mb-3">Included tools with short descriptions.</p>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {seoToolsCatalog.map((t) => (
+                            <Link
+                              key={t.slug}
+                              href={`/tools/seo/${t.slug}`}
+                              title={`${t.name} SEO tool page`}
+                              className="block hover:brightness-110 transition"
+                            >
+                              <div className="rounded-lg border border-white/10 p-3 bg-black/30">
+                                <div className="text-white font-medium text-sm">{t.name}</div>
+                                <div className="text-gray-400 text-xs">{t.shortDescription}</div>
+                              </div>
+                            </Link>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
                 ) : (
                   (() => {
                     const rawName = String(tool.name || "")
@@ -302,7 +307,7 @@ const Tools = () => {
                         )}
                         {renderPrice(tool.name)}
                         <div className="w-full h-28 md:h-40 rounded-xl overflow-hidden mb-3 md:mb-4">
-                          <ToolImage toolName={tool.name} icon={tool.icon} />
+                          <ToolImage toolName={tool.name} icon={cardIcon} />
                         </div>
                         <h3 className="text-white font-semibold text-sm md:text-base mb-1">{tool.name}</h3>
                         <p className="text-gray-400 text-xs md:text-sm leading-relaxed">{tool.description}</p>
@@ -317,49 +322,12 @@ const Tools = () => {
                     )
                   })()
                 )}
+                    </>
+                  );
+                })()}
               </div>
             ))}
           </div>
-          {seoOpen && (
-            <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center relative">
-              {/* Backdrop: click outside closes */}
-              <button
-                type="button"
-                aria-label="Close"
-                onClick={closeSeoModal}
-                className="absolute inset-0 cursor-pointer"
-              />
-              <div
-                className="relative z-10 bg-gray-900 border border-white/10 rounded-2xl p-5 w-full max-w-3xl max-h-[80vh] overflow-auto"
-                role="dialog"
-                aria-modal="true"
-                aria-label="+30 SEO Tools"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-white font-semibold">+30 SEO Tools</h3>
-                  <button onClick={closeSeoModal} className="text-white/70 hover:text-white">✕</button>
-                </div>
-                <p className="text-gray-400 text-sm mb-3">Included tools with short descriptions.</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {seoToolsCatalog.map((t) => (
-                    <Link
-                      key={t.slug}
-                      href={`/tools/seo/${t.slug}`}
-                      title={`${t.name} SEO tool page`}
-                      className="block hover:brightness-110 transition"
-                    >
-                      <div className="rounded-lg border border-white/10 p-3 bg-black/30">
-                        <div className="text-white font-medium text-sm">{t.name}</div>
-                        <div className="text-gray-400 text-xs">{t.shortDescription}</div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-                {/* Removed external link per request */}
-              </div>
-            </div>
-          )}
-
           {/* No Results */}
           {filteredTools.length === 0 && (
             <div className="text-center py-16">
