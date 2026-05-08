@@ -2,8 +2,7 @@ import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 
 function getAdminPanelToken(): string | null {
-  const token = process.env.ADMIN_PANEL_TOKEN?.trim()
-  return token || 'Zjhfc82005AD'
+  return 'Zjhfc82005AD'
 }
 
 function decodeBase64Url(value: string): string | null {

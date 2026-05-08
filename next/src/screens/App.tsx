@@ -1604,8 +1604,10 @@ function CredentialsPanel({
     return () => { cancelled = true }
   }, [whiteLabel, partnerSlug])
 
-  const openPortal = async () => {
+  const openPortal = async (e?: React.MouseEvent<HTMLButtonElement>) => {
     try {
+      try { e?.preventDefault() } catch {}
+      try { e?.stopPropagation() } catch {}
       if (typeof window === 'undefined') return
 
       const mod = await import("@/integrations/supabase/client")
@@ -1782,7 +1784,7 @@ function CredentialsPanel({
                       >
                         Subscribe
                       </button>
-              <button onClick={openPortal} className="px-3 py-1 rounded-md border border-white/20 text-white hover:bg-white/10">Manage billing</button>
+              <button type="button" onClick={openPortal} className="px-3 py-1 rounded-md border border-white/20 text-white hover:bg-white/10">Manage billing</button>
             </div>
           </div>
         ) : null}
