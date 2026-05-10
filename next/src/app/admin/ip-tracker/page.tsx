@@ -70,10 +70,66 @@ type RiskSignal = {
   score: number
 }
 
+type IpAccountDetail = {
+  ip: string
+  lastSeen: string
+  eventCount: number
+  sessionCount: number
+  locations: string[]
+}
+
+function buildIpAccountDetails(events: IpEvent[], sessions: SessionRow[], ips: string[]): IpAccountDetail[] {
+  const ipSet = new Set(ips.filter((ip) => ip && ip !== 'unknown'))
+  const byIp = new Map<string, { lastMs: number; eventCount: number; sessionCount: number; locs: Set<string> }>()
+  const ensure = (ip: string) => {
+    if (!ipSet.has(ip)) return null
+    let r = byIp.get(ip)
+    if (!r) {
+      r = { lastMs: 0, eventCount: 0, sessionCount: 0, locs: new Set() }
+      byIp.set(ip, r)
+    }
+    return r
+  }
+  for (const ev of events) {
+    const ip = ev.ip_address
+    const r = ensure(ip)
+    if (!r) continue
+    r.eventCount++
+    const t = new Date(ev.created_at).getTime()
+    if (!Number.isNaN(t)) r.lastMs = Math.max(r.lastMs, t)
+    const loc = eventLocation(ev)
+    if (loc && loc !== '—') r.locs.add(loc)
+  }
+  for (const s of sessions) {
+    const ip = String(s.ip_address || '')
+    const r = ensure(ip)
+    if (!r) continue
+    r.sessionCount++
+    const ts = s.last_activity || s.created_at
+    const t = ts ? new Date(ts).getTime() : NaN
+    if (!Number.isNaN(t)) r.lastMs = Math.max(r.lastMs, t)
+    const loc = compactLocation(s.city, s.region, s.country) || String(s.country || '').trim()
+    if (loc) r.locs.add(loc)
+  }
+  for (const ip of ipSet) {
+    if (!byIp.has(ip)) byIp.set(ip, { lastMs: 0, eventCount: 0, sessionCount: 0, locs: new Set() })
+  }
+  return [...byIp.entries()]
+    .map(([ip, v]) => ({
+      ip,
+      lastSeen: v.lastMs ? new Date(v.lastMs).toISOString() : '',
+      eventCount: v.eventCount,
+      sessionCount: v.sessionCount,
+      locations: [...v.locs],
+    }))
+    .sort((a, b) => new Date(b.lastSeen || 0).getTime() - new Date(a.lastSeen || 0).getTime())
+}
+
 type UserSummary = {
   email: string
   user_id: string
   uniqueIps: string[]
+  ipAccountDetails: IpAccountDetail[]
   uniqueLocations: string[]
   uniqueFingerprints: string[]
   totalEvents: number
@@ -381,11 +437,13 @@ function buildUserSummaries(events: IpEvent[], sessions: SessionRow[]): UserSumm
     const lastSeen = entry.events[0]?.created_at || entry.sessions[0]?.last_activity || ''
 
     const { score, level, signals } = computeRisk(entry.events, entry.sessions, uniqueIps, uniqueLocations, uniqueFingerprints, copyPasswordCount)
+    const ipAccountDetails = buildIpAccountDetails(entry.events, entry.sessions, uniqueIps)
 
     summaries.push({
       email: entry.email,
       user_id: entry.user_id,
       uniqueIps,
+      ipAccountDetails,
       uniqueLocations,
       uniqueFingerprints,
       totalEvents: entry.events.length,
@@ -505,7 +563,7 @@ const LEVEL_LABEL: Record<string, string> = {
 }
 
 function UserCard({ summary }: { summary: UserSummary }) {
-  const { email, user_id, uniqueIps, uniqueLocations, uniqueFingerprints, totalEvents, copyPasswordCount, lastSeen, events, sessions, riskScore, riskLevel, riskSignals } = summary
+  const { email, user_id, uniqueIps, ipAccountDetails, uniqueLocations, uniqueFingerprints, totalEvents, copyPasswordCount, lastSeen, events, sessions, riskScore, riskLevel, riskSignals } = summary
   const s = LEVEL_STYLES[riskLevel]
   const uniqueDeviceNames = Array.from(new Set((sessions || []).map((x) => String(x.device_name || '').trim()).filter(Boolean)))
 
@@ -560,6 +618,17 @@ function UserCard({ summary }: { summary: UserSummary }) {
               <span>🕒 {fmtDate(lastSeen)}</span>
               <span className="hidden sm:inline font-mono">🆔 {user_id?.slice(0, 8)}…</span>
             </div>
+
+            {uniqueIps.length > 0 ? (
+              <div className="mt-2 pt-2 border-t border-white/10">
+                <div className="text-[11px] text-gray-500 mb-1.5">Adresses IP pour ce compte</div>
+                <div className="flex flex-wrap gap-1.5">
+                  {uniqueIps.map((ip) => (
+                    <span key={ip} className="px-2 py-0.5 rounded bg-white/10 font-mono text-[11px] text-white border border-white/10">{ip}</span>
+                  ))}
+                </div>
+              </div>
+            ) : null}
           </div>
 
           <svg className="w-5 h-5 text-gray-400 transition-transform group-open:rotate-180 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -588,15 +657,41 @@ function UserCard({ summary }: { summary: UserSummary }) {
           </div>
         )}
 
-        {/* IPs */}
+        {/* IPs — detail table */}
         <div>
-          <h4 className="text-sm font-semibold text-gray-300 mb-2">📍 IPs utilisées</h4>
-          <div className="flex flex-wrap gap-2">
-            {uniqueIps.map(ip => (
-              <span key={ip} className="px-2 py-1 rounded bg-white/10 text-xs font-mono text-white">{ip}</span>
-            ))}
-            {!uniqueIps.length && <span className="text-gray-500 text-xs">Aucune IP</span>}
-          </div>
+          <h4 className="text-sm font-semibold text-gray-300 mb-2">📍 IPs par compte (identification)</h4>
+          {!uniqueIps.length ? (
+            <span className="text-gray-500 text-xs">Aucune IP</span>
+          ) : (
+            <div className="border border-white/10 rounded-lg overflow-x-auto">
+              <table className="w-full text-sm min-w-[640px]">
+                <thead className="bg-white/5">
+                  <tr>
+                    <th className="text-left p-2 text-xs text-gray-400 font-medium">IP</th>
+                    <th className="text-left p-2 text-xs text-gray-400 font-medium whitespace-nowrap">Dernière activité</th>
+                    <th className="text-right p-2 text-xs text-gray-400 font-medium">Événements</th>
+                    <th className="text-right p-2 text-xs text-gray-400 font-medium">Sessions</th>
+                    <th className="text-left p-2 text-xs text-gray-400 font-medium hidden md:table-cell">Lieux vus</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ipAccountDetails.map((row) => (
+                    <tr key={row.ip} className="border-t border-white/5 hover:bg-white/5">
+                      <td className="p-2 font-mono text-xs text-white whitespace-nowrap">{row.ip}</td>
+                      <td className="p-2 text-gray-300 whitespace-nowrap text-xs">{row.lastSeen ? fmtDate(row.lastSeen) : '—'}</td>
+                      <td className="p-2 text-right text-gray-400 text-xs">{row.eventCount}</td>
+                      <td className="p-2 text-right text-gray-400 text-xs">{row.sessionCount}</td>
+                      <td className="p-2 text-gray-400 text-xs hidden md:table-cell">
+                        {row.locations.length ? row.locations.slice(0, 3).join(' · ') : '—'}
+                        {row.locations.length > 3 ? ` (+${row.locations.length - 3})` : ''}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          <p className="text-[11px] text-gray-500 mt-2">Une ligne par IP utilisée par ce compte ; tri par activité la plus récente.</p>
         </div>
 
         {/* Locations */}
