@@ -145,6 +145,12 @@ function scoreEmailForService({ raw, from, subject, to }, service) {
     if (/flair-ai\.firebaseapp\.com\/__\/auth\/action/i.test(text)) score += 10;
     if (/mode=signIn/i.test(text) || /mode=signin/i.test(text)) score += 6;
     if (looksOpenAI) score -= 20;
+  } else if (s === 'adspower') {
+    if (/adspower\.com|activity\.adspower|no[-\s]?reply@mail\.adspower|noreply@adspower/i.test(fromL)) score += 14;
+    if (/adspower/i.test(subjectL)) score += 8;
+    if (/verification|security|login|code|otp|verify|password|dynamic/i.test(subjectL)) score += 4;
+    if (/verification\s+code|one[-\s]?time|security\s+code|dynamic\s+password|login\s+code/i.test(text)) score += 4;
+    if (looksOpenAI) score -= 20;
   } else {
     if (/verification\s+code|one[-\s]?time\s+code|otp/i.test(text + ' ' + subjectL)) score += 2;
   }
@@ -153,7 +159,9 @@ function scoreEmailForService({ raw, from, subject, to }, service) {
   return score;
 }
 
-async function scanOtpFromMailbox(client, mailbox, service) {
+async function scanOtpFromMailbox(client, mailbox, service, opts = {}) {
+  const maxAgeMs =
+    typeof opts.maxAgeMs === 'number' && opts.maxAgeMs > 0 ? opts.maxAgeMs : 30 * 60 * 1000;
   const lock = await client.getMailboxLock(mailbox);
   try {
     let seq;
@@ -166,7 +174,6 @@ async function scanOtpFromMailbox(client, mailbox, service) {
     seq = seq.reverse(); // latest first
 
     const NOW = Date.now();
-    const MAX_AGE_MS = 30 * 60 * 1000; // 30 minutes
 
     let best = null; // { score, code, uid, from, subject, date, to }
 
@@ -176,7 +183,7 @@ async function scanOtpFromMailbox(client, mailbox, service) {
         const msg = await client.fetchOne(uid, { envelope: true }, { uid: true });
         const env = msg && msg.envelope ? msg.envelope : null;
         const dt = env && env.date ? new Date(env.date).getTime() : 0;
-        if (dt && (NOW - dt) > MAX_AGE_MS) continue;
+        if (dt && (NOW - dt) > maxAgeMs) continue;
 
         const fromAddress = pickFirstAddress(env && env.from);
         const toAddress = pickFirstAddress(env && env.to);
@@ -188,6 +195,12 @@ async function scanOtpFromMailbox(client, mailbox, service) {
           const meta = `${safeStr(fromAddress)} ${safeStr(subject)}`.toLowerCase();
           const likelyFreepikOtp = /(freepik|magnific|verif|otp|one[-\s]?time|security\s+code|confirm)/i.test(meta);
           if (!likelyFreepikOtp) continue;
+        }
+
+        if (service === 'adspower') {
+          const meta = `${safeStr(fromAddress)} ${safeStr(subject)}`.toLowerCase();
+          const likelyAds = /adspower|activity\.adspower|mail\.adspower|no[\s-]?reply.*adspower/i.test(meta);
+          if (!likelyAds) continue;
         }
 
         // eslint-disable-next-line no-await-in-loop
@@ -207,6 +220,7 @@ async function scanOtpFromMailbox(client, mailbox, service) {
         const score = scoreEmailForService({ raw, from: fromAddress, subject, to: toAddress }, service);
         if (service === 'higgsfield' && score < 5) continue;
         if (service === 'freepik' && score < 5) continue;
+        if (service === 'adspower' && score < 5) continue;
 
         const candidate = {
           score,
@@ -1550,6 +1564,87 @@ function extractFlairMagicLinkFromRaw(raw) {
   return '';
 }
 
+function splitImapHosts(raw) {
+  if (!raw || typeof raw !== 'string') return [];
+  return raw.split(',').map((h) => h.trim()).filter(Boolean);
+}
+
+// AdsPower login OTP: scan admin@ + optional Gmail, last N seconds (default 60s).
+// Optional gate: set ADSPOWER_OTP_ENDPOINT_SECRET and pass ?secret= on requests.
+app.get('/otp-adspower', async (req, res) => {
+  const gate = String(process.env.ADSPOWER_OTP_ENDPOINT_SECRET || '').trim();
+  if (gate && String(req.query.secret || '') !== gate) {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+
+  const maxAgeMs = Math.min(120000, Math.max(30000, Number(req.query.max_age_ms) || 60000));
+
+  const imapPort = Number(process.env.IMAP_PORT || 993);
+  const imapTLS = String(process.env.IMAP_TLS || 'true') === 'true';
+  const imapMethod = (process.env.IMAP_METHOD || 'LOGIN').toUpperCase();
+
+  const adminHosts = splitImapHosts(
+    process.env.IMAP_ADSPOWER_ADMIN_HOSTS || process.env.IMAP_HIGGSFIELD_HOSTS || process.env.IMAP_HOST || ''
+  );
+  const adminUser = String(process.env.IMAP_ADSPOWER_ADMIN_USER || 'admin@ecomefficiency.com').trim();
+  const adminPass = String(process.env.IMAP_ADSPOWER_ADMIN_PASS || process.env.IMAP_PASS || '').trim();
+
+  const gmailUser = String(process.env.IMAP_ADSPOWER_GMAIL_USER || '').trim();
+  const gmailPass = String(process.env.IMAP_ADSPOWER_GMAIL_PASS || '').trim();
+
+  const accounts = [];
+  if (adminHosts.length && adminUser && adminPass) {
+    accounts.push({ id: 'admin', hosts: adminHosts, user: adminUser, pass: adminPass });
+  }
+  if (gmailUser && gmailPass) {
+    accounts.push({ id: 'gmail', hosts: ['imap.gmail.com'], user: gmailUser, pass: gmailPass });
+  }
+
+  if (!accounts.length) {
+    console.error('[otp-adspower] No IMAP accounts configured');
+    return res.status(500).json({ error: 'Missing IMAP config for AdsPower OTP' });
+  }
+
+  let lastErr = null;
+
+  for (const acct of accounts) {
+    for (const imapHost of acct.hosts) {
+      const client = new ImapFlow({
+        host: imapHost,
+        port: imapPort,
+        secure: imapTLS,
+        auth: { user: acct.user, pass: acct.pass, method: imapMethod },
+        logger: false,
+        tls: imapTLS ? { servername: imapHost } : undefined
+      });
+      try {
+        console.log('[otp-adspower] connect', { account: acct.id, host: imapHost });
+        await client.connect();
+        const mboxes = ['INBOX', 'Junk', 'Spam', 'Bulk Mail', 'Junk E-mail'];
+        for (const box of mboxes) {
+          try {
+            const best = await scanOtpFromMailbox(client, box, 'adspower', { maxAgeMs });
+            if (best && best.code) {
+              await client.logout().catch(() => {});
+              console.log('[otp-adspower] hit', { account: acct.id, mailbox: box });
+              return res.json({ code: best.code, source: acct.id });
+            }
+          } catch (e) {
+            lastErr = e;
+          }
+        }
+        await client.logout().catch(() => {});
+      } catch (e) {
+        lastErr = e;
+        console.warn('[otp-adspower] host fail', acct.id, imapHost, e && e.message);
+      }
+    }
+  }
+
+  if (lastErr) console.warn('[otp-adspower] no code', lastErr && lastErr.message);
+  res.json({ code: '', source: '' });
+});
+
 app.listen(PORT, () => {
   console.log(`[imap_server] listening on ${PORT}`);
 });
@@ -1562,7 +1657,7 @@ app.get('/health', (req, res) => {
 app.get('/', (req, res) => {
   res.json({ 
     message: 'IMAP Server is running', 
-    endpoints: ['/otp', '/otp-higgsfield', '/otp-vmake', '/otp-vmake1', '/otp-vmake2', '/otp-vmake3', '/otp-freepik', '/flair-link', '/claude-link', '/health'],
+    endpoints: ['/otp', '/otp-higgsfield', '/otp-adspower', '/otp-vmake', '/otp-vmake1', '/otp-vmake2', '/otp-vmake3', '/otp-freepik', '/flair-link', '/claude-link', '/health'],
     port: Number(PORT) 
   });
 });

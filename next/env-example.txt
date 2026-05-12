@@ -21,3 +21,18 @@ FIRSTPROMOTER_INITIAL_CAMPAIGN_ID=123
 FIRSTPROMOTER_DRIP_EMAILS=false
 # Vercel: after adding or changing these variables, redeploy Production so API routes receive them.
 # If Vercel shows "Needs Attention" on a secret, rotate/update the value in Vercel and redeploy. Prefer marking API keys as Sensitive.
+
+# AdsPower email OTP (app.ecomefficiency.com — "Get the code" beside AdsPower logins; Starter/Pro only)
+# Next.js calls your IMAP server (Ecom Efficiency style imap_server.js on Katabump).
+ADSPOWER_OTP_IMAP_BASE_URL=http://51.83.103.21:20016
+# Recommended: set the same secret on Vercel and on the IMAP server env ADSPOWER_OTP_ENDPOINT_SECRET.
+ADSPOWER_OTP_ENDPOINT_SECRET=long_random_shared_secret
+#
+# Katabump / imap_server.js — admin mailbox (AdsPower → admin@ecomefficiency.com):
+# IMAP_ADSPOWER_ADMIN_HOSTS=imap.your-mail-host.com
+# IMAP_ADSPOWER_ADMIN_USER=admin@ecomefficiency.com
+# IMAP_ADSPOWER_ADMIN_PASS=...
+# (Fallback if unset: IMAP_HIGGSFIELD_HOSTS or IMAP_HOST + IMAP_PASS)
+# Optional Gmail (App Password, IMAP enabled in Google account settings):
+# IMAP_ADSPOWER_GMAIL_USER=jhonntbfqsifgggqsg@gmail.com
+# IMAP_ADSPOWER_GMAIL_PASS=xxxx xxxx xxxx xxxx

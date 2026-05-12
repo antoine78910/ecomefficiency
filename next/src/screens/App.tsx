@@ -859,42 +859,67 @@ const App = ({
       <div className="max-w-6xl mx-auto px-6 py-8">
         {showAffiliateCta ? (
           <div className="mb-4">
-            <div className="relative overflow-hidden rounded-2xl border border-purple-500/30 bg-[linear-gradient(180deg,rgba(149,65,224,0.08)_0%,rgba(124,48,199,0.08)_100%)] p-4 md:p-5 flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6">
-              <div className="text-white/90 text-sm md:text-base min-w-0 flex-1">
+            <div className="relative overflow-hidden rounded-2xl border border-purple-500/30 bg-[linear-gradient(180deg,rgba(149,65,224,0.08)_0%,rgba(124,48,199,0.08)_100%)] p-4 md:p-5 flex flex-col gap-4">
+              <div className="text-white/90 text-sm md:text-base min-w-0">
                 <span className="font-semibold text-white">Earn 30% for life</span> by helping entrepreneurs save thousands on their Spy, AI & SEO tools.
                 {affiliateLinkStatus === "loading" ? (
                   <span className="block mt-2 text-xs text-gray-400">Preparing your personal affiliate link…</span>
                 ) : null}
                 {affiliateLinkStatus === "ready" && affiliateRefLink ? (
-                  <div className="mt-2 space-y-1">
-                    <div className="flex min-h-[36px] items-stretch overflow-hidden rounded-lg border border-white/10 bg-black/30">
-                      <div
-                        className="min-w-0 flex-1 px-2.5 py-2 text-xs leading-snug text-purple-200/90 font-mono truncate"
-                        title={affiliateRefLink}
-                      >
-                        {affiliateRefLink}
+                  <div className="mt-3 space-y-2">
+                    <div>
+                      <div className="font-semibold text-white text-sm">Your Affiliate Link</div>
+                      <p className="text-xs text-gray-400 mt-0.5">
+                        Share this unique link to track referrals and earn 30% recurring commission.
+                      </p>
+                    </div>
+                    <div className="flex flex-row flex-nowrap items-stretch gap-2 min-w-0 overflow-x-auto">
+                      <div className="flex min-h-[36px] min-w-0 flex-1 max-w-[12rem] sm:max-w-[16rem] md:max-w-[20rem] items-stretch overflow-hidden rounded-lg border border-white/10 bg-black/30">
+                        <div
+                          className="min-w-0 flex-1 px-2 py-2 text-xs leading-snug text-purple-200/90 font-mono truncate"
+                          title={affiliateRefLink}
+                        >
+                          {affiliateRefLink}
+                        </div>
+                        <TooltipProvider delayDuration={300}>
+                          <Tooltip>
+                            <TooltipTrigger asChild>
+                              <button
+                                type="button"
+                                onClick={() => void copyAffiliateLink()}
+                                className="flex shrink-0 items-center justify-center border-l border-white/10 px-2 text-gray-400 transition-colors hover:bg-white/5 hover:text-white"
+                                aria-label={affiliateCopied ? "Copied" : "Copy affiliate link"}
+                              >
+                                {affiliateCopied ? (
+                                  <Check className="h-3.5 w-3.5 text-emerald-400" aria-hidden />
+                                ) : (
+                                  <Clipboard className="h-3.5 w-3.5" aria-hidden />
+                                )}
+                              </button>
+                            </TooltipTrigger>
+                            <TooltipContent side="top" className="text-xs">
+                              {affiliateCopied ? "Copied" : "Copy link"}
+                            </TooltipContent>
+                          </Tooltip>
+                        </TooltipProvider>
                       </div>
-                      <TooltipProvider delayDuration={300}>
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <button
-                              type="button"
-                              onClick={() => void copyAffiliateLink()}
-                              className="flex shrink-0 items-center justify-center border-l border-white/10 px-2.5 text-gray-400 transition-colors hover:bg-white/5 hover:text-white"
-                              aria-label={affiliateCopied ? "Copied" : "Copy affiliate link"}
-                            >
-                              {affiliateCopied ? (
-                                <Check className="h-3.5 w-3.5 text-emerald-400" aria-hidden />
-                              ) : (
-                                <Clipboard className="h-3.5 w-3.5" aria-hidden />
-                              )}
-                            </button>
-                          </TooltipTrigger>
-                          <TooltipContent side="top" className="text-xs">
-                            {affiliateCopied ? "Copied" : "Copy link"}
-                          </TooltipContent>
-                        </Tooltip>
-                      </TooltipProvider>
+                      <a
+                        href={FIRSTPROMOTER_AFFILIATE_DASHBOARD_HREF}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="inline-flex shrink-0 self-center"
+                      >
+                        <span className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-[#9541e0] bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] px-3 py-2 text-xs font-medium text-white shadow-[0_2px_16px_0_rgba(149,65,224,0.45)] transition-[box-shadow] hover:shadow-[0_2px_20px_0_rgba(149,65,224,0.55)] group min-h-[36px]">
+                          <span className="relative block h-4 min-w-[7.75rem] overflow-hidden text-center leading-4">
+                            <span className="block whitespace-nowrap transition-transform duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] group-hover:-translate-y-4">
+                              Affiliate dashboard
+                            </span>
+                            <span className="absolute left-1/2 top-4 w-max -translate-x-1/2 whitespace-nowrap transition-all duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] group-hover:top-0">
+                              Affiliate dashboard
+                            </span>
+                          </span>
+                        </span>
+                      </a>
                     </div>
                     {affiliateCoupon ? (
                       <div className="text-xs text-gray-400">
@@ -914,10 +939,29 @@ const App = ({
                   </div>
                 ) : null}
                 {affiliateLinkStatus === "ready" && !affiliateRefLink ? (
-                  <p className="mt-2 text-xs text-gray-300 max-w-xl">
-                    Your affiliate account is ready on FirstPromoter (including on the Free plan). Open your dashboard to
-                    copy your referral link if it does not appear here yet.
-                  </p>
+                  <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                    <p className="text-xs text-gray-300 max-w-xl min-w-0 flex-1">
+                      Your affiliate account is ready on FirstPromoter (including on the Free plan). Open your dashboard to
+                      copy your referral link if it does not appear here yet.
+                    </p>
+                    <a
+                      href={FIRSTPROMOTER_AFFILIATE_DASHBOARD_HREF}
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="inline-flex shrink-0 self-start sm:self-center"
+                    >
+                      <span className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-[#9541e0] bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] px-3.5 py-2 text-xs font-medium text-white shadow-[0_2px_16px_0_rgba(149,65,224,0.45)] transition-[box-shadow] hover:shadow-[0_2px_20px_0_rgba(149,65,224,0.55)] group min-h-[36px]">
+                        <span className="relative block h-4 min-w-[9rem] overflow-hidden text-center leading-4">
+                          <span className="block whitespace-nowrap transition-transform duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] group-hover:-translate-y-4">
+                            Open affiliate dashboard
+                          </span>
+                          <span className="absolute left-1/2 top-4 w-max -translate-x-1/2 whitespace-nowrap transition-all duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] group-hover:top-0">
+                            Open affiliate dashboard
+                          </span>
+                        </span>
+                      </span>
+                    </a>
+                  </div>
                 ) : null}
                 {affiliateLinkStatus === "unavailable" && affiliateErrorHint ? (
                   <p className="mt-2 text-xs text-amber-200/90 max-w-xl whitespace-pre-wrap">{affiliateErrorHint}</p>
@@ -930,77 +974,28 @@ const App = ({
                   <AffiliateStatsRecap summary={affiliateSummary ?? ZERO_AFFILIATE_SUMMARY} />
                 ) : null}
               </div>
-              <div className="shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-                {affiliateLinkStatus === "ready" && affiliateRefLink ? (
+              {affiliateLinkStatus === "unavailable" ? (
+                <div className="flex flex-col sm:flex-row flex-wrap gap-2">
                   <a
                     href={FIRSTPROMOTER_AFFILIATE_DASHBOARD_HREF}
                     target="_blank"
                     rel="noreferrer noopener"
-                    className="inline-flex shrink-0"
+                    className="inline-flex items-center justify-center cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_32px_0_rgba(149,65,224,0.70)] px-6 py-3 rounded-xl border border-[#9541e0] text-white font-medium h-[48px] whitespace-nowrap"
                   >
-                    <span className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-[#9541e0] bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] px-3.5 py-2 text-xs font-medium text-white shadow-[0_2px_16px_0_rgba(149,65,224,0.45)] transition-[box-shadow] hover:shadow-[0_2px_20px_0_rgba(149,65,224,0.55)] group min-h-[36px]">
-                      <span className="relative block h-4 min-w-[7.75rem] overflow-hidden text-center leading-4">
-                        <span className="block whitespace-nowrap transition-transform duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] group-hover:-translate-y-4">
-                          Affiliate dashboard
-                        </span>
-                        <span className="absolute left-1/2 top-4 w-max -translate-x-1/2 whitespace-nowrap transition-all duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] group-hover:top-0">
-                          Affiliate dashboard
-                        </span>
-                      </span>
-                    </span>
+                    Open affiliate dashboard
                   </a>
-                ) : affiliateLinkStatus === "ready" && !affiliateRefLink ? (
                   <a
-                    href={FIRSTPROMOTER_AFFILIATE_DASHBOARD_HREF}
+                    href="https://www.ecomefficiency.com/affiliate"
                     target="_blank"
                     rel="noreferrer noopener"
-                    className="inline-flex shrink-0"
+                    className="inline-flex items-center justify-center px-4 py-3 rounded-xl border border-white/15 text-sm text-gray-200 hover:bg-white/5 h-[48px] whitespace-nowrap"
                   >
-                    <span className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-[#9541e0] bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] px-3.5 py-2 text-xs font-medium text-white shadow-[0_2px_16px_0_rgba(149,65,224,0.45)] transition-[box-shadow] hover:shadow-[0_2px_20px_0_rgba(149,65,224,0.55)] group min-h-[36px]">
-                      <span className="relative block h-4 min-w-[9rem] overflow-hidden text-center leading-4">
-                        <span className="block whitespace-nowrap transition-transform duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] group-hover:-translate-y-4">
-                          Open affiliate dashboard
-                        </span>
-                        <span className="absolute left-1/2 top-4 w-max -translate-x-1/2 whitespace-nowrap transition-all duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] group-hover:top-0">
-                          Open affiliate dashboard
-                        </span>
-                      </span>
-                    </span>
+                    Program details
                   </a>
-                ) : affiliateLinkStatus === "loading" ? (
-                  <div className="min-h-[36px] flex items-center text-xs text-gray-400 px-1">Loading your affiliate link…</div>
-                ) : affiliateLinkStatus === "idle" ? (
-                  <div className="min-h-[36px]" aria-hidden />
-                ) : affiliateLinkStatus === "unavailable" ? (
-                  <div className="flex flex-col sm:flex-row gap-2">
-                    <a
-                      href={FIRSTPROMOTER_AFFILIATE_DASHBOARD_HREF}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      className="inline-flex items-center justify-center cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_32px_0_rgba(149,65,224,0.70)] px-6 py-3 rounded-xl border border-[#9541e0] text-white font-medium h-[48px] whitespace-nowrap"
-                    >
-                      Open affiliate dashboard
-                    </a>
-                    <a
-                      href="https://www.ecomefficiency.com/affiliate"
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      className="inline-flex items-center justify-center px-4 py-3 rounded-xl border border-white/15 text-sm text-gray-200 hover:bg-white/5 h-[48px] whitespace-nowrap"
-                    >
-                      Program details
-                    </a>
-                  </div>
-                ) : (
-                  <a href="https://www.ecomefficiency.com/affiliate" className="shrink-0" target="_blank" rel="noreferrer noopener">
-                    <button className="cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_32px_0_rgba(149,65,224,0.70)] px-6 py-3 rounded-xl border-[1px] border-[#9541e0] text-white font-medium group h-[48px] w-full sm:w-auto">
-                      <div className="relative overflow-hidden w-full text-center">
-                        <p className="transition-transform group-hover:-translate-y-7 duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] whitespace-nowrap">Become an affiliate</p>
-                        <p className="absolute left-1/2 -translate-x-1/2 top-7 group-hover:top-0 transition-all duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] whitespace-nowrap">Become an affiliate</p>
-                      </div>
-                    </button>
-                  </a>
-                )}
-              </div>
+                </div>
+              ) : affiliateLinkStatus === "idle" ? (
+                <div className="min-h-[36px]" aria-hidden />
+              ) : null}
               <div className="pointer-events-none absolute -bottom-10 -right-10 h-40 w-40 bg-purple-600/20 blur-3xl" aria-hidden />
             </div>
           </div>
@@ -1659,6 +1654,50 @@ function CredentialsPanel({
   const [email, setEmail] = React.useState<string | null>(null)
   const [userId, setUserId] = React.useState<string | null>(null)
   const [seoModalOpen, setSeoModalOpen] = React.useState(false)
+  const [adspowerOtpBusy, setAdspowerOtpBusy] = React.useState(false)
+  const [adspowerOtpCode, setAdspowerOtpCode] = React.useState<string | null>(null)
+  const [adspowerOtpErr, setAdspowerOtpErr] = React.useState<string | null>(null)
+
+  const fetchAdsPowerEmailCode = React.useCallback(async () => {
+    if (!isEcomEfficiencyAppHost) return
+    setAdspowerOtpErr(null)
+    setAdspowerOtpCode(null)
+    setAdspowerOtpBusy(true)
+    try {
+      const { data: sessionWrap } = await supabase.auth.getSession()
+      const token = sessionWrap?.session?.access_token
+      if (!token) {
+        setAdspowerOtpErr("Sign in required.")
+        return
+      }
+      const r = await fetch("/api/adspower/otp", {
+        method: "GET",
+        headers: { Authorization: `Bearer ${token}` },
+        cache: "no-store",
+      })
+      const j = await r.json().catch(() => ({}))
+      if (!r.ok) {
+        const err = String((j as any)?.error || "")
+        const msg =
+          err === "subscription_required"
+            ? "Active Starter or Pro subscription required."
+            : err === "forbidden_host"
+              ? "This action is only available on the main app."
+              : err === "not_available"
+                ? "Not available on this workspace."
+                : String((j as any)?.error || "Could not fetch code")
+        setAdspowerOtpErr(msg)
+        return
+      }
+      const c = String((j as any)?.code || "").trim()
+      if (c) setAdspowerOtpCode(c)
+      else setAdspowerOtpErr("No code received in the last minute. Trigger a new AdsPower email, then try again.")
+    } catch {
+      setAdspowerOtpErr("Network error. Try again.")
+    } finally {
+      setAdspowerOtpBusy(false)
+    }
+  }, [isEcomEfficiencyAppHost])
 
   useEffect(() => {
     let active = true;
@@ -2320,9 +2359,19 @@ function CredentialsPanel({
               : currentPlan === 'checking'
                 ? (creds.adspower_starter_password || creds.adspower_password || creds.adspower_pro_password)
                 : (creds.adspower_password || creds.adspower_starter_password);
+
+            const showAdsPowerOtpGetCode =
+              !preview &&
+              !whiteLabel &&
+              isEcomEfficiencyAppHost &&
+              (currentPlan === "starter" || currentPlan === "pro");
+            const adGridCols = showAdsPowerOtpGetCode
+              ? "grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-4 items-start"
+              : "grid grid-cols-1 md:grid-cols-2 gap-4";
+            const adWideSpan = showAdsPowerOtpGetCode ? "md:col-span-3" : "md:col-span-2";
             
             return (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className={adGridCols}>
             <div>
               <p className="text-xs text-gray-400 mb-1">Email</p>
               <div className="group flex items-center gap-2">
@@ -2341,13 +2390,36 @@ function CredentialsPanel({
                 <CopyButton value={passwordValue} label="Copy password" toolName="adspower" fieldType="password" />
               </div>
             </div>
-            <p className="text-xs text-gray-500 md:col-span-2">Last update: {creds?.updatedAt ? new Date(creds.updatedAt).toLocaleString() : '—'}</p>
+            {showAdsPowerOtpGetCode ? (
+              <div className="flex flex-col gap-2 md:justify-self-end md:border-l md:border-white/10 md:pl-4 pt-1 md:pt-0">
+                <p className="text-xs text-gray-400">Email code</p>
+                <button
+                  type="button"
+                  disabled={adspowerOtpBusy}
+                  onClick={() => void fetchAdsPowerEmailCode()}
+                  className="shrink-0 rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs font-medium text-white hover:bg-white/10 disabled:opacity-50 disabled:pointer-events-none cursor-pointer whitespace-nowrap"
+                >
+                  {adspowerOtpBusy ? "Fetching…" : "Get the code"}
+                </button>
+                {adspowerOtpCode ? (
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-mono text-sm text-emerald-300">{adspowerOtpCode}</span>
+                    <CopyButton value={adspowerOtpCode} label="Copy code" toolName="adspower" fieldType="username" />
+                  </div>
+                ) : null}
+                {adspowerOtpErr ? <p className="text-[11px] text-amber-200/90 max-w-[14rem] leading-snug">{adspowerOtpErr}</p> : null}
+                <p className="text-[10px] text-gray-500 max-w-[14rem] leading-snug">
+                  Uses the latest AdsPower email (about the last minute) from the shared mailboxes.
+                </p>
+              </div>
+            ) : null}
+            <p className={`text-xs text-gray-500 ${adWideSpan}`}>Last update: {creds?.updatedAt ? new Date(creds.updatedAt).toLocaleString() : '—'}</p>
 
             {/* Single AdsPower block: shows Starter creds for Starter, Pro creds for Pro */}
 
             {/* Brain.fm credentials */}
             {Boolean(creds?.brainfm_username || creds?.brainfm_password) && (
-              <div className="md:col-span-2">
+              <div className={adWideSpan}>
                 <div className="text-white font-semibold mb-2 flex items-center gap-2">
                   <img src="/tools-logos/brain.png" alt="Brain.fm" className="w-6 h-6 object-contain" />
                   <span>Brain.fm</span>
@@ -2373,7 +2445,7 @@ function CredentialsPanel({
             )}
 
             {/* How to access (also for subscribed users) */}
-            <div className="md:col-span-2">
+            <div className={adWideSpan}>
               <div className="mt-2 text-sm text-gray-400 flex items-center gap-2">
                 <span>How to access the tools?</span>
                 <button 
