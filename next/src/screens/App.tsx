@@ -808,11 +808,34 @@ const App = ({
                 ) : null}
                 {affiliateLinkStatus === "ready" && affiliateRefLink ? (
                   <div className="mt-2 space-y-1">
-                    <div
-                      className="text-xs text-purple-200/90 font-mono break-all rounded-lg border border-white/10 bg-black/30 px-2 py-1.5"
-                      title={affiliateRefLink}
-                    >
-                      {affiliateRefLink}
+                    <div className="flex min-h-[36px] items-stretch overflow-hidden rounded-lg border border-white/10 bg-black/30">
+                      <div
+                        className="min-w-0 flex-1 px-2.5 py-2 text-xs leading-snug text-purple-200/90 font-mono truncate"
+                        title={affiliateRefLink}
+                      >
+                        {affiliateRefLink}
+                      </div>
+                      <TooltipProvider delayDuration={300}>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <button
+                              type="button"
+                              onClick={() => void copyAffiliateLink()}
+                              className="flex shrink-0 items-center justify-center border-l border-white/10 px-2.5 text-gray-400 transition-colors hover:bg-white/5 hover:text-white"
+                              aria-label={affiliateCopied ? "Copied" : "Copy affiliate link"}
+                            >
+                              {affiliateCopied ? (
+                                <Check className="h-3.5 w-3.5 text-emerald-400" aria-hidden />
+                              ) : (
+                                <Clipboard className="h-3.5 w-3.5" aria-hidden />
+                              )}
+                            </button>
+                          </TooltipTrigger>
+                          <TooltipContent side="top" className="text-xs">
+                            {affiliateCopied ? "Copied" : "Copy link"}
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
                     </div>
                     {affiliateCoupon ? (
                       <div className="text-xs text-gray-400">
@@ -847,36 +870,45 @@ const App = ({
               </div>
               <div className="shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                 {affiliateLinkStatus === "ready" && affiliateRefLink ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={() => void copyAffiliateLink()}
-                      className="cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_32px_0_rgba(149,65,224,0.70)] px-6 py-3 rounded-xl border border-[#9541e0] text-white font-medium h-[48px] whitespace-nowrap"
-                    >
-                      {affiliateCopied ? "Copied!" : "Copy my affiliate link"}
-                    </button>
-                    <a
-                      href="https://ecomefficiency.firstpromoter.com"
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      className="inline-flex items-center justify-center px-4 py-3 rounded-xl border border-white/15 text-sm text-gray-200 hover:bg-white/5 h-[48px] whitespace-nowrap"
-                    >
-                      Affiliate dashboard
-                    </a>
-                  </>
+                  <a
+                    href="https://ecomefficiency.firstpromoter.com"
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="inline-flex shrink-0"
+                  >
+                    <span className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-[#9541e0] bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] px-3.5 py-2 text-xs font-medium text-white shadow-[0_2px_16px_0_rgba(149,65,224,0.45)] transition-[box-shadow] hover:shadow-[0_2px_20px_0_rgba(149,65,224,0.55)] group min-h-[36px]">
+                      <span className="relative block h-4 min-w-[7.75rem] overflow-hidden text-center leading-4">
+                        <span className="block whitespace-nowrap transition-transform duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] group-hover:-translate-y-4">
+                          Affiliate dashboard
+                        </span>
+                        <span className="absolute left-1/2 top-4 w-max -translate-x-1/2 whitespace-nowrap transition-all duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] group-hover:top-0">
+                          Affiliate dashboard
+                        </span>
+                      </span>
+                    </span>
+                  </a>
                 ) : affiliateLinkStatus === "ready" && !affiliateRefLink ? (
                   <a
                     href="https://ecomefficiency.firstpromoter.com"
                     target="_blank"
                     rel="noreferrer noopener"
-                    className="inline-flex items-center justify-center cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_32px_0_rgba(149,65,224,0.70)] px-6 py-3 rounded-xl border border-[#9541e0] text-white font-medium h-[48px] whitespace-nowrap"
+                    className="inline-flex shrink-0"
                   >
-                    Open affiliate dashboard
+                    <span className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-[#9541e0] bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] px-3.5 py-2 text-xs font-medium text-white shadow-[0_2px_16px_0_rgba(149,65,224,0.45)] transition-[box-shadow] hover:shadow-[0_2px_20px_0_rgba(149,65,224,0.55)] group min-h-[36px]">
+                      <span className="relative block h-4 min-w-[9rem] overflow-hidden text-center leading-4">
+                        <span className="block whitespace-nowrap transition-transform duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] group-hover:-translate-y-4">
+                          Open affiliate dashboard
+                        </span>
+                        <span className="absolute left-1/2 top-4 w-max -translate-x-1/2 whitespace-nowrap transition-all duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] group-hover:top-0">
+                          Open affiliate dashboard
+                        </span>
+                      </span>
+                    </span>
                   </a>
                 ) : affiliateLinkStatus === "loading" ? (
-                  <div className="h-[48px] flex items-center text-sm text-gray-400 px-2">Loading your affiliate link…</div>
+                  <div className="min-h-[36px] flex items-center text-xs text-gray-400 px-1">Loading your affiliate link…</div>
                 ) : affiliateLinkStatus === "idle" ? (
-                  <div className="h-[48px]" aria-hidden />
+                  <div className="min-h-[36px]" aria-hidden />
                 ) : affiliateLinkStatus === "unavailable" ? (
                   <div className="flex flex-col sm:flex-row gap-2">
                     <a
