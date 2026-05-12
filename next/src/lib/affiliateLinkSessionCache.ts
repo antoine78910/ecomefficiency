@@ -2,11 +2,13 @@
 
 import type { AffiliateSummary } from "./affiliateSummary";
 
-const PREFIX = "ee_fp_affiliate_v1";
+const PREFIX = "ee_fp_affiliate_v2";
 const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type CachedAffiliatePayload = {
   ref_link: string;
+  /** All distinct referral URLs (multiple campaigns). */
+  ref_links: string[];
   coupon: string;
   password_setup_url: string;
   savedAt: number;
@@ -24,13 +26,19 @@ export function readAffiliateSessionCache(userId: string): CachedAffiliatePayloa
     if (!raw) return null;
     const o = JSON.parse(raw) as Partial<CachedAffiliatePayload>;
     if (typeof o.ref_link !== "string") return null;
+    const ref_links = Array.isArray(o.ref_links)
+      ? o.ref_links.map((x) => String(x || "").trim()).filter(Boolean)
+      : [];
+    const primary = o.ref_link.trim();
+    const links = ref_links.length ? ref_links : primary ? [primary] : [];
     const savedAt = typeof o.savedAt === "number" ? o.savedAt : 0;
     if (savedAt && Date.now() - savedAt > MAX_AGE_MS) {
       sessionStorage.removeItem(key(userId));
       return null;
     }
     return {
-      ref_link: o.ref_link,
+      ref_link: primary,
+      ref_links: links.length ? links : primary ? [primary] : [],
       coupon: typeof o.coupon === "string" ? o.coupon : "",
       password_setup_url: typeof o.password_setup_url === "string" ? o.password_setup_url : "",
       savedAt,
@@ -51,12 +59,22 @@ export function readAffiliateSessionCache(userId: string): CachedAffiliatePayloa
 
 export function writeAffiliateSessionCache(
   userId: string,
-  data: Pick<CachedAffiliatePayload, "ref_link" | "coupon" | "password_setup_url"> & { affiliate_summary?: AffiliateSummary | null }
+  data: Pick<CachedAffiliatePayload, "ref_link" | "ref_links" | "coupon" | "password_setup_url"> & {
+    affiliate_summary?: AffiliateSummary | null;
+  }
 ) {
   if (typeof window === "undefined" || !userId) return;
   try {
+    const ref_links =
+      Array.isArray(data.ref_links) && data.ref_links.length
+        ? data.ref_links.map((x) => String(x || "").trim()).filter(Boolean)
+        : data.ref_link.trim()
+          ? [data.ref_link.trim()]
+          : [];
+    const ref_link = ref_links[0] || String(data.ref_link || "").trim();
     const payload: CachedAffiliatePayload = {
-      ref_link: data.ref_link,
+      ref_link,
+      ref_links,
       coupon: data.coupon,
       password_setup_url: data.password_setup_url,
       savedAt: Date.now(),
@@ -74,7 +92,7 @@ export function clearAffiliateSessionCacheAll() {
   try {
     for (let i = sessionStorage.length - 1; i >= 0; i--) {
       const k = sessionStorage.key(i);
-      if (k?.startsWith(`${PREFIX}:`)) sessionStorage.removeItem(k);
+      if (k?.startsWith("ee_fp_affiliate")) sessionStorage.removeItem(k);
     }
   } catch {
     // ignore

@@ -56,18 +56,6 @@ function AffiliateStatsRecap({ summary }: { summary: AffiliateSummary }) {
           <div className="text-sm font-semibold tabular-nums text-white">{summary.total_earnings_display}</div>
         </div>
       </div>
-      <p className="mt-2.5 border-t border-white/5 pt-2 text-[11px] leading-snug text-gray-500">
-        View detailed analytics in{" "}
-        <a
-          href={FIRSTPROMOTER_AFFILIATE_DASHBOARD_HREF}
-          target="_blank"
-          rel="noreferrer noopener"
-          className="font-medium text-purple-300 underline decoration-purple-500/40 underline-offset-2 hover:text-purple-200"
-        >
-          FirstPromoter
-        </a>
-        .
-      </p>
     </div>
   );
 }
@@ -138,10 +126,11 @@ const App = ({
   }, [])
 
   const [affiliateRefLink, setAffiliateRefLink] = React.useState("");
+  const [affiliateRefLinks, setAffiliateRefLinks] = React.useState<string[]>([]);
   const [affiliateCoupon, setAffiliateCoupon] = React.useState("");
   const [affiliateFpPasswordUrl, setAffiliateFpPasswordUrl] = React.useState("");
   const [affiliateLinkStatus, setAffiliateLinkStatus] = React.useState<"idle" | "loading" | "ready" | "unavailable">("idle");
-  const [affiliateCopied, setAffiliateCopied] = React.useState(false);
+  const [affiliateCopiedIndex, setAffiliateCopiedIndex] = React.useState<number | null>(null);
   const [affiliateErrorHint, setAffiliateErrorHint] = React.useState("");
   const [affiliateSummary, setAffiliateSummary] = React.useState<AffiliateSummary | null>(null);
 
@@ -165,7 +154,14 @@ const App = ({
         const cached = readAffiliateSessionCache(userId);
         hadCacheAtStart = Boolean(cached);
         if (cached && !cancelled) {
-          setAffiliateRefLink(cached.ref_link);
+          const links =
+            cached.ref_links && cached.ref_links.length
+              ? cached.ref_links
+              : cached.ref_link
+                ? [cached.ref_link]
+                : [];
+          setAffiliateRefLinks(links);
+          setAffiliateRefLink(links[0] || "");
           setAffiliateCoupon(cached.coupon);
           setAffiliateFpPasswordUrl(cached.password_setup_url);
           setAffiliateErrorHint("");
@@ -193,7 +189,11 @@ const App = ({
         const j = await r.json().catch(() => ({}));
         if (cancelled) return;
         if (r.ok && j?.ok) {
-          const link = String(j?.affiliate?.ref_link || "").trim();
+          const refLinksRaw = Array.isArray(j?.affiliate?.ref_links) ? (j.affiliate.ref_links as unknown[]) : [];
+          const links = refLinksRaw.map((x) => String(x ?? "").trim()).filter(Boolean);
+          const link = links[0] || String(j?.affiliate?.ref_link || "").trim();
+          const finalLinks = links.length ? links : link ? [link] : [];
+          setAffiliateRefLinks(finalLinks);
           setAffiliateRefLink(link);
           setAffiliateCoupon(String(j?.affiliate?.coupon || "").trim());
           setAffiliateFpPasswordUrl(String(j?.promoter?.password_setup_url || "").trim());
@@ -203,6 +203,7 @@ const App = ({
           setAffiliateSummary(sum);
           writeAffiliateSessionCache(userId, {
             ref_link: link,
+            ref_links: finalLinks,
             coupon: String(j?.affiliate?.coupon || "").trim(),
             password_setup_url: String(j?.promoter?.password_setup_url || "").trim(),
             affiliate_summary: sum,
@@ -212,6 +213,7 @@ const App = ({
             return;
           }
           setAffiliateRefLink("");
+          setAffiliateRefLinks([]);
           setAffiliateCoupon("");
           setAffiliateFpPasswordUrl("");
           setAffiliateSummary(null);
@@ -244,6 +246,7 @@ const App = ({
       if (event === "SIGNED_OUT") {
         clearAffiliateSessionCacheAll();
         setAffiliateRefLink("");
+        setAffiliateRefLinks([]);
         setAffiliateCoupon("");
         setAffiliateFpPasswordUrl("");
         setAffiliateErrorHint("");
@@ -263,14 +266,14 @@ const App = ({
     };
   }, [showAffiliateCta, preview]);
 
-  const copyAffiliateLink = React.useCallback(async () => {
-    if (!affiliateRefLink) return;
+  const copyAffiliateLinkAt = React.useCallback(async (url: string, index: number) => {
+    if (!url) return;
     try {
-      await navigator.clipboard.writeText(affiliateRefLink);
-      setAffiliateCopied(true);
-      window.setTimeout(() => setAffiliateCopied(false), 2000);
+      await navigator.clipboard.writeText(url);
+      setAffiliateCopiedIndex(index);
+      window.setTimeout(() => setAffiliateCopiedIndex(null), 2000);
     } catch {}
-  }, [affiliateRefLink]);
+  }, []);
 
   // Simulate return (sim_*): trigger confetti immediately so it always runs on localhost.
   React.useEffect(() => {

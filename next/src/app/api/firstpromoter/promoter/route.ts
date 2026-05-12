@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { fpEnsurePromoter, fpExtractBestRefLink, fpGetPromoterDetails, fpAffiliateSummaryFromPromoter } from "@/lib/firstpromoter";
+import { fpEnsurePromoter, fpExtractBestRefLink, fpExtractAllRefLinks, fpGetPromoterDetails, fpAffiliateSummaryFromPromoter } from "@/lib/firstpromoter";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -95,6 +95,7 @@ export async function GET(req: NextRequest) {
     }
 
     const ref = fpExtractBestRefLink(enriched);
+    const ref_links = fpExtractAllRefLinks(enriched);
     const affiliate_summary = fpAffiliateSummaryFromPromoter(enriched);
 
     return NextResponse.json(
@@ -107,7 +108,7 @@ export async function GET(req: NextRequest) {
           state: enriched?.state,
           password_setup_url: enriched?.password_setup_url,
         },
-        affiliate: ref,
+        affiliate: { ...ref, ref_links },
         affiliate_summary,
       },
       { status: 200 }

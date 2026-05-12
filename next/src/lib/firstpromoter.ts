@@ -188,7 +188,17 @@ export async function fpFindPromoterByEmail(email: string): Promise<FirstPromote
   if (!e) return null;
   const list = await fpListPromoters(e);
   const exact = list.find((p) => String(p?.email || "").toLowerCase() === e.toLowerCase());
-  return exact || list[0] || null;
+  // Never return list[0] on fuzzy search — wrong promoter would show fake stats/links.
+  return exact ?? null;
+}
+
+/** Match Supabase user id stored as FirstPromoter cust_id (legacy accounts, email changes). */
+export async function fpFindPromoterByCustId(custId: string): Promise<FirstPromoterPromoter | null> {
+  const id = String(custId || "").trim();
+  if (!id) return null;
+  const list = await fpListPromoters(id);
+  const exact = list.find((p) => String(p?.cust_id || "").trim() === id);
+  return exact ?? null;
 }
 
 /** GET /promoters/{id} — includes stats + balances when available. */
@@ -219,11 +229,56 @@ export function fpAffiliateSummaryFromPromoter(promoter: FirstPromoterPromoter |
   const raw = promoter as any;
   const stats = raw?.stats || {};
   const balances = raw?.balances || {};
-  const visitors = Math.max(0, Math.trunc(Number(stats.clicks_count ?? 0)));
-  const conversions = Math.max(0, Math.trunc(Number(stats.sales_count ?? 0)));
-  const activeReferrals = Math.max(0, Math.trunc(Number(stats.active_customers_count ?? 0)));
-  const cash = balances?.cash;
-  const earningsNum = typeof cash === "number" && Number.isFinite(cash) ? cash : 0;
+  const visitors = Math.max(
+    0,
+    Math.trunc(
+      Number(
+        stats.clicks_count ??
+          stats.visitors ??
+          stats.page_views ??
+          stats.views ??
+          0
+      )
+    )
+  );
+  const conversions = Math.max(
+    0,
+    Math.trunc(
+      Number(
+        stats.sales_count ??
+          stats.conversions_count ??
+          stats.conversions ??
+          stats.orders_count ??
+          0
+      )
+    )
+  );
+  const activeReferrals = Math.max(
+    0,
+    Math.trunc(
+      Number(
+        stats.active_customers_count ??
+          stats.active_referrals ??
+          stats.referrals_count ??
+          stats.customers_count ??
+          0
+      )
+    )
+  );
+  const cashRaw =
+    balances?.cash ??
+    balances?.available ??
+    balances?.balance ??
+    raw?.available_balance ??
+    raw?.balance;
+  let earningsNum = typeof cashRaw === "number" && Number.isFinite(cashRaw) ? cashRaw : 0;
+  if (!earningsNum && typeof raw?.total_earnings === "number" && Number.isFinite(raw.total_earnings)) {
+    earningsNum = raw.total_earnings;
+  }
+  if (!earningsNum && typeof raw?.total_earnings_display === "string" && raw.total_earnings_display.trim()) {
+    const parsed = Number(String(raw.total_earnings_display).replace(/[^0-9.-]/g, ""));
+    if (Number.isFinite(parsed)) earningsNum = parsed;
+  }
   const total_earnings_display = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(earningsNum);
   return {
     visitors,
@@ -238,11 +293,22 @@ export function fpAffiliateSummaryFromPromoter(promoter: FirstPromoterPromoter |
  * retry with a smaller payload per https://docs.firstpromoter.com/api-reference-v2/api-admin/promoters/create-promoter
  */
 export async function fpEnsurePromoter(input: PromoterCreateInput): Promise<FirstPromoterPromoter> {
-  const full = serializePromoterCreate(input);
-  const withCust: Record<string, unknown> = { email: String(input.email || "").trim() };
+  const email = String(input.email || "").trim();
+  if (!email) throw new Error("FIRSTPROMOTER_EMAIL_REQUIRED");
+
+  const existingByEmail = await fpFindPromoterByEmail(email).catch(() => null);
+  if (existingByEmail) return existingByEmail;
+
   const cid = input.cust_id != null ? String(input.cust_id).trim() : "";
+  if (cid) {
+    const existingByCust = await fpFindPromoterByCustId(cid).catch(() => null);
+    if (existingByCust) return existingByCust;
+  }
+
+  const full = serializePromoterCreate(input);
+  const withCust: Record<string, unknown> = { email };
   if (cid) withCust.cust_id = cid;
-  const emailOnly: Record<string, unknown> = { email: String(input.email || "").trim() };
+  const emailOnly: Record<string, unknown> = { email };
 
   const seen = new Set<string>();
   const bodies: Record<string, unknown>[] = [];
@@ -263,15 +329,23 @@ export async function fpEnsurePromoter(input: PromoterCreateInput): Promise<Firs
       const status = Number(e?.status || 0);
       const payload = e?.payload;
       if (looksLikeAlreadyExists(status, payload)) {
-        const existing = await fpFindPromoterByEmail(input.email).catch(() => null);
-        if (existing) return existing;
+        const hitEmail = await fpFindPromoterByEmail(email).catch(() => null);
+        if (hitEmail) return hitEmail;
+        if (cid) {
+          const hitCust = await fpFindPromoterByCustId(cid).catch(() => null);
+          if (hitCust) return hitCust;
+        }
       }
       if (status !== 400 && status !== 422) throw e;
     }
   }
 
-  const existing = await fpFindPromoterByEmail(input.email).catch(() => null);
-  if (existing) return existing;
+  const againEmail = await fpFindPromoterByEmail(email).catch(() => null);
+  if (againEmail) return againEmail;
+  if (cid) {
+    const againCust = await fpFindPromoterByCustId(cid).catch(() => null);
+    if (againCust) return againCust;
+  }
   if (lastErr) throw lastErr;
   throw new Error("FIRSTPROMOTER_ENSURE_FAILED");
 }
@@ -316,4 +390,44 @@ export function fpExtractBestRefLink(promoter: FirstPromoterPromoter | null | un
     coupon,
     campaign_id,
   };
+}
+
+/** Every distinct referral URL we can read from the promoter payload (all campaigns / promos). */
+export function fpExtractAllRefLinks(promoter: FirstPromoterPromoter | null | undefined): string[] {
+  const raw = promoter as any;
+  const s = (v: unknown) => String(v ?? "").trim();
+  const ordered: string[] = [];
+  const seen = new Set<string>();
+
+  const push = (u: string) => {
+    const t = s(u);
+    if (!t) return;
+    const key = t.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    ordered.push(t);
+  };
+
+  const campaigns = Array.isArray(raw?.promoter_campaigns) ? raw.promoter_campaigns : [];
+  for (const c of campaigns) {
+    push(s((c as any)?.ref_link));
+  }
+
+  const promos = Array.isArray(raw?.promotions) ? raw.promotions : [];
+  for (const p of promos) {
+    push(s((p as any)?.referral_link));
+    push(s((p as any)?.ref_link));
+  }
+
+  push(s(raw?.referral_link));
+  push(s(raw?.ref_link));
+
+  const bestLink = String(fpExtractBestRefLink(promoter).ref_link || "").trim();
+  if (!bestLink) return ordered;
+  const idx = ordered.findIndex((u) => u.toLowerCase() === bestLink.toLowerCase());
+  if (idx === -1) return [bestLink, ...ordered];
+  if (idx === 0) return ordered;
+  const rest = [...ordered];
+  rest.splice(idx, 1);
+  return [bestLink, ...rest];
 }
