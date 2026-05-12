@@ -132,10 +132,20 @@
           });
           return;
         }
-        var used = p.used !== undefined && p.used !== null ? p.used : usedFromDeltas;
-        chrome.storage.local.get('ee_hf_credit_tracking', function (data) {
+        // Non-wallet fnf endpoints (jobs, generations, marketing-studio jobs, etc.)
+        // can include unrelated `credits` / `balance` numeric fields (e.g. the cost
+        // of a job or a per-asset price). We must NOT treat those as the user's
+        // wallet balance — doing so previously clobbered ee_hf_wallet.credits to
+        // small / zero values on Marketing Studio, causing false "No more
+        // Higgsfield credits available" blocks.
+        // Keep the in-memory delta tracking (above) and refresh the widget using
+        // the LAST known balance from ee_hf_wallet, but never overwrite it here.
+        chrome.storage.local.get(['ee_hf_credit_tracking', 'ee_hf_wallet'], function (data) {
           var t = applyDailyReset(data);
-          persistAndUpdateWidget(credits, t.todayUsage, false);
+          var w = data && data.ee_hf_wallet;
+          var lastCredits = w && (w.credits !== undefined ? w.credits : w.creditsRemaining);
+          if (lastCredits === undefined) lastCredits = lastKnownBalance;
+          updateWalletWidget(lastCredits, t.todayUsage, t.todayUsage >= MAX_DAILY_CREDITS);
         });
       } catch (_) {}
     });
@@ -389,7 +399,12 @@
   }
 
   function unblurPage() {
-    // Remove any residual blur/filter/backdrop-filter that can remain after modals
+    // Remove residual blur/filter/backdrop-filter applied by modals on the
+    // top-level roots (Higgsfield blurs html/body/#__next when a payment popup
+    // opens). Do NOT walk descendants by class — Tailwind utilities like
+    // `blur-3xl` / `blur-2xl` are used for legitimate decorative glows
+    // (e.g. the pink halos on /marketing-studio/*), and stripping them
+    // makes the page look broken.
     const roots = [];
     try { roots.push(document.documentElement); } catch (_) {}
     try { roots.push(document.body); } catch (_) {}
@@ -405,12 +420,18 @@
       try { r.style.setProperty('-webkit-backdrop-filter', 'none', 'important'); } catch (_) {}
     }
 
-    // Also neutralize common "blur" utility classes/inline styles on containers
+    // For descendants: only target elements that are clearly modal scrims —
+    // direct children of <body> with an inline backdrop-filter / filter:blur
+    // (the pattern Higgsfield uses for its overlay), or elements inside an
+    // explicit modal container. Keeps decorative Tailwind blurs intact.
     try {
-      const maybeBlurred = document.querySelectorAll(
-        '[style*="backdrop-filter"],[style*="filter: blur"],[class*="backdrop-blur"],[class*="blur"]'
+      const scrims = document.querySelectorAll(
+        'body > [style*="backdrop-filter"], body > [style*="filter: blur"], ' +
+        '[role="dialog"] [style*="backdrop-filter"], [role="dialog"] [style*="filter: blur"], ' +
+        '[data-radix-dialog-overlay], ' +
+        '[data-radix-dialog-overlay] [class*="backdrop-blur"]'
       );
-      for (const el of maybeBlurred) {
+      for (const el of scrims) {
         try { el.style.setProperty('filter', 'none', 'important'); } catch (_) {}
         try { el.style.setProperty('backdrop-filter', 'none', 'important'); } catch (_) {}
         try { el.style.setProperty('-webkit-backdrop-filter', 'none', 'important'); } catch (_) {}
@@ -884,6 +905,18 @@
 
       for (const a of links) {
         try {
+          // Header / navbar links: the CSS rule above already hides them with
+          // `display:none !important`. Do NOT climb the DOM tree here, because
+          // Higgsfield wraps several nav items (Video, Image, Motions, ...) in
+          // the same shared container, and removing that ancestor would also
+          // delete the legitimate links the user wants to keep.
+          const inNav =
+            (a.closest && (a.closest('header') || a.closest('nav'))) ||
+            (a.hasAttribute && a.hasAttribute('data-header-active-on'));
+          if (inNav) continue;
+
+          // Below: only marketing cards / home banners / promo blocks.
+
           // Remove full cards in lists (your <li> examples)
           const li = a.closest && a.closest('li');
           if (li) {
@@ -1077,8 +1110,11 @@
     injectNetworkLogger();
     scheduleHandleRoute();
     runUiBlockers();
-    // Was 500ms — too aggressive; frequent DOM touches can trigger anti-bot / "rapid activity" screens.
-    setInterval(() => { try { runUiBlockers(); } catch (_) {} }, 3500);
+    // Was 500ms then 3500ms — still too aggressive. Higgsfield's React tree
+    // mutates constantly, and the SPA navigation listener (pushState/replaceState/
+    // popstate) plus the MutationObserver below already cover real route changes.
+    // 6s is plenty as a safety net for missed mutations.
+    setInterval(() => { try { runUiBlockers(); } catch (_) {} }, 6000);
   }
   function scheduleStartSafety() {
     setTimeout(startSafety, 1200);

@@ -99,6 +99,42 @@
     }
   }
 
+  // Selector for the editor toolbar area (Upload / Batch / Import from link).
+  // This area must NEVER be blocked, regardless of any other locking.
+  const EDITOR_ACTIONS_SELECTOR =
+    '[data-testid="editor-actions"], [class*="styleactions--"]';
+
+  function preserveEditorActions(scope) {
+    const root = scope || document;
+    let nodes = [];
+    try {
+      nodes = Array.from(root.querySelectorAll(EDITOR_ACTIONS_SELECTOR));
+    } catch (_) {
+      return;
+    }
+    for (const el of nodes) {
+      try {
+        // Re-enable interactivity in case a parent has pointer-events:none.
+        el.style.pointerEvents = 'auto';
+        el.style.userSelect = '';
+        el.style.cursor = '';
+        el.removeAttribute('aria-disabled');
+        // Walk up and re-enable any ancestor we might have locked accidentally.
+        // (The header-right-content section is the only thing we lock; if the
+        // editor-actions ever ends up nested inside it, we recover here.)
+        let p = el.parentElement;
+        while (p && p !== document.documentElement) {
+          if (p.dataset && p.dataset._ecomVmakeLocked === '1') {
+            // Don't fully unlock the section, but ensure our descendant works.
+            // pointer-events:auto on the descendant overrides parent:none.
+            break;
+          }
+          p = p.parentElement;
+        }
+      } catch (_) {}
+    }
+  }
+
   function lockHeaderRightSectionIfLoggedIn() {
     const section = document.querySelector('section.header-right-content--uM0Co');
     if (!section) return;
@@ -116,6 +152,12 @@
       section.style.pointerEvents = 'none';
       section.style.userSelect = 'none';
       section.style.cursor = 'default';
+    } catch (_) {}
+
+    // Safety net: if editor-actions buttons happen to be inside this section,
+    // make sure they remain fully interactive.
+    try {
+      preserveEditorActions(section);
     } catch (_) {}
 
     // Grey key interactive bits, but keep the VIP crown visible (no filter on parents).
@@ -192,6 +234,7 @@
     handleRoute();
     disablePricingAnchors(document);
     lockHeaderRightSectionIfLoggedIn();
+    preserveEditorActions(document);
     removeCreditRechargePopups();
 
     const obs = new MutationObserver(() => {
@@ -199,6 +242,9 @@
       handleRoute();
       disablePricingAnchors(document);
       lockHeaderRightSectionIfLoggedIn();
+      // Always re-assert interactivity for the editor-actions toolbar
+      // (Upload / Batch / Import from link), even if the page re-renders.
+      preserveEditorActions(document);
       removeCreditRechargePopups();
     });
     obs.observe(document.documentElement, { childList: true, subtree: true });

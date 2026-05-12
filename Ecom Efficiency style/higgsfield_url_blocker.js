@@ -50,8 +50,10 @@
     }
   };
 
-  // lightweight monitoring
-  setInterval(tick, 250);
+  // Was 250ms (4×/s) — too aggressive on a SPA. pushState/replaceState/popstate/
+  // hashchange are all already wired below, so this interval is just a safety
+  // net for routers that bypass them. 2000ms is plenty.
+  setInterval(tick, 2000);
   window.addEventListener('popstate', checkNow, true);
   window.addEventListener('hashchange', checkNow, true);
 

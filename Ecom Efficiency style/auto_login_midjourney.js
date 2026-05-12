@@ -7,7 +7,7 @@
 
   // Credentials for Discord login
   const DISCORD_EMAIL = 'ecom.efficiency1@gmail.com';
-  const DISCORD_PASSWORD = 'ttDghpe9?:.470ueTGhd8';
+  const DISCORD_PASSWORD = 'tDghpe9?:.470ueTGhd8';
 
   const href = location.href;
 

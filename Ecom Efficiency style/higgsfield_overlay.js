@@ -7,6 +7,17 @@
   // TEMP: disable any forced reload behavior (can break auth flow / OTP transition).
   const DISABLE_HIGGSFIELD_RELOADS = true;
 
+  // Both behaviors are off → don't install the long-lived MutationObserver
+  // or the deadline-reload poll. They were running on every React mutation
+  // and added measurable load on Higgsfield's already-busy main thread.
+  if (DISABLE_HIGGSFIELD_TOPRIGHT_BLOCK && DISABLE_HIGGSFIELD_RELOADS) {
+    try {
+      const existing = document.getElementById('ecom-purple-rect');
+      if (existing) existing.remove();
+    } catch (_) {}
+    return;
+  }
+
   function onTarget() {
     try {
       return location.hostname.endsWith('higgsfield.ai');

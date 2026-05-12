@@ -983,7 +983,11 @@
     }
 
     refreshWidgetFromState();
-    widgetRefreshInterval = setInterval(refreshWidgetFromState, 2500);
+    // Was 2500ms — too aggressive for a widget that only reads local state.
+    // The widget gets an immediate refresh on every authorized generation via
+    // updateWidget() in runPaidGenerationPrecheck, so the interval only needs
+    // to cover the rare case of cross-tab updates.
+    widgetRefreshInterval = setInterval(refreshWidgetFromState, 5000);
   }
 
   // Loose match: handles concatenated text like "GENERATE4840" (Marketing Studio
@@ -1434,6 +1438,10 @@
     installStandardGenerateButtonOverlay();
     if (!generateOverlayObserverInstalled && typeof MutationObserver !== 'undefined') {
       generateOverlayObserverInstalled = true;
+      // Debounced re-placement: Higgsfield's React tree mutates almost every frame
+      // (analytics, animations, hover states). 500ms is plenty: the underlying
+      // button rarely moves more than once per second, and clicks/scrolls already
+      // trigger an immediate kick() outside of this debounce.
       var t = null;
       var kick = function () {
         if (t) return;
@@ -1441,15 +1449,20 @@
           t = null;
           try { installUnlimitedButtonOverlay(); } catch (_) {}
           try { installStandardGenerateButtonOverlay(); } catch (_) {}
-        }, 220);
+        }, 500);
       };
       var mo = new MutationObserver(function () { kick(); });
       try { mo.observe(document.documentElement, { childList: true, subtree: true }); } catch (_) {}
+      // Click + scroll are the only realistic cases where the button needs an
+      // immediate re-place outside of DOM mutations (scroll moves the rect).
       document.addEventListener('click', function () { kick(); }, true);
-      setInterval(function () { kick(); }, 2500);
+      window.addEventListener('scroll', function () { kick(); }, { passive: true, capture: true });
+      // Long safety net (10s) in case the MutationObserver missed a layout shift
+      // that didn't change the DOM tree (e.g. CSS-only transition).
+      setInterval(function () { kick(); }, 10000);
     } else {
-      setInterval(installUnlimitedButtonOverlay, 2500);
-      setInterval(installStandardGenerateButtonOverlay, 2500);
+      setInterval(installUnlimitedButtonOverlay, 5000);
+      setInterval(installStandardGenerateButtonOverlay, 5000);
     }
   }
 
@@ -1543,7 +1556,10 @@
       checkPathChange();
     };
     window.addEventListener('popstate', checkPathChange);
-    setInterval(checkPathChange, 2000);
+    // pushState/replaceState/popstate already trigger checkPathChange immediately.
+    // The interval is just a safety net for routers that bypass these — 5s is
+    // plenty since SPA navigations are user-initiated and not time-critical.
+    setInterval(checkPathChange, 5000);
     log('SPA watcher installed');
   }
 
