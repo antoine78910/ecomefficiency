@@ -1286,7 +1286,7 @@ function CredentialsPanel({
   const [adspowerOtpCode, setAdspowerOtpCode] = React.useState<string | null>(null)
   const [adspowerOtpErr, setAdspowerOtpErr] = React.useState<string | null>(null)
   const [adspowerOtpCooldownUntil, setAdspowerOtpCooldownUntil] = React.useState<number>(0)
-  const ADSPOWER_DISCORD_URL = "https://discord.gg/7UgABk3jKJ"
+  const [adspowerOtpConfirmOpen, setAdspowerOtpConfirmOpen] = React.useState(false)
   // Simulation window for testing. Change to 29 * 24 * 60 * 60 * 1000 for production.
   const ADSPOWER_OTP_COOLDOWN_MS = 5 * 60 * 1000
   const ADSPOWER_OTP_COOLDOWN_STORAGE_PREFIX = "__ee_adspower_otp_cooldown_until:"
@@ -1310,13 +1310,6 @@ function CredentialsPanel({
     } catch {}
   }, [])
 
-  const openAdsPowerDiscordSupport = React.useCallback(() => {
-    void trackAdsPowerOtpEvent("adspower_discord_link_click", { plan })
-    try {
-      window.open(ADSPOWER_DISCORD_URL, "_blank", "noopener,noreferrer")
-    } catch {}
-  }, [trackAdsPowerOtpEvent, plan])
-
   const fetchAdsPowerEmailCode = React.useCallback(async () => {
     if (!isEcomEfficiencyAppHost) return
     void trackAdsPowerOtpEvent("adspower_get_code_click", { plan })
@@ -1337,22 +1330,39 @@ function CredentialsPanel({
     if (activeCooldownUntil > nowMs) {
       const remainingMin = Math.max(1, Math.ceil((activeCooldownUntil - nowMs) / 60000))
       void trackAdsPowerOtpEvent("adspower_get_code_repeat_blocked", { plan })
-      setAdspowerOtpErr(`Please open a ticket on our discord to get your code (retry in ${remainingMin} min).`)
+      setAdspowerOtpErr(`you already get your code this month (retry in ${remainingMin} min).`)
       return
     }
-    const confirmed = typeof window === "undefined"
-      ? true
-      : window.confirm("Are you sure you already requested a code on AdsPower to sign in?")
-    if (!confirmed) return
+    setAdspowerOtpConfirmOpen(true)
+  }, [isEcomEfficiencyAppHost, adspowerOtpCooldownUntil, plan, trackAdsPowerOtpEvent])
+
+  const confirmFetchAdsPowerEmailCode = React.useCallback(async () => {
+    if (!isEcomEfficiencyAppHost) return
+    let cooldownKey = `${ADSPOWER_OTP_COOLDOWN_STORAGE_PREFIX}anon`
+    try {
+      const mod = await import("@/integrations/supabase/client")
+      const { data } = await mod.supabase.auth.getUser()
+      const uid = String(data.user?.id || "").trim()
+      if (uid) cooldownKey = `${ADSPOWER_OTP_COOLDOWN_STORAGE_PREFIX}${uid}`
+    } catch {}
+    const nowMs = Date.now()
+    let activeCooldownUntil = adspowerOtpCooldownUntil
+    try {
+      const raw = typeof window === "undefined" ? "" : String(window.localStorage.getItem(cooldownKey) || "")
+      const parsed = Number(raw)
+      if (Number.isFinite(parsed) && parsed > 0) activeCooldownUntil = parsed
+    } catch {}
+    if (activeCooldownUntil > nowMs) {
+      const remainingMin = Math.max(1, Math.ceil((activeCooldownUntil - nowMs) / 60000))
+      setAdspowerOtpErr(`you already get your code this month (retry in ${remainingMin} min).`)
+      setAdspowerOtpConfirmOpen(false)
+      return
+    }
     void trackAdsPowerOtpEvent("adspower_get_code_confirmed", { plan })
+    setAdspowerOtpConfirmOpen(false)
     setAdspowerOtpErr(null)
     setAdspowerOtpCode(null)
     setAdspowerOtpBusy(true)
-    const nextAllowedAt = Date.now() + ADSPOWER_OTP_COOLDOWN_MS
-    setAdspowerOtpCooldownUntil(nextAllowedAt)
-    try {
-      if (typeof window !== "undefined") window.localStorage.setItem(cooldownKey, String(nextAllowedAt))
-    } catch {}
     try {
       const { data: sessionWrap } = await supabase.auth.getSession()
       const token = sessionWrap?.session?.access_token
@@ -1389,8 +1399,16 @@ function CredentialsPanel({
         return
       }
       const c = String((j as any)?.code || "").trim()
-      if (c) setAdspowerOtpCode(c)
-      else setAdspowerOtpErr("No code received in the last minute. Trigger a new AdsPower email, then try again.")
+      if (c) {
+        setAdspowerOtpCode(c)
+        const nextAllowedAt = Date.now() + ADSPOWER_OTP_COOLDOWN_MS
+        setAdspowerOtpCooldownUntil(nextAllowedAt)
+        try {
+          if (typeof window !== "undefined") window.localStorage.setItem(cooldownKey, String(nextAllowedAt))
+        } catch {}
+      } else {
+        setAdspowerOtpErr("No code received in the last minute. Trigger a new AdsPower email, then try again.")
+      }
     } catch {
       setAdspowerOtpErr("Network error. Try again.")
     } finally {
@@ -2113,13 +2131,6 @@ function CredentialsPanel({
                   </div>
                 ) : null}
                 {adspowerOtpErr ? <p className="text-[11px] text-amber-200/90 max-w-[14rem] leading-snug">{adspowerOtpErr}</p> : null}
-                <button
-                  type="button"
-                  onClick={openAdsPowerDiscordSupport}
-                  className="text-[10px] text-blue-300/90 underline underline-offset-2 hover:text-blue-200 text-left max-w-[14rem] leading-snug cursor-pointer"
-                >
-                  Open Discord support
-                </button>
               </div>
             ) : null}
             <p className={`text-xs text-gray-500 ${adWideSpan}`}>Last update: {creds?.updatedAt ? new Date(creds.updatedAt).toLocaleString() : '—'}</p>
@@ -2328,8 +2339,50 @@ function CredentialsPanel({
         </div>
       </div>
     )}
+    <AdsPowerOtpConfirmModal
+      open={adspowerOtpConfirmOpen}
+      onCancel={() => setAdspowerOtpConfirmOpen(false)}
+      onConfirm={() => { void confirmFetchAdsPowerEmailCode() }}
+    />
     </>
   );
+}
+
+function AdsPowerOtpConfirmModal({
+  open,
+  onConfirm,
+  onCancel,
+}: {
+  open: boolean
+  onConfirm: () => void
+  onCancel: () => void
+}) {
+  if (!open) return null
+  return (
+    <div className="fixed inset-0 z-[80] bg-black/70 flex items-center justify-center px-4">
+      <div className="w-full max-w-md rounded-xl border border-white/15 bg-gray-900 p-4 shadow-2xl">
+        <p className="text-sm text-white leading-relaxed">
+          Are you sure you already requested a code on AdsPower to sign in?
+        </p>
+        <div className="mt-4 flex items-center justify-end gap-2">
+          <button
+            type="button"
+            onClick={onCancel}
+            className="px-3 py-1.5 rounded-md border border-white/20 text-white/90 hover:bg-white/10 text-sm"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={onConfirm}
+            className="px-3 py-1.5 rounded-md text-sm font-semibold bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] border border-[#9541e0] text-white"
+          >
+            Confirm
+          </button>
+        </div>
+      </div>
+    </div>
+  )
 }
 
 function PlanPicker({ onChoose }: { onChoose: (tier: 'starter'|'pro', billing: 'monthly'|'yearly') => void }) {
