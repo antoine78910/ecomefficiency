@@ -21,7 +21,10 @@ const VALID_ACTIONS = [
   'adspower_get_code_click',
   'adspower_get_code_confirmed',
   'adspower_get_code_repeat_blocked',
-  'adspower_discord_link_click'
+  'adspower_discord_link_click',
+  'adspower_get_code_result_success',
+  'adspower_get_code_result_empty',
+  'adspower_get_code_result_error'
 ] as const
 
 export async function POST(req: NextRequest) {

@@ -26,6 +26,9 @@ function actionLabel(action: string): { text: string; color: string } {
     case 'adspower_get_code_click': return { text: '🧾 AdsPower: clic Get code', color: 'bg-indigo-500/20 text-indigo-300' }
     case 'adspower_get_code_confirmed': return { text: '✅ AdsPower: confirmation OTP', color: 'bg-emerald-500/20 text-emerald-300' }
     case 'adspower_get_code_repeat_blocked': return { text: '⛔ AdsPower: reclic bloqué', color: 'bg-amber-500/20 text-amber-300' }
+    case 'adspower_get_code_result_success': return { text: '✅ AdsPower: code trouvé', color: 'bg-green-500/20 text-green-300' }
+    case 'adspower_get_code_result_empty': return { text: '📭 AdsPower: aucun code', color: 'bg-yellow-500/20 text-yellow-300' }
+    case 'adspower_get_code_result_error': return { text: '❌ AdsPower: erreur OTP', color: 'bg-red-500/20 text-red-300' }
     case 'adspower_discord_link_click': return { text: '💬 AdsPower: clic Discord', color: 'bg-sky-500/20 text-sky-300' }
     default: return { text: action, color: 'bg-gray-500/20 text-gray-300' }
   }

@@ -154,12 +154,16 @@ export async function GET(req: NextRequest) {
     const secret = String(process.env.ADSPOWER_OTP_ENDPOINT_SECRET || "").trim();
     const since = String(req.nextUrl.searchParams.get("since") || "0");
     const plan = String(req.nextUrl.searchParams.get("plan") || "").trim().toLowerCase();
+    if (plan !== "starter" && plan !== "pro") {
+      return NextResponse.json({ ok: false, error: "invalid_plan" }, { status: 400 });
+    }
     const targetEmail = String(req.nextUrl.searchParams.get("target_email") || "").trim().toLowerCase();
     const qs = new URLSearchParams();
     if (since) qs.set("since", since);
     qs.set("max_age_ms", "60000");
-    if (plan) qs.set("plan", plan);
+    qs.set("plan", plan);
     if (targetEmail) qs.set("target_email", targetEmail);
+    else if (plan === "pro") qs.set("target_email", "admin@ecomefficiency.com");
     if (secret) qs.set("secret", secret);
 
     const upstream = `${base}/otp-adspower?${qs.toString()}`;
@@ -181,7 +185,9 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({
       ok: true,
       code,
+      plan,
       source: String((j as any)?.source || "") || undefined,
+      targetEmail: String((j as any)?.targetEmail || "") || undefined,
     });
   } catch (e: any) {
     console.error("[adspower/otp]", e);

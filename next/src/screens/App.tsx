@@ -1295,6 +1295,12 @@ function CredentialsPanel({
       const mod = await import("@/integrations/supabase/client")
       const { data } = await mod.supabase.auth.getUser()
       if (!data.user) return
+      const toolName =
+        plan === "pro"
+          ? "adspower_pro"
+          : plan === "starter"
+            ? "adspower_starter"
+            : "adspower"
       fetch("/api/activity/track-event", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -1302,12 +1308,12 @@ function CredentialsPanel({
           user_id: data.user.id,
           email: data.user.email || null,
           action,
-          tool_name: "adspower",
+          tool_name: toolName,
           meta: meta || null,
         }),
       }).catch(() => {})
     } catch {}
-  }, [])
+  }, [plan])
 
   const fetchAdsPowerEmailCode = React.useCallback(async () => {
     if (!isEcomEfficiencyAppHost) return
@@ -1371,6 +1377,7 @@ function CredentialsPanel({
       }
       const qs = new URLSearchParams()
       if (plan === "starter" || plan === "pro") qs.set("plan", plan)
+      if (plan === "pro") qs.set("target_email", "admin@ecomefficiency.com")
       const endpoint = `/api/adspower/otp${qs.toString() ? `?${qs.toString()}` : ""}`
       const r = await fetch(endpoint, {
         method: "GET",
@@ -1395,11 +1402,17 @@ function CredentialsPanel({
                       ? "Server error while fetching the code. Try again in a moment."
                       : String((j as any)?.error || "Could not fetch code")
         setAdspowerOtpErr(msg)
+        void trackAdsPowerOtpEvent("adspower_get_code_result_error", { plan, error: err || "upstream_error" })
         return
       }
       const c = String((j as any)?.code || "").trim()
       if (c) {
         setAdspowerOtpCode(c)
+        void trackAdsPowerOtpEvent("adspower_get_code_result_success", {
+          plan,
+          source: String((j as any)?.source || ""),
+          targetEmail: String((j as any)?.targetEmail || ""),
+        })
         const nextAllowedAt = Date.now() + ADSPOWER_OTP_COOLDOWN_MS
         setAdspowerOtpCooldownUntil(nextAllowedAt)
         try {
@@ -1407,9 +1420,15 @@ function CredentialsPanel({
         } catch {}
       } else {
         setAdspowerOtpErr("No code received in the last minute. Trigger a new AdsPower email, then try again.")
+        void trackAdsPowerOtpEvent("adspower_get_code_result_empty", {
+          plan,
+          source: String((j as any)?.source || ""),
+          targetEmail: String((j as any)?.targetEmail || ""),
+        })
       }
     } catch {
       setAdspowerOtpErr("Network error. Try again.")
+      void trackAdsPowerOtpEvent("adspower_get_code_result_error", { plan, error: "network_error" })
     } finally {
       setAdspowerOtpBusy(false)
     }
