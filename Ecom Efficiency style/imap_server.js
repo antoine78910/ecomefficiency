@@ -53,6 +53,14 @@ function addressListToText(list) {
   }
 }
 
+/** All To/Cc/Bcc addresses (for matching captcha@email.adspower.net, etc.). */
+function envelopeRecipientsAllText(env) {
+  if (!env) return '';
+  return [addressListToText(env.to), addressListToText(env.cc), addressListToText(env.bcc)]
+    .filter(Boolean)
+    .join(' | ');
+}
+
 function safeStr(s) {
   try { return String(s || ''); } catch (_) { return ''; }
 }
@@ -73,6 +81,14 @@ function envelopeSubject(env) {
 
 function extractOtpFromRaw(raw, { preferLength } = {}) {
   const text = safeStr(raw);
+
+  // AdsPower login email (HTML or text): "The verification code for login is 336564."
+  const adsLogin =
+    text.match(/verification\s+code\s+for\s+login\s+is\s+(\d{4,8})\b/i) ||
+    text.match(/\blogin\s+code\s+is\s+(\d{4,8})\b/i) ||
+    text.match(/dynamic\s+(?:login\s+)?password\s+is\s+(\d{4,8})\b/i);
+  if (adsLogin && adsLogin[1]) return adsLogin[1];
+
   const prefer = preferLength || 6;
 
   // 1) Prefer exact length first
@@ -100,12 +116,13 @@ function extractOtpFromRaw(raw, { preferLength } = {}) {
   return '';
 }
 
-function scoreEmailForService({ raw, from, subject, to }, service) {
+function scoreEmailForService({ raw, from, subject, to, toAll }, service) {
   const text = safeStr(raw);
   const s = safeStr(service).toLowerCase();
   const fromL = safeStr(from).toLowerCase();
   const subjectL = safeStr(subject).toLowerCase();
   const toL = safeStr(to).toLowerCase();
+  const toAllL = safeStr(toAll || to).toLowerCase();
 
   const looksOpenAI = /openai|auth\.openai\.com|chatgpt/i.test(text + ' ' + subjectL + ' ' + fromL);
 
@@ -146,8 +163,12 @@ function scoreEmailForService({ raw, from, subject, to }, service) {
     if (/mode=signIn/i.test(text) || /mode=signin/i.test(text)) score += 6;
     if (looksOpenAI) score -= 20;
   } else if (s === 'adspower') {
-    if (/adspower\.com|activity\.adspower|no[-\s]?reply@mail\.adspower|noreply@adspower/i.test(fromL)) score += 14;
+    if (/adspower\.com|activity\.adspower|mail\.adspower|no[-\s]?reply@mail\.adspower|noreply@adspower/i.test(fromL)) score += 14;
     if (/adspower/i.test(subjectL)) score += 8;
+    if (/captcha@email\.adspower|@email\.adspower\.net|\.adspower\.net/i.test(toAllL)) score += 16;
+    if (/adspower/i.test(toAllL) && !/openai|chatgpt/i.test(toAllL)) score += 10;
+    if (/adspower\s+team/i.test(text)) score += 8;
+    if (/verification\s+code\s+for\s+login\s+is/i.test(text)) score += 10;
     if (/verification|security|login|code|otp|verify|password|dynamic/i.test(subjectL)) score += 4;
     if (/verification\s+code|one[-\s]?time|security\s+code|dynamic\s+password|login\s+code/i.test(text)) score += 4;
     if (looksOpenAI) score -= 20;
@@ -187,6 +208,7 @@ async function scanOtpFromMailbox(client, mailbox, service, opts = {}) {
 
         const fromAddress = pickFirstAddress(env && env.from);
         const toAddress = pickFirstAddress(env && env.to);
+        const toAllRecipients = envelopeRecipientsAllText(env);
         const subject = envelopeSubject(env);
 
         // Fast pre-filter for Freepik/Magnific OTP flow.
@@ -198,14 +220,19 @@ async function scanOtpFromMailbox(client, mailbox, service, opts = {}) {
         }
 
         if (service === 'adspower') {
-          const meta = `${safeStr(fromAddress)} ${safeStr(subject)}`.toLowerCase();
-          const likelyAds = /adspower|activity\.adspower|mail\.adspower|no[\s-]?reply.*adspower/i.test(meta);
+          const meta = `${safeStr(fromAddress)} ${safeStr(subject)} ${safeStr(toAllRecipients)}`.toLowerCase();
+          const likelyAds =
+            /adspower|activity\.adspower|mail\.adspower|no[\s-]?reply[\w.@/-]*adspower|email\.adspower|\.adspower\.net/i.test(meta) ||
+            /captcha@email\.adspower|captcha@.*adspower/i.test(meta);
           if (!likelyAds) continue;
         }
 
         // eslint-disable-next-line no-await-in-loop
         const { content } = await client.download(uid, null, { uid: true });
-        const raw = await contentToUtf8(content);
+        const raw =
+          service === 'adspower'
+            ? await sourceToSearchableText(content)
+            : await contentToUtf8(content);
 
         let code = '';
         if (service === 'higgsfield') {
@@ -217,7 +244,10 @@ async function scanOtpFromMailbox(client, mailbox, service, opts = {}) {
         if (!code) code = extractOtpFromRaw(raw, { preferLength: 6 }) || '';
         if (!code) continue;
 
-        const score = scoreEmailForService({ raw, from: fromAddress, subject, to: toAddress }, service);
+        const score = scoreEmailForService(
+          { raw, from: fromAddress, subject, to: toAddress, toAll: toAllRecipients },
+          service
+        );
         if (service === 'higgsfield' && score < 5) continue;
         if (service === 'freepik' && score < 5) continue;
         if (service === 'adspower' && score < 5) continue;

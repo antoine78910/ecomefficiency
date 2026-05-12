@@ -148,7 +148,16 @@ export async function GET(req: NextRequest) {
     if (secret) qs.set("secret", secret);
 
     const upstream = `${base}/otp-adspower?${qs.toString()}`;
-    const r = await fetch(upstream, { cache: "no-store", signal: AbortSignal.timeout(28_000) });
+    let r: Response;
+    try {
+      r = await fetch(upstream, { cache: "no-store", signal: AbortSignal.timeout(28_000) });
+    } catch (e: any) {
+      console.error("[adspower/otp] upstream fetch failed", { upstream, err: e });
+      return NextResponse.json(
+        { ok: false, error: "upstream_unreachable", message: String(e?.message || e || "fetch failed") },
+        { status: 503 }
+      );
+    }
     const j = await r.json().catch(() => ({}));
     if (!r.ok) {
       return NextResponse.json({ ok: false, error: "upstream_error", status: r.status }, { status: 502 });

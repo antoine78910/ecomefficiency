@@ -1738,7 +1738,13 @@ function CredentialsPanel({
               ? "This action is only available on the main app."
               : err === "not_available"
                 ? "Not available on this workspace."
-                : String((j as any)?.error || "Could not fetch code")
+                : err === "upstream_unreachable"
+                  ? "Could not reach the email server. Check ADSPOWER_OTP_IMAP_BASE_URL or try again in a moment."
+                  : err === "upstream_error"
+                    ? "Email server returned an error. Try again or contact support."
+                    : err === "server_error"
+                      ? "Server error while fetching the code. Try again in a moment."
+                      : String((j as any)?.error || "Could not fetch code")
         setAdspowerOtpErr(msg)
         return
       }
