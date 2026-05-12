@@ -684,9 +684,16 @@ function CheckoutForm({ tier, billing, currency, customerId }: {
         // Paiements trackés par DataFast via son module Stripe intégré (pas d’envoi côté app).
         // Note: Sales are tracked server-side via Stripe webhooks + FirstPromoter Tracking API.
 
-        // Redirect to success page
+        // Redirect to success page with conversion metadata
         sessionStorage.removeItem(sessionKey); // Clear lock on success
-        window.location.href = `/checkout/success?tier=${tier}&billing=${billing}`;
+        const conversionCurrency = String(paymentIntent.currency || currency || 'EUR').toUpperCase();
+        const successUrl =
+          `/checkout/success` +
+          `?tier=${encodeURIComponent(tier)}` +
+          `&billing=${encodeURIComponent(billing)}` +
+          `&currency=${encodeURIComponent(conversionCurrency)}` +
+          `&tx=${encodeURIComponent(paymentIntent.id)}`;
+        window.location.href = successUrl;
       }
     } catch (err: any) {
       setMessage(err.message || 'An unexpected error occurred');
