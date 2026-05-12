@@ -35,25 +35,41 @@ function parseAffiliateSummary(raw: unknown): AffiliateSummary | null {
   };
 }
 
-function AffiliateStatsRecap({ summary }: { summary: AffiliateSummary }) {
+function AffiliateStatsRecap({
+  summary,
+  className,
+}: {
+  summary: AffiliateSummary;
+  className?: string;
+}) {
   return (
-    <div className="mt-3 rounded-lg border border-white/5 bg-black/15 px-3 py-2.5">
-      <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 sm:grid-cols-4 sm:gap-y-0">
-        <div>
-          <div className="text-[10px] font-medium uppercase tracking-wide text-gray-500">Visitors</div>
-          <div className="text-sm font-semibold tabular-nums text-white">{summary.visitors.toLocaleString("en-US")}</div>
+    <div
+      className={`rounded-lg border border-white/5 bg-black/15 px-2.5 py-2 sm:px-3 sm:py-2.5 max-w-full min-w-0 w-full ${className ?? ""}`}
+    >
+      <div className="grid w-full grid-cols-2 gap-x-2 gap-y-2 sm:grid-cols-4 sm:gap-x-2 sm:gap-y-0 [&>*]:min-w-0">
+        <div className="min-w-0">
+          <div className="text-[9px] font-medium uppercase tracking-wide text-gray-500 truncate">Visitors</div>
+          <div className="text-xs sm:text-sm font-semibold tabular-nums text-white truncate">
+            {summary.visitors.toLocaleString("en-US")}
+          </div>
         </div>
-        <div>
-          <div className="text-[10px] font-medium uppercase tracking-wide text-gray-500">Conversions</div>
-          <div className="text-sm font-semibold tabular-nums text-white">{summary.conversions.toLocaleString("en-US")}</div>
+        <div className="min-w-0">
+          <div className="text-[9px] font-medium uppercase tracking-wide text-gray-500 truncate">Conversions</div>
+          <div className="text-xs sm:text-sm font-semibold tabular-nums text-white truncate">
+            {summary.conversions.toLocaleString("en-US")}
+          </div>
         </div>
-        <div>
-          <div className="text-[10px] font-medium uppercase tracking-wide text-gray-500">Active referrals</div>
-          <div className="text-sm font-semibold tabular-nums text-white">{summary.active_referrals.toLocaleString("en-US")}</div>
+        <div className="min-w-0">
+          <div className="text-[9px] font-medium uppercase tracking-wide text-gray-500 truncate">Active referrals</div>
+          <div className="text-xs sm:text-sm font-semibold tabular-nums text-white truncate">
+            {summary.active_referrals.toLocaleString("en-US")}
+          </div>
         </div>
-        <div>
-          <div className="text-[10px] font-medium uppercase tracking-wide text-gray-500">Total earnings</div>
-          <div className="text-sm font-semibold tabular-nums text-white">{summary.total_earnings_display}</div>
+        <div className="min-w-0">
+          <div className="text-[9px] font-medium uppercase tracking-wide text-gray-500 truncate">Total earnings</div>
+          <div className="text-xs sm:text-sm font-semibold tabular-nums text-white truncate">
+            {summary.total_earnings_display}
+          </div>
         </div>
       </div>
     </div>
@@ -867,20 +883,27 @@ const App = ({
           <div className="mb-4">
             <div className="relative overflow-hidden rounded-2xl border border-purple-500/30 bg-[linear-gradient(180deg,rgba(149,65,224,0.08)_0%,rgba(124,48,199,0.08)_100%)] p-4 md:p-5 flex flex-col gap-4">
               <div className="text-white/90 text-sm md:text-base min-w-0">
-                <span className="font-semibold text-white">Earn 30% for life</span> by helping entrepreneurs save thousands on their Spy, AI & SEO tools.
                 {affiliateLinkStatus === "loading" ? (
-                  <span className="block mt-2 text-xs text-gray-400">Preparing your personal affiliate link…</span>
+                  <span className="block text-xs text-gray-400">Preparing your personal affiliate link…</span>
                 ) : null}
                 {affiliateLinkStatus === "ready" && affiliateRefLinks.length > 0 ? (
-                  <div className="mt-3 space-y-2">
+                  <div className="mt-3 w-fit max-w-full min-w-0 space-y-2">
                     <div>
                       <div className="font-semibold text-white text-sm">
                         {affiliateRefLinks.length > 1 ? "Your affiliate links" : "Your Affiliate Link"}
                       </div>
                       <p className="text-xs text-gray-400 mt-0.5">
-                        {affiliateRefLinks.length > 1
-                          ? "Share any of these links to track referrals and earn 30% recurring commission."
-                          : "Share this unique link to track referrals and earn 30% recurring commission."}
+                        {affiliateRefLinks.length > 1 ? (
+                          <>
+                            Share any of these links to track referrals and earn{" "}
+                            <span className="font-semibold text-white">30% recurring commission for life</span>.
+                          </>
+                        ) : (
+                          <>
+                            Share this unique link to track referrals and earn{" "}
+                            <span className="font-semibold text-white">30% recurring commission for life</span>.
+                          </>
+                        )}
                       </p>
                     </div>
                     <div className="space-y-2.5">
@@ -965,31 +988,35 @@ const App = ({
                         Set your FirstPromoter password
                       </a>
                     ) : null}
+                    <AffiliateStatsRecap summary={affiliateSummary ?? ZERO_AFFILIATE_SUMMARY} />
                   </div>
                 ) : null}
                 {affiliateLinkStatus === "ready" && !affiliateRefLink ? (
-                  <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
-                    <p className="text-xs text-gray-300 max-w-xl min-w-0 flex-1">
-                      Your affiliate account is ready on FirstPromoter (including on the Free plan). Open your dashboard to
-                      copy your referral link if it does not appear here yet.
-                    </p>
-                    <a
-                      href={FIRSTPROMOTER_AFFILIATE_DASHBOARD_HREF}
-                      target="_blank"
-                      rel="noreferrer noopener"
-                      className="inline-flex shrink-0 self-start sm:self-center"
-                    >
-                      <span className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-[#9541e0] bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] px-3.5 py-2 text-xs font-medium text-white shadow-[0_2px_16px_0_rgba(149,65,224,0.45)] transition-[box-shadow] hover:shadow-[0_2px_20px_0_rgba(149,65,224,0.55)] group min-h-[36px]">
-                        <span className="relative block h-4 min-w-[9rem] overflow-hidden text-center leading-4">
-                          <span className="block whitespace-nowrap transition-transform duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] group-hover:-translate-y-4">
-                            Open affiliate dashboard
-                          </span>
-                          <span className="absolute left-1/2 top-4 w-max -translate-x-1/2 whitespace-nowrap transition-all duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] group-hover:top-0">
-                            Open affiliate dashboard
+                  <div className="mt-3 w-fit max-w-full min-w-0 space-y-3">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between sm:gap-4">
+                      <p className="text-xs text-gray-300 max-w-xl min-w-0 flex-1">
+                        Your affiliate account is ready on FirstPromoter (including on the Free plan). Open your dashboard to
+                        copy your referral link if it does not appear here yet.
+                      </p>
+                      <a
+                        href={FIRSTPROMOTER_AFFILIATE_DASHBOARD_HREF}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="inline-flex shrink-0 self-start sm:self-center"
+                      >
+                        <span className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-[#9541e0] bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] px-3.5 py-2 text-xs font-medium text-white shadow-[0_2px_16px_0_rgba(149,65,224,0.45)] transition-[box-shadow] hover:shadow-[0_2px_20px_0_rgba(149,65,224,0.55)] group min-h-[36px]">
+                          <span className="relative block h-4 min-w-[9rem] overflow-hidden text-center leading-4">
+                            <span className="block whitespace-nowrap transition-transform duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] group-hover:-translate-y-4">
+                              Open affiliate dashboard
+                            </span>
+                            <span className="absolute left-1/2 top-4 w-max -translate-x-1/2 whitespace-nowrap transition-all duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] group-hover:top-0">
+                              Open affiliate dashboard
+                            </span>
                           </span>
                         </span>
-                      </span>
-                    </a>
+                      </a>
+                    </div>
+                    <AffiliateStatsRecap summary={affiliateSummary ?? ZERO_AFFILIATE_SUMMARY} />
                   </div>
                 ) : null}
                 {affiliateLinkStatus === "unavailable" && affiliateErrorHint ? (
@@ -998,9 +1025,6 @@ const App = ({
                   <p className="mt-2 text-xs text-amber-200/90 max-w-xl">
                     We could not load your link automatically. Open FirstPromoter below to copy your referral link.
                   </p>
-                ) : null}
-                {affiliateLinkStatus === "ready" ? (
-                  <AffiliateStatsRecap summary={affiliateSummary ?? ZERO_AFFILIATE_SUMMARY} />
                 ) : null}
               </div>
               {affiliateLinkStatus === "unavailable" ? (
@@ -2430,6 +2454,12 @@ function CredentialsPanel({
                 >
                   {adspowerOtpBusy ? "Fetching…" : "Get the code"}
                 </button>
+                <p className="text-[10px] text-amber-200/85 max-w-[15rem] leading-snug">
+                  You can fetch this code only once per month. Request it only when you are ready to sign in.
+                </p>
+                <p className="text-[10px] text-gray-500 max-w-[15rem] leading-snug">
+                  If you have already used your monthly fetch or need help, open a support ticket on our Discord and we will assist you there.
+                </p>
                 {adspowerOtpCode ? (
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-mono text-sm text-emerald-300">{adspowerOtpCode}</span>
