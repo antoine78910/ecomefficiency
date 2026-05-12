@@ -19,3 +19,5 @@ FIRSTPROMOTER_ACCOUNT_ID=ton_account_id_firstpromoter
 FIRSTPROMOTER_INITIAL_CAMPAIGN_ID=123
 # Optional: FirstPromoter welcome/drip emails for new promoters (true/false)
 FIRSTPROMOTER_DRIP_EMAILS=false
+# Vercel: after adding or changing these variables, redeploy Production so API routes receive them.
+# If Vercel shows "Needs Attention" on a secret, rotate/update the value in Vercel and redeploy. Prefer marking API keys as Sensitive.

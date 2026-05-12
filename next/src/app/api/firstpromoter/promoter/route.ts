@@ -52,6 +52,25 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "missing_email" }, { status: 400 });
     }
 
+    const fpKey = String(process.env.FIRSTPROMOTER_API_KEY || "").trim();
+    const fpAccount = String(process.env.FIRSTPROMOTER_ACCOUNT_ID || "").trim();
+    if (!fpKey || !fpAccount) {
+      console.error("[firstpromoter/promoter] Missing env at runtime", {
+        has_api_key: Boolean(fpKey),
+        has_account_id: Boolean(fpAccount),
+        vercel_env: process.env.VERCEL_ENV,
+      });
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "firstpromoter_not_configured",
+          has_api_key: Boolean(fpKey),
+          has_account_id: Boolean(fpAccount),
+        },
+        { status: 503 }
+      );
+    }
+
     const meta = (user.user_metadata as any) || {};
     const firstName = String(meta.first_name || "").trim();
     const lastName = String(meta.last_name || "").trim();
@@ -83,13 +102,25 @@ export async function GET(req: NextRequest) {
   } catch (e: any) {
     const code = String(e?.code || e?.message || "");
     if (code.includes("FIRSTPROMOTER_NOT_CONFIGURED")) {
-      return NextResponse.json({ ok: false, error: "firstpromoter_not_configured" }, { status: 503 });
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "firstpromoter_not_configured",
+          has_api_key: Boolean(String(process.env.FIRSTPROMOTER_API_KEY || "").trim()),
+          has_account_id: Boolean(String(process.env.FIRSTPROMOTER_ACCOUNT_ID || "").trim()),
+        },
+        { status: 503 }
+      );
     }
+    const fpStatus = typeof e?.status === "number" ? e.status : undefined;
+    const msg = String(e?.message || "Unknown error").slice(0, 200);
+    console.error("[firstpromoter/promoter] FirstPromoter API error", { fpStatus, msg });
     return NextResponse.json(
       {
         ok: false,
         error: "firstpromoter_error",
-        message: String(e?.message || "Unknown error"),
+        fp_http_status: fpStatus,
+        message: msg,
       },
       { status: 500 }
     );

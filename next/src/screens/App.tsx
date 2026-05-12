@@ -16,6 +16,35 @@ import { ReviewPromptModal } from "@/components/ReviewPromptModal";
 import { isMainEcomEfficiencyWorkspaceHost } from "@/lib/eeAppHost";
 import { supabase } from "@/integrations/supabase/client";
 
+function buildAffiliateFailureHint(j: Record<string, unknown>, httpStatus: number): string {
+  const err = String(j?.error || "");
+  if (err === "firstpromoter_not_configured") {
+    const hasK = j?.has_api_key === true;
+    const hasA = j?.has_account_id === true;
+    if (!hasK && !hasA) {
+      return "The production server still has empty FirstPromoter variables (they are not injected into this deployment). In Vercel: set FIRSTPROMOTER_API_KEY and FIRSTPROMOTER_ACCOUNT_ID for Production, fix any “Needs Attention” warning on the API key, then redeploy the latest production build.";
+    }
+    if (!hasA) {
+      return "The server has FIRSTPROMOTER_API_KEY but not FIRSTPROMOTER_ACCOUNT_ID. Add FIRSTPROMOTER_ACCOUNT_ID for Production and redeploy.";
+    }
+    if (!hasK) {
+      return "The server has FIRSTPROMOTER_ACCOUNT_ID but not FIRSTPROMOTER_API_KEY. Fix or recreate the API key in Vercel (Production) and redeploy.";
+    }
+    return "FirstPromoter env check failed unexpectedly. Redeploy, or open FirstPromoter below to copy your link.";
+  }
+  if (err === "firstpromoter_error") {
+    const st = j?.fp_http_status;
+    return `FirstPromoter returned an error${typeof st === "number" ? ` (HTTP ${st})` : ""}. Confirm the private API key and Account ID in FirstPromoter → Settings → Integrations match Vercel exactly, then redeploy.`;
+  }
+  if (httpStatus === 401 || err === "unauthorized" || err === "missing_authorization" || err === "missing_token") {
+    return "Your session could not be verified for the affiliate service. Refresh the page or sign out and sign in again.";
+  }
+  if (err === "supabase_not_configured") {
+    return "Supabase environment variables are missing on the server.";
+  }
+  return `Could not load your affiliate link${err ? ` (${err})` : httpStatus ? ` (HTTP ${httpStatus})` : ""}. Open FirstPromoter below to copy your referral link.`;
+}
+
 const App = ({
   showAffiliateCta = true,
   partnerSlug,
@@ -48,6 +77,7 @@ const App = ({
   const [affiliateFpPasswordUrl, setAffiliateFpPasswordUrl] = React.useState("");
   const [affiliateLinkStatus, setAffiliateLinkStatus] = React.useState<"idle" | "loading" | "ready" | "unavailable">("idle");
   const [affiliateCopied, setAffiliateCopied] = React.useState(false);
+  const [affiliateErrorHint, setAffiliateErrorHint] = React.useState("");
 
   React.useEffect(() => {
     if (!showAffiliateCta || preview) return;
@@ -83,16 +113,21 @@ const App = ({
           setAffiliateRefLink(link);
           setAffiliateCoupon(String(j?.affiliate?.coupon || "").trim());
           setAffiliateFpPasswordUrl(String(j?.promoter?.password_setup_url || "").trim());
+          setAffiliateErrorHint("");
           setAffiliateLinkStatus("ready");
         } else {
           setAffiliateRefLink("");
           setAffiliateCoupon("");
           setAffiliateFpPasswordUrl("");
+          setAffiliateErrorHint(buildAffiliateFailureHint(j as Record<string, unknown>, r.status));
           setAffiliateLinkStatus("unavailable");
         }
       } catch {
         if (!cancelled) {
           setAffiliateRefLink("");
+          setAffiliateErrorHint(
+            "Network error while loading your affiliate link. Check your connection, disable strict blockers for this site, then refresh."
+          );
           setAffiliateLinkStatus("unavailable");
         }
       }
@@ -752,12 +787,11 @@ const App = ({
                     copy your referral link if it does not appear here yet.
                   </p>
                 ) : null}
-                {affiliateLinkStatus === "unavailable" ? (
+                {affiliateLinkStatus === "unavailable" && affiliateErrorHint ? (
+                  <p className="mt-2 text-xs text-amber-200/90 max-w-xl whitespace-pre-wrap">{affiliateErrorHint}</p>
+                ) : affiliateLinkStatus === "unavailable" ? (
                   <p className="mt-2 text-xs text-amber-200/90 max-w-xl">
-                    We could not load your link automatically. Ask your admin to set{" "}
-                    <span className="font-mono">FIRSTPROMOTER_API_KEY</span> and{" "}
-                    <span className="font-mono">FIRSTPROMOTER_ACCOUNT_ID</span> on the server, or open FirstPromoter below
-                    to copy your referral link.
+                    We could not load your link automatically. Open FirstPromoter below to copy your referral link.
                   </p>
                 ) : null}
               </div>
