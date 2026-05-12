@@ -226,6 +226,9 @@ const App = ({
           return;
         }
         setAffiliateRefLink("");
+        setAffiliateRefLinks([]);
+        setAffiliateCoupon("");
+        setAffiliateFpPasswordUrl("");
         setAffiliateSummary(null);
         setAffiliateErrorHint(
           "Network error while loading your affiliate link. Check your connection, disable strict blockers for this site, then refresh."
@@ -868,61 +871,84 @@ const App = ({
                 {affiliateLinkStatus === "loading" ? (
                   <span className="block mt-2 text-xs text-gray-400">Preparing your personal affiliate link…</span>
                 ) : null}
-                {affiliateLinkStatus === "ready" && affiliateRefLink ? (
+                {affiliateLinkStatus === "ready" && affiliateRefLinks.length > 0 ? (
                   <div className="mt-3 space-y-2">
                     <div>
-                      <div className="font-semibold text-white text-sm">Your Affiliate Link</div>
+                      <div className="font-semibold text-white text-sm">
+                        {affiliateRefLinks.length > 1 ? "Your affiliate links" : "Your Affiliate Link"}
+                      </div>
                       <p className="text-xs text-gray-400 mt-0.5">
-                        Share this unique link to track referrals and earn 30% recurring commission.
+                        {affiliateRefLinks.length > 1
+                          ? "Share any of these links to track referrals and earn 30% recurring commission."
+                          : "Share this unique link to track referrals and earn 30% recurring commission."}
                       </p>
                     </div>
-                    <div className="flex flex-row flex-nowrap items-stretch gap-2 min-w-0 overflow-x-auto">
-                      <div className="flex min-h-[36px] min-w-0 flex-1 max-w-[12rem] sm:max-w-[16rem] md:max-w-[20rem] items-stretch overflow-hidden rounded-lg border border-white/10 bg-black/30">
-                        <div
-                          className="min-w-0 flex-1 px-2 py-2 text-xs leading-snug text-purple-200/90 font-mono truncate"
-                          title={affiliateRefLink}
-                        >
-                          {affiliateRefLink}
-                        </div>
-                        <TooltipProvider delayDuration={300}>
-                          <Tooltip>
-                            <TooltipTrigger asChild>
-                              <button
-                                type="button"
-                                onClick={() => void copyAffiliateLink()}
-                                className="flex shrink-0 items-center justify-center border-l border-white/10 px-2 text-gray-400 transition-colors hover:bg-white/5 hover:text-white"
-                                aria-label={affiliateCopied ? "Copied" : "Copy affiliate link"}
+                    <div className="space-y-2.5">
+                      {affiliateRefLinks.map((url, i) => (
+                        <div key={`${i}:${url}`} className="space-y-1">
+                          {i > 0 ? (
+                            <div className="text-[10px] font-medium uppercase tracking-wide text-gray-500">
+                              Additional link {i + 1}
+                            </div>
+                          ) : null}
+                          <div className="flex flex-row flex-nowrap items-stretch gap-2 min-w-0 overflow-x-auto">
+                            <div className="flex min-h-[36px] min-w-0 flex-1 max-w-[12rem] sm:max-w-[16rem] md:max-w-[20rem] items-stretch overflow-hidden rounded-lg border border-white/10 bg-black/30">
+                              <div
+                                className="min-w-0 flex-1 px-2 py-2 text-xs leading-snug text-purple-200/90 font-mono truncate"
+                                title={url}
                               >
-                                {affiliateCopied ? (
-                                  <Check className="h-3.5 w-3.5 text-emerald-400" aria-hidden />
-                                ) : (
-                                  <Clipboard className="h-3.5 w-3.5" aria-hidden />
-                                )}
-                              </button>
-                            </TooltipTrigger>
-                            <TooltipContent side="top" className="text-xs">
-                              {affiliateCopied ? "Copied" : "Copy link"}
-                            </TooltipContent>
-                          </Tooltip>
-                        </TooltipProvider>
-                      </div>
-                      <a
-                        href={FIRSTPROMOTER_AFFILIATE_DASHBOARD_HREF}
-                        target="_blank"
-                        rel="noreferrer noopener"
-                        className="inline-flex shrink-0 self-center"
-                      >
-                        <span className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-[#9541e0] bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] px-3 py-2 text-xs font-medium text-white shadow-[0_2px_16px_0_rgba(149,65,224,0.45)] transition-[box-shadow] hover:shadow-[0_2px_20px_0_rgba(149,65,224,0.55)] group min-h-[36px]">
-                          <span className="relative block h-4 min-w-[7.75rem] overflow-hidden text-center leading-4">
-                            <span className="block whitespace-nowrap transition-transform duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] group-hover:-translate-y-4">
-                              Affiliate dashboard
-                            </span>
-                            <span className="absolute left-1/2 top-4 w-max -translate-x-1/2 whitespace-nowrap transition-all duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] group-hover:top-0">
-                              Affiliate dashboard
-                            </span>
-                          </span>
-                        </span>
-                      </a>
+                                {url}
+                              </div>
+                              <TooltipProvider delayDuration={300}>
+                                <Tooltip>
+                                  <TooltipTrigger asChild>
+                                    <button
+                                      type="button"
+                                      onClick={() => void copyAffiliateLinkAt(url, i)}
+                                      className="flex shrink-0 items-center justify-center border-l border-white/10 px-2 text-gray-400 transition-colors hover:bg-white/5 hover:text-white"
+                                      aria-label={
+                                        affiliateCopiedIndex === i
+                                          ? "Copied"
+                                          : i === 0
+                                            ? "Copy affiliate link"
+                                            : `Copy link ${i + 1}`
+                                      }
+                                    >
+                                      {affiliateCopiedIndex === i ? (
+                                        <Check className="h-3.5 w-3.5 text-emerald-400" aria-hidden />
+                                      ) : (
+                                        <Clipboard className="h-3.5 w-3.5" aria-hidden />
+                                      )}
+                                    </button>
+                                  </TooltipTrigger>
+                                  <TooltipContent side="top" className="text-xs">
+                                    {affiliateCopiedIndex === i ? "Copied" : "Copy link"}
+                                  </TooltipContent>
+                                </Tooltip>
+                              </TooltipProvider>
+                            </div>
+                            {i === 0 ? (
+                              <a
+                                href={FIRSTPROMOTER_AFFILIATE_DASHBOARD_HREF}
+                                target="_blank"
+                                rel="noreferrer noopener"
+                                className="inline-flex shrink-0 self-center"
+                              >
+                                <span className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-[#9541e0] bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] px-3 py-2 text-xs font-medium text-white shadow-[0_2px_16px_0_rgba(149,65,224,0.45)] transition-[box-shadow] hover:shadow-[0_2px_20px_0_rgba(149,65,224,0.55)] group min-h-[36px]">
+                                  <span className="relative block h-4 min-w-[7.75rem] overflow-hidden text-center leading-4">
+                                    <span className="block whitespace-nowrap transition-transform duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] group-hover:-translate-y-4">
+                                      Affiliate dashboard
+                                    </span>
+                                    <span className="absolute left-1/2 top-4 w-max -translate-x-1/2 whitespace-nowrap transition-all duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] group-hover:top-0">
+                                      Affiliate dashboard
+                                    </span>
+                                  </span>
+                                </span>
+                              </a>
+                            ) : null}
+                          </div>
+                        </div>
+                      ))}
                     </div>
                     {affiliateCoupon ? (
                       <div className="text-xs text-gray-400">
