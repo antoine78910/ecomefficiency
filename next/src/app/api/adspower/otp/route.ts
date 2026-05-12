@@ -2,10 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 import { supabaseAdmin } from "@/integrations/supabase/server";
-import { getAdspowerTotpCodeForEmail, parseAdspowerTotpSecretsFromEnv } from "@/lib/adspowerTotp";
+import { getAdspowerTotpPayloadForEmail, parseAdspowerTotpSecretsFromEnv } from "@/lib/adspowerTotp";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+/** TOTP path may sleep up to ~11s before the next 30s window. */
+export const maxDuration = 60;
 
 /** Root URL only (e.g. http://host:20016). Strips trailing /otp-adspower so we never double the path. */
 function normalizeAdsPowerOtpBaseUrl(raw: string | undefined): string {
@@ -161,14 +163,16 @@ export async function GET(req: NextRequest) {
 
     const totpSecrets = parseAdspowerTotpSecretsFromEnv(process.env.ADSPOWER_TOTP_BY_EMAIL_JSON);
     if (plan === "pro" && targetEmail) {
-      const totp = getAdspowerTotpCodeForEmail(targetEmail, totpSecrets);
+      const totp = await getAdspowerTotpPayloadForEmail(targetEmail, totpSecrets);
       if (totp) {
         return NextResponse.json({
           ok: true,
-          code: totp,
+          code: totp.code,
           plan,
           source: "totp",
           targetEmail,
+          validForSeconds: totp.validForSeconds,
+          validUntilUnix: totp.validUntilUnix,
         });
       }
     }

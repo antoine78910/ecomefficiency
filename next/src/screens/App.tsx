@@ -1288,8 +1288,11 @@ function CredentialsPanel({
   const [adspowerOtpCooldownUntil, setAdspowerOtpCooldownUntil] = React.useState<number>(0)
   const [adspowerOtpConfirmOpen, setAdspowerOtpConfirmOpen] = React.useState(false)
   const [adspowerOtpConfirmAuthenticator, setAdspowerOtpConfirmAuthenticator] = React.useState(false)
-  const ADSPOWER_OTP_COOLDOWN_MS = 29 * 24 * 60 * 60 * 1000
+  /** Test mode: 5 min between email OTP fetches (prod was 29 days). */
+  const ADSPOWER_OTP_COOLDOWN_MS = 5 * 60 * 1000
   const ADSPOWER_OTP_COOLDOWN_STORAGE_PREFIX = "__ee_adspower_otp_cooldown_until:"
+  const [adspowerOtpTotpValidUntilUnix, setAdspowerOtpTotpValidUntilUnix] = React.useState<number | null>(null)
+  const [adspowerOtpTotpTick, setAdspowerOtpTotpTick] = React.useState(0)
 
   const trackAdsPowerOtpEvent = React.useCallback(async (action: string, meta?: Record<string, unknown>) => {
     try {
@@ -1325,6 +1328,14 @@ function CredentialsPanel({
     )
   }, [plan, creds?.adspower_pro_email])
 
+  React.useEffect(() => {
+    if (adspowerOtpTotpValidUntilUnix == null) return
+    const id = window.setInterval(() => {
+      setAdspowerOtpTotpTick((n) => n + 1)
+    }, 1000)
+    return () => window.clearInterval(id)
+  }, [adspowerOtpTotpValidUntilUnix])
+
   const fetchAdsPowerEmailCode = React.useCallback(async () => {
     if (!isEcomEfficiencyAppHost) return
     void trackAdsPowerOtpEvent("adspower_get_code_click", { plan })
@@ -1343,9 +1354,10 @@ function CredentialsPanel({
       if (Number.isFinite(parsed) && parsed > 0) activeCooldownUntil = parsed
     } catch {}
     if (!adspowerProUsesAuthenticatorUi && activeCooldownUntil > nowMs) {
-      const remainingMin = Math.max(1, Math.ceil((activeCooldownUntil - nowMs) / 60000))
+      const remMs = activeCooldownUntil - nowMs
+      const remStr = remMs < 120_000 ? `${Math.max(1, Math.ceil(remMs / 1000))}s` : `${Math.max(1, Math.ceil(remMs / 60000))} min`
       void trackAdsPowerOtpEvent("adspower_get_code_repeat_blocked", { plan })
-      setAdspowerOtpErr(`you already get your code this month (retry in ${remainingMin} min).`)
+      setAdspowerOtpErr(`You already fetched a code recently (retry in ${remStr}).`)
       return
     }
     setAdspowerOtpConfirmAuthenticator(adspowerProUsesAuthenticatorUi)
@@ -1369,8 +1381,9 @@ function CredentialsPanel({
       if (Number.isFinite(parsed) && parsed > 0) activeCooldownUntil = parsed
     } catch {}
     if (!adspowerProUsesAuthenticatorUi && activeCooldownUntil > nowMs) {
-      const remainingMin = Math.max(1, Math.ceil((activeCooldownUntil - nowMs) / 60000))
-      setAdspowerOtpErr(`you already get your code this month (retry in ${remainingMin} min).`)
+      const remMs = activeCooldownUntil - nowMs
+      const remStr = remMs < 120_000 ? `${Math.max(1, Math.ceil(remMs / 1000))}s` : `${Math.max(1, Math.ceil(remMs / 60000))} min`
+      setAdspowerOtpErr(`You already fetched a code recently (retry in ${remStr}).`)
       setAdspowerOtpConfirmOpen(false)
       return
     }
@@ -1378,6 +1391,7 @@ function CredentialsPanel({
     setAdspowerOtpConfirmOpen(false)
     setAdspowerOtpErr(null)
     setAdspowerOtpCode(null)
+    setAdspowerOtpTotpValidUntilUnix(null)
     setAdspowerOtpBusy(true)
     try {
       const { data: sessionWrap } = await supabase.auth.getSession()
@@ -1399,6 +1413,7 @@ function CredentialsPanel({
         method: "GET",
         headers: { Authorization: `Bearer ${token}` },
         cache: "no-store",
+        signal: AbortSignal.timeout(45_000),
       })
       const j = await r.json().catch(() => ({}))
       if (!r.ok) {
@@ -1425,6 +1440,13 @@ function CredentialsPanel({
       const source = String((j as any)?.source || "").trim()
       if (c) {
         setAdspowerOtpCode(c)
+        if (source === "totp") {
+          const vu = Number((j as any)?.validUntilUnix)
+          if (Number.isFinite(vu) && vu > 0) setAdspowerOtpTotpValidUntilUnix(vu)
+          else setAdspowerOtpTotpValidUntilUnix(null)
+        } else {
+          setAdspowerOtpTotpValidUntilUnix(null)
+        }
         void trackAdsPowerOtpEvent("adspower_get_code_result_success", {
           plan,
           source,
@@ -2164,21 +2186,32 @@ function CredentialsPanel({
                 {proAdsPowerAuthenticator ? (
                   <div className="max-w-[15rem] rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5">
                     <p className="text-[10px] text-emerald-200/95 leading-snug">
-                      Same 6-digit code as Google Authenticator / AdsPower for this member. It refreshes about every 30 seconds — you can fetch again anytime.
+                      Même code 6 chiffres que Google Authenticator / AdsPower. Le serveur attend si besoin pour te laisser au moins ~20s avant le prochain changement.
                     </p>
                   </div>
                 ) : (
                 <div className="max-w-[15rem] rounded-md border border-red-400/40 bg-red-500/10 px-2 py-1.5">
                   <p className="flex items-start gap-1.5 text-[10px] text-red-300 leading-snug font-medium">
                     <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-red-300/70 text-[10px]">!</span>
-                    <span>Warning: You can fetch this code only once per month. Request it only when you are ready to sign in.</span>
+                    <span>Mode test : une récupération / 5 min (email). Ne clique que quand tu es prêt à te connecter.</span>
                   </p>
                 </div>
                 )}
                 {adspowerOtpCode ? (
+                  <div className="flex flex-col gap-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-mono text-sm text-emerald-300">{adspowerOtpCode}</span>
                     <CopyButton value={adspowerOtpCode} label="Copy code" toolName="adspower" fieldType="username" />
+                  </div>
+                    {adspowerOtpTotpValidUntilUnix != null ? (
+                      <p className="text-[11px] text-emerald-200/90">
+                        {(() => {
+                          void adspowerOtpTotpTick
+                          const left = Math.max(0, adspowerOtpTotpValidUntilUnix - Math.floor(Date.now() / 1000))
+                          return left > 0 ? `Temps restant pour ce code : ${left}s` : "Code expiré — reclique sur « Get the code »."
+                        })()}
+                      </p>
+                    ) : null}
                   </div>
                 ) : null}
                 {adspowerOtpErr ? <p className="text-[11px] text-amber-200/90 max-w-[14rem] leading-snug">{adspowerOtpErr}</p> : null}
