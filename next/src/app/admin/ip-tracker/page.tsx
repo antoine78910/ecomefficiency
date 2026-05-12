@@ -30,6 +30,7 @@ function actionLabel(action: string): { text: string; color: string } {
     case 'adspower_get_code_result_empty': return { text: '📭 AdsPower: empty (legacy)', color: 'bg-yellow-500/20 text-yellow-300' }
     case 'adspower_get_code_result_error': return { text: '❌ AdsPower: error (legacy)', color: 'bg-red-500/20 text-red-300' }
     case 'adspower_discord_link_click': return { text: '💬 AdsPower: Discord click', color: 'bg-sky-500/20 text-sky-300' }
+    case 'admin_panel_visit': return { text: '🛡️ Admin panel visit', color: 'bg-violet-500/20 text-violet-200' }
     default: return { text: action, color: 'bg-gray-500/20 text-gray-300' }
   }
 }
@@ -143,6 +144,8 @@ type UserSummary = {
   copyPasswordCount: number
   /** Count of "Get the code" button clicks (ip_events action adspower_get_code_click). */
   adspowerGetCodeClickCount: number
+  /** Count of admin panel page loads (action admin_panel_visit). */
+  adminPanelVisitCount: number
   lastSeen: string
   events: IpEvent[]
   sessions: SessionRow[]
@@ -467,6 +470,7 @@ function buildUserSummaries(events: IpEvent[], sessions: SessionRow[]): UserSumm
     const uniqueFingerprints = Array.from(entry.fingerprints).filter(Boolean)
     const copyPasswordCount = entry.events.filter(e => e.action === 'copy_password').length
     const adspowerGetCodeClickCount = entry.events.filter(e => e.action === 'adspower_get_code_click').length
+    const adminPanelVisitCount = entry.events.filter(e => e.action === 'admin_panel_visit').length
     const lastSeen = entry.events[0]?.created_at || entry.sessions[0]?.last_activity || ''
 
     const { score, level, signals } = computeRisk(entry.events, entry.sessions, uniqueIps, uniqueLocations, uniqueFingerprints, copyPasswordCount)
@@ -482,6 +486,7 @@ function buildUserSummaries(events: IpEvent[], sessions: SessionRow[]): UserSumm
       totalEvents: entry.events.length,
       copyPasswordCount,
       adspowerGetCodeClickCount,
+      adminPanelVisitCount,
       lastSeen,
       events: entry.events.slice(0, 100),
       sessions: entry.sessions,
@@ -507,6 +512,7 @@ export default async function AdminIpTrackerPage() {
   const watchCount = summaries.filter(s => s.riskLevel === 'watch').length
   const totalPasswordCopies = events.filter(e => e.action === 'copy_password').length
   const totalAdsPowerGetCodeClicks = events.filter(e => e.action === 'adspower_get_code_click').length
+  const totalAdminPanelVisits = events.filter(e => e.action === 'admin_panel_visit').length
 
   return (
     <div className="min-h-screen bg-black text-white px-6 py-10">
@@ -519,7 +525,7 @@ export default async function AdminIpTrackerPage() {
         </div>
 
         {/* Stats overview */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3 mb-8">
           <div className="border border-white/10 rounded-lg bg-white/5 p-4 text-center">
             <div className="text-2xl font-bold text-white">{summaries.length}</div>
             <div className="text-xs text-gray-400 mt-1">Utilisateurs</div>
@@ -543,6 +549,10 @@ export default async function AdminIpTrackerPage() {
           <div className="border border-indigo-500/35 rounded-lg bg-indigo-500/10 p-4 text-center">
             <div className="text-2xl font-bold text-indigo-300">{totalAdsPowerGetCodeClicks}</div>
             <div className="text-xs text-gray-400 mt-1">🧾 AdsPower Get code (all users)</div>
+          </div>
+          <div className="border border-violet-500/35 rounded-lg bg-violet-500/10 p-4 text-center">
+            <div className="text-2xl font-bold text-violet-300">{totalAdminPanelVisits}</div>
+            <div className="text-xs text-gray-400 mt-1">🛡️ Admin visits (all)</div>
           </div>
         </div>
 
@@ -602,7 +612,7 @@ const LEVEL_LABEL: Record<string, string> = {
 }
 
 function UserCard({ summary }: { summary: UserSummary }) {
-  const { email, user_id, uniqueIps, ipAccountDetails, uniqueLocations, uniqueFingerprints, totalEvents, copyPasswordCount, adspowerGetCodeClickCount, lastSeen, events, sessions, riskScore, riskLevel, riskSignals } = summary
+  const { email, user_id, uniqueIps, ipAccountDetails, uniqueLocations, uniqueFingerprints, totalEvents, copyPasswordCount, adspowerGetCodeClickCount, adminPanelVisitCount, lastSeen, events, sessions, riskScore, riskLevel, riskSignals } = summary
   const s = LEVEL_STYLES[riskLevel]
   const uniqueDeviceNames = Array.from(new Set((sessions || []).map((x) => String(x.device_name || '').trim()).filter(Boolean)))
 
@@ -654,6 +664,7 @@ function UserCard({ summary }: { summary: UserSummary }) {
               <span>📱 {uniqueFingerprints.length} device{uniqueFingerprints.length > 1 ? 's' : ''}</span>
               <span>🔑 {copyPasswordCount} MDP</span>
               <span>🧾 {adspowerGetCodeClickCount} Get code</span>
+              <span>🛡️ {adminPanelVisitCount} admin</span>
               <span>📊 {totalEvents} events</span>
               <span>🕒 {fmtDate(lastSeen)}</span>
               <span className="hidden sm:inline font-mono">🆔 {user_id?.slice(0, 8)}…</span>
@@ -776,11 +787,19 @@ function UserCard({ summary }: { summary: UserSummary }) {
               <tbody>
                 {events.map((ev, idx) => {
                   const { text, color } = actionLabel(ev.action)
+                  const meta = ev.meta && typeof ev.meta === 'object' ? (ev.meta as Record<string, unknown>) : {}
+                  const adminExtra =
+                    ev.action === 'admin_panel_visit'
+                      ? ` — @${String(meta.discord_username || '?')} · ${String(meta.pathname || '')}`
+                      : ''
                   return (
                     <tr key={ev.id || idx} className="border-t border-white/5 hover:bg-white/5">
                       <td className="p-2 text-gray-300 whitespace-nowrap">{fmtTime(ev.created_at)}</td>
                       <td className="p-2">
-                        <span className={`inline-flex px-2 py-0.5 rounded text-xs font-medium ${color}`}>{text}</span>
+                        <span className={`inline-flex flex-wrap items-center gap-x-1 px-2 py-0.5 rounded text-xs font-medium ${color}`}>
+                          <span>{text}</span>
+                          {adminExtra ? <span className="font-normal opacity-90">{adminExtra}</span> : null}
+                        </span>
                       </td>
                       <td className="p-2 text-gray-300">{ev.tool_name || '—'}</td>
                       <td className="p-2 font-mono text-xs text-white">{ev.ip_address || '—'}</td>

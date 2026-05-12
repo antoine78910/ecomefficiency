@@ -1,6 +1,13 @@
 # Configuration Discord Bot
 DISCORD_BOT_TOKEN=ton_token_bot_discord_ici
 DISCORD_ANALYTICS_SECRET=ton_secret_pour_l_api
+#
+# AdsPower TOTP button (channel panel + ephemeral code for the clicker). Used by `npm run bot` (next/bot/index.js).
+# Host sets these on the machine that runs the bot (do not commit real secrets).
+# DISCORD_ADSPOWER_OTP_CHANNEL_ID=1262357372970467451
+# DISCORD_ADSPOWER_AUTHENTICATOR_SECRET=YOUR_BASE32_TOTP_SECRET
+# Optional: min seconds left in the 30s window before returning (default 20, same idea as the web app).
+# DISCORD_ADSPOWER_TOTP_MIN_VALID_SEC=20
 
 # Autres variables existantes
 NEXT_PUBLIC_SUPABASE_URL=ton_url_supabase

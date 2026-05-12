@@ -1,5 +1,15 @@
 // next/bot/index.js
-const { Client, GatewayIntentBits, Partials, Events } = require('discord.js');
+const {
+  Client,
+  GatewayIntentBits,
+  Partials,
+  Events,
+  ActionRowBuilder,
+  ButtonBuilder,
+  ButtonStyle,
+  ComponentType,
+} = require('discord.js');
+const { generateSync } = require('otplib');
 // Node 18+ provides global fetch; no need for node-fetch
 const path = require('path');
 const fs = require('fs');
@@ -41,6 +51,19 @@ const POLL_INTERVAL_MS = Number(process.env.CREDENTIALS_POLL_INTERVAL_MS || 5 * 
 const POST_URL = process.env.CREDENTIALS_POST_URL;
 const SECRET = process.env.CREDENTIALS_SECRET;
 const BRAIN_CANVA_CHANNEL_ID = process.env.BRAIN_CANVA_CHANNEL_ID || '1245005003425447976';
+
+/** Channel where the bot posts the “Get the code” TOTP panel (default: your AdsPower helper channel). */
+const DISCORD_ADSPOWER_OTP_CHANNEL_ID =
+  String(process.env.DISCORD_ADSPOWER_OTP_CHANNEL_ID || '1262357372970467451').trim();
+/** Base32 TOTP secret (same as Google Authenticator / AdsPower member). Host-only; not committed. */
+const DISCORD_ADSPOWER_AUTHENTICATOR_SECRET = String(
+  process.env.DISCORD_ADSPOWER_AUTHENTICATOR_SECRET || ''
+).trim();
+const DISCORD_ADSPOWER_TOTP_MIN_VALID_SEC = Math.max(
+  1,
+  Math.min(29, Number(process.env.DISCORD_ADSPOWER_TOTP_MIN_VALID_SEC || 20) || 20)
+);
+const ADSPOWER_TOTP_BUTTON_ID = 'ee_adspower_get_totp';
 
 if (!TOKEN) console.error('[BOT] DISCORD_BOT_TOKEN manquant');
 if (!CHANNEL_ID) console.error('[BOT] DISCORD_CHANNEL_ID manquant');
@@ -210,6 +233,118 @@ async function postCredentials(body) {
 
 const processed = new Set();
 
+const TOTP_PERIOD_SEC = 30;
+
+function totpSecondsLeftInPeriod(epochSec, period = TOTP_PERIOD_SEC) {
+  const mod = epochSec % period;
+  return mod === 0 ? period : period - mod;
+}
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function generateAdspowerTotpPayload(secret) {
+  const minValid = DISCORD_ADSPOWER_TOTP_MIN_VALID_SEC;
+  let epoch = Math.floor(Date.now() / 1000);
+  let left = totpSecondsLeftInPeriod(epoch);
+  if (left < minValid) await sleep((left + 1) * 1000);
+  epoch = Math.floor(Date.now() / 1000);
+  const code = generateSync({ secret, strategy: 'totp', period: TOTP_PERIOD_SEC });
+  left = totpSecondsLeftInPeriod(epoch);
+  return { code, validUntilUnix: epoch + left };
+}
+
+function messageHasAdspowerOtpButton(message) {
+  try {
+    const rows = message?.components;
+    if (!Array.isArray(rows)) return false;
+    for (const row of rows) {
+      const comps = row?.components || row?.data?.components;
+      if (!Array.isArray(comps)) continue;
+      for (const c of comps) {
+        if (c?.type === ComponentType.Button && c?.customId === ADSPOWER_TOTP_BUTTON_ID) return true;
+      }
+    }
+  } catch {}
+  return false;
+}
+
+async function ensureAdspowerOtpPanel() {
+  if (!TOKEN || !DISCORD_ADSPOWER_OTP_CHANNEL_ID) return;
+  try {
+    const ch = await client.channels.fetch(DISCORD_ADSPOWER_OTP_CHANNEL_ID);
+    if (!ch || !ch.isTextBased()) {
+      console.warn('[BOT] AdsPower OTP channel not found or not text-based:', DISCORD_ADSPOWER_OTP_CHANNEL_ID);
+      return;
+    }
+    const recent = await ch.messages.fetch({ limit: 40 }).catch(() => null);
+    if (recent) {
+      for (const [, msg] of recent) {
+        if (msg.author?.id === client.user.id && messageHasAdspowerOtpButton(msg)) {
+          console.log('[BOT] AdsPower OTP panel already present, message', msg.id);
+          return;
+        }
+      }
+    }
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder()
+        .setCustomId(ADSPOWER_TOTP_BUTTON_ID)
+        .setLabel('Get the code')
+        .setStyle(ButtonStyle.Primary)
+    );
+    const configured = Boolean(DISCORD_ADSPOWER_AUTHENTICATOR_SECRET);
+    const hint = configured
+      ? 'Click **Get the code** to receive the current 6-digit Authenticator code (visible only to you).'
+      : '**Setup:** set `DISCORD_ADSPOWER_AUTHENTICATOR_SECRET` on the host running this bot (Base32 secret).';
+    await ch.send({
+      content:
+        '**AdsPower — Authenticator (TOTP)**\n' +
+        hint +
+        '\n_This is the same type of code as Google Authenticator / AdsPower._',
+      components: [row],
+    });
+    console.log('[BOT] AdsPower OTP panel posted in channel', DISCORD_ADSPOWER_OTP_CHANNEL_ID);
+  } catch (e) {
+    console.warn('[BOT] ensureAdspowerOtpPanel failed', e?.message || e);
+  }
+}
+
+client.on(Events.InteractionCreate, async (interaction) => {
+  try {
+    if (!interaction.isButton()) return;
+    if (interaction.customId !== ADSPOWER_TOTP_BUTTON_ID) return;
+
+    const secret = DISCORD_ADSPOWER_AUTHENTICATOR_SECRET;
+    if (!secret) {
+      await interaction.reply({
+        content:
+          'Authenticator is not configured on this bot host. Set the environment variable `DISCORD_ADSPOWER_AUTHENTICATOR_SECRET` (Base32 secret).',
+        ephemeral: true,
+      });
+      return;
+    }
+
+    await interaction.deferReply({ ephemeral: true });
+    const { code, validUntilUnix } = await generateAdspowerTotpPayload(secret);
+    const left = Math.max(0, validUntilUnix - Math.floor(Date.now() / 1000));
+    await interaction.editReply({
+      content:
+        `**Current code:** \`${code}\`\n` +
+        `**Time left:** ${left}s (then generate a new one with the button).`,
+    });
+  } catch (e) {
+    console.warn('[BOT] Interaction Adspower OTP', e?.message || e);
+    try {
+      if (interaction.deferred || interaction.replied) {
+        await interaction.editReply({ content: 'Could not generate the code. Try again in a moment.' });
+      } else {
+        await interaction.reply({ content: 'Could not generate the code. Try again in a moment.', ephemeral: true });
+      }
+    } catch {}
+  }
+});
+
 async function handleMessage(message) {
   try {
     const isStarter = CHANNEL_ID && String(message?.channelId) === String(CHANNEL_ID);
@@ -344,6 +479,11 @@ async function postDiscordAnalyticsDaily() {
 
 client.once(Events.ClientReady, async (c) => {
   console.log(`Bot prêt: ${c.user.tag}`);
+  try {
+    await ensureAdspowerOtpPanel();
+  } catch (e) {
+    console.warn('[BOT] ensureAdspowerOtpPanel startup', e);
+  }
   try {
     // Au démarrage, collecter starter + pro et pousser un payload fusionné
     const merged = await collectMergedFromBoth();

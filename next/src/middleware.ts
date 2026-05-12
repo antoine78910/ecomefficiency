@@ -105,8 +105,11 @@ export async function middleware(req: NextRequest) {
       )
     }
 
+    const requestHeaders = new Headers(req.headers)
+    requestHeaders.set('x-ee-admin-pathname', pathname)
+
     // Persist token in cookie so future /admin visits work without querystring.
-    const res = NextResponse.next({ request: { headers: req.headers } })
+    const res = NextResponse.next({ request: { headers: requestHeaders } })
     if (queryToken === expectedToken && cookieToken !== expectedToken) {
       res.cookies.set('ee_admin_token', expectedToken, {
         httpOnly: true,
@@ -116,6 +119,22 @@ export async function middleware(req: NextRequest) {
         maxAge: 60 * 60 * 24 * 30,
       })
     }
+
+    // Optional: bind Discord username once — /admin?token=...&discord_user=myname (or &discord=)
+    const duRaw = String(
+      req.nextUrl.searchParams.get('discord_user') || req.nextUrl.searchParams.get('discord') || ''
+    ).trim()
+    const duStripped = duRaw.replace(/^@/, '').slice(0, 32)
+    if (/^[a-z0-9_.]{2,32}$/i.test(duStripped)) {
+      res.cookies.set('ee_admin_discord_user', duStripped, {
+        httpOnly: true,
+        sameSite: 'lax',
+        secure: process.env.NODE_ENV === 'production',
+        path: '/',
+        maxAge: 60 * 60 * 24 * 30,
+      })
+    }
+
     res.headers.set('X-Robots-Tag', 'noindex, nofollow')
     res.headers.set('Cache-Control', 'no-store')
     return res
