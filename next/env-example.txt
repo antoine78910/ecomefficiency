@@ -25,6 +25,7 @@ FIRSTPROMOTER_DRIP_EMAILS=false
 # AdsPower email OTP (app.ecomefficiency.com — "Get the code" beside AdsPower logins; Starter/Pro only)
 # Next.js calls your IMAP server (Ecom Efficiency style imap_server.js on Katabump).
 ADSPOWER_OTP_IMAP_BASE_URL=http://51.83.103.21:20016
+# Base URL of the IMAP helper HTTP server (no /otp-adspower suffix — the app appends it).
 # Recommended: set the same secret on Vercel and on the IMAP server env ADSPOWER_OTP_ENDPOINT_SECRET.
 ADSPOWER_OTP_ENDPOINT_SECRET=long_random_shared_secret
 #

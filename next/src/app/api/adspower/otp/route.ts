@@ -6,6 +6,17 @@ import { supabaseAdmin } from "@/integrations/supabase/server";
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
 
+/** Root URL only (e.g. http://host:20016). Strips trailing /otp-adspower so we never double the path. */
+function normalizeAdsPowerOtpBaseUrl(raw: string | undefined): string {
+  const fallback = "http://51.83.103.21:20016";
+  let u = String(raw ?? "").trim();
+  if (!u) return fallback;
+  u = u.replace(/\/+$/, "");
+  u = u.replace(/\/otp-adspower$/i, "");
+  u = u.replace(/\/+$/, "");
+  return u || fallback;
+}
+
 function cleanDomain(input: string) {
   return String(input || "")
     .trim()
@@ -139,7 +150,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "subscription_required" }, { status: 403 });
     }
 
-    const base = String(process.env.ADSPOWER_OTP_IMAP_BASE_URL || "http://51.83.103.21:20016").replace(/\/$/, "");
+    const base = normalizeAdsPowerOtpBaseUrl(process.env.ADSPOWER_OTP_IMAP_BASE_URL);
     const secret = String(process.env.ADSPOWER_OTP_ENDPOINT_SECRET || "").trim();
     const since = String(req.nextUrl.searchParams.get("since") || "0");
     const qs = new URLSearchParams();
