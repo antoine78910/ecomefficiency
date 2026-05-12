@@ -1287,8 +1287,7 @@ function CredentialsPanel({
   const [adspowerOtpErr, setAdspowerOtpErr] = React.useState<string | null>(null)
   const [adspowerOtpCooldownUntil, setAdspowerOtpCooldownUntil] = React.useState<number>(0)
   const [adspowerOtpConfirmOpen, setAdspowerOtpConfirmOpen] = React.useState(false)
-  // Simulation window for testing. Change to 29 * 24 * 60 * 60 * 1000 for production.
-  const ADSPOWER_OTP_COOLDOWN_MS = 5 * 60 * 1000
+  const ADSPOWER_OTP_COOLDOWN_MS = 29 * 24 * 60 * 60 * 1000
   const ADSPOWER_OTP_COOLDOWN_STORAGE_PREFIX = "__ee_adspower_otp_cooldown_until:"
 
   const trackAdsPowerOtpEvent = React.useCallback(async (action: string, meta?: Record<string, unknown>) => {
