@@ -117,6 +117,42 @@ export default function AppTopNav({
     };
   }, []);
 
+  // Ensure a FirstPromoter promoter exists for this user (new + legacy signups) once per browser session
+  // on any app page, so their referral link is ready when they open Tools / the affiliate banner.
+  useEffect(() => {
+    if (!email) return;
+    if (!isMainEcomEfficiencyWorkspaceHost()) return;
+    if (brand?.hideAffiliate) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const { data } = await supabase.auth.getUser();
+        const uid = data.user?.id;
+        if (!uid || cancelled) return;
+        try {
+          const key = `ee_fp_promoter_ensured_${uid}`;
+          if (typeof sessionStorage !== "undefined" && sessionStorage.getItem(key) === "1") return;
+        } catch {}
+        const { data: sess } = await supabase.auth.getSession();
+        const token = sess.session?.access_token;
+        if (!token || cancelled) return;
+        const r = await fetch("/api/firstpromoter/promoter", {
+          method: "GET",
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        });
+        if (!cancelled && r.ok) {
+          try {
+            sessionStorage.setItem(`ee_fp_promoter_ensured_${uid}`, "1");
+          } catch {}
+        }
+      } catch {}
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [email, brand?.hideAffiliate]);
+
   const handleLogout = async () => {
     try {
       await supabase.auth.signOut();

@@ -117,6 +117,16 @@ const SignUp = () => {
             title: "Account created!",
             description: "Welcome to Ecom Efficiency",
           });
+          try {
+            const tok = session.access_token;
+            if (tok) {
+              await fetch("/api/firstpromoter/promoter", {
+                method: "GET",
+                headers: { Authorization: `Bearer ${tok}` },
+                cache: "no-store",
+              });
+            }
+          } catch {}
           // Redirect to app
           const protocol = window.location.protocol;
           const hostname = window.location.hostname;

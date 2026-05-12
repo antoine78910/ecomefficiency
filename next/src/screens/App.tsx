@@ -51,6 +51,59 @@ const App = ({
     }
   }, [])
 
+  const [affiliateRefLink, setAffiliateRefLink] = React.useState("");
+  const [affiliateCoupon, setAffiliateCoupon] = React.useState("");
+  const [affiliateFpPasswordUrl, setAffiliateFpPasswordUrl] = React.useState("");
+  const [affiliateLinkStatus, setAffiliateLinkStatus] = React.useState<"idle" | "loading" | "ready" | "unavailable">("idle");
+  const [affiliateCopied, setAffiliateCopied] = React.useState(false);
+
+  React.useEffect(() => {
+    if (!showAffiliateCta || preview || !isEcomEfficiencyAppOrLocalHost) return;
+    let cancelled = false;
+    (async () => {
+      setAffiliateLinkStatus("loading");
+      try {
+        const mod = await import("@/integrations/supabase/client");
+        const { data } = await mod.supabase.auth.getSession();
+        const token = data.session?.access_token;
+        if (!token) {
+          if (!cancelled) setAffiliateLinkStatus("idle");
+          return;
+        }
+        const r = await fetch("/api/firstpromoter/promoter", {
+          method: "GET",
+          headers: { Authorization: `Bearer ${token}` },
+          cache: "no-store",
+        });
+        const j = await r.json().catch(() => ({}));
+        if (cancelled) return;
+        if (r.ok && j?.ok) {
+          const link = String(j?.affiliate?.ref_link || "").trim();
+          setAffiliateRefLink(link);
+          setAffiliateCoupon(String(j?.affiliate?.coupon || "").trim());
+          setAffiliateFpPasswordUrl(String(j?.promoter?.password_setup_url || "").trim());
+          setAffiliateLinkStatus("ready");
+        } else {
+          setAffiliateLinkStatus("unavailable");
+        }
+      } catch {
+        if (!cancelled) setAffiliateLinkStatus("unavailable");
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [showAffiliateCta, preview, isEcomEfficiencyAppOrLocalHost]);
+
+  const copyAffiliateLink = React.useCallback(async () => {
+    if (!affiliateRefLink) return;
+    try {
+      await navigator.clipboard.writeText(affiliateRefLink);
+      setAffiliateCopied(true);
+      window.setTimeout(() => setAffiliateCopied(false), 2000);
+    } catch {}
+  }, [affiliateRefLink]);
+
   // Simulate return (sim_*): trigger confetti immediately so it always runs on localhost.
   React.useEffect(() => {
     try {
@@ -638,18 +691,70 @@ const App = ({
       <div className="max-w-6xl mx-auto px-6 py-8">
         {showAffiliateCta ? (
           <div className="mb-4">
-            <div className="relative overflow-hidden rounded-2xl border border-purple-500/30 bg-[linear-gradient(180deg,rgba(149,65,224,0.08)_0%,rgba(124,48,199,0.08)_100%)] p-4 md:p-5 flex items-center justify-between gap-4">
-              <div className="text-white/90 text-sm md:text-base">
+            <div className="relative overflow-hidden rounded-2xl border border-purple-500/30 bg-[linear-gradient(180deg,rgba(149,65,224,0.08)_0%,rgba(124,48,199,0.08)_100%)] p-4 md:p-5 flex flex-col lg:flex-row lg:items-center gap-4 lg:gap-6">
+              <div className="text-white/90 text-sm md:text-base min-w-0 flex-1">
                 <span className="font-semibold text-white">Earn 30% for life</span> by helping entrepreneurs save thousands on their Spy, AI & SEO tools.
-              </div>
-              <a href="https://www.ecomefficiency.com/affiliate" className="shrink-0" target="_blank" rel="noreferrer noopener">
-                <button className="cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_32px_0_rgba(149,65,224,0.70)] px-6 py-3 rounded-xl border-[1px] border-[#9541e0] text-white font-medium group h-[48px]">
-                  <div className="relative overflow-hidden w-full text-center">
-                    <p className="transition-transform group-hover:-translate-y-7 duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] whitespace-nowrap">Become an affiliate</p>
-                    <p className="absolute left-1/2 -translate-x-1/2 top-7 group-hover:top-0 transition-all duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] whitespace-nowrap">Become an affiliate</p>
+                {affiliateLinkStatus === "loading" ? (
+                  <span className="block mt-2 text-xs text-gray-400">Preparing your personal affiliate link…</span>
+                ) : null}
+                {affiliateLinkStatus === "ready" && affiliateRefLink ? (
+                  <div className="mt-2 space-y-1">
+                    <div
+                      className="text-xs text-purple-200/90 font-mono break-all rounded-lg border border-white/10 bg-black/30 px-2 py-1.5"
+                      title={affiliateRefLink}
+                    >
+                      {affiliateRefLink}
+                    </div>
+                    {affiliateCoupon ? (
+                      <div className="text-xs text-gray-400">
+                        Promo code: <span className="text-white font-medium">{affiliateCoupon}</span>
+                      </div>
+                    ) : null}
+                    {affiliateFpPasswordUrl ? (
+                      <a
+                        href={affiliateFpPasswordUrl}
+                        target="_blank"
+                        rel="noreferrer noopener"
+                        className="inline-block text-xs text-purple-300 hover:text-purple-200 underline"
+                      >
+                        Set your FirstPromoter password
+                      </a>
+                    ) : null}
                   </div>
-                </button>
-              </a>
+                ) : null}
+              </div>
+              <div className="shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
+                {affiliateLinkStatus === "ready" && affiliateRefLink ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => void copyAffiliateLink()}
+                      className="cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_32px_0_rgba(149,65,224,0.70)] px-6 py-3 rounded-xl border border-[#9541e0] text-white font-medium h-[48px] whitespace-nowrap"
+                    >
+                      {affiliateCopied ? "Copied!" : "Copy my affiliate link"}
+                    </button>
+                    <a
+                      href="https://ecomefficiency.firstpromoter.com"
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="inline-flex items-center justify-center px-4 py-3 rounded-xl border border-white/15 text-sm text-gray-200 hover:bg-white/5 h-[48px] whitespace-nowrap"
+                    >
+                      Affiliate dashboard
+                    </a>
+                  </>
+                ) : affiliateLinkStatus === "loading" ? (
+                  <div className="h-[48px] flex items-center text-sm text-gray-400 px-2">Loading…</div>
+                ) : (
+                  <a href="https://www.ecomefficiency.com/affiliate" className="shrink-0" target="_blank" rel="noreferrer noopener">
+                    <button className="cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_32px_0_rgba(149,65,224,0.70)] px-6 py-3 rounded-xl border-[1px] border-[#9541e0] text-white font-medium group h-[48px] w-full sm:w-auto">
+                      <div className="relative overflow-hidden w-full text-center">
+                        <p className="transition-transform group-hover:-translate-y-7 duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] whitespace-nowrap">Become an affiliate</p>
+                        <p className="absolute left-1/2 -translate-x-1/2 top-7 group-hover:top-0 transition-all duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] whitespace-nowrap">Become an affiliate</p>
+                      </div>
+                    </button>
+                  </a>
+                )}
+              </div>
               <div className="pointer-events-none absolute -bottom-10 -right-10 h-40 w-40 bg-purple-600/20 blur-3xl" aria-hidden />
             </div>
           </div>
@@ -1609,39 +1714,35 @@ function CredentialsPanel({
       try { e?.preventDefault() } catch {}
       try { e?.stopPropagation() } catch {}
       if (typeof window === 'undefined') return
+      const mod = await import("@/integrations/supabase/client");
+      const { data } = await mod.supabase.auth.getUser();
+      const user = data?.user;
+      const userEmail = user?.email || email || null;
+      const userMeta = (user?.user_metadata as any) || {};
+      const stripeCustomerFromMeta = (userMeta?.stripe_customer_id as string | undefined) || null;
+      const resolvedCustomerId = customerId || stripeCustomerFromMeta;
 
-      const mod = await import("@/integrations/supabase/client")
-      const { data } = await mod.supabase.auth.getUser()
-      const userEmail = data.user?.email || email || undefined
-      const sessionUserId = data.user?.id || userId || undefined
-      const meta = (data.user?.user_metadata as any) || {}
-      const stripeCustomerFromMeta = (meta.stripe_customer_id as string | undefined) || customerId || undefined
-
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-      if (userEmail) headers['x-user-email'] = userEmail
-      if (sessionUserId) headers['x-user-id'] = sessionUserId
-      if (stripeCustomerFromMeta) headers['x-stripe-customer-id'] = stripeCustomerFromMeta
+      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+      if (resolvedCustomerId) headers['x-stripe-customer-id'] = resolvedCustomerId;
+      if (userEmail) headers['x-user-email'] = userEmail;
+      if (user?.id || userId) headers['x-user-id'] = String(user?.id || userId);
 
       const res = await fetch('/api/stripe/portal', {
         method: 'POST',
         headers,
-        body: JSON.stringify({}),
-      })
-      const json = await res.json().catch(() => ({} as any))
+      });
+      const json = await res.json().catch(() => ({}));
 
       if (res.ok && json?.url) {
-        window.location.href = String(json.url)
-        return
+        window.location.href = String(json.url);
+        return;
       }
 
-      // If no Stripe customer is resolvable yet, open the billing page as fallback.
-      if (json?.error === 'missing_customer') {
-        window.location.href = '/subscription?billing=1'
-        return
-      }
+      // Keep old paywall/modal fallback for users without Stripe customer yet.
+      try { setShowBilling(true) } catch {}
+      try { setBanner('Unable to open billing portal right now. Please try again.') } catch {}
+      return
 
-      setShowBilling(true)
-      setBanner('Unable to open billing portal right now. Please try again.')
     } catch {
       try { setShowBilling(true) } catch {}
       try { setBanner('Unable to open billing portal right now. Please try again.') } catch {}

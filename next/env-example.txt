@@ -9,9 +9,13 @@ ADMIN_PASSWORD=ton_mot_de_passe_admin
 DATAFAST_API_KEY=ton_api_key_datafast
 
 # FirstPromoter (Affiliate)
+# API key + Account ID: FirstPromoter → Settings → Integrations → API (private key / account id for API v2).
 FIRSTPROMOTER_API_KEY=ton_api_key_firstpromoter
 FIRSTPROMOTER_ACCOUNT_ID=ton_account_id_firstpromoter
-# Optionnel: associer le promoter à une campagne dès la création
+# Optional: numeric campaign id passed when creating a promoter (helps FirstPromoter attach ref_link / default landing).
+# If you set a default campaign in the FirstPromoter UI for new promoters, you can leave this unset.
+# Where to find the id: Campaigns → open your campaign → check the URL (…/campaigns/12345) or campaign settings;
+# or use browser DevTools → Network while loading the campaign page and look for "campaign_id" / id in JSON responses.
 FIRSTPROMOTER_INITIAL_CAMPAIGN_ID=123
-# Optionnel: envoyer l'email de bienvenue FirstPromoter (true/false)
+# Optional: FirstPromoter welcome/drip emails for new promoters (true/false)
 FIRSTPROMOTER_DRIP_EMAILS=false
