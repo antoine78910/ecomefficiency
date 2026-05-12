@@ -1,6 +1,7 @@
 "use client";
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import Image from "next/image";
 import { supabase } from "@/integrations/supabase/client";
 import { Crown } from "lucide-react";
@@ -117,8 +118,10 @@ export default function AppTopNav({
     };
   }, []);
 
+  const pathname = usePathname() || "";
+
   // Ensure a FirstPromoter promoter exists for this user (new + legacy signups) once per browser session
-  // on any app page, so their referral link is ready when they open Tools / the affiliate banner.
+  // on any app page, so their referral link is ready when they open Tools or the Affiliate tab.
   // Main Ecom Efficiency layout uses AppTopNav without `brand.logoUrl`; white-label domains pass a logo — skip FP there.
   useEffect(() => {
     if (!email) return;
@@ -167,8 +170,8 @@ export default function AppTopNav({
       className="sticky top-0 z-50 w-full h-16 border-b bg-black/50 backdrop-blur flex items-center justify-between pl-5 pr-3 gap-4"
       style={{ borderBottomColor: hexWithAlpha(wlAccent, 0.2) }}
     >
-      <div className="flex items-center gap-2">
-        <div className="rounded-xl overflow-hidden">
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+        <div className="rounded-xl overflow-hidden shrink-0">
           {brand?.logoUrl ? (
             // eslint-disable-next-line @next/next/no-img-element
             // eslint-disable-next-line @next/next/no-img-element
@@ -189,6 +192,35 @@ export default function AppTopNav({
             />
           )}
         </div>
+        {!brand?.hideAffiliate && !brand?.logoUrl ? (
+          <nav
+            className="flex items-center gap-1 ml-2 md:ml-4 shrink min-w-0 overflow-x-auto"
+            aria-label="Workspace"
+          >
+            <Link
+              prefetch={false}
+              href="/app"
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                pathname === "/app" || pathname === "/app/"
+                  ? "bg-white/10 text-white"
+                  : "text-gray-400 hover:text-white"
+              }`}
+            >
+              Tools
+            </Link>
+            <Link
+              prefetch={false}
+              href="/app/affiliate"
+              className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-colors ${
+                pathname.startsWith("/app/affiliate")
+                  ? "bg-white/10 text-white"
+                  : "text-gray-400 hover:text-white"
+              }`}
+            >
+              Affiliate
+            </Link>
+          </nav>
+        ) : null}
       </div>
       {email ? (
         <DropdownMenu>
