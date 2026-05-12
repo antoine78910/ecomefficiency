@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Shield, Users, Activity, BarChart3, LayoutTemplate, ClipboardList, Star, Zap, Eye, Mic } from 'lucide-react'
+import { Shield, Users, Activity, BarChart3, LayoutTemplate, ClipboardList, Star, Zap, Eye, Mic, KeyRound } from 'lucide-react'
 
 const adminRoutes = [
   {
@@ -10,6 +10,12 @@ const adminRoutes = [
     label: 'IP Tracker',
     icon: Eye,
     description: 'Suivi IP, copies MDP et détection account sharing'
+  },
+  {
+    href: '/admin/adspower-get-code',
+    label: 'AdsPower Get code',
+    icon: KeyRound,
+    description: 'Tous utilisateurs : app (email, IP, horaires) + Discord (pseudo, fréquence)'
   },
   {
     href: '/admin/higgsfield',

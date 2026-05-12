@@ -1385,6 +1385,10 @@ function CredentialsPanel({
         const vu = Number((j as any)?.validUntilUnix)
         if (Number.isFinite(vu) && vu > 0) setAdspowerOtpTotpValidUntilUnix(vu)
         else setAdspowerOtpTotpValidUntilUnix(null)
+        void trackAdsPowerOtpEvent("adspower_get_code_delivered", {
+          plan,
+          target_email: requestedTargetEmail || undefined,
+        })
       } else {
         setAdspowerOtpErr("Unexpected response (no code). Try again.")
       }
@@ -1393,7 +1397,7 @@ function CredentialsPanel({
     } finally {
       setAdspowerOtpBusy(false)
     }
-  }, [isEcomEfficiencyAppHost, plan, creds])
+  }, [isEcomEfficiencyAppHost, plan, creds, trackAdsPowerOtpEvent])
 
   useEffect(() => {
     let active = true;

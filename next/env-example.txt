@@ -8,6 +8,9 @@ DISCORD_ANALYTICS_SECRET=ton_secret_pour_l_api
 # DISCORD_ADSPOWER_AUTHENTICATOR_SECRET=YOUR_BASE32_TOTP_SECRET
 # Optional: min seconds left in the 30s window before returning (default 20, same idea as the web app).
 # DISCORD_ADSPOWER_TOTP_MIN_VALID_SEC=20
+#
+# Vercel only: shared secret so the Discord bot can POST `adspower_discord_totp_request` to /api/activity/track-event.
+# ACTIVITY_TRACK_BOT_SECRET=long_random_shared_secret
 
 # Autres variables existantes
 NEXT_PUBLIC_SUPABASE_URL=ton_url_supabase

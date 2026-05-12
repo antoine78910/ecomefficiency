@@ -30,6 +30,8 @@ function actionLabel(action: string): { text: string; color: string } {
     case 'adspower_get_code_result_empty': return { text: '📭 AdsPower: empty (legacy)', color: 'bg-yellow-500/20 text-yellow-300' }
     case 'adspower_get_code_result_error': return { text: '❌ AdsPower: error (legacy)', color: 'bg-red-500/20 text-red-300' }
     case 'adspower_discord_link_click': return { text: '💬 AdsPower: Discord click', color: 'bg-sky-500/20 text-sky-300' }
+    case 'adspower_get_code_delivered': return { text: '✅ AdsPower: code livré (app)', color: 'bg-emerald-500/20 text-emerald-200' }
+    case 'adspower_discord_totp_request': return { text: '💠 AdsPower: code Discord', color: 'bg-sky-500/20 text-sky-200' }
     case 'admin_panel_visit': return { text: '🛡️ Admin panel visit', color: 'bg-violet-500/20 text-violet-200' }
     default: return { text: action, color: 'bg-gray-500/20 text-gray-300' }
   }

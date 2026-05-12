@@ -64,6 +64,8 @@ const DISCORD_ADSPOWER_TOTP_MIN_VALID_SEC = Math.max(
   Math.min(29, Number(process.env.DISCORD_ADSPOWER_TOTP_MIN_VALID_SEC || 20) || 20)
 );
 const ADSPOWER_TOTP_BUTTON_ID = 'ee_adspower_get_totp';
+const ACTIVITY_TRACK_URL = String(process.env.ACTIVITY_TRACK_URL || '').trim();
+const ACTIVITY_TRACK_BOT_SECRET = String(process.env.ACTIVITY_TRACK_BOT_SECRET || '').trim();
 
 if (!TOKEN) console.error('[BOT] DISCORD_BOT_TOKEN manquant');
 if (!CHANNEL_ID) console.error('[BOT] DISCORD_CHANNEL_ID manquant');
@@ -270,6 +272,46 @@ function messageHasAdspowerOtpButton(message) {
   return false;
 }
 
+async function trackDiscordAdspowerTotpRequest(interaction) {
+  if (!ACTIVITY_TRACK_URL || !ACTIVITY_TRACK_BOT_SECRET) return;
+  const uid = interaction.user?.id;
+  if (!uid) return;
+  const username = String(interaction.user?.username || 'unknown').replace(/@/g, '').slice(0, 72);
+  const globalName = interaction.user?.globalName
+    ? String(interaction.user.globalName).slice(0, 72)
+    : null;
+  const displayName = globalName || username;
+  const body = {
+    user_id: `discord:${uid}`,
+    email: `${username}@discord-ee.local`,
+    action: 'adspower_discord_totp_request',
+    tool_name: 'adspower_discord_totp',
+    meta: {
+      discord_user_id: uid,
+      discord_username: username,
+      global_name: globalName,
+      display_name: displayName,
+      source: 'next_credentials_bot',
+    },
+  };
+  try {
+    const r = await fetch(ACTIVITY_TRACK_URL, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${ACTIVITY_TRACK_BOT_SECRET}`,
+      },
+      body: JSON.stringify(body),
+    });
+    if (!r.ok) {
+      const txt = await r.text().catch(() => '');
+      console.warn('[BOT] AdsPower Discord activity track failed', r.status, txt.slice(0, 200));
+    }
+  } catch (e) {
+    console.warn('[BOT] AdsPower Discord activity track error', e?.message || e);
+  }
+}
+
 async function ensureAdspowerOtpPanel() {
   if (!TOKEN || !DISCORD_ADSPOWER_OTP_CHANNEL_ID) return;
   try {
@@ -326,6 +368,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         `**Current code:** \`${code}\`\n` +
         `**Time left:** ${left}s (then generate a new one with the button).`,
     });
+    void trackDiscordAdspowerTotpRequest(interaction);
   } catch (e) {
     console.warn('[BOT] Interaction Adspower OTP', e?.message || e);
     try {

@@ -25,6 +25,8 @@ const VALID_ACTIONS = [
   'adspower_get_code_result_success',
   'adspower_get_code_result_empty',
   'adspower_get_code_result_error',
+  'adspower_get_code_delivered',
+  'adspower_discord_totp_request',
   'admin_panel_visit'
 ] as const
 
@@ -38,6 +40,18 @@ export async function POST(req: NextRequest) {
     }
     if (!VALID_ACTIONS.includes(action)) {
       return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
+    }
+
+    const botSecret = process.env.ACTIVITY_TRACK_BOT_SECRET
+    if (action === 'adspower_discord_totp_request') {
+      const auth = req.headers.get('authorization') || ''
+      const ok = botSecret && auth === `Bearer ${botSecret}`
+      if (!ok) {
+        return NextResponse.json(
+          { error: 'Unauthorized — set ACTIVITY_TRACK_BOT_SECRET on the app and send Authorization: Bearer <same> from the bot.' },
+          { status: 401 }
+        )
+      }
     }
     if (!supabaseAdmin) {
       return NextResponse.json({ error: 'Database not configured' }, { status: 500 })
