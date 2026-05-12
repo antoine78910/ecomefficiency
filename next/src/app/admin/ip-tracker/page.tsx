@@ -23,13 +23,13 @@ function actionLabel(action: string): { text: string; color: string } {
     case 'copy_username': return { text: '👤 Copie user', color: 'bg-cyan-500/20 text-cyan-300' }
     case 'page_visit': return { text: '🌐 Visite app', color: 'bg-gray-500/20 text-gray-300' }
     case 'tool_access': return { text: '🔧 Accès outil', color: 'bg-purple-500/20 text-purple-300' }
-    case 'adspower_get_code_click': return { text: '🧾 AdsPower: clic Get code', color: 'bg-indigo-500/20 text-indigo-300' }
-    case 'adspower_get_code_confirmed': return { text: '✅ AdsPower: confirmation OTP', color: 'bg-emerald-500/20 text-emerald-300' }
-    case 'adspower_get_code_repeat_blocked': return { text: '⛔ AdsPower: reclic bloqué', color: 'bg-amber-500/20 text-amber-300' }
-    case 'adspower_get_code_result_success': return { text: '✅ AdsPower: code trouvé', color: 'bg-green-500/20 text-green-300' }
-    case 'adspower_get_code_result_empty': return { text: '📭 AdsPower: aucun code', color: 'bg-yellow-500/20 text-yellow-300' }
-    case 'adspower_get_code_result_error': return { text: '❌ AdsPower: erreur OTP', color: 'bg-red-500/20 text-red-300' }
-    case 'adspower_discord_link_click': return { text: '💬 AdsPower: clic Discord', color: 'bg-sky-500/20 text-sky-300' }
+    case 'adspower_get_code_click': return { text: '🧾 AdsPower: Get code click', color: 'bg-indigo-500/20 text-indigo-300' }
+    case 'adspower_get_code_confirmed': return { text: '✅ AdsPower: code confirm (legacy)', color: 'bg-emerald-500/20 text-emerald-300' }
+    case 'adspower_get_code_repeat_blocked': return { text: '⛔ AdsPower: repeat blocked (legacy)', color: 'bg-amber-500/20 text-amber-300' }
+    case 'adspower_get_code_result_success': return { text: '✅ AdsPower: code OK (legacy)', color: 'bg-green-500/20 text-green-300' }
+    case 'adspower_get_code_result_empty': return { text: '📭 AdsPower: empty (legacy)', color: 'bg-yellow-500/20 text-yellow-300' }
+    case 'adspower_get_code_result_error': return { text: '❌ AdsPower: error (legacy)', color: 'bg-red-500/20 text-red-300' }
+    case 'adspower_discord_link_click': return { text: '💬 AdsPower: Discord click', color: 'bg-sky-500/20 text-sky-300' }
     default: return { text: action, color: 'bg-gray-500/20 text-gray-300' }
   }
 }
@@ -141,6 +141,8 @@ type UserSummary = {
   uniqueFingerprints: string[]
   totalEvents: number
   copyPasswordCount: number
+  /** Count of "Get the code" button clicks (ip_events action adspower_get_code_click). */
+  adspowerGetCodeClickCount: number
   lastSeen: string
   events: IpEvent[]
   sessions: SessionRow[]
@@ -359,6 +361,29 @@ function computeRisk(
     signals.push({ id: 'pw_copies', emoji: '🔑', label: `${copyPasswordCount} copies MDP`, detail: 'Nombre élevé de copies de mot de passe', severity: 'medium', score: 10 })
   }
 
+  const adspowerGetCodeClicks = events.filter((e) => e.action === 'adspower_get_code_click').length
+  if (adspowerGetCodeClicks >= 20) {
+    score += 15
+    signals.push({
+      id: 'adspower_many_code_requests',
+      emoji: '🧾',
+      label: 'Many AdsPower “Get the code” clicks',
+      detail: `${adspowerGetCodeClicks} clicks — possible account sharing`,
+      severity: 'high',
+      score: 15,
+    })
+  } else if (adspowerGetCodeClicks >= 8) {
+    score += 8
+    signals.push({
+      id: 'adspower_code_requests',
+      emoji: '🧾',
+      label: 'Multiple AdsPower “Get the code” clicks',
+      detail: `${adspowerGetCodeClicks} clicks`,
+      severity: 'medium',
+      score: 8,
+    })
+  }
+
   // ── Cap + level ────────────────────────────────────────────────────────
   score = Math.min(100, score)
   const level: 'safe' | 'watch' | 'suspicious' | 'critical' =
@@ -441,6 +466,7 @@ function buildUserSummaries(events: IpEvent[], sessions: SessionRow[]): UserSumm
     const uniqueLocations = Array.from(entry.locations).filter(Boolean)
     const uniqueFingerprints = Array.from(entry.fingerprints).filter(Boolean)
     const copyPasswordCount = entry.events.filter(e => e.action === 'copy_password').length
+    const adspowerGetCodeClickCount = entry.events.filter(e => e.action === 'adspower_get_code_click').length
     const lastSeen = entry.events[0]?.created_at || entry.sessions[0]?.last_activity || ''
 
     const { score, level, signals } = computeRisk(entry.events, entry.sessions, uniqueIps, uniqueLocations, uniqueFingerprints, copyPasswordCount)
@@ -455,6 +481,7 @@ function buildUserSummaries(events: IpEvent[], sessions: SessionRow[]): UserSumm
       uniqueFingerprints,
       totalEvents: entry.events.length,
       copyPasswordCount,
+      adspowerGetCodeClickCount,
       lastSeen,
       events: entry.events.slice(0, 100),
       sessions: entry.sessions,
@@ -479,6 +506,7 @@ export default async function AdminIpTrackerPage() {
   const suspiciousCount = summaries.filter(s => s.riskLevel === 'suspicious').length
   const watchCount = summaries.filter(s => s.riskLevel === 'watch').length
   const totalPasswordCopies = events.filter(e => e.action === 'copy_password').length
+  const totalAdsPowerGetCodeClicks = events.filter(e => e.action === 'adspower_get_code_click').length
 
   return (
     <div className="min-h-screen bg-black text-white px-6 py-10">
@@ -491,7 +519,7 @@ export default async function AdminIpTrackerPage() {
         </div>
 
         {/* Stats overview */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-3 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
           <div className="border border-white/10 rounded-lg bg-white/5 p-4 text-center">
             <div className="text-2xl font-bold text-white">{summaries.length}</div>
             <div className="text-xs text-gray-400 mt-1">Utilisateurs</div>
@@ -511,6 +539,10 @@ export default async function AdminIpTrackerPage() {
           <div className="border border-white/10 rounded-lg bg-white/5 p-4 text-center">
             <div className="text-2xl font-bold text-white">{totalPasswordCopies}</div>
             <div className="text-xs text-gray-400 mt-1">🔑 Copies MDP</div>
+          </div>
+          <div className="border border-indigo-500/35 rounded-lg bg-indigo-500/10 p-4 text-center">
+            <div className="text-2xl font-bold text-indigo-300">{totalAdsPowerGetCodeClicks}</div>
+            <div className="text-xs text-gray-400 mt-1">🧾 AdsPower Get code (all users)</div>
           </div>
         </div>
 
@@ -570,7 +602,7 @@ const LEVEL_LABEL: Record<string, string> = {
 }
 
 function UserCard({ summary }: { summary: UserSummary }) {
-  const { email, user_id, uniqueIps, ipAccountDetails, uniqueLocations, uniqueFingerprints, totalEvents, copyPasswordCount, lastSeen, events, sessions, riskScore, riskLevel, riskSignals } = summary
+  const { email, user_id, uniqueIps, ipAccountDetails, uniqueLocations, uniqueFingerprints, totalEvents, copyPasswordCount, adspowerGetCodeClickCount, lastSeen, events, sessions, riskScore, riskLevel, riskSignals } = summary
   const s = LEVEL_STYLES[riskLevel]
   const uniqueDeviceNames = Array.from(new Set((sessions || []).map((x) => String(x.device_name || '').trim()).filter(Boolean)))
 
@@ -621,6 +653,7 @@ function UserCard({ summary }: { summary: UserSummary }) {
               <span>🗺️ {uniqueLocations.length} lieu{uniqueLocations.length > 1 ? 'x' : ''}</span>
               <span>📱 {uniqueFingerprints.length} device{uniqueFingerprints.length > 1 ? 's' : ''}</span>
               <span>🔑 {copyPasswordCount} MDP</span>
+              <span>🧾 {adspowerGetCodeClickCount} Get code</span>
               <span>📊 {totalEvents} events</span>
               <span>🕒 {fmtDate(lastSeen)}</span>
               <span className="hidden sm:inline font-mono">🆔 {user_id?.slice(0, 8)}…</span>

@@ -1330,7 +1330,6 @@ function CredentialsPanel({
 
   const confirmFetchAdsPowerOtpCode = React.useCallback(async () => {
     if (!isEcomEfficiencyAppHost) return
-    void trackAdsPowerOtpEvent("adspower_get_code_confirmed", { plan })
     setAdspowerOtpConfirmOpen(false)
     setAdspowerOtpErr(null)
     setAdspowerOtpCode(null)
@@ -1369,16 +1368,15 @@ function CredentialsPanel({
               : err === "not_available"
                 ? "Not available on this workspace."
                 : err === "totp_not_configured"
-                  ? "Aucune clé Authenticator (TOTP) n’est configurée pour cet email AdsPower sur le serveur. Vérifie ADSPOWER_TOTP_BY_EMAIL_JSON (Vercel / .env) ou contacte le support."
+                  ? "No Authenticator (TOTP) secret is configured for this AdsPower login on the server. Set ADSPOWER_TOTP_BY_EMAIL_JSON in Vercel (or .env) or contact support."
                   : err === "missing_target_email"
-                    ? "Email AdsPower manquant pour ce plan. Réessaie quand les identifiants sont chargés."
+                    ? "AdsPower login email is missing for this plan. Wait until credentials are loaded, then try again."
                     : err === "invalid_plan"
-                      ? "Plan inconnu — réessaie dans quelques secondes."
+                      ? "Unknown plan — wait a few seconds and try again."
                       : err === "server_error"
-                        ? "Erreur serveur. Réessaie dans un moment."
+                        ? "Server error. Try again in a moment."
                         : String((j as any)?.error || "Could not fetch code")
         setAdspowerOtpErr(msg)
-        void trackAdsPowerOtpEvent("adspower_get_code_result_error", { plan, error: err || "request_error" })
         return
       }
       const c = String((j as any)?.code || "").trim()
@@ -1387,26 +1385,15 @@ function CredentialsPanel({
         const vu = Number((j as any)?.validUntilUnix)
         if (Number.isFinite(vu) && vu > 0) setAdspowerOtpTotpValidUntilUnix(vu)
         else setAdspowerOtpTotpValidUntilUnix(null)
-        void trackAdsPowerOtpEvent("adspower_get_code_result_success", {
-          plan,
-          source: String((j as any)?.source || "totp"),
-          targetEmail: String((j as any)?.targetEmail || ""),
-        })
       } else {
-        setAdspowerOtpErr("Réponse serveur inattendue (pas de code). Réessaie.")
-        void trackAdsPowerOtpEvent("adspower_get_code_result_empty", {
-          plan,
-          source: String((j as any)?.source || ""),
-          targetEmail: String((j as any)?.targetEmail || ""),
-        })
+        setAdspowerOtpErr("Unexpected response (no code). Try again.")
       }
     } catch {
       setAdspowerOtpErr("Network error. Try again.")
-      void trackAdsPowerOtpEvent("adspower_get_code_result_error", { plan, error: "network_error" })
     } finally {
       setAdspowerOtpBusy(false)
     }
-  }, [isEcomEfficiencyAppHost, plan, trackAdsPowerOtpEvent, creds])
+  }, [isEcomEfficiencyAppHost, plan, creds])
 
   useEffect(() => {
     let active = true;
@@ -2110,11 +2097,6 @@ function CredentialsPanel({
                 >
                   {adspowerOtpBusy ? "Fetching…" : "Get the code"}
                 </button>
-                <div className="max-w-[15rem] rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5">
-                  <p className="text-[10px] text-emerald-200/95 leading-snug">
-                    Même code 6 chiffres que Google Authenticator / AdsPower. Le serveur attend si besoin pour te laisser au moins ~20s avant le prochain changement.
-                  </p>
-                </div>
                 {adspowerOtpCode ? (
                   <div className="flex flex-col gap-1">
                   <div className="flex flex-wrap items-center gap-2">
@@ -2126,7 +2108,7 @@ function CredentialsPanel({
                         {(() => {
                           void adspowerOtpTotpTick
                           const left = Math.max(0, adspowerOtpTotpValidUntilUnix - Math.floor(Date.now() / 1000))
-                          return left > 0 ? `Temps restant pour ce code : ${left}s` : "Code expiré — reclique sur « Get the code »."
+                          return left > 0 ? `Time left for this code: ${left}s` : "Code expired — click Get the code again."
                         })()}
                       </p>
                     ) : null}
@@ -2364,7 +2346,7 @@ function AdsPowerOtpConfirmModal({
     <div className="fixed inset-0 z-[80] bg-black/70 flex items-center justify-center px-4">
       <div className="w-full max-w-md rounded-xl border border-white/15 bg-gray-900 p-4 shadow-2xl">
         <p className="text-sm text-white leading-relaxed">
-          Récupérer le code Authenticator (6 chiffres) actuel pour cette connexion AdsPower ? Tu peux le refaire quand tu veux.
+          Fetch the current 6-digit Authenticator code for this AdsPower login? You can do this anytime you need it.
         </p>
         <div className="mt-4 flex items-center justify-end gap-2">
           <button
