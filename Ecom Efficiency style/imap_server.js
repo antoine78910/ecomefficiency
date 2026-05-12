@@ -1614,8 +1614,7 @@ app.get('/otp-adspower', async (req, res) => {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
-  // Temporary behavior: return latest matching code without "last minutes" filtering.
-  const maxAgeMs = 0;
+  const maxAgeMs = Math.min(120000, Math.max(30000, Number(req.query.max_age_ms) || 60000));
 
   const imapPort = Number(process.env.IMAP_PORT || 993);
   const imapTLS = String(process.env.IMAP_TLS || 'true') === 'true';

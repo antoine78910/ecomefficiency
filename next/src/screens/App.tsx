@@ -1285,12 +1285,18 @@ function CredentialsPanel({
   const [adspowerOtpBusy, setAdspowerOtpBusy] = React.useState(false)
   const [adspowerOtpCode, setAdspowerOtpCode] = React.useState<string | null>(null)
   const [adspowerOtpErr, setAdspowerOtpErr] = React.useState<string | null>(null)
+  const [adspowerOtpFetchUsed, setAdspowerOtpFetchUsed] = React.useState(false)
 
   const fetchAdsPowerEmailCode = React.useCallback(async () => {
     if (!isEcomEfficiencyAppHost) return
+    if (adspowerOtpFetchUsed) {
+      setAdspowerOtpErr("Please open a ticket on our discord to get your code")
+      return
+    }
     setAdspowerOtpErr(null)
     setAdspowerOtpCode(null)
     setAdspowerOtpBusy(true)
+    setAdspowerOtpFetchUsed(true)
     try {
       const { data: sessionWrap } = await supabase.auth.getSession()
       const token = sessionWrap?.session?.access_token
@@ -1298,7 +1304,10 @@ function CredentialsPanel({
         setAdspowerOtpErr("Sign in required.")
         return
       }
-      const r = await fetch("/api/adspower/otp", {
+      const qs = new URLSearchParams()
+      if (plan === "starter" || plan === "pro") qs.set("plan", plan)
+      const endpoint = `/api/adspower/otp${qs.toString() ? `?${qs.toString()}` : ""}`
+      const r = await fetch(endpoint, {
         method: "GET",
         headers: { Authorization: `Bearer ${token}` },
         cache: "no-store",
@@ -1331,7 +1340,7 @@ function CredentialsPanel({
     } finally {
       setAdspowerOtpBusy(false)
     }
-  }, [isEcomEfficiencyAppHost])
+  }, [isEcomEfficiencyAppHost, adspowerOtpFetchUsed, plan])
 
   useEffect(() => {
     let active = true;
@@ -2035,11 +2044,8 @@ function CredentialsPanel({
                 >
                   {adspowerOtpBusy ? "Fetching…" : "Get the code"}
                 </button>
-                <p className="text-[10px] text-amber-200/85 max-w-[15rem] leading-snug">
-                  You can fetch this code only once per month. Request it only when you are ready to sign in.
-                </p>
-                <p className="text-[10px] text-gray-500 max-w-[15rem] leading-snug">
-                  If you have already used your monthly fetch or need help, open a support ticket on our Discord and we will assist you there.
+                <p className="text-[10px] text-red-400/95 max-w-[15rem] leading-snug font-medium">
+                  Warning: You can fetch this code only once per month. Request it only when you are ready to sign in.
                 </p>
                 {adspowerOtpCode ? (
                   <div className="flex flex-wrap items-center gap-2">
@@ -2048,9 +2054,6 @@ function CredentialsPanel({
                   </div>
                 ) : null}
                 {adspowerOtpErr ? <p className="text-[11px] text-amber-200/90 max-w-[14rem] leading-snug">{adspowerOtpErr}</p> : null}
-                <p className="text-[10px] text-gray-500 max-w-[14rem] leading-snug">
-                  Uses the latest AdsPower email (about the last minute) from the shared mailboxes.
-                </p>
               </div>
             ) : null}
             <p className={`text-xs text-gray-500 ${adWideSpan}`}>Last update: {creds?.updatedAt ? new Date(creds.updatedAt).toLocaleString() : '—'}</p>

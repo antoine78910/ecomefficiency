@@ -157,6 +157,7 @@ export async function GET(req: NextRequest) {
     const targetEmail = String(req.nextUrl.searchParams.get("target_email") || "").trim().toLowerCase();
     const qs = new URLSearchParams();
     if (since) qs.set("since", since);
+    qs.set("max_age_ms", "60000");
     if (plan) qs.set("plan", plan);
     if (targetEmail) qs.set("target_email", targetEmail);
     if (secret) qs.set("secret", secret);
