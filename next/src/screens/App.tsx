@@ -14,6 +14,7 @@ import WhiteLabelPricingModal from "@/components/WhiteLabelPricingModal";
 import { CheckoutSuccessEffects } from "@/components/CheckoutSuccessEffects";
 import { ReviewPromptModal } from "@/components/ReviewPromptModal";
 import { isMainEcomEfficiencyWorkspaceHost } from "@/lib/eeAppHost";
+import { supabase } from "@/integrations/supabase/client";
 
 const App = ({
   showAffiliateCta = true,
@@ -50,23 +51,31 @@ const App = ({
 
   React.useEffect(() => {
     if (!showAffiliateCta || preview) return;
-    if (typeof window === "undefined" || !isMainEcomEfficiencyWorkspaceHost()) return;
     let cancelled = false;
-    (async () => {
-      setAffiliateLinkStatus("loading");
+
+    const fetchAffiliate = async () => {
       try {
-        const mod = await import("@/integrations/supabase/client");
-        const { data } = await mod.supabase.auth.getSession();
+        const { data } = await supabase.auth.getSession();
         const token = data.session?.access_token;
         if (!token) {
           if (!cancelled) setAffiliateLinkStatus("idle");
           return;
         }
-        const r = await fetch("/api/firstpromoter/promoter", {
+        if (!cancelled) setAffiliateLinkStatus("loading");
+        let r = await fetch("/api/firstpromoter/promoter", {
           method: "GET",
           headers: { Authorization: `Bearer ${token}` },
           cache: "no-store",
         });
+        if (!r.ok && r.status >= 500) {
+          await new Promise((res) => setTimeout(res, 600));
+          if (cancelled) return;
+          r = await fetch("/api/firstpromoter/promoter", {
+            method: "GET",
+            headers: { Authorization: `Bearer ${token}` },
+            cache: "no-store",
+          });
+        }
         const j = await r.json().catch(() => ({}));
         if (cancelled) return;
         if (r.ok && j?.ok) {
@@ -76,14 +85,37 @@ const App = ({
           setAffiliateFpPasswordUrl(String(j?.promoter?.password_setup_url || "").trim());
           setAffiliateLinkStatus("ready");
         } else {
+          setAffiliateRefLink("");
+          setAffiliateCoupon("");
+          setAffiliateFpPasswordUrl("");
           setAffiliateLinkStatus("unavailable");
         }
       } catch {
-        if (!cancelled) setAffiliateLinkStatus("unavailable");
+        if (!cancelled) {
+          setAffiliateRefLink("");
+          setAffiliateLinkStatus("unavailable");
+        }
       }
-    })();
+    };
+
+    void fetchAffiliate();
+    const late = window.setTimeout(() => {
+      if (!cancelled) void fetchAffiliate();
+    }, 800);
+
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (cancelled) return;
+      if (session?.access_token) void fetchAffiliate();
+    });
+
     return () => {
       cancelled = true;
+      window.clearTimeout(late);
+      try {
+        subscription.unsubscribe();
+      } catch {}
     };
   }, [showAffiliateCta, preview]);
 
@@ -720,6 +752,14 @@ const App = ({
                     copy your referral link if it does not appear here yet.
                   </p>
                 ) : null}
+                {affiliateLinkStatus === "unavailable" ? (
+                  <p className="mt-2 text-xs text-amber-200/90 max-w-xl">
+                    We could not load your link automatically. Ask your admin to set{" "}
+                    <span className="font-mono">FIRSTPROMOTER_API_KEY</span> and{" "}
+                    <span className="font-mono">FIRSTPROMOTER_ACCOUNT_ID</span> on the server, or open FirstPromoter below
+                    to copy your referral link.
+                  </p>
+                ) : null}
               </div>
               <div className="shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                 {affiliateLinkStatus === "ready" && affiliateRefLink ? (
@@ -749,8 +789,27 @@ const App = ({
                   >
                     Open affiliate dashboard
                   </a>
-                ) : affiliateLinkStatus === "loading" ? (
-                  <div className="h-[48px] flex items-center text-sm text-gray-400 px-2">Loading…</div>
+                ) : affiliateLinkStatus === "loading" || affiliateLinkStatus === "idle" ? (
+                  <div className="h-[48px] flex items-center text-sm text-gray-400 px-2">Loading your affiliate link…</div>
+                ) : affiliateLinkStatus === "unavailable" ? (
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <a
+                      href="https://ecomefficiency.firstpromoter.com"
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="inline-flex items-center justify-center cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_32px_0_rgba(149,65,224,0.70)] px-6 py-3 rounded-xl border border-[#9541e0] text-white font-medium h-[48px] whitespace-nowrap"
+                    >
+                      Open affiliate dashboard
+                    </a>
+                    <a
+                      href="https://www.ecomefficiency.com/affiliate"
+                      target="_blank"
+                      rel="noreferrer noopener"
+                      className="inline-flex items-center justify-center px-4 py-3 rounded-xl border border-white/15 text-sm text-gray-200 hover:bg-white/5 h-[48px] whitespace-nowrap"
+                    >
+                      Program details
+                    </a>
+                  </div>
                 ) : (
                   <a href="https://www.ecomefficiency.com/affiliate" className="shrink-0" target="_blank" rel="noreferrer noopener">
                     <button className="cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_32px_0_rgba(149,65,224,0.70)] px-6 py-3 rounded-xl border-[1px] border-[#9541e0] text-white font-medium group h-[48px] w-full sm:w-auto">

@@ -119,10 +119,11 @@ export default function AppTopNav({
 
   // Ensure a FirstPromoter promoter exists for this user (new + legacy signups) once per browser session
   // on any app page, so their referral link is ready when they open Tools / the affiliate banner.
+  // Main Ecom Efficiency layout uses AppTopNav without `brand.logoUrl`; white-label domains pass a logo — skip FP there.
   useEffect(() => {
     if (!email) return;
-    if (!isMainEcomEfficiencyWorkspaceHost()) return;
     if (brand?.hideAffiliate) return;
+    if (brand?.logoUrl) return;
     let cancelled = false;
     (async () => {
       try {
