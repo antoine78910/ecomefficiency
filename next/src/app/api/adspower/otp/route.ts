@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import Stripe from "stripe";
 import { supabaseAdmin } from "@/integrations/supabase/server";
+import { getAdspowerTotpCodeForEmail, parseAdspowerTotpSecretsFromEnv } from "@/lib/adspowerTotp";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -150,14 +151,31 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "subscription_required" }, { status: 403 });
     }
 
-    const base = normalizeAdsPowerOtpBaseUrl(process.env.ADSPOWER_OTP_IMAP_BASE_URL);
-    const secret = String(process.env.ADSPOWER_OTP_ENDPOINT_SECRET || "").trim();
-    const since = String(req.nextUrl.searchParams.get("since") || "0");
     const plan = String(req.nextUrl.searchParams.get("plan") || "").trim().toLowerCase();
     if (plan !== "starter" && plan !== "pro") {
       return NextResponse.json({ ok: false, error: "invalid_plan" }, { status: 400 });
     }
-    const targetEmail = String(req.nextUrl.searchParams.get("target_email") || "").trim().toLowerCase();
+
+    let targetEmail = String(req.nextUrl.searchParams.get("target_email") || "").trim().toLowerCase();
+    if (!targetEmail && plan === "pro") targetEmail = "admin@ecomefficiency.com";
+
+    const totpSecrets = parseAdspowerTotpSecretsFromEnv(process.env.ADSPOWER_TOTP_BY_EMAIL_JSON);
+    if (plan === "pro" && targetEmail) {
+      const totp = getAdspowerTotpCodeForEmail(targetEmail, totpSecrets);
+      if (totp) {
+        return NextResponse.json({
+          ok: true,
+          code: totp,
+          plan,
+          source: "totp",
+          targetEmail,
+        });
+      }
+    }
+
+    const base = normalizeAdsPowerOtpBaseUrl(process.env.ADSPOWER_OTP_IMAP_BASE_URL);
+    const secret = String(process.env.ADSPOWER_OTP_ENDPOINT_SECRET || "").trim();
+    const since = String(req.nextUrl.searchParams.get("since") || "0");
     const qs = new URLSearchParams();
     if (since) qs.set("since", since);
     qs.set("max_age_ms", "60000");

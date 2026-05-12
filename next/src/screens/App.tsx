@@ -1287,6 +1287,7 @@ function CredentialsPanel({
   const [adspowerOtpErr, setAdspowerOtpErr] = React.useState<string | null>(null)
   const [adspowerOtpCooldownUntil, setAdspowerOtpCooldownUntil] = React.useState<number>(0)
   const [adspowerOtpConfirmOpen, setAdspowerOtpConfirmOpen] = React.useState(false)
+  const [adspowerOtpConfirmAuthenticator, setAdspowerOtpConfirmAuthenticator] = React.useState(false)
   const ADSPOWER_OTP_COOLDOWN_MS = 29 * 24 * 60 * 60 * 1000
   const ADSPOWER_OTP_COOLDOWN_STORAGE_PREFIX = "__ee_adspower_otp_cooldown_until:"
 
@@ -1315,6 +1316,15 @@ function CredentialsPanel({
     } catch {}
   }, [plan])
 
+  const adspowerProUsesAuthenticatorUi = React.useMemo(() => {
+    if (plan !== "pro") return false
+    return (
+      String(creds?.adspower_pro_email || "admin@ecomefficiency.com")
+        .trim()
+        .toLowerCase() === "admin@ecomefficiency.com"
+    )
+  }, [plan, creds?.adspower_pro_email])
+
   const fetchAdsPowerEmailCode = React.useCallback(async () => {
     if (!isEcomEfficiencyAppHost) return
     void trackAdsPowerOtpEvent("adspower_get_code_click", { plan })
@@ -1332,14 +1342,15 @@ function CredentialsPanel({
       const parsed = Number(raw)
       if (Number.isFinite(parsed) && parsed > 0) activeCooldownUntil = parsed
     } catch {}
-    if (activeCooldownUntil > nowMs) {
+    if (!adspowerProUsesAuthenticatorUi && activeCooldownUntil > nowMs) {
       const remainingMin = Math.max(1, Math.ceil((activeCooldownUntil - nowMs) / 60000))
       void trackAdsPowerOtpEvent("adspower_get_code_repeat_blocked", { plan })
       setAdspowerOtpErr(`you already get your code this month (retry in ${remainingMin} min).`)
       return
     }
+    setAdspowerOtpConfirmAuthenticator(adspowerProUsesAuthenticatorUi)
     setAdspowerOtpConfirmOpen(true)
-  }, [isEcomEfficiencyAppHost, adspowerOtpCooldownUntil, plan, trackAdsPowerOtpEvent])
+  }, [isEcomEfficiencyAppHost, adspowerOtpCooldownUntil, plan, trackAdsPowerOtpEvent, adspowerProUsesAuthenticatorUi])
 
   const confirmFetchAdsPowerEmailCode = React.useCallback(async () => {
     if (!isEcomEfficiencyAppHost) return
@@ -1357,7 +1368,7 @@ function CredentialsPanel({
       const parsed = Number(raw)
       if (Number.isFinite(parsed) && parsed > 0) activeCooldownUntil = parsed
     } catch {}
-    if (activeCooldownUntil > nowMs) {
+    if (!adspowerProUsesAuthenticatorUi && activeCooldownUntil > nowMs) {
       const remainingMin = Math.max(1, Math.ceil((activeCooldownUntil - nowMs) / 60000))
       setAdspowerOtpErr(`you already get your code this month (retry in ${remainingMin} min).`)
       setAdspowerOtpConfirmOpen(false)
@@ -1411,18 +1422,21 @@ function CredentialsPanel({
         return
       }
       const c = String((j as any)?.code || "").trim()
+      const source = String((j as any)?.source || "").trim()
       if (c) {
         setAdspowerOtpCode(c)
         void trackAdsPowerOtpEvent("adspower_get_code_result_success", {
           plan,
-          source: String((j as any)?.source || ""),
+          source,
           targetEmail: String((j as any)?.targetEmail || ""),
         })
-        const nextAllowedAt = Date.now() + ADSPOWER_OTP_COOLDOWN_MS
-        setAdspowerOtpCooldownUntil(nextAllowedAt)
-        try {
-          if (typeof window !== "undefined") window.localStorage.setItem(cooldownKey, String(nextAllowedAt))
-        } catch {}
+        if (source !== "totp") {
+          const nextAllowedAt = Date.now() + ADSPOWER_OTP_COOLDOWN_MS
+          setAdspowerOtpCooldownUntil(nextAllowedAt)
+          try {
+            if (typeof window !== "undefined") window.localStorage.setItem(cooldownKey, String(nextAllowedAt))
+          } catch {}
+        }
       } else {
         setAdspowerOtpErr("No code received in the last minute. Trigger a new AdsPower email, then try again.")
         void trackAdsPowerOtpEvent("adspower_get_code_result_empty", {
@@ -1437,7 +1451,7 @@ function CredentialsPanel({
     } finally {
       setAdspowerOtpBusy(false)
     }
-  }, [isEcomEfficiencyAppHost, adspowerOtpCooldownUntil, plan, trackAdsPowerOtpEvent, creds])
+  }, [isEcomEfficiencyAppHost, adspowerOtpCooldownUntil, plan, trackAdsPowerOtpEvent, creds, adspowerProUsesAuthenticatorUi])
 
   useEffect(() => {
     let active = true;
@@ -2100,6 +2114,12 @@ function CredentialsPanel({
                 ? (creds.adspower_starter_password || creds.adspower_password || creds.adspower_pro_password)
                 : (creds.adspower_password || creds.adspower_starter_password);
 
+            const proAdsPowerAuthenticator =
+              currentPlan === "pro" &&
+              String(creds?.adspower_pro_email || "admin@ecomefficiency.com")
+                .trim()
+                .toLowerCase() === "admin@ecomefficiency.com";
+
             const showAdsPowerOtpGetCode =
               !preview &&
               !whiteLabel &&
@@ -2132,7 +2152,7 @@ function CredentialsPanel({
             </div>
             {showAdsPowerOtpGetCode ? (
               <div className="flex flex-col gap-2 md:justify-self-end md:border-l md:border-white/10 md:pl-4 pt-1 md:pt-0">
-                <p className="text-xs text-gray-400">Email code</p>
+                <p className="text-xs text-gray-400">{proAdsPowerAuthenticator ? "Authenticator (TOTP)" : "Email code"}</p>
                 <button
                   type="button"
                   disabled={adspowerOtpBusy}
@@ -2141,12 +2161,20 @@ function CredentialsPanel({
                 >
                   {adspowerOtpBusy ? "Fetching…" : "Get the code"}
                 </button>
+                {proAdsPowerAuthenticator ? (
+                  <div className="max-w-[15rem] rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1.5">
+                    <p className="text-[10px] text-emerald-200/95 leading-snug">
+                      Same 6-digit code as Google Authenticator / AdsPower for this member. It refreshes about every 30 seconds — you can fetch again anytime.
+                    </p>
+                  </div>
+                ) : (
                 <div className="max-w-[15rem] rounded-md border border-red-400/40 bg-red-500/10 px-2 py-1.5">
                   <p className="flex items-start gap-1.5 text-[10px] text-red-300 leading-snug font-medium">
                     <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-red-300/70 text-[10px]">!</span>
                     <span>Warning: You can fetch this code only once per month. Request it only when you are ready to sign in.</span>
                   </p>
                 </div>
+                )}
                 {adspowerOtpCode ? (
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-mono text-sm text-emerald-300">{adspowerOtpCode}</span>
@@ -2364,6 +2392,7 @@ function CredentialsPanel({
     )}
     <AdsPowerOtpConfirmModal
       open={adspowerOtpConfirmOpen}
+      authenticator={adspowerOtpConfirmAuthenticator}
       onCancel={() => setAdspowerOtpConfirmOpen(false)}
       onConfirm={() => { void confirmFetchAdsPowerEmailCode() }}
     />
@@ -2373,10 +2402,12 @@ function CredentialsPanel({
 
 function AdsPowerOtpConfirmModal({
   open,
+  authenticator,
   onConfirm,
   onCancel,
 }: {
   open: boolean
+  authenticator: boolean
   onConfirm: () => void
   onCancel: () => void
 }) {
@@ -2385,7 +2416,9 @@ function AdsPowerOtpConfirmModal({
     <div className="fixed inset-0 z-[80] bg-black/70 flex items-center justify-center px-4">
       <div className="w-full max-w-md rounded-xl border border-white/15 bg-gray-900 p-4 shadow-2xl">
         <p className="text-sm text-white leading-relaxed">
-          Are you sure you already requested a code on AdsPower to sign in?
+          {authenticator
+            ? "Fetch the current 6-digit authenticator code for this Pro AdsPower login? You can do this whenever you need it."
+            : "Are you sure you already requested a code on AdsPower to sign in?"}
         </p>
         <div className="mt-4 flex items-center justify-end gap-2">
           <button

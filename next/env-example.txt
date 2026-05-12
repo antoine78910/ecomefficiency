@@ -37,3 +37,8 @@ ADSPOWER_OTP_ENDPOINT_SECRET=long_random_shared_secret
 # Optional Gmail (App Password, IMAP enabled in Google account settings):
 # IMAP_ADSPOWER_GMAIL_USER=jhonntbfqsifgggqsg@gmail.com
 # IMAP_ADSPOWER_GMAIL_PASS=xxxx xxxx xxxx xxxx
+#
+# AdsPower Pro — TOTP (Authenticator) for specific AdsPower login emails (skips IMAP for those addresses).
+# JSON object: lowercase email → Base32 secret (same secret as in Google Authenticator / AdsPower member).
+# Example (use your own secret; do not commit real values to git):
+# ADSPOWER_TOTP_BY_EMAIL_JSON={"admin@ecomefficiency.com":"YOUR_BASE32_SECRET"}
