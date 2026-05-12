@@ -153,9 +153,12 @@ export async function GET(req: NextRequest) {
     const base = normalizeAdsPowerOtpBaseUrl(process.env.ADSPOWER_OTP_IMAP_BASE_URL);
     const secret = String(process.env.ADSPOWER_OTP_ENDPOINT_SECRET || "").trim();
     const since = String(req.nextUrl.searchParams.get("since") || "0");
+    const plan = String(req.nextUrl.searchParams.get("plan") || "").trim().toLowerCase();
+    const targetEmail = String(req.nextUrl.searchParams.get("target_email") || "").trim().toLowerCase();
     const qs = new URLSearchParams();
     if (since) qs.set("since", since);
-    qs.set("max_age_ms", "60000");
+    if (plan) qs.set("plan", plan);
+    if (targetEmail) qs.set("target_email", targetEmail);
     if (secret) qs.set("secret", secret);
 
     const upstream = `${base}/otp-adspower?${qs.toString()}`;

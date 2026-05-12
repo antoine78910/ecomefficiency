@@ -181,8 +181,10 @@ function scoreEmailForService({ raw, from, subject, to, toAll }, service) {
 }
 
 async function scanOtpFromMailbox(client, mailbox, service, opts = {}) {
-  const maxAgeMs =
-    typeof opts.maxAgeMs === 'number' && opts.maxAgeMs > 0 ? opts.maxAgeMs : 30 * 60 * 1000;
+  const hasAgeFilter = typeof opts.maxAgeMs === 'number' && opts.maxAgeMs > 0;
+  const maxAgeMs = hasAgeFilter ? opts.maxAgeMs : 0;
+  const recipientIncludes = safeStr(opts.recipientIncludes).toLowerCase().trim();
+  const returnNewest = !!opts.returnNewest;
   const lock = await client.getMailboxLock(mailbox);
   try {
     let seq;
@@ -204,12 +206,16 @@ async function scanOtpFromMailbox(client, mailbox, service, opts = {}) {
         const msg = await client.fetchOne(uid, { envelope: true }, { uid: true });
         const env = msg && msg.envelope ? msg.envelope : null;
         const dt = env && env.date ? new Date(env.date).getTime() : 0;
-        if (dt && (NOW - dt) > maxAgeMs) continue;
+        if (hasAgeFilter && dt && (NOW - dt) > maxAgeMs) continue;
 
         const fromAddress = pickFirstAddress(env && env.from);
         const toAddress = pickFirstAddress(env && env.to);
         const toAllRecipients = envelopeRecipientsAllText(env);
         const subject = envelopeSubject(env);
+        if (recipientIncludes) {
+          const toText = `${safeStr(toAddress)} ${safeStr(toAllRecipients)}`.toLowerCase();
+          if (!toText.includes(recipientIncludes)) continue;
+        }
 
         // Fast pre-filter for Freepik/Magnific OTP flow.
         // Avoid downloading full MIME bodies for clearly unrelated messages.
@@ -262,6 +268,7 @@ async function scanOtpFromMailbox(client, mailbox, service, opts = {}) {
           date: env && env.date ? String(env.date) : ''
         };
 
+        if (returnNewest) return candidate;
         if (!best || candidate.score > best.score) best = candidate;
         if (best && best.score >= 14) break; // super confident
       } catch (_) {
@@ -1599,7 +1606,7 @@ function splitImapHosts(raw) {
   return raw.split(',').map((h) => h.trim()).filter(Boolean);
 }
 
-// AdsPower login OTP: scan admin@ + optional Gmail, last N seconds (default 60s).
+// AdsPower login OTP.
 // Optional gate: set ADSPOWER_OTP_ENDPOINT_SECRET and pass ?secret= on requests.
 app.get('/otp-adspower', async (req, res) => {
   const gate = String(process.env.ADSPOWER_OTP_ENDPOINT_SECRET || '').trim();
@@ -1607,7 +1614,8 @@ app.get('/otp-adspower', async (req, res) => {
     return res.status(403).json({ error: 'Forbidden' });
   }
 
-  const maxAgeMs = Math.min(120000, Math.max(30000, Number(req.query.max_age_ms) || 60000));
+  // Temporary behavior: return latest matching code without "last minutes" filtering.
+  const maxAgeMs = 0;
 
   const imapPort = Number(process.env.IMAP_PORT || 993);
   const imapTLS = String(process.env.IMAP_TLS || 'true') === 'true';
@@ -1621,9 +1629,18 @@ app.get('/otp-adspower', async (req, res) => {
 
   const gmailUser = String(process.env.IMAP_ADSPOWER_GMAIL_USER || '').trim();
   const gmailPass = String(process.env.IMAP_ADSPOWER_GMAIL_PASS || '').trim();
+  const plan = String(req.query.plan || '').trim().toLowerCase();
+  const queryTargetEmail = String(req.query.target_email || '').trim().toLowerCase();
+  const defaultProTarget = 'admin@ecomefficiency.com';
+  const defaultStarterTarget = gmailUser.toLowerCase();
+  const targetEmail =
+    queryTargetEmail ||
+    (plan === 'pro' ? defaultProTarget : '') ||
+    (plan === 'starter' ? defaultStarterTarget : '');
 
   const accounts = [];
-  if (adminHosts.length && adminUser && adminPass) {
+  const forceGmailOnly = plan === 'pro' || plan === 'starter';
+  if (!forceGmailOnly && adminHosts.length && adminUser && adminPass) {
     accounts.push({ id: 'admin', hosts: adminHosts, user: adminUser, pass: adminPass });
   }
   if (gmailUser && gmailPass) {
@@ -1653,11 +1670,15 @@ app.get('/otp-adspower', async (req, res) => {
         const mboxes = ['INBOX', 'Junk', 'Spam', 'Bulk Mail', 'Junk E-mail'];
         for (const box of mboxes) {
           try {
-            const best = await scanOtpFromMailbox(client, box, 'adspower', { maxAgeMs });
+            const best = await scanOtpFromMailbox(client, box, 'adspower', {
+              maxAgeMs,
+              recipientIncludes: targetEmail,
+              returnNewest: true
+            });
             if (best && best.code) {
               await client.logout().catch(() => {});
-              console.log('[otp-adspower] hit', { account: acct.id, mailbox: box });
-              return res.json({ code: best.code, source: acct.id });
+              console.log('[otp-adspower] hit', { account: acct.id, mailbox: box, targetEmail: targetEmail || undefined });
+              return res.json({ code: best.code, source: acct.id, targetEmail: targetEmail || undefined });
             }
           } catch (e) {
             lastErr = e;
