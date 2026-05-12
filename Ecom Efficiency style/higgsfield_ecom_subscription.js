@@ -1208,6 +1208,89 @@
     }
   }
 
+  function getHiggsfieldHeaderCreditsPercent() {
+    try {
+      var root = document.querySelector('[data-header-menu="profile-menu"]');
+      if (!root) return null;
+      var circles = root.querySelectorAll('circle[stroke-dasharray][stroke-dashoffset]');
+      if (!circles || !circles.length) return null;
+      var c = circles[circles.length - 1];
+      var arr = Number(c.getAttribute('stroke-dasharray') || '');
+      var off = Number(c.getAttribute('stroke-dashoffset') || '');
+      if (!isFinite(arr) || arr <= 0 || !isFinite(off)) return null;
+      var pct = (1 - (off / arr)) * 100;
+      if (!isFinite(pct)) return null;
+      if (pct < 0) pct = 0;
+      if (pct > 100) pct = 100;
+      return Math.round(pct * 10) / 10;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  function getNextHiggsfieldResetDate() {
+    // Reset cycle anchor: 14 May 2026 12:00 UTC, then every 3 days.
+    var anchorMs = Date.UTC(2026, 4, 14, 12, 0, 0);
+    var periodMs = 3 * 24 * 60 * 60 * 1000;
+    var nowMs = Date.now();
+    if (nowMs <= anchorMs) return new Date(anchorMs);
+    var delta = nowMs - anchorMs;
+    var periods = Math.floor(delta / periodMs) + 1;
+    return new Date(anchorMs + (periods * periodMs));
+  }
+
+  function formatResetCountdown(targetDate) {
+    try {
+      var ms = Math.max(0, targetDate.getTime() - Date.now());
+      var totalMinutes = Math.ceil(ms / 60000);
+      var days = Math.floor(totalMinutes / (60 * 24));
+      var hours = Math.floor((totalMinutes % (60 * 24)) / 60);
+      var minutes = totalMinutes % 60;
+      if (days > 0) return days + 'd ' + hours + 'h';
+      if (hours > 0) return hours + 'h ' + minutes + 'm';
+      return Math.max(1, minutes) + 'm';
+    } catch (_) {
+      return '';
+    }
+  }
+
+  function showLowCreditsResetPopup(percent) {
+    try {
+      var existing = document.getElementById('ee-hf-low-credits-popup-root');
+      if (existing) return;
+      var nextReset = getNextHiggsfieldResetDate();
+      var resetCountdown = formatResetCountdown(nextReset);
+      var root = document.createElement('div');
+      root.id = 'ee-hf-low-credits-popup-root';
+      root.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(3,6,17,0.58);backdrop-filter:blur(2px);animation:eeLowCreditsFadeIn .18s ease;';
+      var style = document.createElement('style');
+      style.textContent = '@keyframes eeLowCreditsFadeIn{from{opacity:0}to{opacity:1}}';
+      root.appendChild(style);
+      var box = document.createElement('div');
+      box.style.cssText = 'max-width:460px;width:92%;background:linear-gradient(165deg,#101424 0%,#181027 54%,#101424 100%);border:1px solid rgba(239,68,68,0.35);border-radius:18px;padding:22px 20px;color:#fff;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;box-shadow:0 30px 90px rgba(0,0,0,0.55);position:relative;';
+      box.innerHTML =
+        '<div style="position:absolute;top:-1px;left:50%;transform:translateX(-50%);width:68%;height:3px;background:linear-gradient(90deg,transparent,#ef4444,#f97316,#ef4444,transparent);border-radius:0 0 4px 4px;"></div>' +
+        '<div style="font-size:11px;font-weight:700;letter-spacing:1.25px;text-transform:uppercase;color:#fb7185;margin-bottom:10px;">Higgsfield Credits</div>' +
+        '<div style="font-size:20px;font-weight:700;color:#fecaca;line-height:1.25;margin-bottom:8px;">No Higgsfield credits available</div>' +
+        '<div style="font-size:13px;line-height:1.55;color:#e5e7eb;">The connected <b style="color:#fbcfe8;">Higgsfield account</b> is low on credits (profile ring: <b style="color:#fda4af;">' + String(percent) + '%</b> or less). Generation is paused to avoid failed requests.</div>' +
+        '<div style="margin-top:8px;font-size:12px;line-height:1.55;color:#cbd5e1;">This is related to Higgsfield credits, not your Ecom Efficiency balance.</div>' +
+        '<div style="margin-top:12px;padding:10px 12px;border-radius:12px;background:rgba(30,41,59,0.45);border:1px solid rgba(148,163,184,0.25);">' +
+          '<div style="font-size:12px;line-height:1.55;color:#cbd5e1;">Higgsfield credits reset every 3 days.</div>' +
+          '<div style="font-size:13px;line-height:1.6;color:#e2e8f0;margin-top:4px;">Estimated reset in: <b style="color:#bfdbfe;">' + resetCountdown + '</b></div>' +
+        '</div>' +
+        '<div style="margin-top:16px;text-align:right;">' +
+          '<button id="ee-hf-low-credits-close" type="button" style="padding:9px 13px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:linear-gradient(to bottom,#1f2937,#111827);color:#fff;cursor:pointer;font-size:12px;font-weight:600;">OK</button>' +
+        '</div>';
+      root.appendChild(box);
+      document.body.appendChild(root);
+      var closeBtn = document.getElementById('ee-hf-low-credits-close');
+      if (closeBtn) closeBtn.addEventListener('click', function () { try { root.remove(); } catch (_) {} });
+      root.addEventListener('click', function (e) {
+        if (e && e.target === root) { try { root.remove(); } catch (_) {} }
+      });
+    } catch (_) {}
+  }
+
   function triggerGenerateButtonClick(btn) {
     if (!btn) return;
     if (syntheticGenerateButtons) syntheticGenerateButtons.add(btn);
@@ -1312,6 +1395,13 @@
   function runPaidGenerationPrecheck(source, buttonFinder) {
     log('verifying generation cost...', source);
     showGenerateStatus('Checking credits...', 0);
+    var headerCreditsPct = getHiggsfieldHeaderCreditsPercent();
+    if (typeof headerCreditsPct === 'number' && headerCreditsPct <= 5) {
+      showGenerateStatus('No more Higgsfield credits available.', 6000);
+      showLowCreditsResetPopup(headerCreditsPct);
+      log('generation blocked: header credits ring <= 5%', source, 'pct=' + headerCreditsPct);
+      return;
+    }
     var actualBtn = buttonFinder ? buttonFinder() : null;
     const costInfo = getGenerationCostInfo(actualBtn);
     const limit = CONFIG.DAILY_CREDIT_LIMIT;
