@@ -12,7 +12,17 @@ function getClientIp(req: NextRequest): string {
   return req.headers.get('cf-connecting-ip') || req.headers.get('x-real-ip') || 'unknown'
 }
 
-const VALID_ACTIONS = ['copy_password', 'copy_email', 'copy_username', 'page_visit', 'tool_access'] as const
+const VALID_ACTIONS = [
+  'copy_password',
+  'copy_email',
+  'copy_username',
+  'page_visit',
+  'tool_access',
+  'adspower_get_code_click',
+  'adspower_get_code_confirmed',
+  'adspower_get_code_repeat_blocked',
+  'adspower_discord_link_click'
+] as const
 
 export async function POST(req: NextRequest) {
   try {

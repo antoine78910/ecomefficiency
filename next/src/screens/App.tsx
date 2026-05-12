@@ -1285,18 +1285,74 @@ function CredentialsPanel({
   const [adspowerOtpBusy, setAdspowerOtpBusy] = React.useState(false)
   const [adspowerOtpCode, setAdspowerOtpCode] = React.useState<string | null>(null)
   const [adspowerOtpErr, setAdspowerOtpErr] = React.useState<string | null>(null)
-  const [adspowerOtpFetchUsed, setAdspowerOtpFetchUsed] = React.useState(false)
+  const [adspowerOtpCooldownUntil, setAdspowerOtpCooldownUntil] = React.useState<number>(0)
+  const ADSPOWER_DISCORD_URL = "https://discord.gg/7UgABk3jKJ"
+  // Simulation window for testing. Change to 29 * 24 * 60 * 60 * 1000 for production.
+  const ADSPOWER_OTP_COOLDOWN_MS = 5 * 60 * 1000
+  const ADSPOWER_OTP_COOLDOWN_STORAGE_PREFIX = "__ee_adspower_otp_cooldown_until:"
+
+  const trackAdsPowerOtpEvent = React.useCallback(async (action: string, meta?: Record<string, unknown>) => {
+    try {
+      const mod = await import("@/integrations/supabase/client")
+      const { data } = await mod.supabase.auth.getUser()
+      if (!data.user) return
+      fetch("/api/activity/track-event", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          user_id: data.user.id,
+          email: data.user.email || null,
+          action,
+          tool_name: "adspower",
+          meta: meta || null,
+        }),
+      }).catch(() => {})
+    } catch {}
+  }, [])
+
+  const openAdsPowerDiscordSupport = React.useCallback(() => {
+    void trackAdsPowerOtpEvent("adspower_discord_link_click", { plan })
+    try {
+      window.open(ADSPOWER_DISCORD_URL, "_blank", "noopener,noreferrer")
+    } catch {}
+  }, [trackAdsPowerOtpEvent, plan])
 
   const fetchAdsPowerEmailCode = React.useCallback(async () => {
     if (!isEcomEfficiencyAppHost) return
-    if (adspowerOtpFetchUsed) {
-      setAdspowerOtpErr("Please open a ticket on our discord to get your code")
+    void trackAdsPowerOtpEvent("adspower_get_code_click", { plan })
+    let cooldownKey = `${ADSPOWER_OTP_COOLDOWN_STORAGE_PREFIX}anon`
+    try {
+      const mod = await import("@/integrations/supabase/client")
+      const { data } = await mod.supabase.auth.getUser()
+      const uid = String(data.user?.id || "").trim()
+      if (uid) cooldownKey = `${ADSPOWER_OTP_COOLDOWN_STORAGE_PREFIX}${uid}`
+    } catch {}
+    const nowMs = Date.now()
+    let activeCooldownUntil = adspowerOtpCooldownUntil
+    try {
+      const raw = typeof window === "undefined" ? "" : String(window.localStorage.getItem(cooldownKey) || "")
+      const parsed = Number(raw)
+      if (Number.isFinite(parsed) && parsed > 0) activeCooldownUntil = parsed
+    } catch {}
+    if (activeCooldownUntil > nowMs) {
+      const remainingMin = Math.max(1, Math.ceil((activeCooldownUntil - nowMs) / 60000))
+      void trackAdsPowerOtpEvent("adspower_get_code_repeat_blocked", { plan })
+      setAdspowerOtpErr(`Please open a ticket on our discord to get your code (retry in ${remainingMin} min).`)
       return
     }
+    const confirmed = typeof window === "undefined"
+      ? true
+      : window.confirm("Are you sure you already requested a code on AdsPower to sign in?")
+    if (!confirmed) return
+    void trackAdsPowerOtpEvent("adspower_get_code_confirmed", { plan })
     setAdspowerOtpErr(null)
     setAdspowerOtpCode(null)
     setAdspowerOtpBusy(true)
-    setAdspowerOtpFetchUsed(true)
+    const nextAllowedAt = Date.now() + ADSPOWER_OTP_COOLDOWN_MS
+    setAdspowerOtpCooldownUntil(nextAllowedAt)
+    try {
+      if (typeof window !== "undefined") window.localStorage.setItem(cooldownKey, String(nextAllowedAt))
+    } catch {}
     try {
       const { data: sessionWrap } = await supabase.auth.getSession()
       const token = sessionWrap?.session?.access_token
@@ -1340,7 +1396,7 @@ function CredentialsPanel({
     } finally {
       setAdspowerOtpBusy(false)
     }
-  }, [isEcomEfficiencyAppHost, adspowerOtpFetchUsed, plan])
+  }, [isEcomEfficiencyAppHost, adspowerOtpCooldownUntil, plan, trackAdsPowerOtpEvent])
 
   useEffect(() => {
     let active = true;
@@ -2044,9 +2100,12 @@ function CredentialsPanel({
                 >
                   {adspowerOtpBusy ? "Fetching…" : "Get the code"}
                 </button>
-                <p className="text-[10px] text-red-400/95 max-w-[15rem] leading-snug font-medium">
-                  Warning: You can fetch this code only once per month. Request it only when you are ready to sign in.
-                </p>
+                <div className="max-w-[15rem] rounded-md border border-red-400/40 bg-red-500/10 px-2 py-1.5">
+                  <p className="flex items-start gap-1.5 text-[10px] text-red-300 leading-snug font-medium">
+                    <span className="inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full border border-red-300/70 text-[10px]">!</span>
+                    <span>Warning: You can fetch this code only once per month. Request it only when you are ready to sign in.</span>
+                  </p>
+                </div>
                 {adspowerOtpCode ? (
                   <div className="flex flex-wrap items-center gap-2">
                     <span className="font-mono text-sm text-emerald-300">{adspowerOtpCode}</span>
@@ -2054,6 +2113,13 @@ function CredentialsPanel({
                   </div>
                 ) : null}
                 {adspowerOtpErr ? <p className="text-[11px] text-amber-200/90 max-w-[14rem] leading-snug">{adspowerOtpErr}</p> : null}
+                <button
+                  type="button"
+                  onClick={openAdsPowerDiscordSupport}
+                  className="text-[10px] text-blue-300/90 underline underline-offset-2 hover:text-blue-200 text-left max-w-[14rem] leading-snug cursor-pointer"
+                >
+                  Open Discord support
+                </button>
               </div>
             ) : null}
             <p className={`text-xs text-gray-500 ${adWideSpan}`}>Last update: {creds?.updatedAt ? new Date(creds.updatedAt).toLocaleString() : '—'}</p>

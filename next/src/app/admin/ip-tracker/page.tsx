@@ -23,6 +23,10 @@ function actionLabel(action: string): { text: string; color: string } {
     case 'copy_username': return { text: '👤 Copie user', color: 'bg-cyan-500/20 text-cyan-300' }
     case 'page_visit': return { text: '🌐 Visite app', color: 'bg-gray-500/20 text-gray-300' }
     case 'tool_access': return { text: '🔧 Accès outil', color: 'bg-purple-500/20 text-purple-300' }
+    case 'adspower_get_code_click': return { text: '🧾 AdsPower: clic Get code', color: 'bg-indigo-500/20 text-indigo-300' }
+    case 'adspower_get_code_confirmed': return { text: '✅ AdsPower: confirmation OTP', color: 'bg-emerald-500/20 text-emerald-300' }
+    case 'adspower_get_code_repeat_blocked': return { text: '⛔ AdsPower: reclic bloqué', color: 'bg-amber-500/20 text-amber-300' }
+    case 'adspower_discord_link_click': return { text: '💬 AdsPower: clic Discord', color: 'bg-sky-500/20 text-sky-300' }
     default: return { text: action, color: 'bg-gray-500/20 text-gray-300' }
   }
 }
