@@ -34,7 +34,16 @@ function buildAffiliateFailureHint(j: Record<string, unknown>, httpStatus: numbe
   }
   if (err === "firstpromoter_error") {
     const st = j?.fp_http_status;
-    return `FirstPromoter returned an error${typeof st === "number" ? ` (HTTP ${st})` : ""}. Confirm the private API key and Account ID in FirstPromoter → Settings → Integrations match Vercel exactly, then redeploy.`;
+    const detail = String(j?.message || "").trim().slice(0, 200);
+    const base = `FirstPromoter returned an error${typeof st === "number" ? ` (HTTP ${st})` : ""}.`;
+    const keys =
+      " Confirm the private API key and Account ID in FirstPromoter → Settings → Integrations match Vercel exactly, then redeploy.";
+    const campaign400 =
+      st === 400
+        ? " If FIRSTPROMOTER_INITIAL_CAMPAIGN_ID is set, use the numeric ID of an active campaign or remove the variable (invalid IDs often return HTTP 400)."
+        : "";
+    const tail = detail ? ` ${detail}` : "";
+    return `${base}${keys}${campaign400}${tail}`;
   }
   if (httpStatus === 401 || err === "unauthorized" || err === "missing_authorization" || err === "missing_token") {
     return "Your session could not be verified for the affiliate service. Refresh the page or sign out and sign in again.";

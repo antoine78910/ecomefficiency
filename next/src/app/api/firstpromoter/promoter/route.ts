@@ -8,8 +8,9 @@ export const runtime = "nodejs";
 function getInitialCampaignId(): number | undefined {
   const raw = process.env.FIRSTPROMOTER_INITIAL_CAMPAIGN_ID;
   if (!raw) return undefined;
-  const n = Number(raw);
-  return Number.isFinite(n) ? n : undefined;
+  const n = Number(String(raw).trim());
+  if (!Number.isFinite(n) || !Number.isInteger(n) || n <= 0) return undefined;
+  return n;
 }
 
 function getDripEmails(): boolean | undefined {

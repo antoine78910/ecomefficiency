@@ -12,7 +12,7 @@ DATAFAST_API_KEY=ton_api_key_datafast
 # API key + Account ID: FirstPromoter → Settings → Integrations → API (private key / account id for API v2).
 FIRSTPROMOTER_API_KEY=ton_api_key_firstpromoter
 FIRSTPROMOTER_ACCOUNT_ID=ton_account_id_firstpromoter
-# Optional: numeric campaign id passed when creating a promoter (helps FirstPromoter attach ref_link / default landing).
+# Optional: positive integer campaign id only (wrong or placeholder values often cause FirstPromoter HTTP 400).
 # If you set a default campaign in the FirstPromoter UI for new promoters, you can leave this unset.
 # Where to find the id: Campaigns → open your campaign → check the URL (…/campaigns/12345) or campaign settings;
 # or use browser DevTools → Network while loading the campaign page and look for "campaign_id" / id in JSON responses.

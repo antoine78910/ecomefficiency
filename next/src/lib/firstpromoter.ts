@@ -28,7 +28,7 @@ export type FirstPromoterPromoter = {
   };
 };
 
-type PromoterCreateInput = {
+export type PromoterCreateInput = {
   email: string;
   cust_id?: string | null;
   profile?: {
@@ -53,12 +53,16 @@ function getFirstPromoterConfig(): FirstPromoterConfig {
   return { apiKey, accountId, baseUrl };
 }
 
+/**
+ * FirstPromoter v2 admin API — headers per official docs:
+ * https://docs.firstpromoter.com/api-reference-v2/api-admin/authentication
+ */
 async function fpFetch(path: string, init?: RequestInit) {
   const cfg = getFirstPromoterConfig();
   const url = `${cfg.baseUrl}${path}`;
   const headers = new Headers(init?.headers || {});
   headers.set("Authorization", `Bearer ${cfg.apiKey}`);
-  headers.set("Account-ID", cfg.accountId);
+  headers.set("ACCOUNT-ID", cfg.accountId);
   if (!headers.has("Content-Type")) headers.set("Content-Type", "application/json");
   return fetch(url, { ...init, headers, cache: "no-store" as any });
 }
@@ -68,23 +72,74 @@ function toNumberOrUndefined(v: unknown): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
-function looksLikeAlreadyExists(status: number, payload: any): boolean {
-  if (status !== 409 && status !== 422) return false;
-  const msg = String(payload?.error || payload?.message || payload?.errors || "").toLowerCase();
+/** Build JSON body: omit undefined/null; only send valid initial_campaign_id (> 0). */
+export function serializePromoterCreate(input: PromoterCreateInput): Record<string, unknown> {
+  const email = String(input.email || "").trim();
+  if (!email) throw new Error("FIRSTPROMOTER_EMAIL_REQUIRED");
+  const out: Record<string, unknown> = { email };
+  const cid = input.cust_id != null ? String(input.cust_id).trim() : "";
+  if (cid) out.cust_id = cid;
+  const fn = String(input.profile?.first_name || "").trim();
+  const ln = String(input.profile?.last_name || "").trim();
+  if (fn || ln) {
+    out.profile = {
+      ...(fn ? { first_name: fn } : {}),
+      ...(ln ? { last_name: ln } : {}),
+    };
+  }
+  if (
+    typeof input.initial_campaign_id === "number" &&
+    Number.isInteger(input.initial_campaign_id) &&
+    input.initial_campaign_id > 0
+  ) {
+    out.initial_campaign_id = input.initial_campaign_id;
+  }
+  if (typeof input.drip_emails === "boolean") out.drip_emails = input.drip_emails;
+  return out;
+}
+
+function formatFpErrorMessage(payload: any): string {
+  if (!payload || typeof payload !== "object") return "";
+  const direct = String(payload.error || payload.message || "").trim();
+  if (direct) return direct;
+  const errs = payload.errors;
+  if (Array.isArray(errs)) {
+    const parts = errs
+      .map((x: any) => String(x?.detail || x?.title || x?.message || "").trim())
+      .filter(Boolean);
+    if (parts.length) return parts.join("; ").slice(0, 400);
+  }
+  try {
+    return JSON.stringify(payload).slice(0, 400);
+  } catch {
+    return "";
+  }
+}
+
+function looksLikeDuplicateMessage(payload: any): boolean {
+  const msg = String(payload?.error || payload?.message || JSON.stringify(payload?.errors || "")).toLowerCase();
   return (
     msg.includes("already") ||
     msg.includes("exists") ||
     msg.includes("taken") ||
-    msg.includes("has already been taken") ||
-    msg.includes("duplicate")
+    msg.includes("duplicate") ||
+    msg.includes("unique") ||
+    msg.includes("has already been taken")
   );
 }
 
-export async function fpCreatePromoter(input: PromoterCreateInput): Promise<FirstPromoterPromoter> {
+function looksLikeAlreadyExists(status: number, payload: any): boolean {
+  if (status === 409 || status === 422) return looksLikeDuplicateMessage(payload);
+  if (status === 400 && looksLikeDuplicateMessage(payload)) return true;
+  return false;
+}
+
+export async function fpCreatePromoter(input: Record<string, unknown>): Promise<FirstPromoterPromoter> {
   const res = await fpFetch("/promoters", { method: "POST", body: JSON.stringify(input) });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const err = new Error(json?.error || json?.message || "FIRSTPROMOTER_CREATE_FAILED");
+    const detail = formatFpErrorMessage(json);
+    const err = new Error(detail || json?.error || json?.message || "FIRSTPROMOTER_CREATE_FAILED");
     (err as any).status = res.status;
     (err as any).payload = json;
     throw err;
@@ -97,7 +152,8 @@ export async function fpListPromoters(q?: string): Promise<FirstPromoterPromoter
   const res = await fpFetch(`/promoters${qs}`, { method: "GET" });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) {
-    const err = new Error(json?.error || json?.message || "FIRSTPROMOTER_LIST_FAILED");
+    const detail = formatFpErrorMessage(json);
+    const err = new Error(detail || json?.error || json?.message || "FIRSTPROMOTER_LIST_FAILED");
     (err as any).status = res.status;
     (err as any).payload = json;
     throw err;
@@ -114,20 +170,47 @@ export async function fpFindPromoterByEmail(email: string): Promise<FirstPromote
   return exact || list[0] || null;
 }
 
+/**
+ * Create promoter (FirstPromoter v2 POST /promoters). On 400/422 (e.g. invalid initial_campaign_id),
+ * retry with a smaller payload per https://docs.firstpromoter.com/api-reference-v2/api-admin/promoters/create-promoter
+ */
 export async function fpEnsurePromoter(input: PromoterCreateInput): Promise<FirstPromoterPromoter> {
-  try {
-    // Fast-path: create first (201)
-    return await fpCreatePromoter(input);
-  } catch (e: any) {
-    const status = Number(e?.status || 0);
-    const payload = e?.payload;
-    if (looksLikeAlreadyExists(status, payload)) {
-      // If the promoter already exists, fetch it by email
-      const existing = await fpFindPromoterByEmail(input.email);
-      if (existing) return existing;
+  const full = serializePromoterCreate(input);
+  const withCust: Record<string, unknown> = { email: String(input.email || "").trim() };
+  const cid = input.cust_id != null ? String(input.cust_id).trim() : "";
+  if (cid) withCust.cust_id = cid;
+  const emailOnly: Record<string, unknown> = { email: String(input.email || "").trim() };
+
+  const seen = new Set<string>();
+  const bodies: Record<string, unknown>[] = [];
+  for (const b of [full, withCust, emailOnly]) {
+    const k = JSON.stringify(b);
+    if (!seen.has(k)) {
+      seen.add(k);
+      bodies.push(b);
     }
-    throw e;
   }
+
+  let lastErr: any = null;
+  for (const body of bodies) {
+    try {
+      return await fpCreatePromoter(body);
+    } catch (e: any) {
+      lastErr = e;
+      const status = Number(e?.status || 0);
+      const payload = e?.payload;
+      if (looksLikeAlreadyExists(status, payload)) {
+        const existing = await fpFindPromoterByEmail(input.email).catch(() => null);
+        if (existing) return existing;
+      }
+      if (status !== 400 && status !== 422) throw e;
+    }
+  }
+
+  const existing = await fpFindPromoterByEmail(input.email).catch(() => null);
+  if (existing) return existing;
+  if (lastErr) throw lastErr;
+  throw new Error("FIRSTPROMOTER_ENSURE_FAILED");
 }
 
 export function fpExtractBestRefLink(promoter: FirstPromoterPromoter | null | undefined): {
@@ -149,7 +232,6 @@ export function fpExtractBestRefLink(promoter: FirstPromoterPromoter | null | un
   let coupon = s(c?.coupon);
   let campaign_id = toNumberOrUndefined(c?.campaign_id);
 
-  // Some API responses use `promotions[].referral_link` (legacy / alternate shape).
   if (!ref_link) {
     const promos = Array.isArray(raw?.promotions) ? raw.promotions : [];
     const p = promos.find((x: any) => s(x?.referral_link) || s(x?.ref_link)) || promos[0];
@@ -172,4 +254,3 @@ export function fpExtractBestRefLink(promoter: FirstPromoterPromoter | null | un
     campaign_id,
   };
 }
-
