@@ -1,5 +1,7 @@
 /** sessionStorage cache so the affiliate banner does not flash "Loading…" on every navigation. */
 
+import type { AffiliateSummary } from "./affiliateSummary";
+
 const PREFIX = "ee_fp_affiliate_v1";
 const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -8,6 +10,7 @@ export type CachedAffiliatePayload = {
   coupon: string;
   password_setup_url: string;
   savedAt: number;
+  affiliate_summary?: AffiliateSummary | null;
 };
 
 function key(userId: string) {
@@ -31,18 +34,33 @@ export function readAffiliateSessionCache(userId: string): CachedAffiliatePayloa
       coupon: typeof o.coupon === "string" ? o.coupon : "",
       password_setup_url: typeof o.password_setup_url === "string" ? o.password_setup_url : "",
       savedAt,
+      affiliate_summary:
+        o.affiliate_summary && typeof o.affiliate_summary === "object"
+          ? {
+              visitors: Math.max(0, Math.trunc(Number((o.affiliate_summary as AffiliateSummary).visitors ?? 0))),
+              conversions: Math.max(0, Math.trunc(Number((o.affiliate_summary as AffiliateSummary).conversions ?? 0))),
+              active_referrals: Math.max(0, Math.trunc(Number((o.affiliate_summary as AffiliateSummary).active_referrals ?? 0))),
+              total_earnings_display: String((o.affiliate_summary as AffiliateSummary).total_earnings_display || "$0.00"),
+            }
+          : undefined,
     };
   } catch {
     return null;
   }
 }
 
-export function writeAffiliateSessionCache(userId: string, data: Pick<CachedAffiliatePayload, "ref_link" | "coupon" | "password_setup_url">) {
+export function writeAffiliateSessionCache(
+  userId: string,
+  data: Pick<CachedAffiliatePayload, "ref_link" | "coupon" | "password_setup_url"> & { affiliate_summary?: AffiliateSummary | null }
+) {
   if (typeof window === "undefined" || !userId) return;
   try {
     const payload: CachedAffiliatePayload = {
-      ...data,
+      ref_link: data.ref_link,
+      coupon: data.coupon,
+      password_setup_url: data.password_setup_url,
       savedAt: Date.now(),
+      affiliate_summary: data.affiliate_summary,
     };
     sessionStorage.setItem(key(userId), JSON.stringify(payload));
   } catch {

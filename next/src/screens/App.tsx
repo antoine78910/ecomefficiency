@@ -19,7 +19,58 @@ import {
   readAffiliateSessionCache,
   writeAffiliateSessionCache,
 } from "@/lib/affiliateLinkSessionCache";
+import { ZERO_AFFILIATE_SUMMARY, type AffiliateSummary } from "@/lib/affiliateSummary";
 import { supabase } from "@/integrations/supabase/client";
+
+const FIRSTPROMOTER_AFFILIATE_DASHBOARD_HREF = "https://ecomefficiency.firstpromoter.com";
+
+function parseAffiliateSummary(raw: unknown): AffiliateSummary | null {
+  if (!raw || typeof raw !== "object") return null;
+  const o = raw as Record<string, unknown>;
+  return {
+    visitors: Math.max(0, Math.trunc(Number(o.visitors ?? 0))),
+    conversions: Math.max(0, Math.trunc(Number(o.conversions ?? 0))),
+    active_referrals: Math.max(0, Math.trunc(Number(o.active_referrals ?? 0))),
+    total_earnings_display: String(o.total_earnings_display || "$0.00"),
+  };
+}
+
+function AffiliateStatsRecap({ summary }: { summary: AffiliateSummary }) {
+  return (
+    <div className="mt-3 rounded-lg border border-white/5 bg-black/15 px-3 py-2.5">
+      <div className="grid grid-cols-2 gap-x-4 gap-y-2.5 sm:grid-cols-4 sm:gap-y-0">
+        <div>
+          <div className="text-[10px] font-medium uppercase tracking-wide text-gray-500">Visitors</div>
+          <div className="text-sm font-semibold tabular-nums text-white">{summary.visitors.toLocaleString("en-US")}</div>
+        </div>
+        <div>
+          <div className="text-[10px] font-medium uppercase tracking-wide text-gray-500">Conversions</div>
+          <div className="text-sm font-semibold tabular-nums text-white">{summary.conversions.toLocaleString("en-US")}</div>
+        </div>
+        <div>
+          <div className="text-[10px] font-medium uppercase tracking-wide text-gray-500">Active referrals</div>
+          <div className="text-sm font-semibold tabular-nums text-white">{summary.active_referrals.toLocaleString("en-US")}</div>
+        </div>
+        <div>
+          <div className="text-[10px] font-medium uppercase tracking-wide text-gray-500">Total earnings</div>
+          <div className="text-sm font-semibold tabular-nums text-white">{summary.total_earnings_display}</div>
+        </div>
+      </div>
+      <p className="mt-2.5 border-t border-white/5 pt-2 text-[11px] leading-snug text-gray-500">
+        View detailed analytics in{" "}
+        <a
+          href={FIRSTPROMOTER_AFFILIATE_DASHBOARD_HREF}
+          target="_blank"
+          rel="noreferrer noopener"
+          className="font-medium text-purple-300 underline decoration-purple-500/40 underline-offset-2 hover:text-purple-200"
+        >
+          FirstPromoter
+        </a>
+        .
+      </p>
+    </div>
+  );
+}
 
 function buildAffiliateFailureHint(j: Record<string, unknown>, httpStatus: number): string {
   const err = String(j?.error || "");
@@ -92,6 +143,7 @@ const App = ({
   const [affiliateLinkStatus, setAffiliateLinkStatus] = React.useState<"idle" | "loading" | "ready" | "unavailable">("idle");
   const [affiliateCopied, setAffiliateCopied] = React.useState(false);
   const [affiliateErrorHint, setAffiliateErrorHint] = React.useState("");
+  const [affiliateSummary, setAffiliateSummary] = React.useState<AffiliateSummary | null>(null);
 
   React.useEffect(() => {
     if (!showAffiliateCta || preview) return;
@@ -118,6 +170,7 @@ const App = ({
           setAffiliateFpPasswordUrl(cached.password_setup_url);
           setAffiliateErrorHint("");
           setAffiliateLinkStatus("ready");
+          setAffiliateSummary(cached.affiliate_summary ?? null);
         }
 
         const showLoading = !cached;
@@ -146,10 +199,13 @@ const App = ({
           setAffiliateFpPasswordUrl(String(j?.promoter?.password_setup_url || "").trim());
           setAffiliateErrorHint("");
           setAffiliateLinkStatus("ready");
+          const sum = parseAffiliateSummary(j?.affiliate_summary) ?? ZERO_AFFILIATE_SUMMARY;
+          setAffiliateSummary(sum);
           writeAffiliateSessionCache(userId, {
             ref_link: link,
             coupon: String(j?.affiliate?.coupon || "").trim(),
             password_setup_url: String(j?.promoter?.password_setup_url || "").trim(),
+            affiliate_summary: sum,
           });
         } else {
           if (hadCacheAtStart) {
@@ -158,6 +214,7 @@ const App = ({
           setAffiliateRefLink("");
           setAffiliateCoupon("");
           setAffiliateFpPasswordUrl("");
+          setAffiliateSummary(null);
           setAffiliateErrorHint(buildAffiliateFailureHint(j as Record<string, unknown>, r.status));
           setAffiliateLinkStatus("unavailable");
         }
@@ -167,6 +224,7 @@ const App = ({
           return;
         }
         setAffiliateRefLink("");
+        setAffiliateSummary(null);
         setAffiliateErrorHint(
           "Network error while loading your affiliate link. Check your connection, disable strict blockers for this site, then refresh."
         );
@@ -189,6 +247,7 @@ const App = ({
         setAffiliateCoupon("");
         setAffiliateFpPasswordUrl("");
         setAffiliateErrorHint("");
+        setAffiliateSummary(null);
         setAffiliateLinkStatus("idle");
         return;
       }
@@ -867,11 +926,14 @@ const App = ({
                     We could not load your link automatically. Open FirstPromoter below to copy your referral link.
                   </p>
                 ) : null}
+                {affiliateLinkStatus === "ready" ? (
+                  <AffiliateStatsRecap summary={affiliateSummary ?? ZERO_AFFILIATE_SUMMARY} />
+                ) : null}
               </div>
               <div className="shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                 {affiliateLinkStatus === "ready" && affiliateRefLink ? (
                   <a
-                    href="https://ecomefficiency.firstpromoter.com"
+                    href={FIRSTPROMOTER_AFFILIATE_DASHBOARD_HREF}
                     target="_blank"
                     rel="noreferrer noopener"
                     className="inline-flex shrink-0"
@@ -889,7 +951,7 @@ const App = ({
                   </a>
                 ) : affiliateLinkStatus === "ready" && !affiliateRefLink ? (
                   <a
-                    href="https://ecomefficiency.firstpromoter.com"
+                    href={FIRSTPROMOTER_AFFILIATE_DASHBOARD_HREF}
                     target="_blank"
                     rel="noreferrer noopener"
                     className="inline-flex shrink-0"
@@ -912,7 +974,7 @@ const App = ({
                 ) : affiliateLinkStatus === "unavailable" ? (
                   <div className="flex flex-col sm:flex-row gap-2">
                     <a
-                      href="https://ecomefficiency.firstpromoter.com"
+                      href={FIRSTPROMOTER_AFFILIATE_DASHBOARD_HREF}
                       target="_blank"
                       rel="noreferrer noopener"
                       className="inline-flex items-center justify-center cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_32px_0_rgba(149,65,224,0.70)] px-6 py-3 rounded-xl border border-[#9541e0] text-white font-medium h-[48px] whitespace-nowrap"

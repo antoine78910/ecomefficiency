@@ -1,3 +1,5 @@
+import type { AffiliateSummary } from "./affiliateSummary";
+
 type FirstPromoterConfig = {
   apiKey: string;
   accountId: string;
@@ -14,6 +16,23 @@ export type FirstPromoterPromoterCampaign = {
   ref_link?: string;
 };
 
+export type FirstPromoterStatsBlock = {
+  clicks_count?: number;
+  referrals_count?: number;
+  sales_count?: number;
+  customers_count?: number;
+  revenue_amount?: number;
+  active_customers_count?: number;
+};
+
+export type FirstPromoterBalancesBlock = {
+  cash?: number | null;
+  credits?: number | null;
+  points?: number | null;
+  free_months?: number | null;
+  discount?: number | null;
+};
+
 export type FirstPromoterPromoter = {
   id?: number;
   email?: string;
@@ -26,6 +45,8 @@ export type FirstPromoterPromoter = {
     first_name?: string;
     last_name?: string;
   };
+  stats?: FirstPromoterStatsBlock;
+  balances?: FirstPromoterBalancesBlock;
 };
 
 export type PromoterCreateInput = {
@@ -168,6 +189,48 @@ export async function fpFindPromoterByEmail(email: string): Promise<FirstPromote
   const list = await fpListPromoters(e);
   const exact = list.find((p) => String(p?.email || "").toLowerCase() === e.toLowerCase());
   return exact || list[0] || null;
+}
+
+/** GET /promoters/{id} — includes stats + balances when available. */
+export async function fpGetPromoterDetails(id: number): Promise<FirstPromoterPromoter> {
+  const n = Math.trunc(Number(id));
+  if (!Number.isFinite(n) || n <= 0) {
+    const err = new Error("FIRSTPROMOTER_INVALID_PROMOTER_ID");
+    (err as any).status = 400;
+    throw err;
+  }
+  const res = await fpFetch(`/promoters/${encodeURIComponent(String(n))}`, { method: "GET" });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const detail = formatFpErrorMessage(json);
+    const err = new Error(detail || json?.error || json?.message || "FIRSTPROMOTER_GET_FAILED");
+    (err as any).status = res.status;
+    (err as any).payload = json;
+    throw err;
+  }
+  return json as FirstPromoterPromoter;
+}
+
+/**
+ * Map FirstPromoter promoter payload to the in-app recap.
+ * See https://docs.firstpromoter.com/api-reference-v2/api-admin/promoters/get-promoter-details
+ */
+export function fpAffiliateSummaryFromPromoter(promoter: FirstPromoterPromoter | null | undefined): AffiliateSummary {
+  const raw = promoter as any;
+  const stats = raw?.stats || {};
+  const balances = raw?.balances || {};
+  const visitors = Math.max(0, Math.trunc(Number(stats.clicks_count ?? 0)));
+  const conversions = Math.max(0, Math.trunc(Number(stats.sales_count ?? 0)));
+  const activeReferrals = Math.max(0, Math.trunc(Number(stats.active_customers_count ?? 0)));
+  const cash = balances?.cash;
+  const earningsNum = typeof cash === "number" && Number.isFinite(cash) ? cash : 0;
+  const total_earnings_display = new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(earningsNum);
+  return {
+    visitors,
+    conversions,
+    active_referrals: activeReferrals,
+    total_earnings_display,
+  };
 }
 
 /**

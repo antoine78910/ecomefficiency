@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import { fpEnsurePromoter, fpExtractBestRefLink } from "@/lib/firstpromoter";
+import { fpEnsurePromoter, fpExtractBestRefLink, fpGetPromoterDetails, fpAffiliateSummaryFromPromoter } from "@/lib/firstpromoter";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -84,19 +84,31 @@ export async function GET(req: NextRequest) {
       drip_emails: getDripEmails(),
     });
 
-    const ref = fpExtractBestRefLink(promoter);
+    let enriched = promoter;
+    if (typeof promoter?.id === "number" && Number.isFinite(promoter.id) && promoter.id > 0) {
+      try {
+        const details = await fpGetPromoterDetails(promoter.id);
+        enriched = { ...promoter, ...details };
+      } catch (err) {
+        console.warn("[firstpromoter/promoter] get promoter details skipped", err);
+      }
+    }
+
+    const ref = fpExtractBestRefLink(enriched);
+    const affiliate_summary = fpAffiliateSummaryFromPromoter(enriched);
 
     return NextResponse.json(
       {
         ok: true,
         promoter: {
-          id: promoter?.id,
-          email: promoter?.email,
-          cust_id: promoter?.cust_id,
-          state: promoter?.state,
-          password_setup_url: promoter?.password_setup_url,
+          id: enriched?.id,
+          email: enriched?.email,
+          cust_id: enriched?.cust_id,
+          state: enriched?.state,
+          password_setup_url: enriched?.password_setup_url,
         },
         affiliate: ref,
+        affiliate_summary,
       },
       { status: 200 }
     );
