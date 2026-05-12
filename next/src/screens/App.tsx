@@ -14,6 +14,11 @@ import WhiteLabelPricingModal from "@/components/WhiteLabelPricingModal";
 import { CheckoutSuccessEffects } from "@/components/CheckoutSuccessEffects";
 import { ReviewPromptModal } from "@/components/ReviewPromptModal";
 import { isMainEcomEfficiencyWorkspaceHost } from "@/lib/eeAppHost";
+import {
+  clearAffiliateSessionCacheAll,
+  readAffiliateSessionCache,
+  writeAffiliateSessionCache,
+} from "@/lib/affiliateLinkSessionCache";
 import { supabase } from "@/integrations/supabase/client";
 
 function buildAffiliateFailureHint(j: Record<string, unknown>, httpStatus: number): string {
@@ -93,14 +98,31 @@ const App = ({
     let cancelled = false;
 
     const fetchAffiliate = async () => {
+      let userIdForCatch = "";
+      let hadCacheAtStart = false;
       try {
         const { data } = await supabase.auth.getSession();
         const token = data.session?.access_token;
-        if (!token) {
+        const userId = data.session?.user?.id;
+        if (!token || !userId) {
           if (!cancelled) setAffiliateLinkStatus("idle");
           return;
         }
-        if (!cancelled) setAffiliateLinkStatus("loading");
+        userIdForCatch = userId;
+
+        const cached = readAffiliateSessionCache(userId);
+        hadCacheAtStart = Boolean(cached);
+        if (cached && !cancelled) {
+          setAffiliateRefLink(cached.ref_link);
+          setAffiliateCoupon(cached.coupon);
+          setAffiliateFpPasswordUrl(cached.password_setup_url);
+          setAffiliateErrorHint("");
+          setAffiliateLinkStatus("ready");
+        }
+
+        const showLoading = !cached;
+        if (showLoading && !cancelled) setAffiliateLinkStatus("loading");
+
         let r = await fetch("/api/firstpromoter/promoter", {
           method: "GET",
           headers: { Authorization: `Bearer ${token}` },
@@ -124,7 +146,15 @@ const App = ({
           setAffiliateFpPasswordUrl(String(j?.promoter?.password_setup_url || "").trim());
           setAffiliateErrorHint("");
           setAffiliateLinkStatus("ready");
+          writeAffiliateSessionCache(userId, {
+            ref_link: link,
+            coupon: String(j?.affiliate?.coupon || "").trim(),
+            password_setup_url: String(j?.promoter?.password_setup_url || "").trim(),
+          });
         } else {
+          if (hadCacheAtStart) {
+            return;
+          }
           setAffiliateRefLink("");
           setAffiliateCoupon("");
           setAffiliateFpPasswordUrl("");
@@ -132,13 +162,15 @@ const App = ({
           setAffiliateLinkStatus("unavailable");
         }
       } catch {
-        if (!cancelled) {
-          setAffiliateRefLink("");
-          setAffiliateErrorHint(
-            "Network error while loading your affiliate link. Check your connection, disable strict blockers for this site, then refresh."
-          );
-          setAffiliateLinkStatus("unavailable");
+        if (cancelled) return;
+        if (hadCacheAtStart || (userIdForCatch && readAffiliateSessionCache(userIdForCatch))) {
+          return;
         }
+        setAffiliateRefLink("");
+        setAffiliateErrorHint(
+          "Network error while loading your affiliate link. Check your connection, disable strict blockers for this site, then refresh."
+        );
+        setAffiliateLinkStatus("unavailable");
       }
     };
 
@@ -149,8 +181,17 @@ const App = ({
 
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((_event, session) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (cancelled) return;
+      if (event === "SIGNED_OUT") {
+        clearAffiliateSessionCacheAll();
+        setAffiliateRefLink("");
+        setAffiliateCoupon("");
+        setAffiliateFpPasswordUrl("");
+        setAffiliateErrorHint("");
+        setAffiliateLinkStatus("idle");
+        return;
+      }
       if (session?.access_token) void fetchAffiliate();
     });
 
@@ -832,8 +873,10 @@ const App = ({
                   >
                     Open affiliate dashboard
                   </a>
-                ) : affiliateLinkStatus === "loading" || affiliateLinkStatus === "idle" ? (
+                ) : affiliateLinkStatus === "loading" ? (
                   <div className="h-[48px] flex items-center text-sm text-gray-400 px-2">Loading your affiliate link…</div>
+                ) : affiliateLinkStatus === "idle" ? (
+                  <div className="h-[48px]" aria-hidden />
                 ) : affiliateLinkStatus === "unavailable" ? (
                   <div className="flex flex-col sm:flex-row gap-2">
                     <a
