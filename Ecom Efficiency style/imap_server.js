@@ -1675,10 +1675,6 @@ app.get('/otp-adspower', async (req, res) => {
   res.json({ code: '', source: '' });
 });
 
-app.listen(PORT, () => {
-  console.log(`[imap_server] listening on ${PORT}`);
-});
-
 app.get('/health', (req, res) => {
   res.json({ ok: true, port: Number(PORT) });
 });
@@ -1690,4 +1686,10 @@ app.get('/', (req, res) => {
     endpoints: ['/otp', '/otp-higgsfield', '/otp-adspower', '/otp-vmake', '/otp-vmake1', '/otp-vmake2', '/otp-vmake3', '/otp-freepik', '/flair-link', '/claude-link', '/health'],
     port: Number(PORT) 
   });
+});
+
+// Bind all interfaces (required on Pterodactyl / Docker so the panel allocation reaches the process).
+const LISTEN_HOST = String(process.env.IMAP_LISTEN_HOST || '0.0.0.0').trim() || '0.0.0.0';
+app.listen(PORT, LISTEN_HOST, () => {
+  console.log(`[imap_server] listening on http://${LISTEN_HOST}:${PORT}`);
 });
