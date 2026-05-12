@@ -1,5 +1,6 @@
 import { readPartnerForDomain } from "./_domain";
 import PartnerSimpleLanding from "@/components/PartnerSimpleLanding";
+import { clampPartnerMonthlyAmount, partnerYearlyBaseFromMonthly } from "@/lib/partnerPricingMin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -46,6 +47,8 @@ export default async function DomainRootPage({ params }: { params: Promise<{ dom
   const subtitleHighlight = String((cfg as any)?.subtitleHighlight || "");
   const subtitleHighlightColor = ((cfg as any)?.subtitleHighlightColor as any) || "accent";
 
+  const m = clampPartnerMonthlyAmount((cfg as any)?.monthlyPrice);
+
   return (
     <PartnerSimpleLanding
       slug={info.slug}
@@ -61,8 +64,8 @@ export default async function DomainRootPage({ params }: { params: Promise<{ dom
         background: colors?.background,
       }}
       pricing={{
-        monthlyPrice: cfg?.monthlyPrice,
-        yearlyPrice: cfg?.yearlyPrice,
+        monthlyPrice: m.toFixed(2),
+        yearlyPrice: partnerYearlyBaseFromMonthly(m),
         annualDiscountPercent: cfg?.annualDiscountPercent,
         currency: cfg?.currency,
         allowPromotionCodes: cfg?.allowPromotionCodes,

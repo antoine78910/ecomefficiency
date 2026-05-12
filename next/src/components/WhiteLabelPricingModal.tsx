@@ -2,6 +2,7 @@
 
 import React from "react";
 import { bestTextColorOn, hexWithAlpha, mixHex, normalizeHex } from "@/lib/color";
+import { clampPartnerMonthlyAmount } from "@/lib/partnerPricingMin";
 
 export default function WhiteLabelPricingModal({
   billing,
@@ -25,7 +26,7 @@ export default function WhiteLabelPricingModal({
     const n = Number(String(v ?? "").replace(",", "."));
     return Number.isFinite(n) && n > 0 ? n : fb;
   };
-  const monthlyBase = toNum(pricing?.monthlyPrice, 29.99);
+  const monthlyBase = clampPartnerMonthlyAmount(pricing?.monthlyPrice);
   const explicitYearly = pricing?.yearlyPrice ? toNum(pricing?.yearlyPrice, 0) : 0;
   const yearlyBase = explicitYearly > 0 ? explicitYearly : Math.round(monthlyBase * 12 * 100) / 100;
   const annualPctRaw = Number(pricing?.annualDiscountPercent);

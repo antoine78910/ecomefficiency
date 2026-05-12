@@ -3,6 +3,7 @@
 import React from "react";
 import { Loader2 } from "lucide-react";
 import { hexWithAlpha, mixHex, normalizeHex } from "@/lib/color";
+import { clampPartnerMonthlyAmount } from "@/lib/partnerPricingMin";
 
 type PartnerPricingConfig = {
   slug: string;
@@ -59,7 +60,7 @@ export default function PartnerPricingClient({ config }: { config: PartnerPricin
   const isPrefix = currency === "USD" || currency === "GBP";
   const symbol = currency === "USD" ? "$" : currency === "GBP" ? "£" : "€";
 
-  const monthlyBase = Number(String(config.monthlyPrice ?? "29.99").replace(",", ".")) || 29.99;
+  const monthlyBase = clampPartnerMonthlyAmount(config.monthlyPrice);
   const explicitYearly =
     config.yearlyPrice !== undefined && config.yearlyPrice !== null ? Number(String(config.yearlyPrice).replace(",", ".")) : 0;
   const annualDiscountRaw = typeof config.annualDiscountPercent === "number" ? config.annualDiscountPercent : 20;

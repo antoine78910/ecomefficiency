@@ -3,6 +3,7 @@
 import React from "react";
 import { Loader2 } from "lucide-react";
 import { hexWithAlpha, mixHex, normalizeHex } from "@/lib/color";
+import { clampPartnerMonthlyAmount } from "@/lib/partnerPricingMin";
 
 function parseAmountToNumber(v: any, fallback: number) {
   const n = Number(String(v ?? "").replace(",", "."));
@@ -48,7 +49,7 @@ export default function FloatingPricingWidget({
   const c = String(currency || "EUR").toUpperCase();
   const isPrefix = c === "USD" || c === "GBP";
   const symbol = c === "USD" ? "$" : c === "GBP" ? "£" : "€";
-  const monthlyBase = parseAmountToNumber(monthlyPrice, 29.99);
+  const monthlyBase = clampPartnerMonthlyAmount(monthlyPrice);
   const explicitYearly = yearlyPrice ? parseAmountToNumber(yearlyPrice, 0) : 0;
   const yearlyBase = explicitYearly > 0 ? explicitYearly : Math.round(monthlyBase * 12 * 100) / 100;
   // Annual discount is configurable (default 20%).

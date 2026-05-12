@@ -5,6 +5,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { supabaseAdmin } from "@/integrations/supabase/server";
 import PartnerSimpleLanding from "@/components/PartnerSimpleLanding";
+import { clampPartnerMonthlyAmount, partnerYearlyBaseFromMonthly } from "@/lib/partnerPricingMin";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -45,6 +46,9 @@ async function readPublicConfig(slug: string) {
     })();
     const colors = (cfg as any)?.colors || {};
     const faq = Array.isArray((cfg as any)?.faq) ? ((cfg as any).faq as any[]) : [];
+    const m = clampPartnerMonthlyAmount((cfg as any)?.monthlyPrice);
+    const monthlyPriceStr = m.toFixed(2);
+    const yearlyPriceStr = partnerYearlyBaseFromMonthly(m);
     return {
       slug: safeSlug,
       exists,
@@ -63,8 +67,8 @@ async function readPublicConfig(slug: string) {
         accent: colors?.accent ? String(colors.accent) : undefined,
         background: colors?.background ? String(colors.background) : undefined,
       },
-      monthlyPrice: cfg?.monthlyPrice ? String(cfg.monthlyPrice) : undefined,
-      yearlyPrice: cfg?.yearlyPrice ? String(cfg.yearlyPrice) : undefined,
+      monthlyPrice: monthlyPriceStr,
+      yearlyPrice: yearlyPriceStr,
       annualDiscountPercent: cfg?.annualDiscountPercent !== undefined && cfg?.annualDiscountPercent !== null ? Number(cfg.annualDiscountPercent) : undefined,
       currency: cfg?.currency ? String(cfg.currency) : undefined,
       allowPromotionCodes: typeof cfg?.allowPromotionCodes === "boolean" ? cfg.allowPromotionCodes : undefined,

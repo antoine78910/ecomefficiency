@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { supabaseAdmin } from "@/integrations/supabase/server";
+import { clampPartnerMonthlyAmount } from "@/lib/partnerPricingMin";
 
 export const runtime = "nodejs";
 
@@ -271,7 +272,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    const mBase = Number(String(monthlyPrice || "").replace(",", "."));
+    const mBase = clampPartnerMonthlyAmount(monthlyPrice);
     const unitAmount = parseAmountToCents(mBase);
     if (!unitAmount) {
       return NextResponse.json({ ok: false, error: "invalid_price" }, { status: 400 });
@@ -403,7 +404,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    const mBase = Number(String(monthlyPrice || "").replace(",", "."));
+    const mBase = clampPartnerMonthlyAmount(monthlyPrice);
     const unitAmount = parseAmountToCents(mBase);
     if (!unitAmount) return NextResponse.json({ ok: false, error: "invalid_price" }, { status: 400 });
 

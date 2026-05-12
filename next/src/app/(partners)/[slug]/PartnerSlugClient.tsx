@@ -2,6 +2,7 @@
 
 import React from "react";
 import { Loader2 } from "lucide-react";
+import { clampPartnerMonthlyAmount } from "@/lib/partnerPricingMin";
 
 type PartnerPublicConfig = {
   slug: string;
@@ -65,7 +66,7 @@ export default function PartnerSlugClient({ config }: { config: PartnerPublicCon
   const currency = String(config.currency || "EUR").toUpperCase();
   const isPrefix = currency === "USD" || currency === "GBP";
   const symbol = currency === "USD" ? "$" : currency === "GBP" ? "£" : "€";
-  const monthlyBase = Number(String(config.monthlyPrice || "29.99").replace(",", ".")) || 29.99;
+  const monthlyBase = clampPartnerMonthlyAmount(config.monthlyPrice);
   const explicitYearly = config.yearlyPrice ? Number(String(config.yearlyPrice).replace(",", ".")) : 0;
   const annualDiscountRaw = typeof config.annualDiscountPercent === "number" ? config.annualDiscountPercent : 20;
   const annualDiscount = Number.isFinite(annualDiscountRaw) ? Math.min(Math.max(annualDiscountRaw, 0), 90) : 20;

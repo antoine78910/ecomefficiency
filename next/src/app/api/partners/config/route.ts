@@ -1,5 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/integrations/supabase/server";
+import {
+  applyPartnerMonthlyPriceFloor,
+  clampPartnerMonthlyAmount,
+  partnerYearlyBaseFromMonthly,
+} from "@/lib/partnerPricingMin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -55,6 +60,7 @@ async function readConfig(slug: string) {
 
 function toPublicConfig(cfg: any) {
   const c: any = (cfg && typeof cfg === "object") ? cfg : {};
+  const m = clampPartnerMonthlyAmount(c.monthlyPrice);
   // Only fields needed for public pricing/paywall + branding
   return {
     slug: c.slug,
@@ -64,8 +70,8 @@ function toPublicConfig(cfg: any) {
     faviconUrl: c.faviconUrl,
     colors: c.colors,
     currency: c.currency,
-    monthlyPrice: c.monthlyPrice,
-    yearlyPrice: c.yearlyPrice,
+    monthlyPrice: m.toFixed(2),
+    yearlyPrice: partnerYearlyBaseFromMonthly(m),
     annualDiscountPercent: c.annualDiscountPercent,
     offerTitle: c.offerTitle,
     allowPromotionCodes: c.allowPromotionCodes,
@@ -107,7 +113,9 @@ export async function GET(req: NextRequest) {
     // Authenticated partners dashboard: only allow reading full config if owner
     const allowed = await canRead(slug, requesterEmail);
     if (!allowed) return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
-    return NextResponse.json({ ok: true, exists: true, config: r.config }, { status: 200 });
+    const fullCfg = { ...(r.config as any) };
+    applyPartnerMonthlyPriceFloor(fullCfg);
+    return NextResponse.json({ ok: true, exists: true, config: fullCfg }, { status: 200 });
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: "unknown_error", detail: e?.message || String(e) }, { status: 500 });
   }
@@ -137,6 +145,8 @@ export async function PUT(req: NextRequest) {
 
     const allowed = await canRead(slug, requesterEmail);
     if (!allowed) return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
+
+    applyPartnerMonthlyPriceFloor(merged);
 
     const key = `partner_config:${slug}`;
     const shouldStringifyValue = (msg: string) =>

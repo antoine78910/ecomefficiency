@@ -8,6 +8,11 @@ import { Check, Copy, ExternalLink, Loader2, RefreshCcw, Save, Palette, LayoutTe
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import TemplatePreview from "./TemplatePreview";
+import {
+  clampPartnerMonthlyAmount,
+  PARTNER_DASHBOARD_MIN_MONTHLY_PRICE,
+  partnerYearlyBaseFromMonthly,
+} from "@/lib/partnerPricingMin";
 
 type PartnerConfig = {
   saasName?: string;
@@ -425,16 +430,17 @@ export default function DashboardClient() {
   // Auto-compute yearly base price (= monthly * 12) for a simpler pricing UX.
   React.useEffect(() => {
     const m = parsePrice(pageDraft.monthlyPrice);
-    const nextYearly = m > 0 ? format2(m * 12) : "";
+    const floor = PARTNER_DASHBOARD_MIN_MONTHLY_PRICE;
+    const effectiveM = m > 0 ? Math.max(floor, m) : 0;
+    const nextYearly = effectiveM > 0 ? format2(effectiveM * 12) : "";
     if (String(pageDraft.yearlyPrice || "") === nextYearly) return;
     setPageDraft((s) => ({ ...s, yearlyPrice: nextYearly }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pageDraft.monthlyPrice, parsePrice, format2]);
 
   const publishPatch = React.useMemo(() => {
-    const monthly = Number(String(pageDraft.monthlyPrice || "").replace(",", "."));
-    const derivedYearly =
-      Number.isFinite(monthly) && monthly > 0 ? (Math.round(monthly * 12 * 100) / 100).toFixed(2) : "";
+    const monthly = clampPartnerMonthlyAmount(pageDraft.monthlyPrice);
+    const derivedYearly = partnerYearlyBaseFromMonthly(monthly);
     const aDisc = pageDraft.annualDiscountPercent ? Number(pageDraft.annualDiscountPercent) : undefined;
     const aDiscNum = aDisc !== undefined && Number.isFinite(aDisc) ? Math.min(Math.max(aDisc, 0), 90) : 20;
     return {
@@ -455,7 +461,7 @@ export default function DashboardClient() {
       },
       // Offer name is no longer configurable: leave empty so Stripe uses `${saasName} Subscription`.
       offerTitle: "",
-      monthlyPrice: pageDraft.monthlyPrice.trim(),
+      monthlyPrice: monthly.toFixed(2),
       yearlyPrice: derivedYearly,
       annualDiscountPercent: aDiscNum,
       currency: pageDraft.currency,
@@ -2981,7 +2987,9 @@ export default function DashboardClient() {
                             <div className="text-[11px] text-gray-500">
                               Enter your <span className="text-gray-300 font-medium">monthly</span> price. We auto-calculate the{" "}
                               <span className="text-gray-300 font-medium">annual</span> price as <span className="font-mono">monthly × 12</span>.
-                                You can optionally apply a discount on the annual plan.
+                              You can optionally apply a discount on the annual plan. Minimum monthly price:{" "}
+                              <span className="text-gray-300 font-medium">{PARTNER_DASHBOARD_MIN_MONTHLY_PRICE.toFixed(2)}</span> (same numeric floor in
+                              your selected currency).
                             </div>
 
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -3036,10 +3044,12 @@ export default function DashboardClient() {
                               {" "}
                               {(() => {
                                 const m = parsePrice(pageDraft.monthlyPrice);
-                                const y = m > 0 ? m * 12 : 0;
+                                const floor = PARTNER_DASHBOARD_MIN_MONTHLY_PRICE;
+                                const mClamped = m > 0 ? Math.max(floor, m) : 0;
+                                const y = mClamped > 0 ? mClamped * 12 : 0;
                                 const adRaw = pageDraft.annualDiscountPercent ? Number(pageDraft.annualDiscountPercent) : 20;
                                 const ad = Number.isFinite(adRaw) ? Math.min(Math.max(adRaw, 0), 90) : 20;
-                                const m2 = m;
+                                const m2 = mClamped;
                                 const y2 = y > 0 ? y * (1 - ad / 100) : y;
                                 const cur = String(pageDraft.currency || "EUR").toUpperCase();
                                 const sym = cur === "USD" ? "$" : cur === "GBP" ? "£" : "€";
@@ -3060,13 +3070,13 @@ export default function DashboardClient() {
                             <button
                               type="button"
                               onClick={() => {
-                                const m = parsePrice(pageDraft.monthlyPrice);
-                                const yearly = m > 0 ? format2(m * 12) : "";
+                                const m = clampPartnerMonthlyAmount(pageDraft.monthlyPrice);
+                                const yearly = partnerYearlyBaseFromMonthly(m);
                                 const adRaw = pageDraft.annualDiscountPercent ? Number(pageDraft.annualDiscountPercent) : 20;
                                 const ad = Number.isFinite(adRaw) ? Math.min(Math.max(adRaw, 0), 90) : 20;
                                 saveConfig({
                                   offerTitle: "",
-                                  monthlyPrice: pageDraft.monthlyPrice.trim(),
+                                  monthlyPrice: m.toFixed(2),
                                   yearlyPrice: yearly,
                                   annualDiscountPercent: ad,
                                   currency: pageDraft.currency,
@@ -3173,9 +3183,9 @@ export default function DashboardClient() {
                         background: pageDraft.background,
                       },
                       currency: pageDraft.currency,
-                        offerTitle: "",
-                      monthlyPrice: pageDraft.monthlyPrice,
-                      yearlyPrice: pageDraft.yearlyPrice,
+                      offerTitle: "",
+                      monthlyPrice: clampPartnerMonthlyAmount(pageDraft.monthlyPrice).toFixed(2),
+                      yearlyPrice: partnerYearlyBaseFromMonthly(clampPartnerMonthlyAmount(pageDraft.monthlyPrice)),
                       annualDiscountPercent: pageDraft.annualDiscountPercent ? Number(pageDraft.annualDiscountPercent) : 20,
                       allowPromotionCodes: Boolean(config.allowPromotionCodes),
                       defaultDiscountId: String((config as any).defaultDiscountId || ""),

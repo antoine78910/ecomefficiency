@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/integrations/supabase/server";
 import { Resend } from "resend";
+import { applyPartnerMonthlyPriceFloor } from "@/lib/partnerPricingMin";
 
 export const runtime = "nodejs";
 
@@ -65,7 +66,7 @@ export async function POST(req: NextRequest) {
       stripeAccountEmail: body?.stripeAccountEmail ? String(body.stripeAccountEmail).trim() : "",
       currency: (body?.currency as Currency) || "USD",
       currencyOther: body?.currencyOther ? String(body.currencyOther).trim() : "",
-      monthlyPrice: body?.monthlyPrice ? Number(body.monthlyPrice) : null,
+      monthlyPrice: body?.monthlyPrice != null && String(body.monthlyPrice).trim() !== "" ? String(body.monthlyPrice) : "",
       supportEmail: body?.supportEmail ? String(body.supportEmail).trim() : "",
       desiredLaunch: body?.desiredLaunch ? String(body.desiredLaunch).trim() : "",
       notes: body?.notes ? String(body.notes).trim() : "",
@@ -79,6 +80,8 @@ export async function POST(req: NextRequest) {
           "",
       },
     };
+
+    applyPartnerMonthlyPriceFloor(payload as any);
 
     if (!supabaseAdmin) {
       return NextResponse.json({ ok: false, error: "supabase_admin_missing" }, { status: 500 });
