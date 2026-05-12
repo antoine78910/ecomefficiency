@@ -9,17 +9,6 @@ export const runtime = "nodejs";
 /** TOTP path may sleep up to ~11s before the next 30s window. */
 export const maxDuration = 60;
 
-/** Root URL only (e.g. http://host:20016). Strips trailing /otp-adspower so we never double the path. */
-function normalizeAdsPowerOtpBaseUrl(raw: string | undefined): string {
-  const fallback = "http://51.83.103.21:20016";
-  let u = String(raw ?? "").trim();
-  if (!u) return fallback;
-  u = u.replace(/\/+$/, "");
-  u = u.replace(/\/otp-adspower$/i, "");
-  u = u.replace(/\/+$/, "");
-  return u || fallback;
-}
-
 function cleanDomain(input: string) {
   return String(input || "")
     .trim()
@@ -159,57 +148,30 @@ export async function GET(req: NextRequest) {
     }
 
     let targetEmail = String(req.nextUrl.searchParams.get("target_email") || "").trim().toLowerCase();
-    if (!targetEmail && plan === "pro") targetEmail = "admin@ecomefficiency.com";
-
-    const totpSecrets = parseAdspowerTotpSecretsFromEnv(process.env.ADSPOWER_TOTP_BY_EMAIL_JSON);
-    if (plan === "pro" && targetEmail) {
-      const totp = await getAdspowerTotpPayloadForEmail(targetEmail, totpSecrets);
-      if (totp) {
-        return NextResponse.json({
-          ok: true,
-          code: totp.code,
-          plan,
-          source: "totp",
-          targetEmail,
-          validForSeconds: totp.validForSeconds,
-          validUntilUnix: totp.validUntilUnix,
-        });
+    if (!targetEmail) {
+      if (plan === "pro") targetEmail = "admin@ecomefficiency.com";
+      else {
+        return NextResponse.json({ ok: false, error: "missing_target_email" }, { status: 400 });
       }
     }
 
-    const base = normalizeAdsPowerOtpBaseUrl(process.env.ADSPOWER_OTP_IMAP_BASE_URL);
-    const secret = String(process.env.ADSPOWER_OTP_ENDPOINT_SECRET || "").trim();
-    const since = String(req.nextUrl.searchParams.get("since") || "0");
-    const qs = new URLSearchParams();
-    if (since) qs.set("since", since);
-    qs.set("max_age_ms", "60000");
-    qs.set("plan", plan);
-    if (targetEmail) qs.set("target_email", targetEmail);
-    else if (plan === "pro") qs.set("target_email", "admin@ecomefficiency.com");
-    if (secret) qs.set("secret", secret);
-
-    const upstream = `${base}/otp-adspower?${qs.toString()}`;
-    let r: Response;
-    try {
-      r = await fetch(upstream, { cache: "no-store", signal: AbortSignal.timeout(28_000) });
-    } catch (e: any) {
-      console.error("[adspower/otp] upstream fetch failed", { upstream, err: e });
+    const totpSecrets = parseAdspowerTotpSecretsFromEnv(process.env.ADSPOWER_TOTP_BY_EMAIL_JSON);
+    const totp = await getAdspowerTotpPayloadForEmail(targetEmail, totpSecrets);
+    if (!totp) {
       return NextResponse.json(
-        { ok: false, error: "upstream_unreachable", message: String(e?.message || e || "fetch failed") },
-        { status: 503 }
+        { ok: false, error: "totp_not_configured", targetEmail },
+        { status: 404 }
       );
     }
-    const j = await r.json().catch(() => ({}));
-    if (!r.ok) {
-      return NextResponse.json({ ok: false, error: "upstream_error", status: r.status }, { status: 502 });
-    }
-    const code = String((j as any)?.code || "").trim();
+
     return NextResponse.json({
       ok: true,
-      code,
+      code: totp.code,
       plan,
-      source: String((j as any)?.source || "") || undefined,
-      targetEmail: String((j as any)?.targetEmail || "") || undefined,
+      source: "totp",
+      targetEmail,
+      validForSeconds: totp.validForSeconds,
+      validUntilUnix: totp.validUntilUnix,
     });
   } catch (e: any) {
     console.error("[adspower/otp]", e);

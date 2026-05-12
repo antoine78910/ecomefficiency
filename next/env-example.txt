@@ -22,23 +22,10 @@ FIRSTPROMOTER_DRIP_EMAILS=false
 # Vercel: after adding or changing these variables, redeploy Production so API routes receive them.
 # If Vercel shows "Needs Attention" on a secret, rotate/update the value in Vercel and redeploy. Prefer marking API keys as Sensitive.
 
-# AdsPower email OTP (app.ecomefficiency.com — "Get the code" beside AdsPower logins; Starter/Pro only)
-# Next.js calls your IMAP server (Ecom Efficiency style imap_server.js on Katabump).
-ADSPOWER_OTP_IMAP_BASE_URL=http://51.83.103.21:20016
-# Base URL of the IMAP helper HTTP server (no /otp-adspower suffix — the app appends it).
-# Recommended: set the same secret on Vercel and on the IMAP server env ADSPOWER_OTP_ENDPOINT_SECRET.
-ADSPOWER_OTP_ENDPOINT_SECRET=long_random_shared_secret
-#
-# Katabump / imap_server.js — admin mailbox (AdsPower → admin@ecomefficiency.com):
-# IMAP_ADSPOWER_ADMIN_HOSTS=imap.your-mail-host.com
-# IMAP_ADSPOWER_ADMIN_USER=admin@ecomefficiency.com
-# IMAP_ADSPOWER_ADMIN_PASS=...
-# (Fallback if unset: IMAP_HIGGSFIELD_HOSTS or IMAP_HOST + IMAP_PASS)
-# Optional Gmail (App Password, IMAP enabled in Google account settings):
-# IMAP_ADSPOWER_GMAIL_USER=jhonntbfqsifgggqsg@gmail.com
-# IMAP_ADSPOWER_GMAIL_PASS=xxxx xxxx xxxx xxxx
-#
-# AdsPower Pro — TOTP (Authenticator) for specific AdsPower login emails (skips IMAP for those addresses).
-# JSON object: lowercase email → Base32 secret (same secret as in Google Authenticator / AdsPower member).
-# Example (use your own secret; do not commit real values to git):
+# AdsPower — Authenticator (TOTP) only for "Get the code" on app.ecomefficiency.com (Starter/Pro).
+# JSON: AdsPower login email (lowercase) → Base32 secret (same as Google Authenticator / AdsPower member).
+# Add one entry per mailbox you support. No email/IMAP path anymore.
 # ADSPOWER_TOTP_BY_EMAIL_JSON={"admin@ecomefficiency.com":"YOUR_BASE32_SECRET"}
+#
+# Katabump / imap_server.js (optional — other tools may still use IMAP env vars on the mail server):
+# IMAP_ADSPOWER_ADMIN_HOSTS=...
