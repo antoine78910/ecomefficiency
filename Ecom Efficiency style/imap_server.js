@@ -1638,11 +1638,12 @@ app.get('/otp-adspower', async (req, res) => {
     (plan === 'starter' ? defaultStarterTarget : '');
 
   const accounts = [];
-  const forceGmailOnly = plan === 'pro' || plan === 'starter';
-  if (!forceGmailOnly && adminHosts.length && adminUser && adminPass) {
+  const forceAdminOnly = plan === 'pro';
+  const forceGmailOnly = plan === 'starter';
+  if ((forceAdminOnly || !forceGmailOnly) && adminHosts.length && adminUser && adminPass) {
     accounts.push({ id: 'admin', hosts: adminHosts, user: adminUser, pass: adminPass });
   }
-  if (gmailUser && gmailPass) {
+  if ((forceGmailOnly || !forceAdminOnly) && gmailUser && gmailPass) {
     accounts.push({ id: 'gmail', hosts: ['imap.gmail.com'], user: gmailUser, pass: gmailPass });
   }
 

@@ -1377,7 +1377,12 @@ function CredentialsPanel({
       }
       const qs = new URLSearchParams()
       if (plan === "starter" || plan === "pro") qs.set("plan", plan)
-      if (plan === "pro") qs.set("target_email", "admin@ecomefficiency.com")
+      const requestedTargetEmail = (
+        plan === "pro"
+          ? String(creds?.adspower_pro_email || "admin@ecomefficiency.com")
+          : String(creds?.adspower_email || creds?.adspower_starter_email || "")
+      ).trim().toLowerCase()
+      if (requestedTargetEmail) qs.set("target_email", requestedTargetEmail)
       const endpoint = `/api/adspower/otp${qs.toString() ? `?${qs.toString()}` : ""}`
       const r = await fetch(endpoint, {
         method: "GET",
@@ -1432,7 +1437,7 @@ function CredentialsPanel({
     } finally {
       setAdspowerOtpBusy(false)
     }
-  }, [isEcomEfficiencyAppHost, adspowerOtpCooldownUntil, plan, trackAdsPowerOtpEvent])
+  }, [isEcomEfficiencyAppHost, adspowerOtpCooldownUntil, plan, trackAdsPowerOtpEvent, creds])
 
   useEffect(() => {
     let active = true;
