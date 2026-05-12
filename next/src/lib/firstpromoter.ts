@@ -136,13 +136,40 @@ export function fpExtractBestRefLink(promoter: FirstPromoterPromoter | null | un
   coupon?: string;
   campaign_id?: number;
 } {
-  const campaigns = Array.isArray(promoter?.promoter_campaigns) ? promoter!.promoter_campaigns! : [];
-  const c = campaigns.find((x) => x?.ref_link) || campaigns[0] || undefined;
+  const raw = promoter as any;
+  const s = (v: unknown) => {
+    const t = String(v ?? "").trim();
+    return t || undefined;
+  };
+
+  const campaigns = Array.isArray(raw?.promoter_campaigns) ? raw.promoter_campaigns : [];
+  let c = campaigns.find((x: any) => s(x?.ref_link)) || campaigns[0];
+  let ref_link = s(c?.ref_link);
+  let ref_token = s(c?.ref_token);
+  let coupon = s(c?.coupon);
+  let campaign_id = toNumberOrUndefined(c?.campaign_id);
+
+  // Some API responses use `promotions[].referral_link` (legacy / alternate shape).
+  if (!ref_link) {
+    const promos = Array.isArray(raw?.promotions) ? raw.promotions : [];
+    const p = promos.find((x: any) => s(x?.referral_link) || s(x?.ref_link)) || promos[0];
+    if (p) {
+      ref_link = s(p.referral_link) || s(p.ref_link) || ref_link;
+      ref_token = s(p.ref_id) || s(p.ref_token) || ref_token;
+      coupon = s(p.promo_code) || s(p.coupon) || coupon;
+      campaign_id = toNumberOrUndefined(p.campaign_id) ?? campaign_id;
+    }
+  }
+
+  if (!ref_link) {
+    ref_link = s(raw?.referral_link) || s(raw?.ref_link);
+  }
+
   return {
-    ref_link: c?.ref_link,
-    ref_token: c?.ref_token,
-    coupon: c?.coupon,
-    campaign_id: toNumberOrUndefined(c?.campaign_id),
+    ref_link,
+    ref_token,
+    coupon,
+    campaign_id,
   };
 }
 

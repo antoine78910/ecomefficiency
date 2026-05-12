@@ -42,15 +42,6 @@ const App = ({
     setCheckoutSuccessActive(false)
   }, [])
 
-  const isEcomEfficiencyAppOrLocalHost = React.useMemo(() => {
-    try {
-      const h = String(window.location.hostname || '').toLowerCase()
-      return h === 'app.ecomefficiency.com' || h === 'app.localhost' || h === 'localhost'
-    } catch {
-      return false
-    }
-  }, [])
-
   const [affiliateRefLink, setAffiliateRefLink] = React.useState("");
   const [affiliateCoupon, setAffiliateCoupon] = React.useState("");
   const [affiliateFpPasswordUrl, setAffiliateFpPasswordUrl] = React.useState("");
@@ -58,7 +49,8 @@ const App = ({
   const [affiliateCopied, setAffiliateCopied] = React.useState(false);
 
   React.useEffect(() => {
-    if (!showAffiliateCta || preview || !isEcomEfficiencyAppOrLocalHost) return;
+    if (!showAffiliateCta || preview) return;
+    if (typeof window === "undefined" || !isMainEcomEfficiencyWorkspaceHost()) return;
     let cancelled = false;
     (async () => {
       setAffiliateLinkStatus("loading");
@@ -93,7 +85,7 @@ const App = ({
     return () => {
       cancelled = true;
     };
-  }, [showAffiliateCta, preview, isEcomEfficiencyAppOrLocalHost]);
+  }, [showAffiliateCta, preview]);
 
   const copyAffiliateLink = React.useCallback(async () => {
     if (!affiliateRefLink) return;
@@ -550,7 +542,7 @@ const App = ({
   // - Prod: show once subscription age >= 14 days.
   React.useEffect(() => {
     if (reviewPromptTriggeredRef.current) return
-    if (!isEcomEfficiencyAppOrLocalHost) return
+    if (!isMainEcomEfficiencyWorkspaceHost()) return
     if (!showAffiliateCta) return // never ask on white-label surfaces
     if (partnerSlug) return // avoid asking partners users to review EcomEfficiency
     if (reviewPromptOpen) return
@@ -675,7 +667,7 @@ const App = ({
         reviewPromptTimerRef.current = null
       } catch {}
     }
-  }, [appPlan, checkoutSuccessActive, isEcomEfficiencyAppOrLocalHost, partnerSlug, reviewPromptOpen, showAffiliateCta, reviewPromptTick])
+  }, [appPlan, checkoutSuccessActive, partnerSlug, reviewPromptOpen, showAffiliateCta, reviewPromptTick])
 
   // Bottom-right server country/currency badge for debugging currency decision
 
@@ -722,6 +714,12 @@ const App = ({
                     ) : null}
                   </div>
                 ) : null}
+                {affiliateLinkStatus === "ready" && !affiliateRefLink ? (
+                  <p className="mt-2 text-xs text-gray-300 max-w-xl">
+                    Your affiliate account is ready on FirstPromoter (including on the Free plan). Open your dashboard to
+                    copy your referral link if it does not appear here yet.
+                  </p>
+                ) : null}
               </div>
               <div className="shrink-0 flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
                 {affiliateLinkStatus === "ready" && affiliateRefLink ? (
@@ -742,6 +740,15 @@ const App = ({
                       Affiliate dashboard
                     </a>
                   </>
+                ) : affiliateLinkStatus === "ready" && !affiliateRefLink ? (
+                  <a
+                    href="https://ecomefficiency.firstpromoter.com"
+                    target="_blank"
+                    rel="noreferrer noopener"
+                    className="inline-flex items-center justify-center cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_32px_0_rgba(149,65,224,0.70)] px-6 py-3 rounded-xl border border-[#9541e0] text-white font-medium h-[48px] whitespace-nowrap"
+                  >
+                    Open affiliate dashboard
+                  </a>
                 ) : affiliateLinkStatus === "loading" ? (
                   <div className="h-[48px] flex items-center text-sm text-gray-400 px-2">Loading…</div>
                 ) : (
