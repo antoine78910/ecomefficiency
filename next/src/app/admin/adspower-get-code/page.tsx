@@ -69,7 +69,10 @@ type WebAgg = {
 type DiscordAgg = {
   key: string
   discordUserId: string
+  /** Nom affiché Discord (pseudo serveur / global / @handle). */
   username: string
+  /** Handle login Discord (username), sans @. */
+  discordHandle: string
   count: number
   lastAt: string
   timeline: IpEvent[]
@@ -114,13 +117,26 @@ function buildWebAggregates(events: IpEvent[]): WebAgg[] {
   return list
 }
 
+function discordDisplayFromMeta(meta: Record<string, unknown>): string {
+  const s = String(
+    meta.discord_display ||
+      meta.discord_global_name ||
+      meta.global_name ||
+      meta.display_name ||
+      meta.discord_username ||
+      ''
+  ).trim()
+  return s || '?'
+}
+
 function buildDiscordAggregates(events: IpEvent[]): DiscordAgg[] {
   const map = new Map<string, DiscordAgg>()
   for (const ev of events) {
     if (!DISCORD_ACTIONS.has(ev.action)) continue
     const meta = ev.meta && typeof ev.meta === 'object' ? (ev.meta as Record<string, unknown>) : {}
     const discordUserId = String(meta.discord_user_id || ev.user_id || '').replace(/^discord:/, '') || '?'
-    const username = String(meta.discord_username || meta.display_name || '').trim() || '?'
+    const username = discordDisplayFromMeta(meta)
+    const handle = String(meta.discord_username || '').trim() || '?'
     const key = discordUserId
     let row = map.get(key)
     if (!row) {
@@ -128,6 +144,7 @@ function buildDiscordAggregates(events: IpEvent[]): DiscordAgg[] {
         key,
         discordUserId,
         username,
+        discordHandle: handle !== '?' ? handle : '?',
         count: 0,
         lastAt: '',
         timeline: [],
@@ -136,8 +153,10 @@ function buildDiscordAggregates(events: IpEvent[]): DiscordAgg[] {
     }
     row.count += 1
     row.timeline.push(ev)
-    const un = String(meta.discord_username || meta.display_name || '').trim()
+    const un = discordDisplayFromMeta(meta)
     if (un && un !== '?') row.username = un
+    const h = String(meta.discord_username || '').trim()
+    if (h) row.discordHandle = h
     const t = ev.created_at || ''
     if (t && (!row.lastAt || t > row.lastAt)) row.lastAt = t
   }
@@ -276,7 +295,10 @@ export default async function AdminAdsPowerGetCodePage() {
                 className="border border-sky-500/25 rounded-lg bg-sky-500/5 overflow-hidden"
               >
                 <summary className="cursor-pointer list-none px-4 py-3 flex flex-wrap items-center gap-3 hover:bg-white/5">
-                  <span className="font-medium text-sky-200">@{d.username}</span>
+                  <span className="font-medium text-sky-200">{d.username}</span>
+                  {d.discordHandle && d.discordHandle !== '?' ? (
+                    <span className="text-xs text-gray-500">@{d.discordHandle}</span>
+                  ) : null}
                   <span className="text-xs text-gray-400">ID {d.discordUserId}</span>
                   <span className="text-xs text-gray-400">{d.count} demande(s)</span>
                   <span className="text-xs text-gray-500">Dernière : {fmtTime(d.lastAt)}</span>
@@ -285,23 +307,29 @@ export default async function AdminAdsPowerGetCodePage() {
                   <table className="w-full text-xs min-w-[520px]">
                     <thead>
                       <tr className="text-left text-gray-500">
-                        <th className="p-2">Heure</th>
+                        <th className="p-2">Heure (serveur)</th>
+                        <th className="p-2">Résultat</th>
                         <th className="p-2">IP (serveur bot)</th>
                         <th className="p-2">Pays</th>
                         <th className="p-2 hidden md:table-cell">User-Agent</th>
                       </tr>
                     </thead>
                     <tbody>
-                      {d.timeline.slice(0, 100).map((ev) => (
-                        <tr key={ev.id} className="border-t border-white/5">
-                          <td className="p-2 text-gray-300 whitespace-nowrap">{fmtTime(ev.created_at)}</td>
-                          <td className="p-2 font-mono text-amber-200/90">{ev.ip_address || '—'}</td>
-                          <td className="p-2 text-gray-400">{loc(ev)}</td>
-                          <td className="p-2 text-gray-500 hidden md:table-cell max-w-xs truncate" title={ev.user_agent || ''}>
-                            {ev.user_agent || '—'}
-                          </td>
-                        </tr>
-                      ))}
+                      {d.timeline.slice(0, 100).map((ev) => {
+                        const meta = ev.meta && typeof ev.meta === 'object' ? (ev.meta as Record<string, unknown>) : {}
+                        const outcome = String(meta.outcome || '—')
+                        return (
+                          <tr key={ev.id} className="border-t border-white/5">
+                            <td className="p-2 text-gray-300 whitespace-nowrap">{fmtTime(ev.created_at)}</td>
+                            <td className="p-2 text-sky-100/90 font-mono text-[11px]">{outcome}</td>
+                            <td className="p-2 font-mono text-amber-200/90">{ev.ip_address || '—'}</td>
+                            <td className="p-2 text-gray-400">{loc(ev)}</td>
+                            <td className="p-2 text-gray-500 hidden md:table-cell max-w-xs truncate" title={ev.user_agent || ''}>
+                              {ev.user_agent || '—'}
+                            </td>
+                          </tr>
+                        )
+                      })}
                     </tbody>
                   </table>
                 </div>
