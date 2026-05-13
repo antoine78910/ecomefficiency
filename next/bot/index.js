@@ -297,10 +297,12 @@ async function trackDiscordAdspowerTotpRequest(interaction, extraMeta = {}) {
   const url = ACTIVITY_TRACK_URL;
   const secret = ACTIVITY_TRACK_BOT_SECRET;
   if (!url || !secret) {
-    console.warn(
-      '[BOT] AdsPower click NOT sent to app: set ACTIVITY_TRACK_URL and ACTIVITY_TRACK_BOT_SECRET.',
-      { discord_user_id: uid, discord_display: displayName }
-    );
+    console.warn('[BOT] AdsPower click NOT sent to app — missing env:', {
+      ACTIVITY_TRACK_URL_set: Boolean(url),
+      ACTIVITY_TRACK_BOT_SECRET_set: Boolean(secret),
+      discord_user_id: uid,
+      discord_display: displayName,
+    });
     return;
   }
 

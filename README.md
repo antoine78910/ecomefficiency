@@ -12,6 +12,11 @@ CREDENTIALS_SECRET=un_secret_a_toi
 
 L’API `/api/credentials` accepte un header optionnel `Authorization: Bearer <CREDENTIALS_SECRET>` pour sécuriser la mise à jour.
 
+### Suivi admin « AdsPower Get code » (clics Discord)
+
+- **Vercel** (projet `next/`) : variable `ACTIVITY_TRACK_BOT_SECRET` (chaîne aléatoire longue).
+- **Railway** (bot tickets [bot-discord-EE](https://github.com/antoine78910/bot-discord-EE)) : `ACTIVITY_TRACK_BOT_SECRET` = **identique** + `ACTIVITY_TRACK_URL` = `https://<ton-domaine>/api/activity/track-event` (URL publique HTTPS vers l’app Next en prod).
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
