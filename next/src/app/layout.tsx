@@ -9,6 +9,7 @@ import FirstPromoterAttributionGuard from "@/components/FirstPromoterAttribution
 import { CANONICAL_ORIGIN } from "@/lib/canonicalOrigin";
 
 const GOOGLE_ADS_ID = "AW-18002488181";
+const GOOGLE_TAG_MANAGER_ID = "GTM-5TVJ5P95";
 
 export const metadata: Metadata = {
   metadataBase: new URL(CANONICAL_ORIGIN),
@@ -85,6 +86,18 @@ export default function RootLayout({
   return (
     <html lang="en" className="h-full" suppressHydrationWarning translate="no">
       <head>
+        {/* Google Tag Manager */}
+        <Script
+          id="google-tag-manager"
+          strategy="beforeInteractive"
+          dangerouslySetInnerHTML={{
+            __html: `(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer','${GOOGLE_TAG_MANAGER_ID}');`,
+          }}
+        />
         <meta name="google" content="notranslate" />
         {/* Google tag (gtag.js) - conversion measurement */}
         <Script
@@ -106,6 +119,15 @@ export default function RootLayout({
         <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }} />
       </head>
       <body className="min-h-screen bg-background text-foreground overflow-x-hidden" suppressHydrationWarning>
+        {/* Google Tag Manager (noscript) */}
+        <noscript>
+          <iframe
+            src={`https://www.googletagmanager.com/ns.html?id=${GOOGLE_TAG_MANAGER_ID}`}
+            height="0"
+            width="0"
+            style={{ display: "none", visibility: "hidden" }}
+          />
+        </noscript>
         <DataFastScript />
         <CrispScript />
         <FirstPromoterAttributionGuard />
