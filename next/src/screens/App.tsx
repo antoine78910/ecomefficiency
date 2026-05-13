@@ -15,6 +15,7 @@ import { CheckoutSuccessEffects } from "@/components/CheckoutSuccessEffects";
 import { ReviewPromptModal } from "@/components/ReviewPromptModal";
 import { isMainEcomEfficiencyWorkspaceHost } from "@/lib/eeAppHost";
 import { supabase } from "@/integrations/supabase/client";
+import { SubscriptionCancelFlow } from "@/components/subscription/SubscriptionCancelFlow";
 
 const App = ({
   showAffiliateCta = true,
@@ -1267,6 +1268,7 @@ function CredentialsPanel({
     if (typeof window === 'undefined') return false
     try { return String(window.location.hostname || '').toLowerCase() === 'app.ecomefficiency.com' } catch { return false }
   }, [])
+  const allowStripeCancelFlow = !whiteLabel && !partnerSlug
   const [creds, setCreds] = useState<ToolCredentials | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -1277,6 +1279,7 @@ function CredentialsPanel({
   const [plan, setPlan] = React.useState<'checking'|'inactive'|'starter'|'pro'>('checking')
   const [banner, setBanner] = React.useState<string | null>(null)
   const [showBilling, setShowBilling] = React.useState(false)
+  const [cancelFlowOpen, setCancelFlowOpen] = React.useState(false)
   const [partnerCheckoutPending, setPartnerCheckoutPending] = React.useState(false)
   const [customerId, setCustomerId] = React.useState<string | null>(null)
   const [email, setEmail] = React.useState<string | null>(null)
@@ -1715,6 +1718,7 @@ function CredentialsPanel({
       const res = await fetch('/api/stripe/portal', {
         method: 'POST',
         headers,
+        body: JSON.stringify({ returnPath: 'app' }),
       });
       const json = await res.json().catch(() => ({}));
 
@@ -1871,6 +1875,15 @@ function CredentialsPanel({
                         Subscribe
                       </button>
               <button type="button" onClick={openPortal} className="px-3 py-1 rounded-md border border-white/20 text-white hover:bg-white/10">Manage billing</button>
+              {allowStripeCancelFlow && (plan === "starter" || plan === "pro") ? (
+                <button
+                  type="button"
+                  onClick={() => setCancelFlowOpen(true)}
+                  className="px-3 py-1 rounded-md border border-red-500/40 text-red-200 hover:bg-red-500/10"
+                >
+                  Cancel subscription
+                </button>
+              ) : null}
             </div>
           </div>
         ) : null}
@@ -2123,6 +2136,29 @@ function CredentialsPanel({
             ) : null}
             <p className={`text-xs text-gray-500 ${adWideSpan}`}>Last update: {creds?.updatedAt ? new Date(creds.updatedAt).toLocaleString() : '—'}</p>
 
+            {allowStripeCancelFlow && (currentPlan === "starter" || currentPlan === "pro") ? (
+              <div className={`flex flex-wrap items-center gap-2 ${adWideSpan}`}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    try {
+                      void openPortal();
+                    } catch {}
+                  }}
+                  className="px-3 py-1.5 rounded-md text-sm border border-white/20 text-white hover:bg-white/10 cursor-pointer"
+                >
+                  Manage billing
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setCancelFlowOpen(true)}
+                  className="px-3 py-1.5 rounded-md text-sm border border-red-500/40 text-red-200 hover:bg-red-500/10 cursor-pointer"
+                >
+                  Cancel subscription
+                </button>
+              </div>
+            ) : null}
+
             {/* Single AdsPower block: shows Starter creds for Starter, Pro creds for Pro */}
 
             {/* Brain.fm credentials */}
@@ -2240,15 +2276,30 @@ function CredentialsPanel({
             />
           )}
           {!whiteLabel ? (
-            <div className="flex items-center justify-end mt-1">
-              <button type="button" className="text-white/80 underline cursor-pointer text-xs" onClick={() => {}}>
+            <div className="flex items-center justify-end gap-4 mt-1">
+              <button type="button" className="text-white/80 underline cursor-pointer text-xs" onClick={() => void openPortal()}>
                 Manage billing
               </button>
+              {(allowStripeCancelFlow && (plan === "starter" || plan === "pro")) ? (
+                <button
+                  type="button"
+                  className="text-red-300/90 underline cursor-pointer text-xs"
+                  onClick={() => {
+                    try {
+                      setShowBilling(false);
+                    } catch {}
+                    setCancelFlowOpen(true);
+                  }}
+                >
+                  Cancel subscription
+                </button>
+              ) : null}
             </div>
           ) : null}
         </div>
       </div>
     ) : null}
+    {!preview ? <SubscriptionCancelFlow open={cancelFlowOpen} onOpenChange={setCancelFlowOpen} /> : null}
     {seoModalOpen && !preview && (
       <div className="fixed inset-0 z-[60] bg-black/70 flex items-center justify-center p-4" onClick={()=>setSeoModalOpen(false)}>
         <div className="bg-gray-900 border border-white/10 rounded-2xl p-5 w-full max-w-3xl max-h-[80vh] overflow-auto" onClick={(e)=>e.stopPropagation()}>

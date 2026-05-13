@@ -7,6 +7,7 @@ import {
   findBestCustomerWithActiveSubscription,
   checkLegacyStripe,
 } from "@/lib/stripeLegacySubscription";
+import { isRetention30RedeemedFromMetadata } from "@/lib/stripeRetention30Meta";
 
 function parseMaybeJson<T = any>(value: any): T | null {
   if (value === null || value === undefined) return null;
@@ -707,6 +708,16 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    let retention30Redeemed = false;
+    try {
+      const cust = await stripe.customers.retrieve(customerId);
+      if (!cust.deleted) {
+        retention30Redeemed = isRetention30RedeemedFromMetadata(
+          ((cust as Stripe.Customer).metadata || {}) as Record<string, string>
+        );
+      }
+    } catch {}
+
     const result = {
       ok: true,
       active,
@@ -719,6 +730,7 @@ export async function POST(req: NextRequest) {
         ? new Date(((latest as any).current_period_start as number) * 1000).toISOString()
         : null,
       daily_credit_limit: DEFAULT_DAILY_CREDIT_LIMIT,
+      retention_30_redeemed: retention30Redeemed,
     };
     console.log("[VERIFY] Subscription check:", {
       customerId,
