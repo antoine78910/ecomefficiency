@@ -16,6 +16,7 @@ import { ReviewPromptModal } from "@/components/ReviewPromptModal";
 import { isMainEcomEfficiencyWorkspaceHost } from "@/lib/eeAppHost";
 import { supabase } from "@/integrations/supabase/client";
 import { SubscriptionCancelFlow } from "@/components/subscription/SubscriptionCancelFlow";
+import { getBillingControlsVisibility } from "@/screens/billingControls";
 
 const App = ({
   showAffiliateCta = true,
@@ -1282,7 +1283,6 @@ function CredentialsPanel({
     try { return String(window.location.hostname || '').toLowerCase() === 'app.ecomefficiency.com' } catch { return false }
   }, [])
   const allowStripeCancelFlow = !whiteLabel && !partnerSlug
-  const showPortalAndCancel = showSubscriptionBillingControls && allowStripeCancelFlow
   const [creds, setCreds] = useState<ToolCredentials | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -1299,6 +1299,12 @@ function CredentialsPanel({
   const [email, setEmail] = React.useState<string | null>(null)
   const [userId, setUserId] = React.useState<string | null>(null)
   const [seoModalOpen, setSeoModalOpen] = React.useState(false)
+  const { showManageBilling, showCancelSubscription } = getBillingControlsVisibility({
+    allowStripeCancelFlow,
+    showSubscriptionBillingControls,
+    plan,
+    customerId,
+  })
   const [adspowerOtpBusy, setAdspowerOtpBusy] = React.useState(false)
   const [adspowerOtpCode, setAdspowerOtpCode] = React.useState<string | null>(null)
   const [adspowerOtpErr, setAdspowerOtpErr] = React.useState<string | null>(null)
@@ -1895,10 +1901,12 @@ function CredentialsPanel({
                       >
                         Subscribe
                       </button>
-              {showPortalAndCancel ? (
+              {showManageBilling || showCancelSubscription ? (
                 <>
-                  <button type="button" onClick={openPortal} className="px-3 py-1 rounded-md border border-white/20 text-white hover:bg-white/10">Manage billing</button>
-                  {(plan === "starter" || plan === "pro") ? (
+                  {showManageBilling ? (
+                    <button type="button" onClick={openPortal} className="px-3 py-1 rounded-md border border-white/20 text-white hover:bg-white/10">Manage billing</button>
+                  ) : null}
+                  {showCancelSubscription ? (
                     <button
                       type="button"
                       onClick={() => setCancelFlowOpen(true)}
@@ -2161,26 +2169,30 @@ function CredentialsPanel({
             ) : null}
             <p className={`text-xs text-gray-500 ${adWideSpan}`}>Last update: {creds?.updatedAt ? new Date(creds.updatedAt).toLocaleString() : '—'}</p>
 
-            {showPortalAndCancel && (currentPlan === "starter" || currentPlan === "pro") ? (
+            {showManageBilling || showCancelSubscription ? (
               <div className={`flex flex-wrap items-center gap-2 ${adWideSpan}`}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    try {
-                      void openPortal();
-                    } catch {}
-                  }}
-                  className="px-3 py-1.5 rounded-md text-sm border border-white/20 text-white hover:bg-white/10 cursor-pointer"
-                >
-                  Manage billing
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setCancelFlowOpen(true)}
-                  className="px-3 py-1.5 rounded-md text-sm border border-red-500/40 text-red-200 hover:bg-red-500/10 cursor-pointer"
-                >
-                  Cancel subscription
-                </button>
+                {showManageBilling ? (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      try {
+                        void openPortal();
+                      } catch {}
+                    }}
+                    className="px-3 py-1.5 rounded-md text-sm border border-white/20 text-white hover:bg-white/10 cursor-pointer"
+                  >
+                    Manage billing
+                  </button>
+                ) : null}
+                {showCancelSubscription ? (
+                  <button
+                    type="button"
+                    onClick={() => setCancelFlowOpen(true)}
+                    className="px-3 py-1.5 rounded-md text-sm border border-red-500/40 text-red-200 hover:bg-red-500/10 cursor-pointer"
+                  >
+                    Cancel subscription
+                  </button>
+                ) : null}
               </div>
             ) : null}
 
@@ -2300,12 +2312,14 @@ function CredentialsPanel({
               colors={brandColors || undefined}
             />
           )}
-          {showPortalAndCancel && !whiteLabel ? (
+          {(showManageBilling || showCancelSubscription) && !whiteLabel ? (
             <div className="flex items-center justify-end gap-4 mt-1">
-              <button type="button" className="text-white/80 underline cursor-pointer text-xs" onClick={() => void openPortal()}>
-                Manage billing
-              </button>
-              {(plan === "starter" || plan === "pro") ? (
+              {showManageBilling ? (
+                <button type="button" className="text-white/80 underline cursor-pointer text-xs" onClick={() => void openPortal()}>
+                  Manage billing
+                </button>
+              ) : null}
+              {showCancelSubscription ? (
                 <button
                   type="button"
                   className="text-red-300/90 underline cursor-pointer text-xs"
@@ -2324,7 +2338,7 @@ function CredentialsPanel({
         </div>
       </div>
     ) : null}
-    {!preview && showPortalAndCancel ? <SubscriptionCancelFlow open={cancelFlowOpen} onOpenChange={setCancelFlowOpen} /> : null}
+    {!preview && showCancelSubscription ? <SubscriptionCancelFlow open={cancelFlowOpen} onOpenChange={setCancelFlowOpen} /> : null}
     {seoModalOpen && !preview && (
       <div className="fixed inset-0 z-[60] bg-black/70 flex items-center justify-center p-4" onClick={()=>setSeoModalOpen(false)}>
         <div className="bg-gray-900 border border-white/10 rounded-2xl p-5 w-full max-w-3xl max-h-[80vh] overflow-auto" onClick={(e)=>e.stopPropagation()}>
