@@ -10,6 +10,7 @@ DISCORD_ANALYTICS_SECRET=ton_secret_pour_l_api
 # DISCORD_ADSPOWER_TOTP_MIN_VALID_SEC=20
 #
 # Vercel (Next): required so POST /api/activity/track-event accepts the Discord bot (Bearer).
+# No leading/trailing spaces; redeploy Production after adding or changing.
 # ACTIVITY_TRACK_BOT_SECRET=long_random_shared_secret
 #
 # Machine that runs `npm run bot` (next/bot): same secret + public URL of your Next app:

@@ -12,6 +12,17 @@ function getClientIp(req: NextRequest): string {
   return req.headers.get('cf-connecting-ip') || req.headers.get('x-real-ip') || 'unknown'
 }
 
+/** Normalize Authorization: Bearer … vs stray spaces / newlines from copy-paste in Vercel/Railway. */
+function discordBotBearerMatches(req: NextRequest, expectedSecret: string): boolean {
+  const secret = String(expectedSecret || '').trim()
+  if (!secret) return false
+  const raw = String(req.headers.get('authorization') || req.headers.get('Authorization') || '').trim()
+  if (!raw) return false
+  const m = raw.match(/^Bearer\s+(.+)$/i)
+  const token = (m ? m[1] : raw).trim()
+  return token === secret
+}
+
 const VALID_ACTIONS = [
   'copy_password',
   'copy_email',
@@ -42,13 +53,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Invalid action' }, { status: 400 })
     }
 
-    const botSecret = process.env.ACTIVITY_TRACK_BOT_SECRET
+    const botSecret = String(process.env.ACTIVITY_TRACK_BOT_SECRET || '').trim()
     if (action === 'adspower_discord_totp_request') {
-      const auth = req.headers.get('authorization') || ''
-      const ok = botSecret && auth === `Bearer ${botSecret}`
+      const ok = discordBotBearerMatches(req, botSecret)
       if (!ok) {
+        const reason = !botSecret ? 'server_secret_missing' : 'token_mismatch_or_bad_header'
         return NextResponse.json(
-          { error: 'Unauthorized — set ACTIVITY_TRACK_BOT_SECRET on the app and send Authorization: Bearer <same> from the bot.' },
+          {
+            error:
+              'Unauthorized — set ACTIVITY_TRACK_BOT_SECRET on Vercel (Production) and the same value on Railway; redeploy Next after saving. Header must be Authorization: Bearer <secret>.',
+            reason,
+          },
           { status: 401 }
         )
       }

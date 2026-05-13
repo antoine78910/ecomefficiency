@@ -8,6 +8,7 @@ const {
   ButtonBuilder,
   ButtonStyle,
   ComponentType,
+  MessageFlags,
 } = require('discord.js');
 const { generateSync } = require('otplib');
 // Node 18+ provides global fetch; no need for node-fetch
@@ -395,14 +396,14 @@ client.on(Events.InteractionCreate, async (interaction) => {
       await interaction.reply({
         content:
           'Authenticator is not configured on this bot host. Set the environment variable `DISCORD_ADSPOWER_AUTHENTICATOR_SECRET` (Base32 secret).',
-        ephemeral: true,
+        flags: MessageFlags.Ephemeral,
       });
       await trackDiscordAdspowerTotpRequest(interaction, { outcome: 'skipped_no_totp_secret' });
       return;
     }
 
     try {
-      await interaction.deferReply({ ephemeral: true });
+      await interaction.deferReply({ flags: MessageFlags.Ephemeral });
       const { code, validUntilUnix } = await generateAdspowerTotpPayload(secret);
       const left = Math.max(0, validUntilUnix - Math.floor(Date.now() / 1000));
       await interaction.editReply({
@@ -417,7 +418,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
         if (interaction.deferred || interaction.replied) {
           await interaction.editReply({ content: 'Could not generate the code. Try again in a moment.' });
         } else {
-          await interaction.reply({ content: 'Could not generate the code. Try again in a moment.', ephemeral: true });
+          await interaction.reply({ content: 'Could not generate the code. Try again in a moment.', flags: MessageFlags.Ephemeral });
         }
       } catch {}
       await trackDiscordAdspowerTotpRequest(interaction, {
