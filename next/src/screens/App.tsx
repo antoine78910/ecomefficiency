@@ -641,6 +641,7 @@ const App = ({
             partnerSlug={partnerSlug}
             brandColors={brandColors}
             preview={preview}
+            showSubscriptionBillingControls={false}
           />
         </div>
         
@@ -1255,11 +1256,14 @@ function CredentialsPanel({
   partnerSlug,
   brandColors,
   preview = false,
+  /** Manage billing + Cancel subscription: only for `/subscription`, not under Tools. */
+  showSubscriptionBillingControls = false,
 }: {
   whiteLabel: boolean;
   partnerSlug?: string;
   brandColors?: { main?: string; accent?: string };
   preview?: boolean;
+  showSubscriptionBillingControls?: boolean;
 }) {
   const wlMain = normalizeHex(String(brandColors?.main || (typeof window !== 'undefined' ? (window as any).__wl_main : '') || '#9541e0'), '#9541e0')
   const wlAccent = normalizeHex(String(brandColors?.accent || (typeof window !== 'undefined' ? (window as any).__wl_accent : '') || '#7c30c7'), '#7c30c7')
@@ -1269,6 +1273,7 @@ function CredentialsPanel({
     try { return String(window.location.hostname || '').toLowerCase() === 'app.ecomefficiency.com' } catch { return false }
   }, [])
   const allowStripeCancelFlow = !whiteLabel && !partnerSlug
+  const showPortalAndCancel = showSubscriptionBillingControls && allowStripeCancelFlow
   const [creds, setCreds] = useState<ToolCredentials | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -1874,15 +1879,19 @@ function CredentialsPanel({
                       >
                         Subscribe
                       </button>
-              <button type="button" onClick={openPortal} className="px-3 py-1 rounded-md border border-white/20 text-white hover:bg-white/10">Manage billing</button>
-              {allowStripeCancelFlow && (plan === "starter" || plan === "pro") ? (
-                <button
-                  type="button"
-                  onClick={() => setCancelFlowOpen(true)}
-                  className="px-3 py-1 rounded-md border border-red-500/40 text-red-200 hover:bg-red-500/10"
-                >
-                  Cancel subscription
-                </button>
+              {showPortalAndCancel ? (
+                <>
+                  <button type="button" onClick={openPortal} className="px-3 py-1 rounded-md border border-white/20 text-white hover:bg-white/10">Manage billing</button>
+                  {(plan === "starter" || plan === "pro") ? (
+                    <button
+                      type="button"
+                      onClick={() => setCancelFlowOpen(true)}
+                      className="px-3 py-1 rounded-md border border-red-500/40 text-red-200 hover:bg-red-500/10"
+                    >
+                      Cancel subscription
+                    </button>
+                  ) : null}
+                </>
               ) : null}
             </div>
           </div>
@@ -2136,7 +2145,7 @@ function CredentialsPanel({
             ) : null}
             <p className={`text-xs text-gray-500 ${adWideSpan}`}>Last update: {creds?.updatedAt ? new Date(creds.updatedAt).toLocaleString() : '—'}</p>
 
-            {allowStripeCancelFlow && (currentPlan === "starter" || currentPlan === "pro") ? (
+            {showPortalAndCancel && (currentPlan === "starter" || currentPlan === "pro") ? (
               <div className={`flex flex-wrap items-center gap-2 ${adWideSpan}`}>
                 <button
                   type="button"
@@ -2275,12 +2284,12 @@ function CredentialsPanel({
               colors={brandColors || undefined}
             />
           )}
-          {!whiteLabel ? (
+          {showPortalAndCancel && !whiteLabel ? (
             <div className="flex items-center justify-end gap-4 mt-1">
               <button type="button" className="text-white/80 underline cursor-pointer text-xs" onClick={() => void openPortal()}>
                 Manage billing
               </button>
-              {(allowStripeCancelFlow && (plan === "starter" || plan === "pro")) ? (
+              {(plan === "starter" || plan === "pro") ? (
                 <button
                   type="button"
                   className="text-red-300/90 underline cursor-pointer text-xs"
@@ -2299,7 +2308,7 @@ function CredentialsPanel({
         </div>
       </div>
     ) : null}
-    {!preview ? <SubscriptionCancelFlow open={cancelFlowOpen} onOpenChange={setCancelFlowOpen} /> : null}
+    {!preview && showPortalAndCancel ? <SubscriptionCancelFlow open={cancelFlowOpen} onOpenChange={setCancelFlowOpen} /> : null}
     {seoModalOpen && !preview && (
       <div className="fixed inset-0 z-[60] bg-black/70 flex items-center justify-center p-4" onClick={()=>setSeoModalOpen(false)}>
         <div className="bg-gray-900 border border-white/10 rounded-2xl p-5 w-full max-w-3xl max-h-[80vh] overflow-auto" onClick={(e)=>e.stopPropagation()}>

@@ -221,6 +221,10 @@ export async function POST(req: NextRequest) {
                 subscription_current_period_start_at: (partnerLatest as any)?.current_period_start
                   ? new Date(((partnerLatest as any).current_period_start as number) * 1000).toISOString()
                   : null,
+                subscription_current_period_end_at: (partnerLatest as any)?.current_period_end
+                  ? new Date(((partnerLatest as any).current_period_end as number) * 1000).toISOString()
+                  : null,
+                cancel_at_period_end: Boolean(partnerLatest.cancel_at_period_end),
                 verify_source: "partner_connect",
               })
             )
@@ -384,6 +388,10 @@ export async function POST(req: NextRequest) {
               subscription_current_period_start_at: (latest as any)?.current_period_start
                 ? new Date(((latest as any).current_period_start as number) * 1000).toISOString()
                 : null,
+              subscription_current_period_end_at: (latest as any)?.current_period_end
+                ? new Date(((latest as any).current_period_end as number) * 1000).toISOString()
+                : null,
+              cancel_at_period_end: Boolean((latest as Stripe.Subscription).cancel_at_period_end),
               verify_source: "session_id",
               invoice_status: invoiceStatus || null,
               daily_credit_limit: DEFAULT_DAILY_CREDIT_LIMIT,
@@ -729,8 +737,12 @@ export async function POST(req: NextRequest) {
       subscription_current_period_start_at: (latest as any)?.current_period_start
         ? new Date(((latest as any).current_period_start as number) * 1000).toISOString()
         : null,
+      subscription_current_period_end_at: (latest as any)?.current_period_end
+        ? new Date(((latest as any).current_period_end as number) * 1000).toISOString()
+        : null,
       daily_credit_limit: DEFAULT_DAILY_CREDIT_LIMIT,
       retention_30_redeemed: retention30Redeemed,
+      cancel_at_period_end: Boolean(latest.cancel_at_period_end),
     };
     console.log("[VERIFY] Subscription check:", {
       customerId,
