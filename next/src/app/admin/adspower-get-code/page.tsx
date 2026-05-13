@@ -171,7 +171,7 @@ function buildDiscordAggregates(events: IpEvent[]): DiscordAgg[] {
 function actionShort(action: string): string {
   if (action === 'adspower_get_code_click') return 'Clic modal'
   if (action === 'adspower_get_code_delivered') return 'Code reçu'
-  if (action === 'adspower_discord_totp_request') return 'Discord TOTP'
+  if (action === 'adspower_discord_totp_request') return 'Discord code'
   return action
 }
 
@@ -206,7 +206,7 @@ export default async function AdminAdsPowerGetCodePage() {
           </div>
           <div className="border border-emerald-500/35 rounded-lg bg-emerald-500/10 p-4 text-center">
             <div className="text-2xl font-bold text-emerald-200">{totalWebDelivered}</div>
-            <div className="text-xs text-gray-400 mt-1">Codes TOTP livrés (app)</div>
+            <div className="text-xs text-gray-400 mt-1">Codes livrés (app)</div>
           </div>
           <div className="border border-sky-500/35 rounded-lg bg-sky-500/10 p-4 text-center">
             <div className="text-2xl font-bold text-sky-200">{totalDiscord}</div>
