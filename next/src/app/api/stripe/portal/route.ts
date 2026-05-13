@@ -12,7 +12,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Stripe not configured" }, { status: 500 });
     }
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-08-27.basil" });
-    const origin = req.headers.get("origin") || process.env.APP_URL || "http://localhost:3000";
+    const origin =
+      req.headers.get("origin") ||
+      (() => {
+        const host = req.headers.get("x-forwarded-host") || req.headers.get("host");
+        const proto =
+          req.headers.get("x-forwarded-proto") ||
+          (host && /localhost|127\.0\.0\.1/.test(host) ? "http" : "https");
+        if (host) return `${proto}://${host}`;
+        return process.env.APP_URL || process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000";
+      })();
     const emailHeader = req.headers.get("x-user-email") || undefined;
 
     // Optional: accept a target price OR tier/billing/currency (server maps to env)

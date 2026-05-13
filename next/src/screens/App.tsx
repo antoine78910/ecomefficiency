@@ -1734,7 +1734,14 @@ function CredentialsPanel({
 
       // Keep old paywall/modal fallback for users without Stripe customer yet.
       try { setShowBilling(true) } catch {}
-      try { setBanner('Unable to open billing portal right now. Please try again.') } catch {}
+      const errCode = typeof json?.error === "string" ? json.error : "";
+      try {
+        setBanner(
+          errCode
+            ? `Unable to open billing portal (${errCode}). Check Stripe Customer portal settings or try again.`
+            : "Unable to open billing portal right now. Please try again."
+        );
+      } catch {}
       return
 
     } catch {

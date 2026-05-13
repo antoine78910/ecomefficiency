@@ -1,10 +1,7 @@
 import { NextRequest, NextResponse } from "next/server"
 import Stripe from "stripe"
-import {
-  searchCustomersByEmailAllPagesMerged,
-  findBestCustomerWithActiveSubscription,
-} from "@/lib/stripeLegacySubscription"
 import { STRIPE_CUSTOMER_PORTAL_DISABLED } from "@/lib/stripeCustomerPortalDisabled"
+import { resolvePlatformStripeCustomerId } from "@/lib/stripeResolvePlatformCustomer"
 
 export async function POST(req: NextRequest) {
   try {
@@ -20,22 +17,14 @@ export async function POST(req: NextRequest) {
     const origin = `${new URL(req.url).origin}`
 
     const form = await req.formData()
-    let customerId = (form.get('customerId') as string) || ''
+    const customerIdFromForm = (form.get('customerId') as string) || ''
     const email = (form.get('email') as string) || ''
     const action = (form.get('action') as string) || 'manage'
 
-    // Resolve customer by email if id missing — must match /api/stripe/verify: same email can map to
-    // multiple Stripe Customer objects; pick the one whose newest valid subscription is active.
-    if (!customerId && email) {
-      try {
-        const customers = await searchCustomersByEmailAllPagesMerged(stripe, email)
-        const best = await findBestCustomerWithActiveSubscription(stripe, customers)
-        if (best) customerId = best.customerId
-        else if (customers.length > 0) customerId = customers[0].id
-      } catch (listError) {
-        console.error("[create-customer-portal-session] Customer lookup failed:", listError)
-      }
-    }
+    const customerId = await resolvePlatformStripeCustomerId(stripe, {
+      customerIdHeader: customerIdFromForm || undefined,
+      emailHeader: email || undefined,
+    })
     if (!customerId) {
       return NextResponse.redirect(new URL('/subscription?err=missing_customer', req.url), { status: 303 })
     }
