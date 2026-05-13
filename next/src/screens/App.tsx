@@ -1009,6 +1009,7 @@ function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'sta
 function HowToAccess({ renderTrigger = true }: { renderTrigger?: boolean }) {
   const [open, setOpen] = React.useState(false)
   const [step, setStep] = React.useState(1)
+  const totalSteps = 4
   const wlMain = normalizeHex(String((typeof window !== 'undefined' ? (window as any).__wl_main : '') || '#9541e0'), '#9541e0')
   const wlAccent = normalizeHex(String((typeof window !== 'undefined' ? (window as any).__wl_accent : '') || '#7c30c7'), '#7c30c7')
   const wlText = bestTextColorOn(mixHex(wlMain, wlAccent, 0.5))
@@ -1016,7 +1017,7 @@ function HowToAccess({ renderTrigger = true }: { renderTrigger?: boolean }) {
     if (typeof window === 'undefined') return false
     try { return String(window.location.hostname || '').toLowerCase() === 'app.ecomefficiency.com' } catch { return false }
   }, [])
-  const next = () => setStep((s) => Math.min(3, s + 1))
+  const next = () => setStep((s) => Math.min(totalSteps, s + 1))
   const prev = () => setStep((s) => Math.max(1, s - 1))
   React.useEffect(() => {
     const handler = () => { setOpen(true); setStep(1) }
@@ -1034,7 +1035,7 @@ function HowToAccess({ renderTrigger = true }: { renderTrigger?: boolean }) {
             className="underline cursor-pointer"
             style={{ color: isEcomEfficiencyAppHost ? "#9541e0" : wlAccent }}
           >
-            Open the 3‑step demo
+            Open the 4-step demo
           </button>
         </div>
       )}
@@ -1070,6 +1071,14 @@ function HowToAccess({ renderTrigger = true }: { renderTrigger?: boolean }) {
             {step === 3 && (
               <div>
                 <div className="h-48 rounded-lg overflow-hidden mb-3 border border-white/10 bg-black">
+                  <video src="/adspower-step-otp.mp4" className="w-full h-full object-cover" autoPlay muted playsInline loop />
+                </div>
+                <p className="text-gray-300 text-sm">Get the OTP code shown in the app, then enter it in AdsPower to finish the login.</p>
+              </div>
+            )}
+            {step === 4 && (
+              <div>
+                <div className="h-48 rounded-lg overflow-hidden mb-3 border border-white/10 bg-black">
                   <video src="/adspower-step3.mp4" className="w-full h-full object-cover" autoPlay muted playsInline loop />
                 </div>
                 <p className="text-gray-300 text-sm">Open now the profile you want to access the tools hub.</p>
@@ -1077,12 +1086,12 @@ function HowToAccess({ renderTrigger = true }: { renderTrigger?: boolean }) {
             )}
             <div className="flex items-center justify-between mt-4">
               <button onClick={prev} disabled={step===1} className={`px-3 py-2 rounded-md border border-white/20 ${step===1 ? 'text-gray-500 cursor-not-allowed' : 'text-white hover:bg-white/10 cursor-pointer'}`}>Prev</button>
-              <div className="text-xs text-gray-400">Step {step}/3</div>
+              <div className="text-xs text-gray-400">Step {step}/{totalSteps}</div>
               <button
                 onClick={next}
-                disabled={step===3}
-                className={`px-3 py-2 rounded-md ${step===3 ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'cursor-pointer'}`}
-                style={step===3 ? undefined : { background: wlMain, color: wlText }}
+                disabled={step===totalSteps}
+                className={`px-3 py-2 rounded-md ${step===totalSteps ? 'bg-gray-700 text-gray-400 cursor-not-allowed' : 'cursor-pointer'}`}
+                style={step===totalSteps ? undefined : { background: wlMain, color: wlText }}
               >
                 Next
               </button>
@@ -1376,7 +1385,7 @@ function CredentialsPanel({
               : err === "not_available"
                 ? "Not available on this workspace."
                 : err === "totp_not_configured"
-                  ? "No Authenticator (TOTP) secret is configured for this AdsPower login on the server. Set ADSPOWER_TOTP_BY_EMAIL_JSON in Vercel (or .env) or contact support."
+                  ? "No Authenticator code secret is configured for this AdsPower login on the server. Set ADSPOWER_TOTP_BY_EMAIL_JSON in Vercel (or .env) or contact support."
                   : err === "missing_target_email"
                     ? "AdsPower login email is missing for this plan. Wait until credentials are loaded, then try again."
                     : err === "invalid_plan"
@@ -2121,7 +2130,7 @@ function CredentialsPanel({
             </div>
             {showAdsPowerOtpGetCode ? (
               <div className="flex flex-col gap-2 md:justify-self-end md:border-l md:border-white/10 md:pl-4 pt-1 md:pt-0">
-                <p className="text-xs text-gray-400">Authenticator (TOTP)</p>
+                <p className="text-xs text-gray-400">Authenticator code</p>
                 <button
                   type="button"
                   disabled={adspowerOtpBusy}

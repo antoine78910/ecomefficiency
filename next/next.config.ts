@@ -72,6 +72,7 @@ const nextConfig: NextConfig = {
       { source: '/demo.mp4', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] },
       { source: '/adspower-step1.mp4', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] },
       { source: '/adspower-step2.mp4', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] },
+      { source: '/adspower-step-otp.mp4', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] },
       { source: '/adspower-step3.mp4', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] },
       { source: '/header_ee.png', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] },
       { source: '/ecomefficiency.png', headers: [{ key: 'Cache-Control', value: 'public, max-age=31536000, immutable' }] },
