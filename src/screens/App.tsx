@@ -874,7 +874,7 @@ function HowToAccess({ renderTrigger = true }: { renderTrigger?: boolean }) {
             className="underline cursor-pointer"
             style={isWhiteLabel ? { color: wlAccent } : { color: isEcomEfficiencyAppHost ? "#9541e0" : "#7c30c7" }}
           >
-            Open the 3‑step demo
+            Open the 4-step demo
           </button>
         </div>
       )}
@@ -1482,7 +1482,7 @@ function CredentialsPanel({
                       className="underline cursor-pointer"
                     style={isWhiteLabel ? { color: wlAccent } : { color: isEcomEfficiencyAppHost ? "#9541e0" : "#7c30c7" }}
                     >
-                      Open the 3‑step demo
+                      Open the 4-step demo
                     </button>
                   </div>
                 </div>
@@ -1600,7 +1600,7 @@ function CredentialsPanel({
                   className="underline cursor-pointer"
                   style={isWhiteLabel ? { color: wlAccent } : { color: isEcomEfficiencyAppHost ? "#9541e0" : "#7c30c7" }}
                 >
-                  Open the 3‑step demo
+                  Open the 4-step demo
                 </button>
               </div>
             </div>

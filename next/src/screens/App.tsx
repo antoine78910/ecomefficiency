@@ -1998,7 +1998,7 @@ function CredentialsPanel({
                       className="underline cursor-pointer"
                     style={{ color: isEcomEfficiencyAppHost ? "#9541e0" : wlAccent }}
                     >
-                      Open the 3‑step demo
+                      Open the 4-step demo
                     </button>
                   </div>
                 </div>
@@ -2232,7 +2232,7 @@ function CredentialsPanel({
                   className="underline cursor-pointer"
                   style={{ color: isEcomEfficiencyAppHost ? "#9541e0" : wlAccent }}
                 >
-                  Open the 3‑step demo
+                  Open the 4-step demo
                 </button>
               </div>
             </div>
