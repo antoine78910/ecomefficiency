@@ -310,7 +310,7 @@ export function SubscriptionCancelFlow({
               onClick={() => setStep("survey")}
               className="rounded-2xl border border-rose-500/20 bg-rose-500/[0.08] px-4 py-2 text-sm font-medium text-rose-200 transition hover:border-rose-400/40 hover:bg-rose-500/[0.14] hover:text-white cursor-pointer disabled:opacity-50"
             >
-              Continue to cancellation
+              Cancel my subscription
             </button>
           </div>
         </div>
@@ -382,7 +382,7 @@ export function SubscriptionCancelFlow({
               onClick={() => void handleSurveyContinue()}
               className={`flex-1 min-w-[140px] ${secondaryButtonClass}`}
             >
-              {retention30Redeemed ? "Continue to cancellation" : "Continue"}
+              Cancel my subscription
             </button>
           </div>
         </div>
@@ -390,7 +390,7 @@ export function SubscriptionCancelFlow({
 
       {step === "retention" ? (
         <div
-          className="relative w-full max-w-md rounded-2xl border border-violet-500/30 bg-[#0a0a0f] p-6 shadow-xl shadow-violet-500/10"
+          className="relative w-full max-w-md rounded-2xl border border-[#9541e0]/35 bg-[radial-gradient(circle_at_top,_rgba(149,65,224,0.18),_transparent_38%),linear-gradient(180deg,rgba(10,10,15,0.98),rgba(8,8,12,0.98))] p-6 shadow-xl shadow-[rgba(124,48,199,0.18)]"
           role="dialog"
           aria-modal="true"
           aria-labelledby="retention-title"
@@ -411,20 +411,20 @@ export function SubscriptionCancelFlow({
           </div>
 
           <div className="my-6 flex justify-center">
-            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-violet-500/15 text-violet-300">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full border border-[#9541e0]/20 bg-[#9541e0]/15 text-[#c793ff]">
               <Gift className="h-8 w-8" strokeWidth={1.75} />
             </div>
           </div>
 
           <p className="mb-1 text-center text-lg font-semibold text-white">We have a special offer for you!</p>
           <p className="mb-6 text-center text-sm text-zinc-300">
-            Stay with us and get <span className="font-bold text-violet-300">-30%</span> on your next month&apos;s
+            Stay with us and get <span className="font-bold text-[#c793ff]">-30%</span> on your next month&apos;s
             subscription.
           </p>
 
-          <div className="mb-6 flex items-center justify-between gap-3 rounded-xl border-2 border-dashed border-violet-500/30 bg-zinc-800/50 p-4">
+          <div className="mb-6 flex items-center justify-between gap-3 rounded-xl border-2 border-dashed border-[#9541e0]/35 bg-[linear-gradient(180deg,rgba(149,65,224,0.10),rgba(24,24,31,0.55))] p-4">
             <div>
-              <p className="font-bold text-violet-300">-30% for 1 month</p>
+              <p className="font-bold text-[#c793ff]">-30% for 1 month</p>
               <p className="text-sm text-zinc-400">Exclusive loyalty offer</p>
             </div>
             <span className="text-2xl" aria-hidden="true">
@@ -438,7 +438,7 @@ export function SubscriptionCancelFlow({
             type="button"
             disabled={busy}
             onClick={() => void applyRetention()}
-            className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-400 px-4 py-3.5 font-semibold text-[#0d0d12] transition hover:shadow-[0_0_20px_4px_rgba(168,85,247,0.35)] cursor-pointer disabled:opacity-50"
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-b from-[#a855f7] to-[#7c30c7] px-4 py-3.5 font-semibold text-white shadow-[0_12px_30px_rgba(124,48,199,0.35)] transition hover:brightness-110 hover:shadow-[0_0_20px_4px_rgba(149,65,224,0.28)] cursor-pointer disabled:opacity-50"
           >
             {busy ? "Applying…" : "Enjoy the -30% offer 🎁"}
           </button>
@@ -448,8 +448,8 @@ export function SubscriptionCancelFlow({
             onClick={() => void handleDeclineRetention()}
             className="mt-4 w-full text-center text-sm text-zinc-500 transition hover:text-zinc-400 cursor-pointer disabled:opacity-50"
           >
-            No thanks, I still want to cancel. I understand I may lose access to my subscription benefits, accounts,
-            and data when cancellation takes effect.
+            No thanks, I understand I will lose access to my accounts, data and all my subscription benefits
+            immediately.
           </button>
         </div>
       ) : null}

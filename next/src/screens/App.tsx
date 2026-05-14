@@ -15,7 +15,10 @@ import { CheckoutSuccessEffects } from "@/components/CheckoutSuccessEffects";
 import { ReviewPromptModal } from "@/components/ReviewPromptModal";
 import { isMainEcomEfficiencyWorkspaceHost } from "@/lib/eeAppHost";
 import { supabase } from "@/integrations/supabase/client";
-import { SubscriptionCancelFlow } from "@/components/subscription/SubscriptionCancelFlow";
+import {
+  SubscriptionCancelFlow,
+  openStripeBillingPortal,
+} from "@/components/subscription/SubscriptionCancelFlow";
 import { getBillingControlsVisibility } from "@/screens/billingControls";
 
 const App = ({
@@ -1304,6 +1307,7 @@ function CredentialsPanel({
     showSubscriptionBillingControls,
     plan,
     customerId,
+    email,
   })
   const [adspowerOtpBusy, setAdspowerOtpBusy] = React.useState(false)
   const [adspowerOtpCode, setAdspowerOtpCode] = React.useState<string | null>(null)
@@ -1391,7 +1395,7 @@ function CredentialsPanel({
               : err === "not_available"
                 ? "Not available on this workspace."
                 : err === "totp_not_configured"
-                  ? "No Authenticator code secret is configured for this AdsPower login on the server. Set ADSPOWER_TOTP_BY_EMAIL_JSON in Vercel (or .env) or contact support."
+                  ? "No Authenticator (TOTP) secret is configured for this AdsPower login on the server. Set ADSPOWER_TOTP_BY_EMAIL_JSON in Vercel (or .env) or contact support."
                   : err === "missing_target_email"
                     ? "AdsPower login email is missing for this plan. Wait until credentials are loaded, then try again."
                     : err === "invalid_plan"
@@ -1721,40 +1725,20 @@ function CredentialsPanel({
     try {
       try { e?.preventDefault() } catch {}
       try { e?.stopPropagation() } catch {}
-      if (typeof window === 'undefined') return
-      const mod = await import("@/integrations/supabase/client");
-      const { data } = await mod.supabase.auth.getUser();
-      const user = data?.user;
-      const userEmail = user?.email || email || null;
-      const userMeta = (user?.user_metadata as any) || {};
-      const stripeCustomerFromMeta = (userMeta?.stripe_customer_id as string | undefined) || null;
-      const resolvedCustomerId = customerId || stripeCustomerFromMeta;
-
-      const headers: Record<string, string> = { 'Content-Type': 'application/json' };
-      if (resolvedCustomerId) headers['x-stripe-customer-id'] = resolvedCustomerId;
-      if (userEmail) headers['x-user-email'] = userEmail;
-      if (user?.id || userId) headers['x-user-id'] = String(user?.id || userId);
-
-      const res = await fetch('/api/stripe/portal', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ returnPath: 'app' }),
+      const ok = await openStripeBillingPortal({
+        returnPath: "app",
+        email,
+        userId,
+        customerId,
       });
-      const json = await res.json().catch(() => ({}));
-
-      if (res.ok && json?.url) {
-        window.location.href = String(json.url);
+      if (ok) {
         return;
       }
 
-      // Keep old paywall/modal fallback for users without Stripe customer yet.
       try { setShowBilling(true) } catch {}
-      const errCode = typeof json?.error === "string" ? json.error : "";
       try {
         setBanner(
-          errCode
-            ? `Unable to open billing portal (${errCode}). Check Stripe Customer portal settings or try again.`
-            : "Unable to open billing portal right now. Please try again."
+          "Unable to open billing portal right now. Please try again."
         );
       } catch {}
       return
@@ -2138,7 +2122,7 @@ function CredentialsPanel({
             </div>
             {showAdsPowerOtpGetCode ? (
               <div className="flex flex-col gap-2 md:justify-self-end md:border-l md:border-white/10 md:pl-4 pt-1 md:pt-0">
-                <p className="text-xs text-gray-400">Authenticator code</p>
+                <p className="text-xs text-gray-400">Authenticator (TOTP)</p>
                 <button
                   type="button"
                   disabled={adspowerOtpBusy}

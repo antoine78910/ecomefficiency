@@ -5,17 +5,19 @@ export function getBillingControlsVisibility({
   showSubscriptionBillingControls,
   plan,
   customerId,
+  email,
 }: {
   allowStripeCancelFlow: boolean;
   showSubscriptionBillingControls: boolean;
   plan: BillingControlsPlan;
   customerId: string | null;
+  email?: string | null;
 }) {
-  const hasStripeHistory = Boolean(customerId?.trim());
+  const hasPortalLookupIdentity = Boolean(customerId?.trim() || email?.trim());
 
   const showManageBilling =
     allowStripeCancelFlow &&
-    (showSubscriptionBillingControls || (plan === "inactive" && hasStripeHistory));
+    (showSubscriptionBillingControls || (plan === "inactive" && hasPortalLookupIdentity));
 
   const showCancelSubscription =
     allowStripeCancelFlow &&

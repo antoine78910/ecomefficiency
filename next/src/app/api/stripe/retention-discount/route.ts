@@ -8,6 +8,7 @@ import {
   isRetention30RedeemedFromMetadata,
 } from "@/lib/stripeRetention30Meta";
 import { trackSubscriptionRetentionAccepted } from "@/lib/subscriptionCancelEvents";
+import { applyOneTimeRetentionDiscount } from "@/lib/stripeRetentionOffer";
 
 export async function POST(req: NextRequest) {
   try {
@@ -53,20 +54,12 @@ export async function POST(req: NextRequest) {
     }
     const subId = subWrap.sub.id;
 
-    const coupon = await stripe.coupons.create({
-      percent_off: 30,
-      duration: "once",
-      name: "Retention — 30% next invoice",
-    });
-
     try {
-      await stripe.subscriptions.update(subId, {
-        discounts: [{ coupon: coupon.id }],
+      await applyOneTimeRetentionDiscount(stripe, {
+        subscriptionId: subId,
+        customerId,
       });
     } catch (e: any) {
-      try {
-        await stripe.coupons.del(coupon.id);
-      } catch {}
       console.error("[retention-discount] subscription update failed:", e?.message || e);
       return NextResponse.json(
         { error: e?.message || "subscription_update_failed" },
@@ -97,7 +90,12 @@ export async function POST(req: NextRequest) {
       details: details || null,
     });
 
-    return NextResponse.json({ ok: true, subscription_id: subId });
+    return NextResponse.json({
+      ok: true,
+      subscription_id: subId,
+      percent_off: 30,
+      applies_to: "next_invoice",
+    });
   } catch (e: any) {
     return NextResponse.json({ error: e?.message || "unknown_error" }, { status: 500 });
   }
