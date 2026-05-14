@@ -2,28 +2,27 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { resolvePlatformStripeCustomerId } from "@/lib/stripeResolvePlatformCustomer";
 import { findValidSubscriptionForCustomer } from "@/lib/stripeLegacySubscription";
-import { STRIPE_CUSTOMER_PORTAL_DISABLED } from "@/lib/stripeCustomerPortalDisabled";
 import {
   STRIPE_RETENTION_30_META_KEY,
   isRetention30RedeemedFromMetadata,
 } from "@/lib/stripeRetention30Meta";
 import { trackSubscriptionRetentionAccepted } from "@/lib/subscriptionCancelEvents";
 import { applyOneTimeRetentionDiscount } from "@/lib/stripeRetentionOffer";
+import { getRetentionDiscountAccessError } from "@/lib/stripeRetentionDiscountAccess";
 
 export async function POST(req: NextRequest) {
   try {
-    if (STRIPE_CUSTOMER_PORTAL_DISABLED) {
-      return NextResponse.json({ error: "portal_disabled" }, { status: 503 });
-    }
-    if (!process.env.STRIPE_SECRET_KEY) {
-      return NextResponse.json({ error: "not_configured" }, { status: 500 });
-    }
     const partnerSlug = (req.headers.get("x-partner-slug") || "").trim();
-    if (partnerSlug) {
-      return NextResponse.json({ error: "partner_not_supported" }, { status: 400 });
+    const accessError = getRetentionDiscountAccessError({
+      stripeSecretKey: process.env.STRIPE_SECRET_KEY,
+      partnerSlug,
+    });
+    if (accessError) {
+      return NextResponse.json({ error: accessError.error }, { status: accessError.status });
     }
 
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-08-27.basil" });
+    const stripeSecretKey = String(process.env.STRIPE_SECRET_KEY || "");
+    const stripe = new Stripe(stripeSecretKey, { apiVersion: "2025-08-27.basil" });
     const customerId = await resolvePlatformStripeCustomerId(stripe, {
       customerIdHeader: req.headers.get("x-stripe-customer-id"),
       emailHeader: req.headers.get("x-user-email"),
