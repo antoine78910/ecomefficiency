@@ -34,6 +34,7 @@ export function SubscriptionCancelFlow({
   onOpenChange: (v: boolean) => void;
 }) {
   const [step, setStep] = React.useState<Step>("confirm");
+  const [cancelEventId, setCancelEventId] = React.useState<string | null>(null);
   const [subscriptionId, setSubscriptionId] = React.useState<string | null>(null);
   const [retention30Redeemed, setRetention30Redeemed] = React.useState(false);
   const [reasonId, setReasonId] = React.useState<string>(SURVEY_REASONS[0].id);
@@ -44,6 +45,7 @@ export function SubscriptionCancelFlow({
   const closeAll = React.useCallback(() => {
     onOpenChange(false);
     setStep("confirm");
+    setCancelEventId(null);
     setErr(null);
     setBusy(false);
   }, [onOpenChange]);
@@ -51,8 +53,11 @@ export function SubscriptionCancelFlow({
   React.useEffect(() => {
     if (!open) return;
     setStep("confirm");
+    setCancelEventId(null);
     setErr(null);
     setBusy(false);
+    setReasonId(SURVEY_REASONS[0].id);
+    setDetails("");
     let cancelled = false;
     (async () => {
       try {
@@ -61,21 +66,38 @@ export function SubscriptionCancelFlow({
         const meta = (user?.user_metadata as Record<string, unknown>) || {};
         const headers: Record<string, string> = { "Content-Type": "application/json" };
         if (user?.email) headers["x-user-email"] = user.email;
+        if (user?.id) headers["x-user-id"] = user.id;
         const cid = typeof meta.stripe_customer_id === "string" ? meta.stripe_customer_id : "";
         if (cid) headers["x-stripe-customer-id"] = cid;
-        const r = await fetch("/api/stripe/verify", {
+        let nextSubscriptionId: string | null = null;
+        let nextRetentionRedeemed = false;
+        try {
+          const r = await fetch("/api/stripe/verify", {
+            method: "POST",
+            headers,
+            body: JSON.stringify({ email: user?.email || "" }),
+          });
+          const j = await r.json().catch(() => ({}));
+          if (typeof j?.subscription_id === "string") {
+            nextSubscriptionId = j.subscription_id;
+          }
+          nextRetentionRedeemed = j?.retention_30_redeemed === true;
+        } catch {}
+        if (!cancelled) {
+          setSubscriptionId(nextSubscriptionId);
+          setRetention30Redeemed(nextRetentionRedeemed);
+        }
+        const cancelEventResponse = await fetch("/api/subscription/cancel-events", {
           method: "POST",
           headers,
-          body: JSON.stringify({ email: user?.email || "" }),
+          body: JSON.stringify({
+            action: "opened",
+            subscriptionId: nextSubscriptionId,
+          }),
         });
-        const j = await r.json().catch(() => ({}));
-        if (!cancelled && typeof j?.subscription_id === "string") {
-          setSubscriptionId(j.subscription_id);
-        }
-        if (!cancelled && j?.retention_30_redeemed === true) {
-          setRetention30Redeemed(true);
-        } else if (!cancelled) {
-          setRetention30Redeemed(false);
+        const cancelEventJson = await cancelEventResponse.json().catch(() => ({}));
+        if (!cancelled && typeof cancelEventJson?.eventId === "string" && cancelEventJson.eventId) {
+          setCancelEventId(cancelEventJson.eventId);
         }
       } catch {
         if (!cancelled) setSubscriptionId(null);
@@ -97,6 +119,27 @@ export function SubscriptionCancelFlow({
     if (cid) headers["x-stripe-customer-id"] = cid;
     return headers;
   }, []);
+
+  const trackCancelEvent = React.useCallback(
+    async (body: Record<string, unknown>) => {
+      try {
+        const headers = await billingHeaders();
+        const res = await fetch("/api/subscription/cancel-events", {
+          method: "POST",
+          headers,
+          body: JSON.stringify(body),
+        });
+        const json = await res.json().catch(() => ({}));
+        if (typeof json?.eventId === "string" && json.eventId) {
+          setCancelEventId(json.eventId);
+        }
+        return json;
+      } catch {
+        return null;
+      }
+    },
+    [billingHeaders],
+  );
 
   const openStripeCancelPortal = React.useCallback(async () => {
     setBusy(true);
@@ -143,6 +186,8 @@ export function SubscriptionCancelFlow({
         method: "POST",
         headers,
         body: JSON.stringify({
+          cancelEventId,
+          reasonId,
           reason: label,
           details: details.trim(),
         }),
@@ -165,7 +210,42 @@ export function SubscriptionCancelFlow({
     } finally {
       setBusy(false);
     }
-  }, [billingHeaders, details, reasonId]);
+  }, [billingHeaders, cancelEventId, details, reasonId]);
+
+  const handleSurveyContinue = React.useCallback(async () => {
+    const label = SURVEY_REASONS.find((r) => r.id === reasonId)?.label || reasonId;
+    await trackCancelEvent({
+      action: "survey_completed",
+      eventId: cancelEventId,
+      subscriptionId,
+      reasonId,
+      reasonLabel: label,
+      details: details.trim(),
+      retentionOfferAvailable: !retention30Redeemed,
+    });
+    if (retention30Redeemed) {
+      await openStripeCancelPortal();
+      return;
+    }
+    setStep("retention");
+  }, [
+    cancelEventId,
+    details,
+    openStripeCancelPortal,
+    reasonId,
+    retention30Redeemed,
+    subscriptionId,
+    trackCancelEvent,
+  ]);
+
+  const handleDeclineRetention = React.useCallback(async () => {
+    await trackCancelEvent({
+      action: "retention_declined",
+      eventId: cancelEventId,
+      subscriptionId,
+    });
+    await openStripeCancelPortal();
+  }, [cancelEventId, openStripeCancelPortal, subscriptionId, trackCancelEvent]);
 
   if (!open) return null;
 
@@ -296,13 +376,7 @@ export function SubscriptionCancelFlow({
             <button
               type="button"
               disabled={busy}
-              onClick={() => {
-                if (retention30Redeemed) {
-                  void openStripeCancelPortal();
-                } else {
-                  setStep("retention");
-                }
-              }}
+              onClick={() => void handleSurveyContinue()}
               className={`flex-1 min-w-[140px] ${primaryButtonClass}`}
             >
               {retention30Redeemed ? "Continue to cancellation" : "Continue"}
@@ -372,7 +446,7 @@ export function SubscriptionCancelFlow({
             <button
               type="button"
               disabled={busy}
-              onClick={() => void openStripeCancelPortal()}
+              onClick={() => void handleDeclineRetention()}
               className={subtleTextButtonClass}
             >
               No thanks, continue cancellation
@@ -409,14 +483,21 @@ export function SubscriptionCancelFlow({
   );
 }
 
-export async function openStripeBillingPortal(opts?: { returnPath?: "app" | "subscription" }): Promise<boolean> {
+export async function openStripeBillingPortal(opts?: {
+  returnPath?: "app" | "subscription";
+  email?: string | null;
+  userId?: string | null;
+  customerId?: string | null;
+}): Promise<boolean> {
   const { data } = await supabase.auth.getUser();
   const user = data?.user;
   const meta = (user?.user_metadata as Record<string, unknown>) || {};
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (user?.email) headers["x-user-email"] = user.email;
-  if (user?.id) headers["x-user-id"] = user.id;
-  const cid = typeof meta.stripe_customer_id === "string" ? meta.stripe_customer_id : "";
+  const email = String(opts?.email || user?.email || "").trim();
+  const userId = String(opts?.userId || user?.id || "").trim();
+  const cid = String(opts?.customerId || (typeof meta.stripe_customer_id === "string" ? meta.stripe_customer_id : "")).trim();
+  if (email) headers["x-user-email"] = email;
+  if (userId) headers["x-user-id"] = userId;
   if (cid) headers["x-stripe-customer-id"] = cid;
   const returnPath = opts?.returnPath || "subscription";
   const res = await fetch("/api/stripe/portal", {

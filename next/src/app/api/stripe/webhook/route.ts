@@ -3,6 +3,7 @@ import Stripe from "stripe";
 import { trackBrevoEvent } from "@/lib/brevo";
 import { supabaseAdmin } from "@/integrations/supabase/server";
 import { fpTrackSale } from "@/lib/firstpromoterTracking";
+import { trackSubscriptionCancelScheduled } from "@/lib/subscriptionCancelEvents";
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -286,12 +287,24 @@ export async function POST(req: NextRequest) {
            try {
              // On r├®cup├¿re l'email via le customer car il n'est pas dans l'objet subscription
              let userEmail = (subscription as any).email; // Parfois pr├®sent
+             const stripeCustomerId =
+               typeof subscription.customer === "string"
+                 ? subscription.customer
+                 : subscription.customer?.id || null;
              if (!userEmail && subscription.customer) {
                 const customer = await stripe.customers.retrieve(subscription.customer as string);
                 if (!('deleted' in customer)) {
                   userEmail = customer.email;
                 }
              }
+
+             await trackSubscriptionCancelScheduled({
+               subscriptionId: subscription?.id || null,
+               stripeCustomerId,
+               email: userEmail || null,
+               stripeEventId: event.id,
+               cancelScheduledAt: new Date().toISOString(),
+             });
 
              if (userEmail) {
                 // Ensure valid date or fallback to now

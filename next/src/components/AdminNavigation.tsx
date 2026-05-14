@@ -2,9 +2,15 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Shield, Users, Activity, BarChart3, LayoutTemplate, ClipboardList, Star, Zap, Eye, Mic, KeyRound } from 'lucide-react'
+import { Shield, Users, Activity, BarChart3, LayoutTemplate, ClipboardList, Star, Zap, Eye, Mic, KeyRound, CircleSlash } from 'lucide-react'
 
 const adminRoutes = [
+  {
+    href: '/admin/cancel',
+    label: 'Cancel',
+    icon: CircleSlash,
+    description: 'Cancellation reasons, outcomes, and 30% offer ratios'
+  },
   {
     href: '/admin/ip-tracker',
     label: 'IP Tracker',

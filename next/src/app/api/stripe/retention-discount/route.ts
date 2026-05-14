@@ -7,6 +7,7 @@ import {
   STRIPE_RETENTION_30_META_KEY,
   isRetention30RedeemedFromMetadata,
 } from "@/lib/stripeRetention30Meta";
+import { trackSubscriptionRetentionAccepted } from "@/lib/subscriptionCancelEvents";
 
 export async function POST(req: NextRequest) {
   try {
@@ -31,6 +32,8 @@ export async function POST(req: NextRequest) {
     }
 
     const body = (await req.json().catch(() => ({}))) as {
+      cancelEventId?: string;
+      reasonId?: string;
       reason?: string;
       details?: string;
     };
@@ -82,6 +85,17 @@ export async function POST(req: NextRequest) {
     } catch (e) {
       console.error("[retention-discount] metadata update failed:", e);
     }
+
+    await trackSubscriptionRetentionAccepted({
+      eventId: body.cancelEventId || null,
+      userId: req.headers.get("x-user-id"),
+      email: req.headers.get("x-user-email"),
+      stripeCustomerId: customerId,
+      subscriptionId: subId,
+      reasonId: body.reasonId || null,
+      reasonLabel: reason || null,
+      details: details || null,
+    });
 
     return NextResponse.json({ ok: true, subscription_id: subId });
   } catch (e: any) {
