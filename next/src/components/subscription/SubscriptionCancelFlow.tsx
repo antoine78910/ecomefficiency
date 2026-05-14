@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { Gift, X } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const SURVEY_REASONS = [
@@ -15,6 +16,15 @@ const SURVEY_REASONS = [
 ] as const;
 
 type Step = "confirm" | "survey" | "retention" | "success";
+
+const modalShellClass =
+  "w-full border border-white/10 bg-[radial-gradient(circle_at_top,_rgba(149,65,224,0.16),_transparent_34%),linear-gradient(180deg,rgba(12,12,18,0.98),rgba(8,8,12,0.98))] shadow-[0_30px_120px_rgba(0,0,0,0.45)]";
+const secondaryButtonClass =
+  "rounded-2xl border border-white/12 bg-white/[0.03] px-4 py-3 text-sm font-medium text-white transition hover:border-white/20 hover:bg-white/[0.05] cursor-pointer disabled:opacity-50";
+const primaryButtonClass =
+  "rounded-2xl bg-gradient-to-b from-[#a855f7] to-[#7c30c7] px-4 py-3 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(124,48,199,0.35)] transition hover:brightness-110 cursor-pointer disabled:opacity-50";
+const subtleTextButtonClass =
+  "text-sm font-medium text-zinc-400 transition hover:text-white cursor-pointer disabled:opacity-50";
 
 export function SubscriptionCancelFlow({
   open,
@@ -161,40 +171,63 @@ export function SubscriptionCancelFlow({
 
   return (
     <div
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 backdrop-blur-md p-4"
       role="presentation"
       onClick={() => !busy && closeAll()}
     >
       {step === "confirm" ? (
         <div
-          className="w-full max-w-md rounded-2xl border border-cyan-500/25 bg-zinc-950 p-6 shadow-[0_0_40px_rgba(34,211,238,0.12)]"
+          className={`max-w-md rounded-[28px] p-6 sm:p-7 ${modalShellClass}`}
           role="dialog"
           aria-modal="true"
           aria-labelledby="cancel-confirm-title"
           onClick={(e) => e.stopPropagation()}
         >
-          <h2 id="cancel-confirm-title" className="text-xl font-semibold text-white">
-            Are you sure?
-          </h2>
-          <p className="mt-2 text-sm text-zinc-400 leading-relaxed">
-            You will start cancellation and may lose access to premium tools when your billing period ends.
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-violet-300/80">
+                Subscription
+              </p>
+              <h2 id="cancel-confirm-title" className="mt-3 text-[28px] font-semibold leading-none text-white">
+                Cancel your subscription?
+              </h2>
+            </div>
+            <button
+              type="button"
+              className="shrink-0 rounded-full border border-white/10 bg-white/[0.03] p-2 text-zinc-500 transition hover:border-white/20 hover:text-white cursor-pointer"
+              aria-label="Close"
+              onClick={closeAll}
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          <p className="mt-4 text-sm leading-relaxed text-zinc-400">
+            Your access will stay active until the end of your current billing period. Before you leave, we can still
+            offer you a one-time 30% discount on your next invoice.
           </p>
-          <div className="mt-6 flex flex-wrap gap-3">
+
+          <div className="mt-5 rounded-2xl border border-violet-500/20 bg-violet-500/[0.06] px-4 py-3">
+            <p className="text-sm font-medium text-white">Keep your premium access without interruption.</p>
+            <p className="mt-1 text-sm text-zinc-400">If the price is the issue, the loyalty offer appears on the next step.</p>
+          </div>
+
+          <div className="mt-7 flex flex-col gap-3">
             <button
               type="button"
               disabled={busy}
               onClick={closeAll}
-              className="flex-1 min-w-[120px] rounded-xl border border-white/15 bg-zinc-900 px-4 py-3 text-sm font-medium text-white hover:bg-zinc-800 cursor-pointer disabled:opacity-50"
+              className={primaryButtonClass}
             >
-              Cancel
+              Keep my subscription
             </button>
             <button
               type="button"
               disabled={busy}
               onClick={() => setStep("survey")}
-              className="flex-1 min-w-[120px] rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white hover:bg-red-500 cursor-pointer disabled:opacity-50"
+              className="rounded-2xl border border-transparent px-4 py-2 text-sm font-medium text-zinc-500 transition hover:text-white cursor-pointer disabled:opacity-50"
             >
-              Yes, unsubscribe
+              Continue to cancellation
             </button>
           </div>
         </div>
@@ -202,7 +235,7 @@ export function SubscriptionCancelFlow({
 
       {step === "survey" ? (
         <div
-          className="w-full max-w-lg rounded-2xl border border-white/10 bg-zinc-950 p-6 shadow-2xl max-h-[90vh] overflow-y-auto"
+          className={`max-h-[90vh] max-w-lg overflow-y-auto rounded-[28px] p-6 sm:p-7 ${modalShellClass}`}
           role="dialog"
           aria-modal="true"
           aria-labelledby="cancel-survey-title"
@@ -213,15 +246,15 @@ export function SubscriptionCancelFlow({
               <h2 id="cancel-survey-title" className="text-lg font-semibold text-white">
                 Before you go, tell us why
               </h2>
-              <p className="mt-1 text-sm text-zinc-400">This helps us improve Ecom Efficiency.</p>
+              <p className="mt-1 text-sm text-zinc-400">This helps us improve Ecom Efficiency and tailor better retention offers.</p>
             </div>
             <button
               type="button"
-              className="shrink-0 rounded-lg p-1 text-zinc-500 hover:text-white cursor-pointer"
+              className="shrink-0 rounded-full border border-white/10 bg-white/[0.03] p-2 text-zinc-500 transition hover:border-white/20 hover:text-white cursor-pointer"
               aria-label="Close"
               onClick={closeAll}
             >
-              ✕
+              <X className="h-4 w-4" />
             </button>
           </div>
 
@@ -229,7 +262,7 @@ export function SubscriptionCancelFlow({
             {SURVEY_REASONS.map((r) => (
               <label
                 key={r.id}
-                className="flex cursor-pointer items-start gap-3 rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 hover:border-purple-500/40"
+                className="flex cursor-pointer items-start gap-3 rounded-2xl border border-white/10 bg-white/[0.02] px-4 py-3 transition hover:border-violet-500/40 hover:bg-violet-500/[0.04]"
               >
                 <input
                   type="radio"
@@ -248,7 +281,7 @@ export function SubscriptionCancelFlow({
             onChange={(e) => setDetails(e.target.value)}
             placeholder="Anything else you want to share? (optional)"
             rows={3}
-            className="mt-4 w-full resize-none rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-sm text-white placeholder:text-zinc-600 focus:border-purple-500/50 focus:outline-none"
+            className="mt-4 w-full resize-none rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-violet-500/50 focus:outline-none"
           />
 
           <div className="mt-6 flex flex-wrap gap-3">
@@ -256,7 +289,7 @@ export function SubscriptionCancelFlow({
               type="button"
               disabled={busy}
               onClick={closeAll}
-              className="flex-1 min-w-[120px] rounded-xl border border-white/15 bg-transparent px-4 py-3 text-sm font-medium text-white hover:bg-white/5 cursor-pointer disabled:opacity-50"
+              className={`flex-1 min-w-[140px] ${secondaryButtonClass}`}
             >
               I changed my mind
             </button>
@@ -270,7 +303,7 @@ export function SubscriptionCancelFlow({
                   setStep("retention");
                 }
               }}
-              className="flex-1 min-w-[120px] rounded-xl bg-gradient-to-b from-[#9541e0] to-[#7c30c7] px-4 py-3 text-sm font-semibold text-white shadow-[0_4px_24px_rgba(149,65,224,0.35)] hover:brightness-110 cursor-pointer disabled:opacity-50"
+              className={`flex-1 min-w-[140px] ${primaryButtonClass}`}
             >
               {retention30Redeemed ? "Continue to cancellation" : "Continue"}
             </button>
@@ -280,36 +313,69 @@ export function SubscriptionCancelFlow({
 
       {step === "retention" ? (
         <div
-          className="w-full max-w-md rounded-2xl border border-purple-500/30 bg-zinc-950 p-6 shadow-[0_0_48px_rgba(149,65,224,0.2)]"
+          className={`max-w-md rounded-[28px] p-6 sm:p-7 ${modalShellClass}`}
           role="dialog"
           aria-modal="true"
           aria-labelledby="retention-title"
           onClick={(e) => e.stopPropagation()}
         >
-          <p className="text-xs font-semibold uppercase tracking-wide text-purple-300/90">Wait — special offer</p>
-          <h2 id="retention-title" className="mt-2 text-xl font-semibold text-white">
-            30% off your next invoice
-          </h2>
-          <p className="mt-2 text-sm text-zinc-400 leading-relaxed">
-            We can apply a one-time 30% discount on your next renewal automatically. This offer can only be used once per account.
-          </p>
-          {err ? <p className="mt-3 text-sm text-amber-200/90">{err}</p> : null}
-          <div className="mt-6 flex flex-wrap gap-3">
+          <div className="flex items-start justify-between gap-4">
+            <div className="flex items-center gap-3">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-violet-500/20 bg-violet-500/[0.10] text-violet-300">
+                <Gift className="h-5 w-5" />
+              </div>
+              <div>
+                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-violet-300/80">Special offer</p>
+                <h2 id="retention-title" className="mt-2 text-[28px] font-semibold leading-none text-white">
+                  Stay with 30% off
+                </h2>
+              </div>
+            </div>
             <button
               type="button"
-              disabled={busy}
-              onClick={() => void openStripeCancelPortal()}
-              className="flex-1 min-w-[120px] rounded-xl border border-white/15 bg-zinc-900 px-4 py-3 text-sm font-medium text-white hover:bg-zinc-800 cursor-pointer disabled:opacity-50"
+              className="shrink-0 rounded-full border border-white/10 bg-white/[0.03] p-2 text-zinc-500 transition hover:border-white/20 hover:text-white cursor-pointer"
+              aria-label="Close"
+              onClick={closeAll}
             >
-              No thanks
+              <X className="h-4 w-4" />
             </button>
+          </div>
+
+          <p className="mt-4 text-sm leading-relaxed text-zinc-400">
+            Keep access to all premium tools and get a one-time 30% discount on your next invoice. The discount is
+            applied automatically and can only be used once per account.
+          </p>
+
+          <div className="mt-5 rounded-3xl border border-violet-500/20 bg-white/[0.03] p-4">
+            <div className="flex items-start justify-between gap-4">
+              <div>
+                <p className="text-xl font-semibold text-white">30% off next invoice</p>
+                <p className="mt-1 text-sm text-zinc-400">Exclusive loyalty offer</p>
+              </div>
+              <div className="rounded-full border border-violet-500/20 bg-violet-500/[0.10] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-violet-300">
+                One time
+              </div>
+            </div>
+          </div>
+
+          {err ? <p className="mt-3 text-sm text-amber-200/90">{err}</p> : null}
+
+          <div className="mt-7 flex flex-col gap-3">
             <button
               type="button"
               disabled={busy}
               onClick={() => void applyRetention()}
-              className="flex-1 min-w-[120px] rounded-xl bg-gradient-to-b from-[#9541e0] to-[#7c30c7] px-4 py-3 text-sm font-semibold text-white shadow-[0_4px_24px_rgba(149,65,224,0.35)] hover:brightness-110 cursor-pointer disabled:opacity-50"
+              className={primaryButtonClass}
             >
-              {busy ? "Applying…" : "Apply 30% off"}
+              {busy ? "Applying…" : "Apply 30% discount"}
+            </button>
+            <button
+              type="button"
+              disabled={busy}
+              onClick={() => void openStripeCancelPortal()}
+              className={subtleTextButtonClass}
+            >
+              No thanks, continue cancellation
             </button>
           </div>
         </div>
@@ -317,21 +383,25 @@ export function SubscriptionCancelFlow({
 
       {step === "success" ? (
         <div
-          className="w-full max-w-md rounded-2xl border border-emerald-500/25 bg-zinc-950 p-6"
+          className={`max-w-md rounded-[28px] p-6 sm:p-7 ${modalShellClass}`}
           role="dialog"
           aria-modal="true"
           onClick={(e) => e.stopPropagation()}
         >
-          <h2 className="text-xl font-semibold text-white">You are all set</h2>
-          <p className="mt-2 text-sm text-zinc-400">
-            Your one-time 30% discount is applied to your subscription. It will appear on your next invoice.
+          <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-violet-500/20 bg-violet-500/[0.10] text-violet-300">
+            <Gift className="h-5 w-5" />
+          </div>
+          <p className="mt-4 text-[11px] font-semibold uppercase tracking-[0.22em] text-violet-300/80">Discount applied</p>
+          <h2 className="mt-3 text-[28px] font-semibold leading-none text-white">You are all set</h2>
+          <p className="mt-3 text-sm leading-relaxed text-zinc-400">
+            Your one-time 30% discount has been added to your subscription and will appear on your next invoice.
           </p>
           <button
             type="button"
-            className="mt-6 w-full rounded-xl bg-gradient-to-b from-[#9541e0] to-[#7c30c7] px-4 py-3 text-sm font-semibold text-white cursor-pointer"
+            className={`mt-7 w-full ${primaryButtonClass}`}
             onClick={closeAll}
           >
-            Close
+            Keep my subscription
           </button>
         </div>
       ) : null}
