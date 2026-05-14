@@ -10,7 +10,7 @@ const SURVEY_REASONS = [
   { id: "credits", label: "Not enough credits" },
   { id: "price", label: "Too expensive" },
   { id: "bugs", label: "Bugs or downtime" },
-  { id: "features", label: "Missing a specific feature I need" },
+  { id: "features", label: "Missing a specific tool I need" },
   { id: "alternative", label: "I found a better alternative" },
   { id: "one_time", label: "I only needed it for a one-time project" },
 ] as const;
@@ -265,7 +265,7 @@ export function SubscriptionCancelFlow({
         >
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-violet-300/80">
+              <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-rose-300/80">
                 Subscription
               </p>
               <h2 id="cancel-confirm-title" className="mt-3 text-[28px] font-semibold leading-none text-white">
@@ -282,14 +282,17 @@ export function SubscriptionCancelFlow({
             </button>
           </div>
 
-          <p className="mt-4 text-sm leading-relaxed text-zinc-400">
-            Your access will stay active until the end of your current billing period. Before you leave, we can still
-            offer you a one-time 30% discount on your next invoice.
+          <p className="mt-4 text-sm leading-relaxed text-zinc-300">
+            Warning: if you continue, you may lose access to your premium tools, connected accounts, and saved data
+            once your cancellation takes effect.
           </p>
 
-          <div className="mt-5 rounded-2xl border border-violet-500/20 bg-violet-500/[0.06] px-4 py-3">
-            <p className="text-sm font-medium text-white">Keep your premium access without interruption.</p>
-            <p className="mt-1 text-sm text-zinc-400">If the price is the issue, the loyalty offer appears on the next step.</p>
+          <div className="mt-5 rounded-2xl border border-rose-500/25 bg-rose-500/[0.10] px-4 py-3">
+            <p className="text-sm font-semibold text-rose-100">Important</p>
+            <p className="mt-1 text-sm leading-relaxed text-rose-100/85">
+              After your current billing period ends, access to linked accounts, premium features, and stored data may
+              be removed. Make sure you have saved anything you need before continuing.
+            </p>
           </div>
 
           <div className="mt-7 flex flex-col gap-3">
@@ -305,7 +308,7 @@ export function SubscriptionCancelFlow({
               type="button"
               disabled={busy}
               onClick={() => setStep("survey")}
-              className="rounded-2xl border border-transparent px-4 py-2 text-sm font-medium text-zinc-500 transition hover:text-white cursor-pointer disabled:opacity-50"
+              className="rounded-2xl border border-rose-500/20 bg-rose-500/[0.08] px-4 py-2 text-sm font-medium text-rose-200 transition hover:border-rose-400/40 hover:bg-rose-500/[0.14] hover:text-white cursor-pointer disabled:opacity-50"
             >
               Continue to cancellation
             </button>
@@ -359,7 +362,7 @@ export function SubscriptionCancelFlow({
           <textarea
             value={details}
             onChange={(e) => setDetails(e.target.value)}
-            placeholder="Anything else you want to share? (optional)"
+            placeholder="Anything else you want to share?"
             rows={3}
             className="mt-4 w-full resize-none rounded-2xl border border-white/10 bg-white/[0.03] px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:border-violet-500/50 focus:outline-none"
           />
@@ -369,7 +372,7 @@ export function SubscriptionCancelFlow({
               type="button"
               disabled={busy}
               onClick={closeAll}
-              className={`flex-1 min-w-[140px] ${secondaryButtonClass}`}
+              className={`flex-1 min-w-[140px] ${primaryButtonClass}`}
             >
               I changed my mind
             </button>
@@ -377,7 +380,7 @@ export function SubscriptionCancelFlow({
               type="button"
               disabled={busy}
               onClick={() => void handleSurveyContinue()}
-              className={`flex-1 min-w-[140px] ${primaryButtonClass}`}
+              className={`flex-1 min-w-[140px] ${secondaryButtonClass}`}
             >
               {retention30Redeemed ? "Continue to cancellation" : "Continue"}
             </button>
@@ -387,27 +390,19 @@ export function SubscriptionCancelFlow({
 
       {step === "retention" ? (
         <div
-          className={`max-w-md rounded-[28px] p-6 sm:p-7 ${modalShellClass}`}
+          className="relative w-full max-w-md rounded-2xl border border-violet-500/30 bg-[#0a0a0f] p-6 shadow-xl shadow-violet-500/10"
           role="dialog"
           aria-modal="true"
           aria-labelledby="retention-title"
           onClick={(e) => e.stopPropagation()}
         >
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl border border-violet-500/20 bg-violet-500/[0.10] text-violet-300">
-                <Gift className="h-5 w-5" />
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-violet-300/80">Special offer</p>
-                <h2 id="retention-title" className="mt-2 text-[28px] font-semibold leading-none text-white">
-                  Stay with 30% off
-                </h2>
-              </div>
-            </div>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 id="retention-title" className="flex items-center gap-2 text-xl font-bold text-white">
+              Wait! 🎁
+            </h2>
             <button
               type="button"
-              className="shrink-0 rounded-full border border-white/10 bg-white/[0.03] p-2 text-zinc-500 transition hover:border-white/20 hover:text-white cursor-pointer"
+              className="rounded-lg p-1 text-zinc-400 transition hover:bg-zinc-800 hover:text-white cursor-pointer"
               aria-label="Close"
               onClick={closeAll}
             >
@@ -415,43 +410,47 @@ export function SubscriptionCancelFlow({
             </button>
           </div>
 
-          <p className="mt-4 text-sm leading-relaxed text-zinc-400">
-            Keep access to all premium tools and get a one-time 30% discount on your next invoice. The discount is
-            applied automatically and can only be used once per account.
+          <div className="my-6 flex justify-center">
+            <div className="flex h-16 w-16 items-center justify-center rounded-full bg-violet-500/15 text-violet-300">
+              <Gift className="h-8 w-8" strokeWidth={1.75} />
+            </div>
+          </div>
+
+          <p className="mb-1 text-center text-lg font-semibold text-white">We have a special offer for you!</p>
+          <p className="mb-6 text-center text-sm text-zinc-300">
+            Stay with us and get <span className="font-bold text-violet-300">-30%</span> on your next month&apos;s
+            subscription.
           </p>
 
-          <div className="mt-5 rounded-3xl border border-violet-500/20 bg-white/[0.03] p-4">
-            <div className="flex items-start justify-between gap-4">
-              <div>
-                <p className="text-xl font-semibold text-white">30% off next invoice</p>
-                <p className="mt-1 text-sm text-zinc-400">Exclusive loyalty offer</p>
-              </div>
-              <div className="rounded-full border border-violet-500/20 bg-violet-500/[0.10] px-3 py-1 text-xs font-semibold uppercase tracking-wide text-violet-300">
-                One time
-              </div>
+          <div className="mb-6 flex items-center justify-between gap-3 rounded-xl border-2 border-dashed border-violet-500/30 bg-zinc-800/50 p-4">
+            <div>
+              <p className="font-bold text-violet-300">-30% for 1 month</p>
+              <p className="text-sm text-zinc-400">Exclusive loyalty offer</p>
             </div>
+            <span className="text-2xl" aria-hidden="true">
+              🎉
+            </span>
           </div>
 
           {err ? <p className="mt-3 text-sm text-amber-200/90">{err}</p> : null}
 
-          <div className="mt-7 flex flex-col gap-3">
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void applyRetention()}
-              className={primaryButtonClass}
-            >
-              {busy ? "Applying…" : "Apply 30% discount"}
-            </button>
-            <button
-              type="button"
-              disabled={busy}
-              onClick={() => void handleDeclineRetention()}
-              className={subtleTextButtonClass}
-            >
-              No thanks, continue cancellation
-            </button>
-          </div>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void applyRetention()}
+            className="flex w-full items-center justify-center gap-2 rounded-xl bg-violet-400 px-4 py-3.5 font-semibold text-[#0d0d12] transition hover:shadow-[0_0_20px_4px_rgba(168,85,247,0.35)] cursor-pointer disabled:opacity-50"
+          >
+            {busy ? "Applying…" : "Enjoy the -30% offer 🎁"}
+          </button>
+          <button
+            type="button"
+            disabled={busy}
+            onClick={() => void handleDeclineRetention()}
+            className="mt-4 w-full text-center text-sm text-zinc-500 transition hover:text-zinc-400 cursor-pointer disabled:opacity-50"
+          >
+            No thanks, I still want to cancel. I understand I may lose access to my subscription benefits, accounts,
+            and data when cancellation takes effect.
+          </button>
         </div>
       ) : null}
 
