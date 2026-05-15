@@ -2,17 +2,12 @@
 
 import { useState, useMemo } from 'react'
 import { ArrowUpDown, Search, History, Info } from 'lucide-react'
-
-type UsageRow = {
-  id?: number
-  email: string | null
-  delta: number
-  used_today: number | null
-  at: string
-  created_at?: string
-  user_agent?: string | null
-  source?: string | null
-}
+import {
+  filterHiggsfieldEvents,
+  summarizeHiggsfieldUsageRows,
+  type HiggsfieldEventFilterMode,
+  type HiggsfieldUsageEvent as UsageRow,
+} from './higgsfieldUsageUtils'
 
 type EmailRow = { email: string; credits: number }
 
@@ -145,6 +140,7 @@ export function HiggsfieldEventsTable({ data }: { data: UsageRow[] }) {
   const [sortField, setSortField] = useState<'date' | 'email' | 'delta' | 'used_today' | 'source'>('date')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
   const [filter, setFilter] = useState('')
+  const [mode, setMode] = useState<HiggsfieldEventFilterMode>('chargeable')
 
   function toggleSort(field: typeof sortField) {
     if (sortField === field) {
@@ -156,11 +152,7 @@ export function HiggsfieldEventsTable({ data }: { data: UsageRow[] }) {
   }
 
   const filtered = useMemo(() => {
-    let rows = data
-    if (filter.trim()) {
-      const q = filter.trim().toLowerCase()
-      rows = rows.filter(r => (r.email || '').toLowerCase().includes(q))
-    }
+    const rows = filterHiggsfieldEvents(data, { mode, emailQuery: filter })
     return [...rows].sort((a, b) => {
       let cmp = 0
       switch (sortField) {
@@ -185,7 +177,7 @@ export function HiggsfieldEventsTable({ data }: { data: UsageRow[] }) {
       }
       return sortDir === 'asc' ? cmp : -cmp
     })
-  }, [data, sortField, sortDir, filter])
+  }, [data, sortField, sortDir, filter, mode])
 
   return (
     <div>
@@ -200,6 +192,26 @@ export function HiggsfieldEventsTable({ data }: { data: UsageRow[] }) {
             placeholder="Filtrer par email…"
             className="w-full pl-9 pr-3 py-1.5 bg-gray-900/60 border border-white/10 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-purple-500/50"
           />
+        </div>
+        <div className="flex items-center gap-2">
+          {([
+            { id: 'chargeable', label: 'Avec coût' },
+            { id: 'all', label: 'Tous' },
+            { id: 'unlimited', label: 'Unlimited' },
+          ] as const).map(option => (
+            <button
+              key={option.id}
+              type="button"
+              onClick={() => setMode(option.id)}
+              className={`px-3 py-1.5 rounded-lg border text-xs transition-colors ${
+                mode === option.id
+                  ? 'bg-purple-500/20 border-purple-500/40 text-white'
+                  : 'bg-gray-900/60 border-white/10 text-gray-400 hover:text-white'
+              }`}
+            >
+              {option.label}
+            </button>
+          ))}
         </div>
         <span className="text-xs text-gray-500">{filtered.length} événement{filtered.length !== 1 ? 's' : ''}</span>
       </div>
@@ -274,7 +286,7 @@ export function HiggsfieldCreditHistory({ data }: { data: UsageRow[] }) {
   const PAGE_SIZE = 50
 
   const filtered = useMemo(() => {
-    let rows = data
+    let rows = summarizeHiggsfieldUsageRows(data).chargeableRows
     if (filter.trim()) {
       const q = filter.trim().toLowerCase()
       rows = rows.filter(r =>

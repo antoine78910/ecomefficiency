@@ -11,6 +11,13 @@ const {
   MessageFlags,
 } = require('discord.js');
 const { generateSync } = require('otplib');
+const {
+  buildOtpAppReply,
+  buildScreenshotFallbackReply,
+  collectImageAttachments,
+  isOtpHelpRequest,
+  shouldHandleSupportMessage,
+} = require('./support');
 // Node 18+ provides global fetch; no need for node-fetch
 const path = require('path');
 const fs = require('fs');
@@ -47,11 +54,15 @@ const ROLE_IDS = {
   friend: '1408079878724648971',
   other: '1408079965819244564',
 }
-const SUBSCRIBER_ROLE_ID = '1244916325294542858' // Ecom Agent
+const ECOM_AGENT_ROLE_ID = String(process.env.DISCORD_ECOM_AGENT_ROLE_ID || '1244916325294542858').trim();
+const SUBSCRIBER_ROLE_ID = ECOM_AGENT_ROLE_ID; // Ecom Agent
 const POLL_INTERVAL_MS = Number(process.env.CREDENTIALS_POLL_INTERVAL_MS || 5 * 60 * 1000); // default 5 min
 const POST_URL = process.env.CREDENTIALS_POST_URL;
 const SECRET = process.env.CREDENTIALS_SECRET;
 const BRAIN_CANVA_CHANNEL_ID = process.env.BRAIN_CANVA_CHANNEL_ID || '1245005003425447976';
+const DISCORD_SUPPORT_CHANNEL_ID = String(process.env.DISCORD_SUPPORT_CHANNEL_ID || '').trim();
+const DISCORD_SUPPORT_OPENAI_MODEL = String(process.env.DISCORD_SUPPORT_OPENAI_MODEL || 'gpt-4o-mini').trim();
+const OPENAI_API_KEY = String(process.env.OPENAI_API_KEY || '').trim();
 
 /** Channel where the bot posts the “Get the code” TOTP panel (default: your AdsPower helper channel). */
 const DISCORD_ADSPOWER_OTP_CHANNEL_ID =
@@ -270,6 +281,136 @@ function messageHasAdspowerOtpButton(message) {
       }
     }
   } catch {}
+  return false;
+}
+
+function extractOpenAiResponseText(payload) {
+  const direct = typeof payload?.output_text === 'string' ? payload.output_text.trim() : '';
+  if (direct) return direct;
+
+  const out = Array.isArray(payload?.output) ? payload.output : [];
+  const chunks = [];
+  for (const item of out) {
+    const content = Array.isArray(item?.content) ? item.content : [];
+    for (const part of content) {
+      if (typeof part?.text === 'string' && part.text.trim()) chunks.push(part.text.trim());
+      if (typeof part?.output_text === 'string' && part.output_text.trim()) chunks.push(part.output_text.trim());
+    }
+  }
+  return chunks.join('\n').trim();
+}
+
+async function generateDiscordSupportReply({ messageText, imageAttachments }) {
+  if (!OPENAI_API_KEY) return '';
+
+  const safeText = String(messageText || '').trim();
+  const images = Array.isArray(imageAttachments) ? imageAttachments.slice(0, 3) : [];
+  const userContent = [];
+
+  userContent.push({
+    type: 'input_text',
+    text:
+      'User support message:\n' +
+      `${safeText || '(no text, screenshot only)'}\n\n` +
+      'If the user asks for a code, OTP, login code, 2FA, or authenticator code, tell them to go to the app to get the OTP code.',
+  });
+
+  for (const image of images) {
+    if (!image?.url) continue;
+    userContent.push({
+      type: 'input_image',
+      image_url: image.url,
+    });
+  }
+
+  try {
+    const res = await fetch('https://api.openai.com/v1/responses', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
+      },
+      body: JSON.stringify({
+        model: DISCORD_SUPPORT_OPENAI_MODEL,
+        max_output_tokens: 350,
+        input: [
+          {
+            role: 'system',
+            content: [
+              {
+                type: 'input_text',
+                text:
+                  'You are Ecom Efficiency Discord support. Reply in English. Be concise, practical, and specific. ' +
+                  'If the user shared a screenshot, inspect it and explain what you can actually see. ' +
+                  'If the issue is unclear, ask one focused follow-up question. ' +
+                  'Never invent access, internal state, or actions you did not verify.',
+              },
+            ],
+          },
+          {
+            role: 'user',
+            content: userContent,
+          },
+        ],
+      }),
+    });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '');
+      console.warn('[BOT] Discord support AI request failed', res.status, txt.slice(0, 240));
+      return '';
+    }
+    const json = await res.json().catch(() => ({}));
+    return extractOpenAiResponseText(json);
+  } catch (e) {
+    console.warn('[BOT] Discord support AI error', e?.message || e);
+    return '';
+  }
+}
+
+async function replyToSupportMessage(message, content) {
+  const safe = String(content || '').trim().slice(0, 1900);
+  if (!safe) return false;
+  try {
+    await message.reply({
+      content: safe,
+      allowedMentions: { repliedUser: false },
+    });
+    return true;
+  } catch (e) {
+    console.warn('[BOT] Discord support reply failed', e?.message || e);
+    return false;
+  }
+}
+
+async function maybeHandleSupportMessage(message) {
+  const shouldHandle = shouldHandleSupportMessage(message, {
+    supportChannelId: DISCORD_SUPPORT_CHANNEL_ID,
+    otpChannelId: DISCORD_ADSPOWER_OTP_CHANNEL_ID,
+    botUserId: client.user?.id || '',
+    credentialChannelIds: [CHANNEL_ID, PRO_CHANNEL_ID],
+  });
+  if (!shouldHandle) return false;
+
+  const messageText = String(message?.content || '').trim();
+  if (isOtpHelpRequest(messageText)) {
+    await replyToSupportMessage(message, buildOtpAppReply());
+    return true;
+  }
+
+  const imageAttachments = collectImageAttachments(message);
+  if (!messageText && !imageAttachments.length) return false;
+
+  const aiReply = await generateDiscordSupportReply({ messageText, imageAttachments });
+  if (aiReply) {
+    await replyToSupportMessage(message, aiReply);
+    return true;
+  }
+
+  if (imageAttachments.length) {
+    await replyToSupportMessage(message, buildScreenshotFallbackReply(messageText));
+    return true;
+  }
+
   return false;
 }
 
@@ -650,6 +791,9 @@ client.once(Events.ClientReady, async (c) => {
 
 client.on(Events.MessageCreate, async (message) => {
   if (!message?.channelId) return;
+  if (await maybeHandleSupportMessage(message)) {
+    return;
+  }
   if (CHANNEL_ID && String(message.channelId) === String(CHANNEL_ID)) {
     await handleMessage(message);
     return;

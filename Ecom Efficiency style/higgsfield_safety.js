@@ -196,6 +196,37 @@
     return false;
   }
 
+  const DEFAULT_SUPERCOMPUTER_HIDE_SELECTORS = {
+    nav: [
+      'a[href="/supercomputer"]',
+      'a[data-header-active-on*="/supercomputer"]',
+    ],
+    card: [
+      'a[href^="https://higgsfield.ai/supercomputer"]',
+      'a[href^="https://www.higgsfield.ai/supercomputer"]',
+    ],
+    banner: [
+      'img[src*="spc-desktop-banner.png"]',
+      'img[src*="spc-mobile-banner.png"]',
+    ],
+  };
+
+  function getSupercomputerHideSelectors() {
+    try {
+      const sharedRules = globalThis.EE_HIGGSFIELD_SUPERCOMPUTER_RULES;
+      const sharedSelectors = sharedRules && sharedRules.SUPERCOMPUTER_HIDE_SELECTORS;
+      if (
+        sharedSelectors &&
+        Array.isArray(sharedSelectors.nav) &&
+        Array.isArray(sharedSelectors.card) &&
+        Array.isArray(sharedSelectors.banner)
+      ) {
+        return sharedSelectors;
+      }
+    } catch (_) {}
+    return DEFAULT_SUPERCOMPUTER_HIDE_SELECTORS;
+  }
+
   function redirectHome() {
     try {
       // Keep same origin (handles www vs non-www)
@@ -209,6 +240,11 @@
   function ensureCss() {
     const id = 'ee-higgsfield-safety-css';
     if (document.getElementById(id)) return;
+    const supercomputerSelectors = getSupercomputerHideSelectors();
+    const hiddenSupercomputerLinks = [
+      ...supercomputerSelectors.nav,
+      ...supercomputerSelectors.card,
+    ].join(',\n      ');
     const style = document.createElement('style');
     style.id = id;
     style.textContent = `
@@ -259,6 +295,7 @@
       a[href="/canvas"],
       a[href="/cli"],
       a[href="/mcp"],
+      ${hiddenSupercomputerLinks},
       a[data-header-active-on*="/cli"],
       a[data-header-active-on*="/mcp"],
       a[href^="https://higgsfield.ai/canvas"],
@@ -276,10 +313,22 @@
 
     // Add :has()-based rules separately so older engines don't drop the whole block
     try {
+      const supercomputerCardContainers = supercomputerSelectors.card
+        .map((selector) => `li:has(${selector})`)
+        .join(',\n        ');
+      const supercomputerBannerContainers = supercomputerSelectors.banner
+        .map((selector) => `div.relative.w-full:has(${selector})`)
+        .join(',\n        ');
       const style2 = document.createElement('style');
       style2.id = 'ee-higgsfield-safety-css-has';
       style2.textContent = `
-        [data-radix-popper-content-wrapper]:has(#profile-menu) { display: none !important; }
+        [data-radix-popper-content-wrapper]:has(#profile-menu),
+        ${supercomputerCardContainers},
+        ${supercomputerBannerContainers} {
+          display: none !important;
+          visibility: hidden !important;
+          pointer-events: none !important;
+        }
       `;
       document.documentElement.appendChild(style2);
     } catch (_) {}
@@ -897,10 +946,24 @@
 
   function removeBlockedPromoLinks() {
     try {
+      const supercomputerSelectors = getSupercomputerHideSelectors();
+      const selectorList = [
+        'a[href="/canvas"]',
+        'a[href="/cli"]',
+        'a[href="/mcp"]',
+        'a[data-header-active-on*="/cli"]',
+        'a[data-header-active-on*="/mcp"]',
+        'a[href^="https://higgsfield.ai/cli"]',
+        'a[href^="https://www.higgsfield.ai/cli"]',
+        'a[href^="https://higgsfield.ai/canvas"]',
+        'a[href^="https://www.higgsfield.ai/canvas"]',
+        'a[href^="https://higgsfield.ai/mcp"]',
+        'a[href^="https://www.higgsfield.ai/mcp"]',
+        ...supercomputerSelectors.nav,
+        ...supercomputerSelectors.card,
+      ].join(',');
       const links = Array.from(
-        document.querySelectorAll(
-          'a[href="/canvas"],a[href="/cli"],a[href="/mcp"],a[data-header-active-on*="/cli"],a[data-header-active-on*="/mcp"],a[href^="https://higgsfield.ai/cli"],a[href^="https://www.higgsfield.ai/cli"],a[href^="https://higgsfield.ai/canvas"],a[href^="https://www.higgsfield.ai/canvas"],a[href^="https://higgsfield.ai/mcp"],a[href^="https://www.higgsfield.ai/mcp"]'
-        )
+        document.querySelectorAll(selectorList)
       );
 
       for (const a of links) {
@@ -938,6 +1001,22 @@
           // Last resort: just remove the link itself (CSS already hides it too)
           a.remove();
         } catch (_) {}
+      }
+    } catch (_) {}
+  }
+
+  function removeSupercomputerBanners() {
+    try {
+      const bannerSelectors = getSupercomputerHideSelectors().banner;
+      const images = Array.from(document.querySelectorAll(bannerSelectors.join(',')));
+      for (const img of images) {
+        if (!img || img.nodeType !== 1) continue;
+        const root =
+          img.closest('div.relative.w-full') ||
+          img.closest('div.relative') ||
+          img.closest('div') ||
+          img;
+        hideElementHard(root, 'supercomputer-banner');
       }
     } catch (_) {}
   }
@@ -1029,6 +1108,7 @@
     unblurPage();
     restoreInteractivity();
     removeBlockedPromoLinks();
+    removeSupercomputerBanners();
     removeHomeMarketingBlocks();
   }
 

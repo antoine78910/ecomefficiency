@@ -2,19 +2,9 @@ import AdminNavigation from '@/components/AdminNavigation'
 import { Zap } from 'lucide-react'
 import { supabaseAdmin } from '@/integrations/supabase/server'
 import { HiggsfieldEmailTable, HiggsfieldEventsTable, HiggsfieldCreditHistory } from '@/components/HiggsfieldTables'
+import { summarizeHiggsfieldUsageRows, type HiggsfieldUsageEvent } from '@/components/higgsfieldUsageUtils'
 
 export const dynamic = 'force-dynamic'
-
-type UsageRow = {
-  id?: number
-  email: string | null
-  delta: number
-  used_today: number | null
-  at: string
-  created_at?: string
-  user_agent?: string | null
-  source?: string | null
-}
 
 async function fetchHiggsfieldUsage() {
   if (!supabaseAdmin) return { events: [], totalCredits: 0, byEmail: [], unlimitedClicks: 0, unlimitedCredits: 0, standardClicks: 0, standardCredits: 0 }
@@ -38,29 +28,17 @@ async function fetchHiggsfieldUsage() {
     console.error('[admin/higgsfield]', error.message)
     return { events: [], totalCredits: 0, byEmail: [], unlimitedClicks: 0, unlimitedCredits: 0, standardClicks: 0, standardCredits: 0 }
   }
-  const rows = (events || []) as UsageRow[]
-  const totalCredits = rows.reduce((sum, r) => sum + (Number(r.delta) || 0), 0)
-  let unlimitedClicks = 0
-  let unlimitedCredits = 0
-  let standardClicks = 0
-  let standardCredits = 0
-  const byEmailMap = new Map<string, number>()
-  for (const r of rows) {
-    const key = (r.email || '').trim() || '(sans email)'
-    byEmailMap.set(key, (byEmailMap.get(key) || 0) + (Number(r.delta) || 0))
-    const src = (r.source || '').toLowerCase()
-    if (src === 'unlimited_generate') {
-      unlimitedClicks += 1
-      unlimitedCredits += Number(r.delta) || 0
-    } else if (src === 'standard_generate') {
-      standardClicks += 1
-      standardCredits += Number(r.delta) || 0
-    }
+  const rows = (events || []) as HiggsfieldUsageEvent[]
+  const summary = summarizeHiggsfieldUsageRows(rows)
+  return {
+    events: rows,
+    totalCredits: summary.totalCredits,
+    byEmail: summary.byEmail,
+    unlimitedClicks: summary.unlimitedClicks,
+    unlimitedCredits: summary.unlimitedCredits,
+    standardClicks: summary.standardClicks,
+    standardCredits: summary.standardCredits,
   }
-  const byEmail = Array.from(byEmailMap.entries())
-    .map(([email, credits]) => ({ email, credits }))
-    .sort((a, b) => b.credits - a.credits)
-  return { events: rows, totalCredits, byEmail, unlimitedClicks, unlimitedCredits, standardClicks, standardCredits }
 }
 
 export default async function AdminHiggsfieldPage() {

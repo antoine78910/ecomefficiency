@@ -33,6 +33,27 @@ CREDENTIALS_SECRET=un_secret_a_toi
 
 L'API `/api/credentials` accepte un header optionnel `Authorization: Bearer <CREDENTIALS_SECRET>` pour sécuriser la mise à jour.
 
+### Discord Support / OTP
+
+The Discord bot in `next/bot/index.js` can also answer support requests:
+
+```bash
+# Optional: support channel where the bot can answer text questions and screenshot issues
+DISCORD_SUPPORT_CHANNEL_ID=123456789012345678
+
+# Optional: OpenAI vision support for screenshot reading
+OPENAI_API_KEY=sk-...
+DISCORD_SUPPORT_OPENAI_MODEL=gpt-4o-mini
+
+# Optional: override the Ecom Agent paid role id used by the bot config
+DISCORD_ECOM_AGENT_ROLE_ID=1244916325294542858
+```
+
+Current support behavior:
+- Natural-language OTP requests such as `I need a code` tell the user to go to the app to get the OTP code.
+- Screenshot attachments can be analyzed through OpenAI when `OPENAI_API_KEY` is configured.
+- Without OpenAI vision configured, the bot falls back to an English reply asking for the exact page, click path, and visible error.
+
 ### Autres Variables
 
 Voir le fichier `.env.example` pour la liste complète des variables d'environnement nécessaires.

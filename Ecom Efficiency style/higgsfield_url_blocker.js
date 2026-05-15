@@ -1,19 +1,22 @@
 // higgsfield_url_blocker.js - Block access to specific Higgsfield pages
-// Blocks: /cli, /canvas, /mcp (requested)
+// Blocks: /cli, /canvas, /mcp, /supercomputer
 
 (function () {
   'use strict';
 
-  const BLOCKED_PATH_PREFIXES = ['/cli', '/canvas', '/mcp'];
-
-  function shouldBlockPath(pathname) {
-    try {
-      const p = String(pathname || '');
-      return BLOCKED_PATH_PREFIXES.some((prefix) => p === prefix || p.startsWith(prefix + '/'));
-    } catch {
-      return false;
-    }
-  }
+  const sharedRules = globalThis.EE_HIGGSFIELD_SUPERCOMPUTER_RULES || {};
+  const shouldBlockPath = typeof sharedRules.shouldBlockHiggsfieldPath === 'function'
+    ? sharedRules.shouldBlockHiggsfieldPath
+    : function (pathname) {
+        try {
+          const p = String(pathname || '');
+          return ['/cli', '/canvas', '/mcp', '/supercomputer'].some(
+            (prefix) => p === prefix || p.startsWith(prefix + '/')
+          );
+        } catch {
+          return false;
+        }
+      };
 
   function redirectToBlocked() {
     try {
@@ -83,12 +86,13 @@
         const a = e.target && e.target.closest ? e.target.closest('a') : null;
         const href = a && a.getAttribute ? a.getAttribute('href') : '';
         if (!href) return;
-        // Only consider same-origin path links
-        if (href.startsWith('/')) {
-          if (shouldBlockPath(href.split('?')[0].split('#')[0])) {
-            e.preventDefault();
-            redirectToBlocked();
-          }
+
+        const targetUrl = new URL(href, location.href);
+        if (targetUrl.origin !== location.origin) return;
+
+        if (shouldBlockPath(targetUrl.pathname)) {
+          e.preventDefault();
+          redirectToBlocked();
         }
       } catch {
         // ignore
