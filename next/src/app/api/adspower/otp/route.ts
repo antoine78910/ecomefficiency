@@ -103,11 +103,9 @@ export async function GET(req: NextRequest) {
   try {
     const host = cleanDomain(req.headers.get("x-forwarded-host") || req.headers.get("host") || "");
     const mappedPartner = await partnerSlugFromHost(host);
-    if (mappedPartner) {
-      return NextResponse.json({ ok: false, error: "not_available" }, { status: 403 });
-    }
-
-    if (process.env.VERCEL_ENV === "production" && host !== "app.ecomefficiency.com") {
+    const isMainAppHost = host === "app.ecomefficiency.com";
+    const isWhiteLabelHost = Boolean(mappedPartner);
+    if (process.env.VERCEL_ENV === "production" && !isMainAppHost && !isWhiteLabelHost) {
       return NextResponse.json({ ok: false, error: "forbidden_host" }, { status: 403 });
     }
 
@@ -137,7 +135,7 @@ export async function GET(req: NextRequest) {
     const email = String(user.email || "").trim();
     const stripeCustomerId = String(((user.user_metadata as any) || {}).stripe_customer_id || "").trim();
 
-    const allowed = await stripeHasActiveToolAccess(email, stripeCustomerId, "");
+    const allowed = await stripeHasActiveToolAccess(email, stripeCustomerId, mappedPartner);
     if (!allowed) {
       return NextResponse.json({ ok: false, error: "subscription_required" }, { status: 403 });
     }

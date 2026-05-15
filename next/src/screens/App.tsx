@@ -1350,13 +1350,11 @@ function CredentialsPanel({
   }, [adspowerOtpTotpValidUntilUnix])
 
   const fetchAdsPowerOtpCode = React.useCallback(async () => {
-    if (!isEcomEfficiencyAppHost) return
     void trackAdsPowerOtpEvent("adspower_get_code_click", { plan })
     setAdspowerOtpConfirmOpen(true)
-  }, [isEcomEfficiencyAppHost, plan, trackAdsPowerOtpEvent])
+  }, [plan, trackAdsPowerOtpEvent])
 
   const confirmFetchAdsPowerOtpCode = React.useCallback(async () => {
-    if (!isEcomEfficiencyAppHost) return
     setAdspowerOtpConfirmOpen(false)
     setAdspowerOtpErr(null)
     setAdspowerOtpCode(null)
@@ -1424,7 +1422,7 @@ function CredentialsPanel({
     } finally {
       setAdspowerOtpBusy(false)
     }
-  }, [isEcomEfficiencyAppHost, plan, creds, trackAdsPowerOtpEvent])
+  }, [plan, creds, trackAdsPowerOtpEvent])
 
   useEffect(() => {
     let active = true;
@@ -2092,8 +2090,6 @@ function CredentialsPanel({
 
             const showAdsPowerOtpGetCode =
               !preview &&
-              !whiteLabel &&
-              isEcomEfficiencyAppHost &&
               (currentPlan === "starter" || currentPlan === "pro");
             const adGridCols = showAdsPowerOtpGetCode
               ? "grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_auto] gap-4 items-start"
