@@ -17,6 +17,9 @@ function detectCheckoutCurrency(): "EUR" | "USD" {
 
 type Plan = "checking" | "free" | "starter" | "pro";
 
+/** Temporary: hide Cancel subscription on /subscription. Set to `true` to restore. */
+const SHOW_CANCEL_SUBSCRIPTION_BUTTON = false;
+
 export default function SubscriptionPage() {
   const [plan, setPlan] = React.useState<Plan>("checking");
   const [email, setEmail] = React.useState<string>("");
@@ -215,7 +218,8 @@ export default function SubscriptionPage() {
   };
 
   const paidPlan = plan === "starter" || plan === "pro";
-  const allowCancelFlow = !partnerSlug && paidPlan && !cancelAtPeriodEnd;
+  const allowCancelFlow =
+    SHOW_CANCEL_SUBSCRIPTION_BUTTON && !partnerSlug && paidPlan && !cancelAtPeriodEnd;
   const showResume = !partnerSlug && paidPlan && cancelAtPeriodEnd;
 
   const periodEndLabel = React.useMemo(() => {
