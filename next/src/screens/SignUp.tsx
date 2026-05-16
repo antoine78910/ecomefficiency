@@ -13,6 +13,7 @@ import { useSessionTracking } from "@/hooks/useSessionTracking";
 import GoogleButton from "@/components/GoogleButton";
 import { trackFirstPromoterReferral } from "@/lib/firstpromoterReferral";
 import { trackFunnelEvent } from "@/lib/funnelTrackingClient";
+import { fireGoogleAdsSignupConversion } from "@/lib/googleAdsConversions";
 // Discord removed per request
 
 const SignUp = () => {
@@ -118,6 +119,7 @@ const SignUp = () => {
             userId: user?.id,
             email: user?.email || email,
           });
+          if (user?.id) fireGoogleAdsSignupConversion(user.id);
           toast({
             title: "Account created!",
             description: "Welcome to Ecom Efficiency",

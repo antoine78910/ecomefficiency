@@ -30,6 +30,12 @@ SUPABASE_SERVICE_ROLE_KEY=ton_service_role_key
 ADMIN_PASSWORD=ton_mot_de_passe_admin
 DATAFAST_API_KEY=ton_api_key_datafast
 
+# Google Ads conversions (gtag send_to = AW-ACCOUNT_ID/CONVERSION_LABEL)
+# Purchase: default label is set in code; override if needed:
+# NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_SEND_TO=AW-18002488181/7zVqCOqVlKscEPXWoIhD
+# Sign-up: create action in Google Ads → copy label → set here (required for signup tracking):
+# NEXT_PUBLIC_GOOGLE_ADS_SIGNUP_SEND_TO=AW-18002488181/MEHOCIGEmK4cEPXWoIhD
+
 # FirstPromoter (Affiliate)
 # API key + Account ID: FirstPromoter → Settings → Integrations → API (private key / account id for API v2).
 FIRSTPROMOTER_API_KEY=ton_api_key_firstpromoter

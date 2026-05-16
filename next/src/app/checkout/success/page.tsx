@@ -3,9 +3,7 @@ import React, { useEffect, useState, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Check } from 'lucide-react';
 
-// Purchase conversion: send_to from Google Ads (env override optional)
-const GOOGLE_ADS_PURCHASE_SEND_TO =
-  process.env.NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_SEND_TO?.trim() || 'AW-18002488181/7zVqCOqVlKscEPXWoIhD';
+import { fireGoogleAdsConversion, GOOGLE_ADS_PURCHASE_SEND_TO } from '@/lib/googleAdsConversions';
 
 const PLAN_VALUES_EUR: Record<string, number> = {
   starter_monthly: 19.99,
@@ -25,40 +23,14 @@ function CheckoutSuccessContent() {
   // Google Ads: "Chargement de page" – conversion Achat au chargement de la page de confirmation
   // (recommandé pour les achats: on compte uniquement quand l’utilisateur arrive après paiement)
   useEffect(() => {
-    if (!GOOGLE_ADS_PURCHASE_SEND_TO || typeof window === 'undefined') return;
-    const sentKey = 'google_ads_purchase_conversion_sent';
-    if (sessionStorage.getItem(sentKey) === '1') return;
-
-    const scriptId = GOOGLE_ADS_PURCHASE_SEND_TO.split('/')[0];
-    if (!scriptId) return;
-
     const planKey = `${tier}_${billing}`;
     const value = PLAN_VALUES_EUR[planKey] ?? PLAN_VALUES_EUR.pro_monthly;
-
-    const fireConversion = () => {
-      const w = window as any;
-      if (w.gtag) {
-        w.gtag('event', 'conversion', {
-          send_to: GOOGLE_ADS_PURCHASE_SEND_TO,
-          value,
-          currency,
-          transaction_id: transactionId,
-        });
-        sessionStorage.setItem(sentKey, '1');
-      }
-    };
-
-    if (typeof (window as any).gtag === 'function') {
-      fireConversion();
-      return;
-    }
-    let attempts = 0;
-    const maxAttempts = 50;
-    const checkGtag = () => {
-      if (typeof (window as any).gtag === 'function') fireConversion();
-      else if (attempts++ < maxAttempts) setTimeout(checkGtag, 100);
-    };
-    setTimeout(checkGtag, 100);
+    fireGoogleAdsConversion(
+      GOOGLE_ADS_PURCHASE_SEND_TO,
+      { value, currency, transaction_id: transactionId },
+      "google_ads_purchase_conversion_sent",
+      "session",
+    );
   }, [tier, billing, currency, transactionId]);
 
   useEffect(() => {
