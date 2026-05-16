@@ -21,6 +21,7 @@ export async function trackFunnelEvent(
       body: JSON.stringify({
         event,
         landingPath: extra?.landingPath || window.location.pathname,
+        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
         userId: extra?.userId,
         email: extra?.email,
       }),

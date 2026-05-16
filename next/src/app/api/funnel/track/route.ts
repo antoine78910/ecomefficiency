@@ -15,7 +15,9 @@ export async function POST(req: NextRequest) {
     if (event === "landing") {
       const landingPath =
         typeof body?.landingPath === "string" ? body.landingPath : undefined;
-      await recordFunnelLanding(req, landingPath);
+      const clientTimezone =
+        typeof body?.timezone === "string" ? body.timezone.slice(0, 64) : undefined;
+      await recordFunnelLanding(req, landingPath, clientTimezone);
       return NextResponse.json({ ok: true });
     }
 

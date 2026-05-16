@@ -1,6 +1,7 @@
 import type { NextRequest, NextResponse } from "next/server";
 import { randomUUID } from "crypto";
 import { supabaseAdmin } from "@/integrations/supabase/server";
+import { extractFunnelRequestContext } from "@/lib/funnelRequestContext";
 
 export type FunnelChannel = "instagram" | "tiktok";
 export type FunnelEntryPath = "/try" | "/start";
@@ -8,15 +9,6 @@ export type FunnelEntryPath = "/try" | "/start";
 const VISITOR_COOKIE = "ee_funnel_vid";
 const CHANNEL_COOKIE = "ee_funnel_ch";
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 90; // 90 days
-
-function getClientIp(req: NextRequest): string | null {
-  const xf = req.headers.get("x-forwarded-for") || "";
-  if (xf) {
-    const ip = xf.split(",")[0]?.trim();
-    if (ip) return ip;
-  }
-  return req.headers.get("cf-connecting-ip") || req.headers.get("x-real-ip") || null;
-}
 
 function getCookieDomain(hostHeader: string): string | undefined {
   const host = String(hostHeader || "")
@@ -110,12 +102,7 @@ export async function recordBioLinkClick(
   if (!supabaseAdmin) return { visitorId };
 
   const utm = readUtm(req);
-  const ip_address = getClientIp(req);
-  const country =
-    (req.headers.get("cf-ipcountry") || req.headers.get("x-vercel-ip-country") || "")
-      .toUpperCase() || null;
-  const user_agent = req.headers.get("user-agent")?.slice(0, 500) || null;
-  const referrer = req.headers.get("referer")?.slice(0, 512) || null;
+  const ctx = extractFunnelRequestContext(req);
   const datafast_visitor_id = req.cookies.get("datafast_visitor_id")?.value || null;
   const now = new Date().toISOString();
 
@@ -135,10 +122,16 @@ export async function recordBioLinkClick(
         utm_source: utm.utm_source || channel,
         utm_medium: utm.utm_medium || "social",
         utm_campaign: utm.utm_campaign,
-        referrer,
-        ip_address,
-        country,
-        user_agent,
+        referrer: ctx.referrer,
+        ip_address: ctx.ip_address,
+        country: ctx.country,
+        city: ctx.city,
+        region: ctx.region,
+        accept_language: ctx.accept_language,
+        device_type: ctx.device_type,
+        browser: ctx.browser,
+        os: ctx.os,
+        user_agent: ctx.user_agent,
         datafast_visitor_id,
       })
       .eq("id", existing.id);
@@ -151,10 +144,16 @@ export async function recordBioLinkClick(
       utm_source: utm.utm_source || channel,
       utm_medium: utm.utm_medium || "social",
       utm_campaign: utm.utm_campaign,
-      referrer,
-      ip_address,
-      country,
-      user_agent,
+      referrer: ctx.referrer,
+      ip_address: ctx.ip_address,
+      country: ctx.country,
+      city: ctx.city,
+      region: ctx.region,
+      accept_language: ctx.accept_language,
+      device_type: ctx.device_type,
+      browser: ctx.browser,
+      os: ctx.os,
+      user_agent: ctx.user_agent,
       datafast_visitor_id,
     });
   }
@@ -163,6 +162,7 @@ export async function recordBioLinkClick(
     channel,
     entry_path: entryPath,
     visitor_id: visitorId,
+    ...(ctx.country ? { country: ctx.country } : {}),
   });
 
   return { visitorId };
@@ -171,6 +171,7 @@ export async function recordBioLinkClick(
 export async function recordFunnelLanding(
   req: NextRequest,
   landingPath?: string,
+  clientTimezone?: string,
 ): Promise<void> {
   const visitorId = req.cookies.get(VISITOR_COOKIE)?.value;
   const channel = req.cookies.get(CHANNEL_COOKIE)?.value as FunnelChannel | undefined;
@@ -186,11 +187,31 @@ export async function recordFunnelLanding(
 
   if (!row?.id || row.landed_at) return;
 
+  const ctx = extractFunnelRequestContext(req);
+  const metaPatch = clientTimezone
+    ? { client_timezone: clientTimezone, landing_recorded_at: now }
+    : { landing_recorded_at: now };
+
+  const { data: current } = await supabaseAdmin
+    .from("funnel_sessions")
+    .select("meta")
+    .eq("id", row.id)
+    .maybeSingle();
+
+  const prevMeta =
+    current?.meta && typeof current.meta === "object" && !Array.isArray(current.meta)
+      ? (current.meta as Record<string, unknown>)
+      : {};
+
   await supabaseAdmin
     .from("funnel_sessions")
     .update({
       landed_at: now,
       landing_path: landingPath?.slice(0, 255) || req.nextUrl.pathname,
+      landing_ip: ctx.ip_address,
+      landing_country: ctx.country,
+      landing_city: ctx.city,
+      meta: { ...prevMeta, ...metaPatch },
     })
     .eq("id", row.id);
 
@@ -251,14 +272,18 @@ export async function recordFunnelSignup(input: {
 
   if (!rowId) return;
 
-  await supabaseAdmin
-    .from("funnel_sessions")
-    .update({
-      signed_up_at: now,
-      user_id: input.userId,
-      email,
-    })
-    .eq("id", rowId);
+  const signupPatch: Record<string, unknown> = {
+    signed_up_at: now,
+    user_id: input.userId,
+    email,
+  };
+  if (input.req) {
+    const ctx = extractFunnelRequestContext(input.req);
+    signupPatch.signup_ip = ctx.ip_address;
+    signupPatch.signup_country = ctx.country;
+  }
+
+  await supabaseAdmin.from("funnel_sessions").update(signupPatch).eq("id", rowId);
 
   if (input.req && resolvedChannel) {
     void mirrorDatafastGoal(`bio_${resolvedChannel}_signup`, input.req, {
@@ -277,13 +302,6 @@ export async function recordFunnelConversion(input: {
   if (!supabaseAdmin) return;
   const now = new Date().toISOString();
   const email = input.email ? String(input.email).toLowerCase().trim() : null;
-
-  let query = supabaseAdmin
-    .from("funnel_sessions")
-    .select("id, channel, converted_at")
-    .is("converted_at", null)
-    .order("clicked_at", { ascending: false })
-    .limit(1);
 
   if (input.userId) {
     const { data } = await supabaseAdmin

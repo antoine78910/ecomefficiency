@@ -2,9 +2,47 @@ import { NextRequest, NextResponse } from "next/server";
 import { cookies } from "next/headers";
 import { supabaseAdmin } from "@/integrations/supabase/server";
 import { getAdminPanelToken } from "@/lib/adminSecrets";
+import { parisHourFromIso } from "@/lib/funnelRequestContext";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+const SESSION_SELECT =
+  "id, visitor_id, channel, entry_path, clicked_at, landed_at, signed_up_at, converted_at, user_id, email, utm_source, utm_medium, utm_campaign, referrer, landing_path, ip_address, country, city, region, accept_language, device_type, browser, os, user_agent, landing_ip, landing_country, landing_city, signup_ip, signup_country, datafast_visitor_id, meta";
+
+type FunnelSessionRow = {
+  id: string;
+  visitor_id: string;
+  channel: string;
+  entry_path: string;
+  clicked_at: string;
+  landed_at: string | null;
+  signed_up_at: string | null;
+  converted_at: string | null;
+  user_id: string | null;
+  email: string | null;
+  utm_source: string | null;
+  utm_medium: string | null;
+  utm_campaign: string | null;
+  referrer: string | null;
+  landing_path: string | null;
+  ip_address: string | null;
+  country: string | null;
+  city: string | null;
+  region: string | null;
+  accept_language: string | null;
+  device_type: string | null;
+  browser: string | null;
+  os: string | null;
+  user_agent: string | null;
+  landing_ip: string | null;
+  landing_country: string | null;
+  landing_city: string | null;
+  signup_ip: string | null;
+  signup_country: string | null;
+  datafast_visitor_id: string | null;
+  meta: Record<string, unknown> | null;
+};
 
 async function isAuthorized(req: NextRequest) {
   const expected = getAdminPanelToken();
@@ -19,24 +57,23 @@ async function isAuthorized(req: NextRequest) {
   return cookieToken === expected;
 }
 
-type FunnelRow = {
-  channel: string;
-  clicked_at: string;
-  landed_at: string | null;
-  signed_up_at: string | null;
-  converted_at: string | null;
-};
+function funnelStage(row: FunnelSessionRow): string {
+  if (row.converted_at) return "paid";
+  if (row.signed_up_at) return "signup";
+  if (row.landed_at) return "landing";
+  return "click";
+}
 
-function summarize(rows: FunnelRow[]) {
+function summarize(rows: FunnelSessionRow[]) {
   const byChannel: Record<
     string,
     { clicks: number; landings: number; signups: number; conversions: number }
   > = {};
 
-  const daily: Record<
-    string,
-    Record<string, { clicks: number; landings: number; signups: number; conversions: number }>
-  > = {};
+  const byCountry: Record<string, number> = {};
+  const byHour: number[] = Array.from({ length: 24 }, () => 0);
+  const byDevice: Record<string, number> = {};
+  const byBrowser: Record<string, number> = {};
 
   for (const row of rows) {
     const ch = row.channel || "unknown";
@@ -48,15 +85,17 @@ function summarize(rows: FunnelRow[]) {
     if (row.signed_up_at) byChannel[ch].signups += 1;
     if (row.converted_at) byChannel[ch].conversions += 1;
 
-    const day = row.clicked_at?.slice(0, 10) || "unknown";
-    if (!daily[day]) daily[day] = {};
-    if (!daily[day][ch]) {
-      daily[day][ch] = { clicks: 0, landings: 0, signups: 0, conversions: 0 };
-    }
-    daily[day][ch].clicks += 1;
-    if (row.landed_at) daily[day][ch].landings += 1;
-    if (row.signed_up_at) daily[day][ch].signups += 1;
-    if (row.converted_at) daily[day][ch].conversions += 1;
+    const country = row.country || row.landing_country || "—";
+    byCountry[country] = (byCountry[country] || 0) + 1;
+
+    const hour = parisHourFromIso(row.clicked_at);
+    if (hour >= 0 && hour < 24) byHour[hour] += 1;
+
+    const device = row.device_type || "unknown";
+    byDevice[device] = (byDevice[device] || 0) + 1;
+
+    const browser = row.browser || "unknown";
+    byBrowser[browser] = (byBrowser[browser] || 0) + 1;
   }
 
   const rates: Record<string, { landingRate: number; signupRate: number; conversionRate: number }> =
@@ -70,17 +109,12 @@ function summarize(rows: FunnelRow[]) {
     };
   }
 
-  const dailyRows = Object.entries(daily)
-    .flatMap(([date, channels]) =>
-      Object.entries(channels).map(([channel, stats]) => ({
-        date,
-        channel,
-        ...stats,
-      })),
-    )
-    .sort((a, b) => a.date.localeCompare(b.date) || a.channel.localeCompare(b.channel));
+  const topCountries = Object.entries(byCountry)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 15)
+    .map(([country, clicks]) => ({ country, clicks }));
 
-  return { byChannel, rates, dailyRows };
+  return { byChannel, rates, byCountry, byHour, byDevice, byBrowser, topCountries };
 }
 
 export async function GET(req: NextRequest) {
@@ -97,6 +131,7 @@ export async function GET(req: NextRequest) {
 
     const url = new URL(req.url);
     const days = Math.max(1, Math.min(365, Number(url.searchParams.get("days") || 30)));
+    const limit = Math.max(10, Math.min(500, Number(url.searchParams.get("limit") || 200)));
     const start = url.searchParams.get("start");
     const end = url.searchParams.get("end");
 
@@ -115,17 +150,18 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await supabaseAdmin
       .from("funnel_sessions")
-      .select("channel, clicked_at, landed_at, signed_up_at, converted_at")
+      .select(SESSION_SELECT)
       .gte("clicked_at", startIso)
       .lte("clicked_at", endIso)
-      .order("clicked_at", { ascending: false });
+      .order("clicked_at", { ascending: false })
+      .limit(limit);
 
     if (error) {
       return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
     }
 
-    const rows = (data || []) as FunnelRow[];
-    const { byChannel, rates, dailyRows } = summarize(rows);
+    const rows = (data || []) as FunnelSessionRow[];
+    const { byChannel, rates, byHour, byDevice, byBrowser, topCountries } = summarize(rows);
 
     const totals = rows.reduce(
       (acc, r) => {
@@ -138,6 +174,20 @@ export async function GET(req: NextRequest) {
       { clicks: 0, landings: 0, signups: 0, conversions: 0 },
     );
 
+    const sessions = rows.map((r) => {
+      const meta = r.meta && typeof r.meta === "object" ? r.meta : {};
+      const clientTimezone =
+        typeof (meta as Record<string, unknown>).client_timezone === "string"
+          ? String((meta as Record<string, unknown>).client_timezone)
+          : null;
+      return {
+        ...r,
+        stage: funnelStage(r),
+        click_hour_paris: parisHourFromIso(r.clicked_at),
+        client_timezone: clientTimezone,
+      };
+    });
+
     return NextResponse.json({
       ok: true,
       start: startIso.slice(0, 10),
@@ -145,8 +195,11 @@ export async function GET(req: NextRequest) {
       totals,
       byChannel,
       rates,
-      dailyRows,
-      recent: rows.slice(0, 50),
+      byHour,
+      byDevice,
+      byBrowser,
+      topCountries,
+      sessions,
     });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "error";
