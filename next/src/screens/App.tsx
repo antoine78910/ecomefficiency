@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Check, Clipboard, Crown, X } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { postGoal } from "@/lib/analytics";
+import { trackFunnelEvent } from "@/lib/funnelTrackingClient";
 import { trackDatafastGoal } from "@/lib/datafastGoals";
 import { trackFirstPromoterReferral } from "@/lib/firstpromoterReferral";
 import TrendTrackStatus from "@/components/TrendTrackStatus";
@@ -190,6 +191,8 @@ const App = ({
                 }
             })
         }).catch(() => {});
+
+        void trackFunnelEvent('signup', { userId: user.id, email: user.email });
     };
 
     // Fallback: if just=1 param present and user is already authenticated, mark complete_signup

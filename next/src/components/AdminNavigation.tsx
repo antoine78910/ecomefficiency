@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Shield, Users, Activity, BarChart3, LayoutTemplate, ClipboardList, Star, Zap, Eye, Mic, KeyRound, CircleSlash } from 'lucide-react'
+import { Shield, Users, Activity, BarChart3, LayoutTemplate, ClipboardList, Star, Zap, Eye, Mic, KeyRound, CircleSlash, Link2 } from 'lucide-react'
 
 const adminRoutes = [
   {
@@ -52,6 +52,12 @@ const adminRoutes = [
     label: 'Attribution',
     icon: BarChart3,
     description: 'Signup source → Paid/Unpaid (Stripe)'
+  },
+  {
+    href: '/admin/funnel',
+    label: 'Bio funnel',
+    icon: Link2,
+    description: '/try & /start clicks → signup → paid (internal)'
   },
   {
     href: '/admin/partners',

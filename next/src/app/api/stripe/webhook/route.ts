@@ -4,6 +4,7 @@ import { trackBrevoEvent } from "@/lib/brevo";
 import { supabaseAdmin } from "@/integrations/supabase/server";
 import { fpTrackSale } from "@/lib/firstpromoterTracking";
 import { trackSubscriptionCancelScheduled } from "@/lib/subscriptionCancelEvents";
+import { recordFunnelConversion } from "@/lib/funnelTracking";
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -257,6 +258,14 @@ export async function POST(req: NextRequest) {
               const user = users?.find((u: any) => u.email === userEmail);
               if (user?.id) targetUserId = user.id;
             } catch {}
+          }
+
+          if (userEmail) {
+            void recordFunnelConversion({
+              userId: targetUserId ? String(targetUserId) : null,
+              email: userEmail,
+              stripeCustomerId: typeof customerId === 'string' ? customerId : null,
+            });
           }
 
           if (targetUserId && process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL) {

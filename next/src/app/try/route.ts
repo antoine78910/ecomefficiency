@@ -1,5 +1,6 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
+import { attachFunnelCookies, recordBioLinkClick } from "@/lib/funnelTracking";
 
 function isPartnersHost(hostHeader: string) {
   const host = String(hostHeader || "")
@@ -10,12 +11,8 @@ function isPartnersHost(hostHeader: string) {
 }
 
 function buildLpRedirectUrl(req: NextRequest, source: string) {
-  // Preserve existing query params (so we don't break any upstream attribution),
-  // but ensure utm_source matches the chosen channel.
   const url = req.nextUrl.clone();
 
-  // `/lp` is only a real landing on `partners.*`.
-  // On the main marketing domain, `/lp` would redirect back to `/` and could drop query params.
   url.pathname = isPartnersHost(req.headers.get("x-forwarded-host") || req.headers.get("host") || "")
     ? "/lp"
     : "/";
@@ -26,12 +23,12 @@ function buildLpRedirectUrl(req: NextRequest, source: string) {
 }
 
 export async function GET(req: NextRequest) {
+  const { visitorId } = await recordBioLinkClick(req, "instagram", "/try");
   const target = buildLpRedirectUrl(req, "instagram");
 
   const res = NextResponse.redirect(target, 307);
-  // Prevent these redirect-only pages from being indexed.
+  attachFunnelCookies(res, req, visitorId, "instagram");
   res.headers.set("X-Robots-Tag", "noindex, nofollow");
   res.headers.set("Cache-Control", "no-store, max-age=0");
   return res;
 }
-

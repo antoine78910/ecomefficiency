@@ -4,6 +4,7 @@ import "./globals.css";
 import DataFastScript from "@/components/DataFastScript";
 import CrispScript from "@/components/CrispScript";
 import GlobalGetStartedClickTracker from "@/components/GlobalGetStartedClickTracker";
+import FunnelAttributionTracker from "@/components/FunnelAttributionTracker";
 import FirstPromoterScript from "@/components/FirstPromoterScript";
 import FirstPromoterAttributionGuard from "@/components/FirstPromoterAttributionGuard";
 import { CANONICAL_ORIGIN } from "@/lib/canonicalOrigin";
@@ -132,6 +133,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
         <CrispScript />
         <FirstPromoterAttributionGuard />
         <GlobalGetStartedClickTracker />
+        <FunnelAttributionTracker />
         {children}
       </body>
     </html>

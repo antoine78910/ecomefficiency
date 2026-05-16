@@ -12,6 +12,7 @@ import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useSessionTracking } from "@/hooks/useSessionTracking";
 import GoogleButton from "@/components/GoogleButton";
 import { trackFirstPromoterReferral } from "@/lib/firstpromoterReferral";
+import { trackFunnelEvent } from "@/lib/funnelTrackingClient";
 // Discord removed per request
 
 const SignUp = () => {
@@ -113,6 +114,10 @@ const SignUp = () => {
         // If no session, email verification is required and email was sent
         if (session) {
           // Email verification is disabled - user is already logged in
+          void trackFunnelEvent("signup", {
+            userId: user?.id,
+            email: user?.email || email,
+          });
           toast({
             title: "Account created!",
             description: "Welcome to Ecom Efficiency",
