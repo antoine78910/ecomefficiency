@@ -59,26 +59,63 @@ export default function SignupTrackingVerifyPage() {
         return;
       }
 
+      let serverMessage = "";
+      let keyValidOnServer = false;
       try {
-        const res = await fetch(`/api/tracking/signup-verify?key=${encodeURIComponent(keyFromUrl)}`);
+        const trimmedKey = keyFromUrl.trim();
+        const pingRes = await fetch(
+          `/api/tracking/signup-verify?ping=1&key=${encodeURIComponent(trimmedKey)}`,
+          { credentials: "include" }
+        );
+        const pingJson = await pingRes.json().catch(() => ({}));
+        keyValidOnServer = pingRes.ok && pingJson?.ok === true;
+
+        const { data: sessionData } = await supabase.auth.getSession();
+        const token = sessionData.session?.access_token;
+        const res = await fetch(
+          `/api/tracking/signup-verify?key=${encodeURIComponent(trimmedKey)}`,
+          {
+            credentials: "include",
+            headers: token ? { Authorization: `Bearer ${token}` } : {},
+          }
+        );
+        const j = await res.json().catch(() => ({}));
         setServerOk(res.ok);
-        if (!res.ok) {
-          const j = await res.json().catch(() => ({}));
-          setMessage(j?.error === "invalid_key" ? "Invalid verify key." : "Server check failed.");
-          return;
+
+        if (!keyValidOnServer) {
+          if (pingRes.status === 503 || j?.error === "not_configured") {
+            serverMessage =
+              "SIGNUP_TRACKING_VERIFY_SECRET missing on server. Add it on Vercel (Production) and redeploy — saving the variable alone is not enough.";
+          } else {
+            serverMessage =
+              "Server key mismatch. Vercel value must match the URL exactly, then redeploy.";
+          }
+        } else if (!res.ok) {
+          if (j?.error === "not_signed_in") {
+            serverMessage =
+              "Key OK on server, but session was not sent to the API. Tracking buttons below still work in the browser.";
+            setServerOk(true);
+          } else {
+            serverMessage = `Server check failed (${String(j?.error || res.status)}). Use the buttons below.`;
+          }
         }
       } catch {
         setServerOk(false);
-        setMessage("Could not reach verify API.");
-        return;
+        serverMessage = "Could not reach verify API. You can still use the buttons below (client-side only).";
       }
 
       if (params.get("auto") === "1") {
         retryMissingSignupTracking({ id: user.id, email: user.email }, "signup_tracking_verify_auto");
         refreshSnapshot(user.id, user.email || null);
-        setMessage("Auto-fired missing signup events. Check status below and Tag Assistant.");
+        setMessage(
+          serverMessage
+            ? `${serverMessage} Auto-fire ran in the browser — check status below.`
+            : "Auto-fired missing signup events. Check status below and Tag Assistant."
+        );
       } else {
-        setMessage("Signed in. Use the buttons below to send or retry tracking.");
+        setMessage(
+          serverMessage || "Signed in. Use the buttons below to send or retry tracking."
+        );
       }
     })();
   }, [refreshSnapshot]);
@@ -132,9 +169,9 @@ export default function SignupTrackingVerifyPage() {
         />
 
         {serverOk === true ? (
-          <p className="text-xs text-emerald-400 mb-4">Server key OK</p>
+          <p className="text-xs text-emerald-400 mb-4">Server key OK (Vercel secret matches)</p>
         ) : serverOk === false ? (
-          <p className="text-xs text-amber-400 mb-4">Server key not validated</p>
+          <p className="text-xs text-amber-400 mb-4">Server key not validated — check Vercel + redeploy</p>
         ) : null}
 
         {snapshot ? (

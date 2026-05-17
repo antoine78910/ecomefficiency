@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createClient } from "@supabase/supabase-js";
 import { createServerClient, type CookieOptions } from "@supabase/ssr";
 import { cookies } from "next/headers";
 
@@ -15,10 +16,19 @@ function isValidKey(key: string) {
   return key === expected;
 }
 
-async function getAuthedUser() {
+async function getAuthedUser(req: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnon = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
   if (!supabaseUrl || !supabaseAnon) return null;
+
+  const bearer = req.headers.get("authorization")?.replace(/^Bearer\s+/i, "").trim();
+  if (bearer) {
+    const supabase = createClient(supabaseUrl, supabaseAnon, {
+      auth: { autoRefreshToken: false, persistSession: false },
+    });
+    const { data, error } = await supabase.auth.getUser(bearer);
+    if (!error && data.user) return data.user;
+  }
 
   const cookieStore = await cookies();
   const supabase = createServerClient(supabaseUrl, supabaseAnon, {
@@ -42,9 +52,11 @@ async function getAuthedUser() {
 
 export async function GET(req: NextRequest) {
   const key = String(req.nextUrl.searchParams.get("key") || "").trim();
+  const pingOnly = req.nextUrl.searchParams.get("ping") === "1";
+
   if (!getVerifySecret()) {
     return NextResponse.json(
-      { ok: false, error: "SIGNUP_TRACKING_VERIFY_SECRET not configured on server" },
+      { ok: false, error: "not_configured" },
       { status: 503 }
     );
   }
@@ -52,7 +64,16 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: "invalid_key" }, { status: 401 });
   }
 
-  const user = await getAuthedUser();
+  if (pingOnly) {
+    return NextResponse.json({
+      ok: true,
+      ping: true,
+      secret_on_server: true,
+      key_valid: true,
+    });
+  }
+
+  const user = await getAuthedUser(req);
   if (!user) {
     return NextResponse.json({ ok: false, error: "not_signed_in" }, { status: 401 });
   }
