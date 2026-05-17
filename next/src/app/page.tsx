@@ -39,34 +39,42 @@ export default function Home() {
     mainEntity: [
       {
         "@type": "Question",
-        name: "Can I cancel my subscription at any time?",
+        name: "Why is it so cheap?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Yes, you can cancel your subscription at any time directly from your user area, with no obligation.",
+          text: "Having thousands of subscribers, we manage to pay for all the subscriptions by pooling the budget. We take care of all the renewals; you can just enjoy the tools.",
         },
       },
       {
         "@type": "Question",
-        name: "How can I get access to EcomEfficiency tools after I've registered?",
+        name: "How do credits work?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "After you register, you’ll be invited to our Discord server to access the community and tool logins.",
+          text: "We regularly refill credits when needed across many tools. For AI tools or credit-based platforms, some features may be limited to keep the service stable and fair for all users.",
         },
       },
       {
         "@type": "Question",
-        name: "Will I only have access to tool logins?",
+        name: "What's your refund policy?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "No. You’ll also get access to our Discord community, free Shopify themes, curated content, and more.",
+          text: "All sales are final. Upon payment, you receive immediate access to exclusive content and resources. For this reason, we do not offer refunds.",
         },
       },
       {
         "@type": "Question",
-        name: "What should I do if I have a problem with logins?",
+        name: "Can I cancel my subscription?",
         acceptedAnswer: {
           "@type": "Answer",
-          text: "Open a ticket in our Discord server explaining the issue and we’ll help you resolve it.",
+          text: "You can cancel your subscription at any time, access will remain active until the end of your billing cycle.",
+        },
+      },
+      {
+        "@type": "Question",
+        name: "Can I share the tools with more people?",
+        acceptedAnswer: {
+          "@type": "Answer",
+          text: "Sharing is strictly prohibited. We have automatic systems that detect data leakage, you would risk being banned without refund.",
         },
       },
     ],

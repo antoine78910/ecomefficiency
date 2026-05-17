@@ -124,20 +124,24 @@ export default function DashboardClient() {
   // Default FAQ from ecomefficiency.com
   const defaultFaq = [
     {
-      q: "Can I cancel my subscription at any time?",
-      a: "Yes, you have the flexibility to cancel your subscription at any time directly from your user area, and there's no obligation!",
+      q: "Why is it so cheap?",
+      a: "Having thousands of subscribers, we manage to pay for all the subscriptions by pooling the budget. We take care of all the renewals; you can just enjoy the tools.",
     },
     {
-      q: "How can I get access to EcomEfficiency tools after I've registered?",
-      a: "Once you have registered, you will then be immediately invited to our discord server to access the community and tools logins.",
+      q: "How do credits work?",
+      a: "We regularly refill credits when needed across many tools. For AI tools or credit-based platforms, some features may be limited to keep the service stable and fair for all users.",
     },
     {
-      q: "I will only have access to the tools login?",
-      a: "No, you will be invited to our Discord server where you can chat with a community of private dropshippers, +20 free Shopify themes, a daily selection of the best YouTube videos on the market (100% value) and a bunch of other surprises!",
+      q: "What's your refund policy?",
+      a: "All sales are final. Upon payment, you receive immediate access to exclusive content and resources. For this reason, we do not offer refunds.",
     },
     {
-      q: "What should I do if I have a problem with logins?",
-      a: "No worries, you just need to let us know by opening a ticket on our discord server to explain your problem to us, and we will help you resolve your problem.",
+      q: "Can I cancel my subscription?",
+      a: "You can cancel your subscription at any time, access will remain active until the end of your billing cycle.",
+    },
+    {
+      q: "Can I share the tools with more people?",
+      a: "Sharing is strictly prohibited. We have automatic systems that detect data leakage, you would risk being banned without refund.",
     },
   ];
   
