@@ -1,8 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
+import { syncSupabaseUserStripeAccess } from "@/lib/syncSupabaseUserStripeAccess";
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, plan } = await req.json();
+    const { email, plan, lookupEmail, syncFromStripe } = await req.json();
 
     if (!email || !plan) {
       console.error('[activate-plan] Missing parameters:', { email: !!email, plan: !!plan });
@@ -14,7 +15,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Supabase not configured', success: false }, { status: 500 });
     }
 
-    console.log('[activate-plan] Starting activation', { email, requestedPlan: plan });
+    console.log('[activate-plan] Starting activation', { email, requestedPlan: plan, syncFromStripe: !!syncFromStripe });
+
+    if (syncFromStripe) {
+      const synced = await syncSupabaseUserStripeAccess({
+        userEmail: email,
+        lookupEmails: lookupEmail ? [String(lookupEmail)] : undefined,
+        updateStripeCustomerEmail: true,
+      });
+      if (!synced.ok) {
+        return NextResponse.json({ error: synced.error || 'sync_failed', success: false }, { status: 400 });
+      }
+      return NextResponse.json({ success: true, synced: true, ...synced });
+    }
 
     // Get user by email using admin API
     const listUsersRes = await fetch(`${process.env.NEXT_PUBLIC_SUPABASE_URL}/auth/v1/admin/users`, {

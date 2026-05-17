@@ -30,6 +30,11 @@ export default function AccountPage() {
     }
     setSavingEmail(true);
     try {
+      if (currentEmail) {
+        await supabase.auth.updateUser({
+          data: { previous_email: currentEmail },
+        });
+      }
       // Use updateUser to trigger the proper email change flow
       // Supabase will send confirmation emails to BOTH old and new addresses
       const { error } = await supabase.auth.updateUser(

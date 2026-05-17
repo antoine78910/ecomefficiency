@@ -8,6 +8,10 @@ import {
   checkLegacyStripe,
 } from "@/lib/stripeLegacySubscription";
 import { isRetention30RedeemedFromMetadata } from "@/lib/stripeRetention30Meta";
+import {
+  resolveStripeAccessForAuthEmail,
+  syncSupabaseUserStripeAccess,
+} from "@/lib/syncSupabaseUserStripeAccess";
 
 function parseMaybeJson<T = any>(value: any): T | null {
   if (value === null || value === undefined) return null;
@@ -519,6 +523,30 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Email change: subscription may still be on Stripe under previous_email / metadata customer id.
+    if (!latest && email) {
+      try {
+        const hinted = await resolveStripeAccessForAuthEmail(stripe, email, customerHeader);
+        if (hinted) {
+          latest = hinted.sub;
+          invoiceStatus = hinted.invoiceStatus;
+          customerId = hinted.customerId;
+          emailResolvedBest = {
+            customerId: hinted.customerId,
+            sub: hinted.sub,
+            invoiceStatus: hinted.invoiceStatus,
+          };
+          console.log("[VERIFY] Resolved subscription via Supabase/Stripe hints (email change)", {
+            email,
+            customerId: hinted.customerId,
+            resolvedVia: hinted.resolvedVia,
+          });
+        }
+      } catch (e) {
+        console.error("[VERIFY] Supabase/Stripe hint resolution failed:", e);
+      }
+    }
+
     if (!latest) {
       console.log("[VERIFY] No active or paid subscription found on main account");
       if (email) {
@@ -751,6 +779,16 @@ export async function POST(req: NextRequest) {
       plan: finalPlan,
       daily_credit_limit: DEFAULT_DAILY_CREDIT_LIMIT,
     });
+
+    if (active && finalPlan && email && supabaseAdmin) {
+      void syncSupabaseUserStripeAccess({
+        userEmail: email,
+        updateStripeCustomerEmail: true,
+      }).catch((err) => {
+        console.warn("[VERIFY] plan metadata sync failed:", err?.message || err);
+      });
+    }
+
     return withCors(
       NextResponse.json(applyHiggsfieldProOnlyGate(req, { ...result }) as Record<string, unknown>)
     , req);
