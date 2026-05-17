@@ -2,6 +2,7 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from "@/integrations/supabase/client";
 import { getDeviceDisplayName } from "@/lib/parseUserAgent";
+import { collectDeviceFingerprint, DEVICE_FINGERPRINT_VERSION } from "@/lib/deviceFingerprint";
 
 interface LocationData {
   country?: string;
@@ -31,43 +32,6 @@ interface SessionData {
   device_name?: string;
   device_fingerprint?: string;
   fingerprint_version?: string;
-}
-
-const DEVICE_FINGERPRINT_VERSION = 'v1';
-
-async function sha256Hex(input: string): Promise<string> {
-  if (typeof window === 'undefined' || !window.crypto?.subtle || !window.TextEncoder) return '';
-  const data = new TextEncoder().encode(input);
-  const digest = await window.crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(digest)).map((b) => b.toString(16).padStart(2, '0')).join('');
-}
-
-async function buildDeviceFingerprint(userAgent: string): Promise<string> {
-  if (typeof window === 'undefined') return '';
-  try {
-    const nav = window.navigator;
-    const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
-    const screenW = window.screen?.width || 0;
-    const screenH = window.screen?.height || 0;
-    const pixelRatio = window.devicePixelRatio || 1;
-    const raw = [
-      DEVICE_FINGERPRINT_VERSION,
-      nav.platform || '',
-      nav.language || '',
-      (nav.languages || []).join(','),
-      userAgent || '',
-      tz,
-      `${screenW}x${screenH}`,
-      String(pixelRatio),
-      String(nav.hardwareConcurrency || ''),
-      String((nav as any).deviceMemory || ''),
-      String(nav.maxTouchPoints || 0),
-    ].join('|');
-    const hash = await sha256Hex(raw);
-    return hash ? `${DEVICE_FINGERPRINT_VERSION}_${hash.slice(0, 32)}` : '';
-  } catch {
-    return '';
-  }
 }
 
 export const useSessionTracking = () => {
@@ -144,7 +108,8 @@ export const useSessionTracking = () => {
       // Détecter automatiquement le nom du device depuis le User Agent
       const userAgent = navigator.userAgent;
       const deviceName = getDeviceDisplayName(userAgent);
-      const deviceFingerprint = await buildDeviceFingerprint(userAgent);
+      const fpPayload = await collectDeviceFingerprint();
+      const deviceFingerprint = fpPayload?.fingerprint || "";
 
       const sessionData: SessionData = {
         user_id: userId || null,
@@ -156,7 +121,7 @@ export const useSessionTracking = () => {
         last_name: lastName,
         device_name: deviceName,
         device_fingerprint: deviceFingerprint || undefined,
-        fingerprint_version: DEVICE_FINGERPRINT_VERSION,
+        fingerprint_version: fpPayload?.fingerprint_version || DEVICE_FINGERPRINT_VERSION,
         ...locationData,
       };
 

@@ -1,6 +1,12 @@
 import { supabaseAdmin } from '@/integrations/supabase/server'
 import AdminLogoutButton from '@/components/AdminLogoutButton'
 import AdminNavigation from '@/components/AdminNavigation'
+import {
+  buildFingerprintDetails,
+  fingerprintFromMeta,
+  shortFingerprintLabel,
+  type FingerprintDetail,
+} from '@/lib/fingerprintAnalytics'
 
 export const dynamic = 'force-dynamic'
 
@@ -142,6 +148,7 @@ type UserSummary = {
   ipAccountDetails: IpAccountDetail[]
   uniqueLocations: string[]
   uniqueFingerprints: string[]
+  fingerprintDetails: FingerprintDetail[]
   totalEvents: number
   copyPasswordCount: number
   /** Count of "Get the code" button clicks (ip_events action adspower_get_code_click). */
@@ -307,10 +314,23 @@ function computeRisk(
     })
   }
 
-  // ── Signal 4: Simultaneous active sessions ────────────────────────────
+  // ── Signal 4: Simultaneous active sessions (IP + fingerprint) ─────────
   const activeSessions = sessions.filter(s => s.is_active)
   const activeIps = new Set(activeSessions.map(s => s.ip_address).filter(Boolean))
-  if (activeIps.size >= 2) {
+  const activeFingerprints = new Set(
+    activeSessions.map(s => String(s.device_fingerprint || '').trim()).filter(Boolean)
+  )
+  if (activeFingerprints.size >= 2) {
+    score += 40
+    signals.push({
+      id: 'simultaneous_fp',
+      emoji: '🖥️',
+      label: 'Devices actifs en parallèle',
+      detail: `${activeFingerprints.size} empreintes actives: ${[...activeFingerprints].map(shortFingerprintLabel).join(', ')}`,
+      severity: 'critical',
+      score: 40,
+    })
+  } else if (activeIps.size >= 2) {
     score += 30
     signals.push({
       id: 'simultaneous',
@@ -331,26 +351,68 @@ function computeRisk(
     signals.push({ id: 'few_ips', emoji: '🔗', label: `${uniqueIps.length} IPs distinctes`, detail: 'Plusieurs IPs utilisées', severity: 'medium', score: 10 })
   }
 
-  // ── Signal 6: Multi-device fingerprint ────────────────────────────────
-  if (uniqueFingerprints.length >= 3) {
-    score += 25
+  // ── Signal 6: Multi-device fingerprint (FingerprintJS) ───────────────
+  if (uniqueFingerprints.length >= 4) {
+    score += 35
     signals.push({
       id: 'multi_device',
       emoji: '📱',
-      label: `${uniqueFingerprints.length} devices distincts`,
-      detail: 'Empreintes appareil multiples détectées pour le même compte',
+      label: `${uniqueFingerprints.length} empreintes distinctes`,
+      detail: 'Plusieurs appareils/navigateurs — partage probable (VPN ne change pas l’empreinte)',
+      severity: 'critical',
+      score: 35,
+    })
+  } else if (uniqueFingerprints.length >= 3) {
+    score += 25
+    signals.push({
+      id: 'multi_device_3',
+      emoji: '📱',
+      label: `${uniqueFingerprints.length} empreintes distinctes`,
+      detail: 'Empreintes FingerprintJS multiples pour le même compte',
       severity: 'high',
       score: 25,
     })
   } else if (uniqueFingerprints.length === 2) {
-    score += 10
+    score += 12
     signals.push({
       id: 'multi_device_2',
       emoji: '📱',
-      label: '2 devices distincts',
-      detail: 'Deux empreintes appareil différentes',
+      label: '2 empreintes distinctes',
+      detail: 'Deux appareils ou navigateurs différents',
       severity: 'medium',
-      score: 10,
+      score: 12,
+    })
+  }
+
+  // ── Signal 6b: Same IP, different fingerprints (VPN / partage) ────────
+  const fpByIp = new Map<string, Set<string>>()
+  for (const s of sessions) {
+    const ip = String(s.ip_address || '').trim()
+    const fp = String(s.device_fingerprint || '').trim()
+    if (!ip || ip === 'unknown' || !fp) continue
+    if (!fpByIp.has(ip)) fpByIp.set(ip, new Set())
+    fpByIp.get(ip)!.add(fp)
+  }
+  for (const ev of events) {
+    const ip = String(ev.ip_address || '').trim()
+    const fp = fingerprintFromMeta(ev.meta)
+    if (!ip || ip === 'unknown' || !fp) continue
+    if (!fpByIp.has(ip)) fpByIp.set(ip, new Set())
+    fpByIp.get(ip)!.add(fp)
+  }
+  const ipMultiFp = [...fpByIp.entries()].filter(([, fps]) => fps.size >= 2)
+  if (ipMultiFp.length > 0) {
+    score += 22
+    signals.push({
+      id: 'ip_multi_fingerprint',
+      emoji: '🔀',
+      label: 'Même IP, empreintes différentes',
+      detail: ipMultiFp
+        .slice(0, 3)
+        .map(([ip, fps]) => `${ip} → ${fps.size} devices`)
+        .join(' | '),
+      severity: 'high',
+      score: 22,
     })
   }
 
@@ -447,6 +509,8 @@ function buildUserSummaries(events: IpEvent[], sessions: SessionRow[]): UserSumm
     if (!entry.email && ev.email) entry.email = ev.email
     const loc = eventLocation(ev)
     if (loc && loc !== '—') entry.locations.add(loc)
+    const evFp = fingerprintFromMeta(ev.meta)
+    if (evFp) entry.fingerprints.add(evFp)
     byUser.set(key, entry)
   }
 
@@ -470,6 +534,7 @@ function buildUserSummaries(events: IpEvent[], sessions: SessionRow[]): UserSumm
     const uniqueIps = Array.from(allIps).filter(ip => ip && ip !== 'unknown')
     const uniqueLocations = Array.from(entry.locations).filter(Boolean)
     const uniqueFingerprints = Array.from(entry.fingerprints).filter(Boolean)
+    const fingerprintDetails = buildFingerprintDetails(entry.events, entry.sessions)
     const copyPasswordCount = entry.events.filter(e => e.action === 'copy_password').length
     const adspowerGetCodeClickCount = entry.events.filter(e => e.action === 'adspower_get_code_click').length
     const adminPanelVisitCount = entry.events.filter(e => e.action === 'admin_panel_visit').length
@@ -485,6 +550,7 @@ function buildUserSummaries(events: IpEvent[], sessions: SessionRow[]): UserSumm
       ipAccountDetails,
       uniqueLocations,
       uniqueFingerprints,
+      fingerprintDetails,
       totalEvents: entry.events.length,
       copyPasswordCount,
       adspowerGetCodeClickCount,
@@ -499,8 +565,48 @@ function buildUserSummaries(events: IpEvent[], sessions: SessionRow[]): UserSumm
     })
   }
 
+  applyCrossAccountFingerprintSignals(summaries)
   summaries.sort((a, b) => b.riskScore - a.riskScore)
   return summaries
+}
+
+function applyCrossAccountFingerprintSignals(summaries: UserSummary[]) {
+  const fpToAccounts = new Map<string, Set<string>>()
+  for (const s of summaries) {
+    const accountKey = s.email || s.user_id
+    if (!accountKey) continue
+    for (const fp of s.uniqueFingerprints) {
+      if (!fpToAccounts.has(fp)) fpToAccounts.set(fp, new Set())
+      fpToAccounts.get(fp)!.add(accountKey)
+    }
+  }
+
+  for (const s of summaries) {
+    const shared: string[] = []
+    for (const fp of s.uniqueFingerprints) {
+      const accounts = fpToAccounts.get(fp)
+      if (accounts && accounts.size > 1) {
+        const others = [...accounts].filter((a) => a !== (s.email || s.user_id))
+        if (others.length) shared.push(`${shortFingerprintLabel(fp)} ↔ ${others.slice(0, 2).join(', ')}${others.length > 2 ? '…' : ''}`)
+      }
+    }
+    if (!shared.length) continue
+    s.riskScore = Math.min(100, s.riskScore + 45)
+    s.riskSignals.push({
+      id: 'fp_cross_account',
+      emoji: '🚨',
+      label: 'Empreinte partagée entre comptes',
+      detail: shared.slice(0, 2).join(' | '),
+      severity: 'critical',
+      score: 45,
+    })
+    s.riskLevel =
+      s.riskScore >= 60 ? 'critical' :
+      s.riskScore >= 35 ? 'suspicious' :
+      s.riskScore >= 15 ? 'watch' :
+      'safe'
+    s.isSuspicious = s.riskLevel === 'suspicious' || s.riskLevel === 'critical'
+  }
 }
 
 // ─── Page ─────────────────────────────────────────────────────────────────
@@ -515,6 +621,9 @@ export default async function AdminIpTrackerPage() {
   const totalPasswordCopies = events.filter(e => e.action === 'copy_password').length
   const totalAdsPowerGetCodeClicks = events.filter(e => e.action === 'adspower_get_code_click').length
   const totalAdminPanelVisits = events.filter(e => e.action === 'admin_panel_visit').length
+  const crossAccountFpCount = summaries.filter((s) =>
+    s.riskSignals.some((sig) => sig.id === 'fp_cross_account')
+  ).length
 
   return (
     <div className="min-h-screen bg-black text-white px-6 py-10">
@@ -523,11 +632,13 @@ export default async function AdminIpTrackerPage() {
 
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-1">🛡️ Radar Partage de Compte</h1>
-          <p className="text-gray-400 text-sm">Détection multi-signaux : vélocité géo, sessions simultanées, multi-pays, spread d'IPs</p>
+          <p className="text-gray-400 text-sm">
+            Détection multi-signaux : empreinte navigateur (FingerprintJS), vélocité géo, sessions simultanées, multi-pays — l’IP seule est insuffisante (VPN).
+          </p>
         </div>
 
         {/* Stats overview */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-3 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-8 gap-3 mb-8">
           <div className="border border-white/10 rounded-lg bg-white/5 p-4 text-center">
             <div className="text-2xl font-bold text-white">{summaries.length}</div>
             <div className="text-xs text-gray-400 mt-1">Utilisateurs</div>
@@ -555,6 +666,10 @@ export default async function AdminIpTrackerPage() {
           <div className="border border-violet-500/35 rounded-lg bg-violet-500/10 p-4 text-center">
             <div className="text-2xl font-bold text-violet-300">{totalAdminPanelVisits}</div>
             <div className="text-xs text-gray-400 mt-1">🛡️ Admin visits (all)</div>
+          </div>
+          <div className="border border-rose-500/35 rounded-lg bg-rose-500/10 p-4 text-center">
+            <div className="text-2xl font-bold text-rose-300">{crossAccountFpCount}</div>
+            <div className="text-xs text-gray-400 mt-1">🖥️ Empreinte multi-comptes</div>
           </div>
         </div>
 
@@ -614,7 +729,7 @@ const LEVEL_LABEL: Record<string, string> = {
 }
 
 function UserCard({ summary }: { summary: UserSummary }) {
-  const { email, user_id, uniqueIps, ipAccountDetails, uniqueLocations, uniqueFingerprints, totalEvents, copyPasswordCount, adspowerGetCodeClickCount, adminPanelVisitCount, lastSeen, events, sessions, riskScore, riskLevel, riskSignals } = summary
+  const { email, user_id, uniqueIps, ipAccountDetails, uniqueLocations, uniqueFingerprints, fingerprintDetails, totalEvents, copyPasswordCount, adspowerGetCodeClickCount, adminPanelVisitCount, lastSeen, events, sessions, riskScore, riskLevel, riskSignals } = summary
   const s = LEVEL_STYLES[riskLevel]
   const uniqueDeviceNames = Array.from(new Set((sessions || []).map((x) => String(x.device_name || '').trim()).filter(Boolean)))
 
@@ -758,18 +873,53 @@ function UserCard({ summary }: { summary: UserSummary }) {
           </div>
         </div>
 
-        {/* Devices */}
+        {/* Devices & fingerprints */}
         <div>
-          <h4 className="text-sm font-semibold text-gray-300 mb-2">📱 Devices détectés</h4>
-          <div className="flex flex-wrap gap-2">
-            {uniqueDeviceNames.map((name) => (
-              <span key={name} className="px-2 py-1 rounded bg-cyan-500/10 border border-cyan-500/25 text-xs text-cyan-200">{name}</span>
-            ))}
-            {!uniqueDeviceNames.length && <span className="text-gray-500 text-xs">Nom device indisponible</span>}
-          </div>
-          <div className="mt-2 text-[11px] text-gray-500">
-            Empreintes uniques: {uniqueFingerprints.length}
-          </div>
+          <h4 className="text-sm font-semibold text-gray-300 mb-2">🖥️ Empreintes navigateur (FingerprintJS)</h4>
+          {!fingerprintDetails.length ? (
+            <span className="text-gray-500 text-xs">Aucune empreinte — les prochaines visites/copies alimenteront ce bloc.</span>
+          ) : (
+            <div className="border border-white/10 rounded-lg overflow-x-auto">
+              <table className="w-full text-sm min-w-[720px]">
+                <thead className="bg-white/5">
+                  <tr>
+                    <th className="text-left p-2 text-xs text-gray-400 font-medium">Empreinte</th>
+                    <th className="text-left p-2 text-xs text-gray-400 font-medium hidden lg:table-cell">GPU / écran</th>
+                    <th className="text-left p-2 text-xs text-gray-400 font-medium hidden md:table-cell">TZ / langue</th>
+                    <th className="text-right p-2 text-xs text-gray-400 font-medium">Events</th>
+                    <th className="text-right p-2 text-xs text-gray-400 font-medium">Sessions</th>
+                    <th className="text-left p-2 text-xs text-gray-400 font-medium">IPs vues</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {fingerprintDetails.map((fp) => (
+                    <tr key={fp.id} className="border-t border-white/5 hover:bg-white/5">
+                      <td className="p-2 font-mono text-xs text-emerald-200" title={fp.id}>{fp.shortLabel}</td>
+                      <td className="p-2 text-gray-400 text-xs hidden lg:table-cell max-w-[200px] truncate" title={fp.signals?.webgl || ''}>
+                        {[fp.signals?.webgl, fp.signals?.screen, fp.signals?.devicePixelRatio ? `dpr ${fp.signals.devicePixelRatio}` : ''].filter(Boolean).join(' · ') || '—'}
+                      </td>
+                      <td className="p-2 text-gray-400 text-xs hidden md:table-cell">
+                        {[fp.signals?.timezone, fp.signals?.languages].filter(Boolean).join(' · ') || '—'}
+                      </td>
+                      <td className="p-2 text-right text-gray-400 text-xs">{fp.eventCount}</td>
+                      <td className="p-2 text-right text-gray-400 text-xs">{fp.sessionCount}</td>
+                      <td className="p-2 text-gray-400 text-xs font-mono">{fp.ips.slice(0, 2).join(', ') || '—'}{fp.ips.length > 2 ? ` +${fp.ips.length - 2}` : ''}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+          {uniqueDeviceNames.length > 0 ? (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {uniqueDeviceNames.map((name) => (
+                <span key={name} className="px-2 py-1 rounded bg-cyan-500/10 border border-cyan-500/25 text-xs text-cyan-200">{name}</span>
+              ))}
+            </div>
+          ) : null}
+          <p className="mt-2 text-[11px] text-gray-500">
+            {uniqueFingerprints.length} empreinte{uniqueFingerprints.length > 1 ? 's' : ''} — stable même derrière VPN.
+          </p>
         </div>
 
         {/* Events table */}
@@ -783,6 +933,7 @@ function UserCard({ summary }: { summary: UserSummary }) {
                   <th className="text-left p-2 text-xs text-gray-400">Action</th>
                   <th className="text-left p-2 text-xs text-gray-400">Outil</th>
                   <th className="text-left p-2 text-xs text-gray-400">IP</th>
+                  <th className="text-left p-2 text-xs text-gray-400 hidden lg:table-cell">Empreinte</th>
                   <th className="text-left p-2 text-xs text-gray-400 hidden md:table-cell">Lieu</th>
                 </tr>
               </thead>
@@ -790,6 +941,7 @@ function UserCard({ summary }: { summary: UserSummary }) {
                 {events.map((ev, idx) => {
                   const { text, color } = actionLabel(ev.action)
                   const meta = ev.meta && typeof ev.meta === 'object' ? (ev.meta as Record<string, unknown>) : {}
+                  const evFp = fingerprintFromMeta(ev.meta)
                   const adminExtra =
                     ev.action === 'admin_panel_visit'
                       ? ` — @${String(meta.discord_username || '?')} · ${String(meta.pathname || '')}`
@@ -805,12 +957,15 @@ function UserCard({ summary }: { summary: UserSummary }) {
                       </td>
                       <td className="p-2 text-gray-300">{ev.tool_name || '—'}</td>
                       <td className="p-2 font-mono text-xs text-white">{ev.ip_address || '—'}</td>
+                      <td className="p-2 font-mono text-[11px] text-emerald-200/90 hidden lg:table-cell" title={evFp || ''}>
+                        {evFp ? shortFingerprintLabel(evFp) : '—'}
+                      </td>
                       <td className="p-2 text-gray-400 hidden md:table-cell">{eventLocation(ev)}</td>
                     </tr>
                   )
                 })}
                 {!events.length && (
-                  <tr><td colSpan={5} className="p-4 text-center text-gray-500">Aucun événement</td></tr>
+                  <tr><td colSpan={6} className="p-4 text-center text-gray-500">Aucun événement</td></tr>
                 )}
               </tbody>
             </table>

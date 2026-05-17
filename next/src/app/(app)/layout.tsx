@@ -3,6 +3,7 @@
 import { useEffect } from 'react'
 import AppTopNav from "@/components/AppTopNav";
 import ActivityTracker from "@/components/ActivityTracker";
+import DeviceFingerprintBootstrap from "@/components/DeviceFingerprintBootstrap";
 import CrossDomainLoginFlag from "@/components/CrossDomainLoginFlag";
 import EnsureTenantMembership from "@/components/EnsureTenantMembership";
 import { Providers } from "../providers";
@@ -49,6 +50,7 @@ export default function AppSectionLayout({ children }: { children: React.ReactNo
       <div className="theme-app min-h-screen bg-black text-white flex">
         {/* Tracker d'activité en arrière-plan */}
         <ActivityTracker />
+        <DeviceFingerprintBootstrap />
         <CrossDomainLoginFlag />
         <EnsureTenantMembership />
 

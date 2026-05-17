@@ -1164,18 +1164,15 @@ function CopyButton({ value, label, disabled = false, toolName, fieldType }: { v
       const action = fieldType === 'password' ? 'copy_password' : fieldType === 'email' ? 'copy_email' : 'copy_username'
       try {
         const mod = await import("@/integrations/supabase/client")
+        const { trackActivityEvent } = await import("@/lib/trackActivityEvent")
         const { data } = await mod.supabase.auth.getUser()
         if (data.user) {
-          fetch('/api/activity/track-event', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              user_id: data.user.id,
-              email: data.user.email || null,
-              action,
-              tool_name: toolName || null,
-            }),
-          }).catch(() => {})
+          void trackActivityEvent({
+            user_id: data.user.id,
+            email: data.user.email || null,
+            action,
+            tool_name: toolName || null,
+          })
         }
       } catch {}
     } catch {}
@@ -1333,17 +1330,14 @@ function CredentialsPanel({
           : plan === "starter"
             ? "adspower_starter"
             : "adspower"
-      fetch("/api/activity/track-event", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          user_id: data.user.id,
-          email: data.user.email || null,
-          action,
-          tool_name: toolName,
-          meta: meta || null,
-        }),
-      }).catch(() => {})
+      const { trackActivityEvent } = await import("@/lib/trackActivityEvent")
+      void trackActivityEvent({
+        user_id: data.user.id,
+        email: data.user.email || null,
+        action,
+        tool_name: toolName,
+        meta: meta || null,
+      })
     } catch {}
   }, [plan])
 

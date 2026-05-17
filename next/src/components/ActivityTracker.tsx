@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { supabase } from '@/integrations/supabase/client'
 import { useActivityTracking } from '@/hooks/useActivityTracking'
+import { trackActivityEvent } from '@/lib/trackActivityEvent'
 
 export default function ActivityTracker() {
   const [sessionId, setSessionId] = useState<string | null>(null)
@@ -26,18 +27,12 @@ export default function ActivityTracker() {
       if (data.user) {
         setUserId(data.user.id)
         // Track page visit with IP
-        try {
-          fetch('/api/activity/track-event', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              user_id: data.user.id,
-              email: data.user.email || null,
-              action: 'page_visit',
-              tool_name: null,
-            }),
-          }).catch(() => {})
-        } catch {}
+        void trackActivityEvent({
+          user_id: data.user.id,
+          email: data.user.email || null,
+          action: 'page_visit',
+          tool_name: null,
+        })
       }
     }
     

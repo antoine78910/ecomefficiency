@@ -3,6 +3,9 @@
 import React from "react";
 import AppTopNav from "@/components/AppTopNav";
 import App from "@/screens/App";
+import ActivityTracker from "@/components/ActivityTracker";
+import DeviceFingerprintBootstrap from "@/components/DeviceFingerprintBootstrap";
+import EnsureTenantMembership from "@/components/EnsureTenantMembership";
 
 export default function DomainAppClient({
   title,
@@ -26,6 +29,9 @@ export default function DomainAppClient({
 
   return (
     <div className="min-h-screen bg-black">
+      <ActivityTracker />
+      <DeviceFingerprintBootstrap />
+      <EnsureTenantMembership />
       <AppTopNav
         brand={{
           title,
