@@ -46,7 +46,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(result, { status: result.error === "user_not_found" ? 404 : 400 });
     }
 
-    return NextResponse.json({ ok: true, ...result });
+    return NextResponse.json(result);
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "unknown_error";
     return NextResponse.json({ ok: false, error: message }, { status: 500 });

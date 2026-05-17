@@ -41,7 +41,7 @@ export async function findSupabaseUserByEmail(email: string): Promise<User | nul
       break;
     }
     const users = data?.users || [];
-    const found = users.find((u) => String(u.email || "").trim().toLowerCase() === target);
+    const found = users.find((u: User) => String(u.email || "").trim().toLowerCase() === target);
     if (found) return found;
     if (users.length < perPage) break;
     page += 1;
@@ -106,18 +106,19 @@ export async function resolveStripeAccessForAuthEmail(
   email: string,
   customerIdHeader?: string | null
 ): Promise<ResolvedStripeAccess | null> {
-  const emails = uniqueStrings([email]);
   let customerHint = String(customerIdHeader || "").trim() || null;
+  let emails = uniqueStrings([email]);
 
   if (supabaseAdmin) {
     const user = await findSupabaseUserByEmail(email);
     if (user) {
       const meta = (user.user_metadata || {}) as Record<string, unknown>;
-      emails.push(
+      emails = uniqueStrings([
+        ...emails,
         user.email,
         typeof meta.previous_email === "string" ? meta.previous_email : null,
-        typeof meta.checkout_email === "string" ? meta.checkout_email : null
-      );
+        typeof meta.checkout_email === "string" ? meta.checkout_email : null,
+      ]);
       if (!customerHint && typeof meta.stripe_customer_id === "string") {
         customerHint = meta.stripe_customer_id;
       }
@@ -126,7 +127,7 @@ export async function resolveStripeAccessForAuthEmail(
 
   return resolveStripeAccess({
     stripe,
-    emails: uniqueStrings(emails),
+    emails,
     stripeCustomerIdHint: customerHint,
   });
 }
@@ -167,6 +168,8 @@ export async function syncSupabaseUserStripeAccess(input: {
     user = await findSupabaseUserByEmail(userEmail);
     if (!user) return { ok: false, error: "user_not_found" };
   }
+
+  if (!user) return { ok: false, error: "user_not_found" };
 
   const meta = (user.user_metadata || {}) as Record<string, unknown>;
   const emails = uniqueStrings([
