@@ -10,6 +10,8 @@ export type FingerprintSignalsSnapshot = {
   platform?: string;
   hardwareConcurrency?: number;
   deviceMemory?: number;
+  canvasHash?: string;
+  audioHash?: string;
 };
 
 export type FingerprintDetail = {
@@ -35,8 +37,21 @@ export function fingerprintFromMeta(meta: unknown): string | null {
   const direct = String(m.device_fingerprint || "").trim();
   if (direct) return direct;
   const visitor = String(m.fp_visitor_id || "").trim();
-  if (visitor) return visitor.startsWith("v2_") ? visitor : `v2_${visitor}`;
+  if (visitor) {
+    if (/^v\d+_/.test(visitor)) return visitor;
+    return `v2_${visitor}`;
+  }
+  const canvas = String(m.fp_canvas_hash || "").trim();
+  const audio = String(m.fp_audio_hash || "").trim();
+  if (canvas && audio) return `legacy_${canvas.slice(0, 12)}_${audio.slice(0, 12)}`;
   return null;
+}
+
+export function shortHashLabel(hash: string | undefined): string {
+  const s = String(hash || "").trim();
+  if (!s) return "—";
+  if (s.length <= 12) return s;
+  return `${s.slice(0, 8)}…`;
 }
 
 export function signalsFromMeta(meta: unknown): FingerprintSignalsSnapshot | null {

@@ -1,9 +1,9 @@
 /**
- * Client-side device fingerprint (FingerprintJS + stable hardware/rendering signals).
+ * Client-side device fingerprint (FingerprintJS + canvas + AudioContext).
  * Used for account-sharing detection — more reliable than IP alone (VPNs).
  */
 
-export const DEVICE_FINGERPRINT_VERSION = "v2";
+export const DEVICE_FINGERPRINT_VERSION = "v3";
 
 export type DeviceFingerprintSignals = {
   screen?: string;
@@ -15,6 +15,10 @@ export type DeviceFingerprintSignals = {
   platform?: string;
   hardwareConcurrency?: number;
   deviceMemory?: number;
+  /** SHA-256 hex of canvas rendering fingerprint */
+  canvasHash?: string;
+  /** SHA-256 hex of AudioContext offline render fingerprint */
+  audioHash?: string;
 };
 
 export type DeviceFingerprintPayload = {
@@ -25,7 +29,7 @@ export type DeviceFingerprintPayload = {
   signals?: DeviceFingerprintSignals;
 };
 
-const CACHE_KEY = "ee_device_fingerprint_v2";
+const CACHE_KEY = "ee_device_fingerprint_v3";
 
 let inflight: Promise<DeviceFingerprintPayload | null> | null = null;
 
@@ -38,9 +42,94 @@ async function sha256Hex(input: string): Promise<string> {
     .join("");
 }
 
+/** Canvas 2D render — stable across sessions, hard to spoof without dedicated libs. */
+async function collectCanvasHash(): Promise<string> {
+  if (typeof document === "undefined") return "";
+  try {
+    const canvas = document.createElement("canvas");
+    canvas.width = 280;
+    canvas.height = 64;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return "";
+    ctx.textBaseline = "alphabetic";
+    ctx.fillStyle = "#f60";
+    ctx.fillRect(100, 1, 62, 20);
+    ctx.fillStyle = "#069";
+    ctx.font = "11pt 'Times New Roman'";
+    const txt = "EcomEfficiency canvas 🎨";
+    ctx.fillText(txt, 2, 15);
+    ctx.fillStyle = "rgba(102, 204, 0, 0.7)";
+    ctx.font = "18pt Arial";
+    ctx.fillText(txt, 4, 45);
+    ctx.globalCompositeOperation = "multiply";
+    ctx.fillStyle = "rgb(255,0,255)";
+    ctx.beginPath();
+    ctx.arc(50, 25, 18, 0, Math.PI * 2, true);
+    ctx.closePath();
+    ctx.fill();
+    return sha256Hex(canvas.toDataURL());
+  } catch {
+    return "";
+  }
+}
+
+/** Offline AudioContext sum — stable hardware/audio stack signature. */
+async function collectAudioContextHash(): Promise<string> {
+  if (typeof window === "undefined") return "";
+  try {
+    const Ctx =
+      window.OfflineAudioContext ||
+      (window as Window & { webkitOfflineAudioContext?: typeof OfflineAudioContext })
+        .webkitOfflineAudioContext;
+    if (!Ctx) return "";
+
+    const offline = new Ctx(1, 44100, 44100);
+    const osc = offline.createOscillator();
+    osc.type = "triangle";
+    osc.frequency.setValueAtTime(10000, offline.currentTime);
+
+    const comp = offline.createDynamicsCompressor();
+    comp.threshold.setValueAtTime(-50, offline.currentTime);
+    comp.knee.setValueAtTime(40, offline.currentTime);
+    comp.ratio.setValueAtTime(12, offline.currentTime);
+    comp.attack.setValueAtTime(0, offline.currentTime);
+    comp.release.setValueAtTime(0.25, offline.currentTime);
+
+    osc.connect(comp);
+    comp.connect(offline.destination);
+    osc.start(0);
+
+    const buffer = await offline.startRendering();
+    const channel = buffer.getChannelData(0);
+    if (!channel?.length) return "";
+
+    let sum = 0;
+    const start = Math.min(4500, channel.length - 1);
+    const end = Math.min(5000, channel.length);
+    for (let i = start; i < end; i++) sum += Math.abs(channel[i]);
+
+    return sha256Hex(
+      [
+        String(sum),
+        String(comp.threshold.value),
+        String(comp.knee.value),
+        String(comp.ratio.value),
+        String(comp.attack.value),
+        String(comp.release.value),
+      ].join("|")
+    );
+  } catch {
+    return "";
+  }
+}
+
 async function buildFallbackFingerprint(): Promise<DeviceFingerprintPayload | null> {
   if (typeof window === "undefined") return null;
   try {
+    const [canvasHash, audioHash] = await Promise.all([
+      collectCanvasHash(),
+      collectAudioContextHash(),
+    ]);
     const nav = window.navigator;
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
     const screenW = window.screen?.width || 0;
@@ -48,6 +137,8 @@ async function buildFallbackFingerprint(): Promise<DeviceFingerprintPayload | nu
     const pixelRatio = window.devicePixelRatio || 1;
     const raw = [
       "v1_fallback",
+      canvasHash,
+      audioHash,
       nav.platform || "",
       nav.language || "",
       (nav.languages || []).join(","),
@@ -74,6 +165,8 @@ async function buildFallbackFingerprint(): Promise<DeviceFingerprintPayload | nu
         platform: nav.platform || "",
         hardwareConcurrency: nav.hardwareConcurrency,
         deviceMemory: (nav as Navigator & { deviceMemory?: number }).deviceMemory,
+        canvasHash: canvasHash || undefined,
+        audioHash: audioHash || undefined,
       },
     };
   } catch {
@@ -89,18 +182,30 @@ export async function collectDeviceFingerprint(): Promise<DeviceFingerprintPaylo
     const cached = sessionStorage.getItem(CACHE_KEY);
     if (cached) {
       const parsed = JSON.parse(cached) as DeviceFingerprintPayload;
-      if (parsed?.fingerprint) return parsed;
+      if (parsed?.fingerprint && parsed.fingerprint_version === DEVICE_FINGERPRINT_VERSION) {
+        return parsed;
+      }
     }
   } catch {}
 
   if (!inflight) {
     inflight = (async () => {
       try {
-        const FingerprintJS = await import("@fingerprintjs/fingerprintjs");
-        const agent = await FingerprintJS.load();
-        const result = await agent.get();
-        const components = result.components as Record<string, { value?: unknown }>;
+        const [canvasHash, audioHash, fpjsResult] = await Promise.all([
+          collectCanvasHash(),
+          collectAudioContextHash(),
+          (async () => {
+            try {
+              const FingerprintJS = await import("@fingerprintjs/fingerprintjs");
+              const agent = await FingerprintJS.load();
+              return await agent.get();
+            } catch {
+              return null;
+            }
+          })(),
+        ]);
 
+        const components = (fpjsResult?.components || {}) as Record<string, { value?: unknown }>;
         const screenRes = components.screenResolution?.value;
         const screen =
           Array.isArray(screenRes) && screenRes.length >= 2
@@ -111,12 +216,28 @@ export async function collectDeviceFingerprint(): Promise<DeviceFingerprintPaylo
           String(components.webglRenderer?.value || components.webglVendor?.value || "").slice(0, 160) ||
           undefined;
 
+        const visitorId = fpjsResult?.visitorId || "";
+        const compositeRaw = [
+          DEVICE_FINGERPRINT_VERSION,
+          visitorId,
+          canvasHash,
+          audioHash,
+          webgl || "",
+          screen,
+        ].join("|");
+        const compositeHash = await sha256Hex(compositeRaw);
+        if (!compositeHash) {
+          return buildFallbackFingerprint();
+        }
+
         const payload: DeviceFingerprintPayload = {
-          fingerprint: `v2_${result.visitorId}`,
+          fingerprint: `v3_${compositeHash.slice(0, 32)}`,
           fingerprint_version: DEVICE_FINGERPRINT_VERSION,
-          visitor_id: result.visitorId,
+          visitor_id: visitorId || undefined,
           confidence:
-            typeof result.confidence?.score === "number" ? result.confidence.score : undefined,
+            typeof fpjsResult?.confidence?.score === "number"
+              ? fpjsResult.confidence.score
+              : undefined,
           signals: {
             screen,
             colorDepth:
@@ -141,6 +262,8 @@ export async function collectDeviceFingerprint(): Promise<DeviceFingerprintPaylo
               typeof components.deviceMemory?.value === "number"
                 ? components.deviceMemory.value
                 : (navigator as Navigator & { deviceMemory?: number }).deviceMemory,
+            canvasHash: canvasHash || undefined,
+            audioHash: audioHash || undefined,
           },
         };
 
@@ -189,6 +312,8 @@ export function fingerprintMetaForEvent(
     fp_visitor_id: payload.visitor_id || null,
     fp_confidence: payload.confidence ?? null,
     fp_signals: payload.signals || null,
+    fp_canvas_hash: payload.signals?.canvasHash || null,
+    fp_audio_hash: payload.signals?.audioHash || null,
   };
 }
 
@@ -197,4 +322,11 @@ export function shortFingerprintLabel(fp: string): string {
   if (!s) return "—";
   if (s.length <= 14) return s;
   return `${s.slice(0, 10)}…${s.slice(-4)}`;
+}
+
+export function shortHashLabel(hash: string | undefined): string {
+  const s = String(hash || "").trim();
+  if (!s) return "—";
+  if (s.length <= 12) return s;
+  return `${s.slice(0, 8)}…`;
 }

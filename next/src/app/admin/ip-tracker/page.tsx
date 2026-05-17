@@ -5,6 +5,7 @@ import {
   buildFingerprintDetails,
   fingerprintFromMeta,
   shortFingerprintLabel,
+  shortHashLabel,
   type FingerprintDetail,
 } from '@/lib/fingerprintAnalytics'
 
@@ -216,7 +217,14 @@ function eventLocation(ev: IpEvent): string {
 
 // ─── Risk scoring engine ─────────────────────────────────────────────────
 
-type TimedPoint = { at: number; ip: string; country: string | null; city: string | null; loc: string }
+type TimedPoint = {
+  at: number
+  ip: string
+  country: string | null
+  city: string | null
+  loc: string
+  fingerprint: string | null
+}
 
 function buildTimeline(events: IpEvent[], sessions: SessionRow[]): TimedPoint[] {
   const pts: TimedPoint[] = []
@@ -229,6 +237,7 @@ function buildTimeline(events: IpEvent[], sessions: SessionRow[]): TimedPoint[] 
       country: ev.country || null,
       city: typeof meta.city === 'string' ? meta.city : null,
       loc: eventLocation(ev),
+      fingerprint: fingerprintFromMeta(ev.meta),
     })
   }
   for (const s of sessions) {
@@ -240,10 +249,17 @@ function buildTimeline(events: IpEvent[], sessions: SessionRow[]): TimedPoint[] 
       country: s.country || null,
       city: s.city || null,
       loc: compactLocation(s.city, s.region, s.country) || s.country || '',
+      fingerprint: String(s.device_fingerprint || '').trim() || null,
     })
   }
   pts.sort((a, b) => a.at - b.at)
   return pts
+}
+
+function sameDeviceFingerprint(a: TimedPoint, b: TimedPoint): boolean {
+  const fa = a.fingerprint
+  const fb = b.fingerprint
+  return Boolean(fa && fb && fa === fb)
 }
 
 function computeRisk(
@@ -258,15 +274,30 @@ function computeRisk(
   let score = 0
 
   const timeline = buildTimeline(events, sessions)
-  const countries = new Set(timeline.map(p => p.country).filter(Boolean))
-  const cities = new Set(timeline.map(p => p.city).filter(Boolean))
+  const stableDevice =
+    uniqueFingerprints.length === 1 && Boolean(uniqueFingerprints[0])
+  const ipOnlyChurn = stableDevice && uniqueIps.length >= 2
 
-  // ── Signal 1: Multi-country ───────────────────────────────────────────
-  if (countries.size >= 3) {
+  const countries = new Set(timeline.map((p) => p.country).filter(Boolean))
+  const cities = new Set(timeline.map((p) => p.city).filter(Boolean))
+
+  if (ipOnlyChurn) {
+    signals.push({
+      id: 'stable_device_ip_churn',
+      emoji: '🔒',
+      label: 'Même appareil (canvas/audio/WebGL)',
+      detail: `1 empreinte stable sur ${uniqueIps.length} IPs — churn IP ignoré (VPN / mobile)`,
+      severity: 'low',
+      score: 0,
+    })
+  }
+
+  // ── Signal 1: Multi-country (ignored when single stable fingerprint) ───
+  if (!stableDevice && countries.size >= 3) {
     const pts = countries.size
     score += 30
     signals.push({ id: 'multi_country', emoji: '🌍', label: 'Multi-pays', detail: `${pts} pays détectés: ${[...countries].join(', ')}`, severity: 'high', score: 30 })
-  } else if (countries.size === 2) {
+  } else if (!stableDevice && countries.size === 2) {
     score += 15
     signals.push({ id: 'multi_country_2', emoji: '🌍', label: '2 pays distincts', detail: `${[...countries].join(' + ')}`, severity: 'medium', score: 15 })
   }
@@ -281,16 +312,17 @@ function computeRisk(
       }
     }
   }
-  if (intercontinentalPairs.length > 0) {
+  if (!stableDevice && intercontinentalPairs.length > 0) {
     score += 25
     signals.push({ id: 'intercontinental', emoji: '✈️', label: 'Connexions intercontinentales', detail: intercontinentalPairs.join(', '), severity: 'critical', score: 25 })
   }
 
-  // ── Signal 3: Velocity — impossible travel ─────────────────────────────
+  // ── Signal 3: Velocity — impossible travel (skip same fingerprint) ───
   let velocityFlags: string[] = []
   for (let i = 1; i < timeline.length; i++) {
     const prev = timeline[i - 1]
     const curr = timeline[i]
+    if (sameDeviceFingerprint(prev, curr)) continue
     if (!prev.country || !curr.country) continue
     if (prev.ip === curr.ip) continue
     if (prev.country === curr.country && prev.city === curr.city) continue
@@ -330,25 +362,37 @@ function computeRisk(
       severity: 'critical',
       score: 40,
     })
-  } else if (activeIps.size >= 2) {
-    score += 30
+  } else if (activeIps.size >= 2 && !stableDevice) {
+    score += 18
     signals.push({
       id: 'simultaneous',
       emoji: '👥',
-      label: 'Sessions simultanées actives',
-      detail: `${activeIps.size} IPs actives en même temps: ${[...activeIps].join(', ')}`,
-      severity: 'critical',
-      score: 30,
+      label: 'Sessions simultanées (IPs)',
+      detail: `${activeIps.size} IPs actives — pas d’empreinte distincte confirmée`,
+      severity: 'high',
+      score: 18,
     })
   }
 
-  // ── Signal 5: Too many distinct IPs ───────────────────────────────────
-  if (uniqueIps.length >= 5) {
-    score += 20
-    signals.push({ id: 'many_ips', emoji: '🔗', label: `${uniqueIps.length} IPs distinctes`, detail: 'Nombre élevé d\'adresses IP utilisées', severity: 'high', score: 20 })
-  } else if (uniqueIps.length >= 3) {
-    score += 10
-    signals.push({ id: 'few_ips', emoji: '🔗', label: `${uniqueIps.length} IPs distinctes`, detail: 'Plusieurs IPs utilisées', severity: 'medium', score: 10 })
+  // ── Signal 5: Too many distinct IPs (low weight if same device fingerprint) ─
+  if (!stableDevice) {
+    if (uniqueIps.length >= 5) {
+      score += 20
+      signals.push({ id: 'many_ips', emoji: '🔗', label: `${uniqueIps.length} IPs distinctes`, detail: 'Nombre élevé d\'adresses IP utilisées', severity: 'high', score: 20 })
+    } else if (uniqueIps.length >= 3) {
+      score += 10
+      signals.push({ id: 'few_ips', emoji: '🔗', label: `${uniqueIps.length} IPs distinctes`, detail: 'Plusieurs IPs utilisées', severity: 'medium', score: 10 })
+    }
+  } else if (uniqueIps.length >= 12) {
+    score += 5
+    signals.push({
+      id: 'many_ips_stable_device',
+      emoji: '🔗',
+      label: `${uniqueIps.length} IPs (même appareil)`,
+      detail: 'Beaucoup d’IPs mais une seule empreinte — faible risque de partage',
+      severity: 'low',
+      score: 5,
+    })
   }
 
   // ── Signal 6: Multi-device fingerprint (FingerprintJS) ───────────────
@@ -417,7 +461,7 @@ function computeRisk(
   }
 
   // ── Signal 7: Multi-city same country ────────────────────────────────
-  if (cities.size >= 3 && countries.size <= 1) {
+  if (!stableDevice && cities.size >= 3 && countries.size <= 1) {
     score += 15
     signals.push({ id: 'multi_city', emoji: '🏙️', label: `${cities.size} villes distinctes`, detail: [...cities].join(', '), severity: 'medium', score: 15 })
   }
@@ -633,7 +677,7 @@ export default async function AdminIpTrackerPage() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-1">🛡️ Radar Partage de Compte</h1>
           <p className="text-gray-400 text-sm">
-            Détection multi-signaux : empreinte navigateur (FingerprintJS), vélocité géo, sessions simultanées, multi-pays — l’IP seule est insuffisante (VPN).
+            Détection par empreinte (FingerprintJS + canvas + AudioContext). Changement d’IP seul est ignoré si l’appareil reste identique (VPN).
           </p>
         </div>
 
@@ -875,7 +919,7 @@ function UserCard({ summary }: { summary: UserSummary }) {
 
         {/* Devices & fingerprints */}
         <div>
-          <h4 className="text-sm font-semibold text-gray-300 mb-2">🖥️ Empreintes navigateur (FingerprintJS)</h4>
+          <h4 className="text-sm font-semibold text-gray-300 mb-2">🖥️ Empreintes (FingerprintJS + canvas + audio)</h4>
           {!fingerprintDetails.length ? (
             <span className="text-gray-500 text-xs">Aucune empreinte — les prochaines visites/copies alimenteront ce bloc.</span>
           ) : (
@@ -884,6 +928,8 @@ function UserCard({ summary }: { summary: UserSummary }) {
                 <thead className="bg-white/5">
                   <tr>
                     <th className="text-left p-2 text-xs text-gray-400 font-medium">Empreinte</th>
+                    <th className="text-left p-2 text-xs text-gray-400 font-medium hidden xl:table-cell">Canvas</th>
+                    <th className="text-left p-2 text-xs text-gray-400 font-medium hidden xl:table-cell">Audio</th>
                     <th className="text-left p-2 text-xs text-gray-400 font-medium hidden lg:table-cell">GPU / écran</th>
                     <th className="text-left p-2 text-xs text-gray-400 font-medium hidden md:table-cell">TZ / langue</th>
                     <th className="text-right p-2 text-xs text-gray-400 font-medium">Events</th>
@@ -895,6 +941,12 @@ function UserCard({ summary }: { summary: UserSummary }) {
                   {fingerprintDetails.map((fp) => (
                     <tr key={fp.id} className="border-t border-white/5 hover:bg-white/5">
                       <td className="p-2 font-mono text-xs text-emerald-200" title={fp.id}>{fp.shortLabel}</td>
+                      <td className="p-2 font-mono text-[11px] text-violet-200/90 hidden xl:table-cell" title={fp.signals?.canvasHash || ''}>
+                        {shortHashLabel(fp.signals?.canvasHash)}
+                      </td>
+                      <td className="p-2 font-mono text-[11px] text-sky-200/90 hidden xl:table-cell" title={fp.signals?.audioHash || ''}>
+                        {shortHashLabel(fp.signals?.audioHash)}
+                      </td>
                       <td className="p-2 text-gray-400 text-xs hidden lg:table-cell max-w-[200px] truncate" title={fp.signals?.webgl || ''}>
                         {[fp.signals?.webgl, fp.signals?.screen, fp.signals?.devicePixelRatio ? `dpr ${fp.signals.devicePixelRatio}` : ''].filter(Boolean).join(' · ') || '—'}
                       </td>
@@ -918,7 +970,7 @@ function UserCard({ summary }: { summary: UserSummary }) {
             </div>
           ) : null}
           <p className="mt-2 text-[11px] text-gray-500">
-            {uniqueFingerprints.length} empreinte{uniqueFingerprints.length > 1 ? 's' : ''} — stable même derrière VPN.
+            {uniqueFingerprints.length} empreinte{uniqueFingerprints.length > 1 ? 's' : ''} — canvas/audio/WebGL stables ; le radar ne pénalise pas le churn IP sur un même device.
           </p>
         </div>
 
