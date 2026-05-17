@@ -37,32 +37,46 @@
     el.dataset._vmakeDisabled = '1';
   }
 
+  function isLoginInProgress() {
+    try {
+      return window.__eeVmakeLoginInProgress === true;
+    } catch (_) {
+      return false;
+    }
+  }
+
   function applyOnce() {
     const section = document.querySelector(SELECTORS.headerRightSection);
     if (!section) return false;
 
-    // Phone: disable the wrapper div if possible (larger click target)
     const phoneIcon = section.querySelector(SELECTORS.phoneIcon);
-    const phoneWrapper = phoneIcon ? phoneIcon.closest('div') : null;
+    const phoneWrapper = phoneIcon ? phoneIcon.closest("div") : null;
     markDisabled(phoneWrapper || phoneIcon);
 
-    // Upgrade: disable the anchor itself
     const upgrade = section.querySelector(SELECTORS.upgrade);
     markDisabled(upgrade);
 
-    // Account: disable dropdown trigger wrapper
     const account = section.querySelector(SELECTORS.account);
-    markDisabled(account);
+    if (account && !isLoginInProgress()) {
+      markDisabled(account);
+    } else if (account) {
+      try {
+        account.style.pointerEvents = 'auto';
+        account.style.cursor = 'pointer';
+        account.removeAttribute('disabled');
+        delete account.dataset._vmakeDisabled;
+      } catch (_) {}
+    }
 
     return true;
   }
 
   function shouldBlockEventTarget(target) {
     if (!target || !target.closest) return false;
+    if (isLoginInProgress()) return false;
     const section = target.closest(SELECTORS.headerRightSection);
     if (!section) return false;
 
-    // Only block the 3 controls (not the whole header)
     if (target.closest(SELECTORS.upgrade)) return true;
     if (target.closest(SELECTORS.account)) return true;
 

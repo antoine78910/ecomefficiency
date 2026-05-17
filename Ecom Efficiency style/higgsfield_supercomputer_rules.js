@@ -11,7 +11,14 @@
 })(typeof globalThis !== 'undefined' ? globalThis : this, function () {
   'use strict';
 
-  const BLOCKED_HIGGSFIELD_PATH_PREFIXES = ['/cli', '/canvas', '/mcp', '/supercomputer'];
+  const BLOCKED_HIGGSFIELD_PATH_PREFIXES = [
+    '/cli',
+    '/canvas',
+    '/mcp',
+    '/supercomputer',
+    '/marketing-studio',
+    '/marketing-studio-community',
+  ];
 
   function shouldBlockHiggsfieldPath(pathname) {
     try {

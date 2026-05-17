@@ -13,6 +13,13 @@ test('shouldBlockHiggsfieldPath blocks supercomputer routes', () => {
   assert.equal(shouldBlockHiggsfieldPath('/pricing'), false);
 });
 
+test('shouldBlockHiggsfieldPath blocks marketing-studio routes', () => {
+  assert.equal(shouldBlockHiggsfieldPath('/marketing-studio'), true);
+  assert.equal(shouldBlockHiggsfieldPath('/marketing-studio/hooks'), true);
+  assert.equal(shouldBlockHiggsfieldPath('/marketing-studio-community'), true);
+  assert.equal(shouldBlockHiggsfieldPath('/marketing'), false);
+});
+
 test('SUPERCOMPUTER_HIDE_SELECTORS covers navbar, card, and banner surfaces', () => {
   assert.ok(BLOCKED_HIGGSFIELD_PATH_PREFIXES.includes('/supercomputer'));
   assert.ok(SUPERCOMPUTER_HIDE_SELECTORS.nav.some((selector) => selector.includes('/supercomputer')));

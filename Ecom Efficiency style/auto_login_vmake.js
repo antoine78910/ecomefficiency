@@ -1,4 +1,4 @@
-(function () {
+﻿(function () {
   'use strict';
 
   // ---- Multi-account configuration ----
@@ -9,6 +9,47 @@
   };
   const ACCOUNT_STORAGE_KEY = 'vmake_selected_account';
   let selectedAccountKey = null; // will be set after user choice
+  let accountChosenThisSession = false;
+  let accountPickerBuilding = false;
+
+  function setLoginInProgress(active) {
+    try {
+      window.__eeVmakeLoginInProgress = !!active;
+    } catch (_) {}
+  }
+
+  function enableAccountTriggerForLogin() {
+    const section = document.querySelector('section[class*="header-right-content"]');
+    if (section) {
+      try {
+        section.style.pointerEvents = '';
+        section.style.userSelect = '';
+        if (section.dataset._ecomVmakeLocked === '1') delete section.dataset._ecomVmakeLocked;
+      } catch (_) {}
+    }
+
+    const trigger = findAccountAvatarTrigger();
+    if (!trigger) return null;
+
+    try {
+      trigger.removeAttribute('disabled');
+      trigger.style.pointerEvents = 'auto';
+      trigger.style.cursor = 'pointer';
+      trigger.removeAttribute('aria-disabled');
+    } catch (_) {}
+
+    const inner =
+      trigger.querySelector('[class*="account-account"]') ||
+      trigger.querySelector('[class*="account-avatar"]') ||
+      trigger.querySelector('.ant-avatar');
+    if (inner) {
+      try {
+        inner.style.pointerEvents = 'auto';
+        inner.style.cursor = 'pointer';
+      } catch (_) {}
+    }
+    return trigger;
+  }
 
   /**
    * Small helper to wait for an element to appear in the DOM.
@@ -82,91 +123,562 @@
   function maskEmailInOtpSubtitle() {
     try {
       const el = document.querySelector(
-        '.starii-account-email-verify-code-check-view-subtitle'
+        '.account-email-verify-code-check-view-subtitle, .starii-account-email-verify-code-check-view-subtitle'
       );
       if (!el) return;
       const t = String(el.textContent || '');
       const masked = t.replace(
         /[^\s@]+@[^\s@]+\.[^\s@]+/g,
-        '••••••••••••••••'
+        'â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢â€¢'
       );
       if (masked !== t) el.textContent = masked;
     } catch (_) {}
   }
 
-  function humanClick(element) {
-    if (!element) return;
+  /** Block only blog/pricing links (used for blind coordinate clicks, not intentional targets). */
+  function isBlockedNavLink(el) {
+    if (!el) return false;
+    const link = el.closest('a[href]');
+    if (!link) return false;
+    try {
+      const u = new URL(link.getAttribute('href') || '', location.href);
+      if (u.hostname !== location.hostname) return true;
+      return /^\/(blog|pricing)(\/|$)/i.test(u.pathname || '');
+    } catch (_) {
+      return true;
+    }
+  }
+
+  function getClickCoords(element) {
+    const rect = element.getBoundingClientRect();
+    let x = rect.left + rect.width / 2;
+    let y = rect.top + rect.height / 2;
+    x = Math.min(Math.max(x, 5), window.innerWidth - 5);
+    y = Math.min(Math.max(y, 5), window.innerHeight - 5);
+    return { x, y };
+  }
+
+  function buildPointerEventInit(x, y) {
+    return {
+      bubbles: true,
+      cancelable: true,
+      composed: true,
+      view: window,
+      detail: 1,
+      button: 0,
+      buttons: 1,
+      clientX: x,
+      clientY: y,
+      screenX: window.screenX + x,
+      screenY: window.screenY + y,
+      pageX: x + (window.scrollX || 0),
+      pageY: y + (window.scrollY || 0),
+      pointerId: 1,
+      pointerType: 'mouse',
+      isPrimary: true,
+    };
+  }
+
+  /** Full pointer + mouse sequence for non-button elements (Ant Design dropdown triggers). */
+  function simulateRealClick(element) {
+    if (!element) return false;
     try {
       element.scrollIntoView({ block: 'center', behavior: 'auto' });
     } catch (_) {}
 
-    const rect = element.getBoundingClientRect();
-    let x = rect.left + rect.width / 2;
-    let y = rect.top + rect.height / 2;
+    const { x, y } = getClickCoords(element);
+    const base = buildPointerEventInit(x, y);
 
-    // Clamp to viewport in case element is partially off-screen
-    x = Math.min(Math.max(x, 5), window.innerWidth - 5);
-    y = Math.min(Math.max(y, 5), window.innerHeight - 5);
-
-    // Use the real element under this point (React usually listens on document)
-    const target = document.elementFromPoint(x, y) || element;
-
-    function fire(type) {
-      const ev = new MouseEvent(type, {
-        bubbles: true,
-        cancelable: true,
-        clientX: x,
-        clientY: y,
-        button: 0,
-      });
-      target.dispatchEvent(ev);
+    function dispatch(el, type, usePointer) {
+      if (!el) return;
+      try {
+        if (usePointer && typeof PointerEvent !== 'undefined') {
+          el.dispatchEvent(new PointerEvent(type, base));
+        } else {
+          el.dispatchEvent(new MouseEvent(type, base));
+        }
+      } catch (_) {
+        try {
+          el.dispatchEvent(new MouseEvent(type, base));
+        } catch (_2) {}
+      }
     }
 
-    fire('mouseover');
-    fire('mousemove');
-    fire('mousedown');
-    fire('mouseup');
-    fire('click');
+    const sequence = [
+      ['pointerover', true],
+      ['mouseover', false],
+      ['pointerenter', true],
+      ['mouseenter', false],
+      ['pointerdown', true],
+      ['mousedown', false],
+      ['pointerup', true],
+      ['mouseup', false],
+      ['click', false],
+    ];
+
+    for (const [type, usePointer] of sequence) {
+      dispatch(element, type, usePointer);
+    }
+
+    try {
+      if (typeof element.click === 'function') element.click();
+    } catch (_) {}
+
+    const hit = document.elementFromPoint(x, y);
+    if (hit && hit !== element && element.contains(hit) && !isBlockedNavLink(hit)) {
+      for (const [type, usePointer] of sequence) {
+        dispatch(hit, type, usePointer);
+      }
+    }
+
+    return true;
   }
 
-  function clickTopRightArea() {
-    const x = window.innerWidth - 10;
-    const y = 20;
+  function invokeReactOnClick(element) {
+    if (!element) return false;
+    const key = Object.keys(element).find(
+      (k) => k.startsWith('__reactFiber') || k.startsWith('__reactInternalInstance')
+    );
+    if (!key) return false;
+    let fiber = element[key];
+    while (fiber) {
+      const onClick = fiber.memoizedProps && fiber.memoizedProps.onClick;
+      if (typeof onClick === 'function') {
+        onClick({
+          preventDefault() {},
+          stopPropagation() {},
+          nativeEvent: new MouseEvent('click', { bubbles: true }),
+          currentTarget: element,
+          target: element,
+        });
+        return true;
+      }
+      fiber = fiber.return;
+    }
+    return false;
+  }
+
+  function getAccountAvatarClickTargets(trigger) {
+    const fromTrigger = trigger
+      ? [
+          trigger,
+          trigger.querySelector('[class*="account-account"]'),
+          trigger.querySelector('[class*="account-avatar"]'),
+          trigger.querySelector('.ant-avatar'),
+          trigger.querySelector('svg'),
+          trigger.querySelector('path'),
+        ]
+      : [];
+
+    const fromPage = [
+      document.querySelector('.ant-dropdown-trigger [class*="header-account"]'),
+      document.querySelector('.ant-dropdown-trigger [class*="account-account"]'),
+      document.querySelector('.ant-dropdown-trigger .ant-avatar'),
+      document.querySelector('.ant-dropdown-trigger svg'),
+      document.querySelector('section[class*="header-right-content"] .ant-dropdown-trigger'),
+    ];
+
+    const seen = new Set();
+    const out = [];
+    for (const el of [...fromTrigger, ...fromPage]) {
+      if (!el || seen.has(el)) continue;
+      seen.add(el);
+      out.push(el);
+    }
+    return out;
+  }
+
+  function clickHtmlElementDirect(el) {
+    if (!el || isBlockedNavLink(el)) return false;
+
+    try {
+      el.removeAttribute('disabled');
+      el.style.pointerEvents = 'auto';
+      el.style.cursor = 'pointer';
+    } catch (_) {}
+
+    try {
+      el.scrollIntoView({ block: 'center', behavior: 'auto' });
+    } catch (_) {}
+
+    const { x, y } = getClickCoords(el);
+    const mouseInit = {
+      bubbles: true,
+      cancelable: true,
+      view: window,
+      clientX: x,
+      clientY: y,
+      button: 0,
+      buttons: 1,
+    };
+
+    console.log(
+      '[VMAVE-AUTOLOGIN] clickHtmlElementDirect:',
+      el.tagName,
+      (el.className && String(el.className).slice(0, 60)) || ''
+    );
+
+    try {
+      invokeReactOnClick(el);
+    } catch (_) {}
+
+    try {
+      HTMLElement.prototype.click.call(el);
+    } catch (_) {
+      try {
+        el.click();
+      } catch (_2) {}
+    }
+
+    for (const type of ['mousedown', 'mouseup', 'click']) {
+      try {
+        el.dispatchEvent(new MouseEvent(type, mouseInit));
+      } catch (_) {}
+    }
+
+    return true;
+  }
+
+  async function simulateAntDropdownTriggerClick(trigger) {
+    enableAccountTriggerForLogin();
+    const targets = getAccountAvatarClickTargets(trigger);
+    if (!targets.length) {
+      console.warn('[VMAVE-AUTOLOGIN] No avatar HTML targets found');
+      return false;
+    }
+
+    for (const el of targets) {
+      clickHtmlElementDirect(el);
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    return true;
+  }
+
+  function humanClick(element) {
+    if (!element) return;
+    clickHtmlElementDirect(element);
+  }
+
+  function findAccountAvatarTrigger() {
+    const scopes = [
+      document.querySelector('section[class*="header-right-content"]'),
+      document.querySelector('header'),
+      document.body,
+    ].filter(Boolean);
+
+    const innerSelectors = [
+      '[class*="account-account"][class*="header-account"]',
+      '[class*="account-account"][class*="workbench-layout-account"]',
+      '[class*="account-account"]',
+      '[class*="account-avatar"]',
+    ];
+
+    for (const scope of scopes) {
+      // Vmake nests account-account inside ant-dropdown-trigger (not on the same node).
+      for (const sel of innerSelectors) {
+        const inner = scope.querySelector(sel);
+        if (!inner) continue;
+        const trigger = inner.closest('.ant-dropdown-trigger');
+        if (trigger && !isBlockedNavLink(trigger)) return trigger;
+      }
+
+      try {
+        const trigger = scope.querySelector('.ant-dropdown-trigger:has([class*="account-account"])');
+        if (trigger && !isBlockedNavLink(trigger)) return trigger;
+      } catch (_) {}
+
+      const legacy =
+        scope.querySelector('.ant-dropdown-trigger[class*="account-account"]') ||
+        scope.querySelector('[class*="workbench-layout-account"].ant-dropdown-trigger');
+      if (legacy && !isBlockedNavLink(legacy)) return legacy;
+
+      const svg = scope.querySelector('[class*="account-avatar"] svg, .ant-avatar svg');
+      if (svg) {
+        const trigger = svg.closest('.ant-dropdown-trigger');
+        if (trigger && !isBlockedNavLink(trigger)) return trigger;
+      }
+    }
+    return null;
+  }
+
+  /** Simulate a real mouse click at viewport coordinates (x, y). */
+  function clickAtScreenPosition(x, y) {
+    x = Math.round(Math.min(Math.max(x, 2), window.innerWidth - 2));
+    y = Math.round(Math.min(Math.max(y, 2), window.innerHeight - 2));
+    const base = buildPointerEventInit(x, y);
+
     const target = document.elementFromPoint(x, y);
-    if (!target) {
-      console.log('[VMAVE-AUTOLOGIN] clickTopRightArea: no target at point');
-      return;
-    }
-    console.log('[VMAVE-AUTOLOGIN] clickTopRightArea: target =', target.tagName, target.className || '');
+    console.log(
+      '[VMAVE-AUTOLOGIN] clickAtScreenPosition',
+      x,
+      y,
+      '->',
+      target ? target.tagName + ' ' + String(target.className || '').slice(0, 50) : 'null'
+    );
 
-    function fire(type) {
-      const ev = new MouseEvent(type, {
-        bubbles: true,
-        cancelable: true,
-        clientX: x,
-        clientY: y,
-        button: 0,
-      });
-      target.dispatchEvent(ev);
+    function fireOn(el, type) {
+      if (!el) return;
+      try {
+        el.dispatchEvent(new MouseEvent(type, base));
+      } catch (_) {}
+      try {
+        if (typeof PointerEvent !== 'undefined') {
+          el.dispatchEvent(new PointerEvent(type, base));
+        }
+      } catch (_) {}
     }
 
-    fire('mouseover');
-    fire('mousemove');
-    fire('mousedown');
-    fire('mouseup');
-    fire('click');
+    const types = ['mousemove', 'mouseover', 'mousedown', 'mouseup', 'click'];
+    for (const type of types) {
+      try {
+        document.dispatchEvent(new MouseEvent(type, base));
+      } catch (_) {}
+    }
+
+    if (target && !isBlockedNavLink(target)) {
+      for (const type of types) {
+        fireOn(target, type);
+      }
+      try {
+        invokeReactOnClick(target);
+      } catch (_) {}
+      try {
+        HTMLElement.prototype.click.call(target);
+      } catch (_) {
+        try {
+          target.click();
+        } catch (_2) {}
+      }
+    }
+
+    return target;
+  }
+
+  /** Profile avatar is always top-right of the viewport — fixed screen coordinates only. */
+  function getTopRightClickPositions() {
+    const w = window.innerWidth;
+    const offsets = [
+      [28, 20],
+      [40, 26],
+      [52, 32],
+      [64, 38],
+      [36, 36],
+      [48, 22],
+    ];
+    return offsets.map(([marginRight, y]) => ({
+      x: w - marginRight,
+      y,
+    }));
+  }
+
+  /** One or two silent clicks top-right (only after account selection). */
+  async function clickTopRightArea() {
+    if (!isOnVmakeWorkspace()) return false;
+    enableAccountTriggerForLogin();
+
+    const positions = getTopRightClickPositions();
+    const first = positions[0] || { x: window.innerWidth - 40, y: 28 };
+    const second = positions[1] || first;
+
+    console.log('[VMAVE-AUTOLOGIN] Top-right click 1 at', first.x, first.y);
+    clickAtScreenPosition(first.x, first.y);
+    await new Promise((r) => setTimeout(r, 400));
+
+    console.log('[VMAVE-AUTOLOGIN] Top-right click 2 at', second.x, second.y);
+    clickAtScreenPosition(second.x, second.y);
+    await new Promise((r) => setTimeout(r, 400));
+
+    const trigger = findAccountAvatarTrigger();
+    if (trigger) {
+      console.log('[VMAVE-AUTOLOGIN] Fallback: click account avatar trigger');
+      await simulateAntDropdownTriggerClick(trigger);
+      await new Promise((r) => setTimeout(r, 350));
+    }
+
+    const continueBtn = await waitForElementFn(
+      () => findContinueWithEmailButton(),
+      12000
+    );
+    return !!continueBtn;
+  }
+
+  const CONTINUE_EMAIL_BTN_EXACT =
+    'button.account-button.account-button-primary.account-third-party-login-form-button';
+
+  async function clickContinueWithEmailButton(btn) {
+    const button = btn || findContinueWithEmailButton();
+    if (!button) return false;
+
+    try {
+      button.scrollIntoView({ block: 'center', behavior: 'auto' });
+    } catch (_) {}
+    await new Promise((r) => setTimeout(r, 200));
+
+    for (let attempt = 1; attempt <= 5; attempt++) {
+      console.log('[VMAVE-AUTOLOGIN] Clicking "Continue with email", attempt', attempt);
+
+      humanClick(button);
+      try {
+        invokeReactOnClick(button);
+      } catch (_) {}
+
+      const textSpan = button.querySelector(
+        '.account-third-party-login-form-button-text, .starii-account-third-party-login-form-button-text'
+      );
+      if (textSpan) {
+        humanClick(textSpan);
+        try {
+          invokeReactOnClick(textSpan);
+        } catch (_) {}
+      }
+
+      const rect = button.getBoundingClientRect();
+      if (rect.width > 0 && rect.height > 0) {
+        clickAtScreenPosition(rect.left + rect.width / 2, rect.top + rect.height / 2);
+      }
+
+      await new Promise((r) => setTimeout(r, 450));
+      if (findEmailInput()) return true;
+    }
+
+    return !!findEmailInput();
+  }
+
+  /** Steps after profile menu is open: Continue with email -> email -> Send -> OTP. */
+  async function runEmailLoginSteps() {
+    console.log('[VMAVE-AUTOLOGIN] runEmailLoginSteps: start');
+
+    if (!findEmailInput()) {
+      let emailBtn = findContinueWithEmailButton();
+      if (!emailBtn) {
+        emailBtn = await waitForElementFn(() => findContinueWithEmailButton(), 20000);
+      }
+      if (!emailBtn) {
+        console.warn('[VMAVE-AUTOLOGIN] "Continue with email" button not found.');
+        return false;
+      }
+      const opened = await clickContinueWithEmailButton(emailBtn);
+      if (!opened) {
+        console.warn('[VMAVE-AUTOLOGIN] "Continue with email" click did not open email step.');
+        return false;
+      }
+    }
+
+    const emailInput = await waitForElementFn(() => findEmailInput(), 15000);
+    if (!emailInput) {
+      console.warn('[VMAVE-AUTOLOGIN] Email input not found.');
+      return false;
+    }
+
+    const account = getSelectedAccount();
+    console.log('[VMAVE-AUTOLOGIN] Filling email:', account.email);
+    maskEmailInputValue(emailInput);
+    setNativeValue(emailInput, account.email);
+    await new Promise((r) => setTimeout(r, 400));
+
+    const sendBtn = await waitForElementFn(() => findSendButton(), 12000);
+    if (!sendBtn) {
+      console.warn('[VMAVE-AUTOLOGIN] "Send" button not found.');
+      return false;
+    }
+
+    let attempts = 0;
+    while (sendBtn.disabled && attempts < 12) {
+      await new Promise((r) => setTimeout(r, 200));
+      attempts++;
+    }
+
+    console.log('[VMAVE-AUTOLOGIN] Clicking "Send"');
+    humanClick(sendBtn);
+    otpEarliestAcceptedAt = Date.now();
+
+    const otpInput = await waitForElementFn(
+      () =>
+        document.querySelector(
+          'input[placeholder*="verification code" i], input[placeholder*="code" i], ' +
+            '.account-input-code input, .starii-account-input-code input, ' +
+            'input.account-input-native[type="text"], input.starii-account-input-native[type="text"]'
+        ),
+      12000
+    );
+
+    if (otpInput) {
+      hideLoadingSpinner();
+      setLoginInProgress(false);
+      maskEmailInOtpSubtitle();
+    }
+
+    console.log('[VMAVE-AUTOLOGIN] Starting OTP polling');
+    startOtpPolling();
+    return true;
   }
 
   function isOnVmakeWorkspace() {
-    return (
-      location.hostname === 'vmake.ai' &&
-      (location.pathname === '/workspace' ||
-        location.pathname.startsWith('/workspace'))
-    );
+    if (location.hostname !== 'vmake.ai' && location.hostname !== 'www.vmake.ai') {
+      return false;
+    }
+    const path = location.pathname || '';
+    return path === '/workspace' || /\/workspace(\/|$)/.test(path);
   }
 
-  const LOGIN_POPUP_SELECTOR =
-    '.starii-account-view.starii-account-popuper-container.vmake-account-login-popup';
+  const LOGIN_POPUP_SELECTORS = [
+    '.account-view.account-popuper-container.vmake-account-login-popup',
+    '.starii-account-view.starii-account-popuper-container.vmake-account-login-popup',
+    '.vmake-account-login-popup',
+    '[class*="account-login-popup"]',
+  ];
+
+  function getLoginDocuments() {
+    const docs = [document];
+    for (const frame of Array.from(document.querySelectorAll('iframe'))) {
+      try {
+        if (frame.contentWindow && frame.contentWindow.document) {
+          docs.push(frame.contentWindow.document);
+        }
+      } catch (_) {}
+    }
+    return docs;
+  }
+
+  function hasNonZeroRect(el) {
+    if (!el) return false;
+    try {
+      const rect = el.getBoundingClientRect();
+      return rect.width > 2 && rect.height > 2;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function getLoginPopupScopes(doc) {
+    const scopes = [];
+    for (const sel of LOGIN_POPUP_SELECTORS) {
+      doc.querySelectorAll(sel).forEach((el) => {
+        if (!scopes.includes(el)) scopes.push(el);
+      });
+    }
+    const visible = scopes.filter((el) => isElementVisible(el) || hasNonZeroRect(el));
+    if (visible.length) return visible;
+    if (scopes.length) return scopes;
+    return [doc.body || doc.documentElement || doc];
+  }
+
+  function getLoginPopupScope(doc) {
+    return getLoginPopupScopes(doc)[0] || doc;
+  }
+
+  function isElementVisible(el) {
+    if (!el) return false;
+    try {
+      const style = window.getComputedStyle(el);
+      if (style.display === 'none' || style.visibility === 'hidden') return false;
+      if (Number(style.opacity) === 0) return false;
+      if (el.offsetParent !== null) return true;
+      return hasNonZeroRect(el);
+    } catch (_) {
+      return true;
+    }
+  }
 
   // ---------- Fullscreen loading overlay (same style as Pipiads) ----------
   function showLoadingSpinner() {
@@ -244,8 +756,11 @@
       'input[placeholder*="verification code" i]',
       'input[placeholder*="code" i]',
       'input[name*="code" i]',
+      '.account-input-code input',
+      '.account-input-code',
       '.starii-account-input-code input',
       '.starii-account-input-code',
+      'input.account-input-native[type="text"]',
       'input.starii-account-input-native[type="text"]',
       'input[autocomplete="one-time-code"]',
       // common OTP patterns
@@ -266,33 +781,55 @@
   }
 
   function isLoginPopupVisible() {
-    const el = document.querySelector(LOGIN_POPUP_SELECTOR);
-    if (!el) return false;
-    // Check if truly visible
-    return el.offsetParent !== null && window.getComputedStyle(el).display !== 'none';
+    for (const doc of getLoginDocuments()) {
+      for (const sel of LOGIN_POPUP_SELECTORS) {
+        if (isElementVisible(doc.querySelector(sel))) return true;
+      }
+      if (
+        isElementVisible(
+          doc.querySelector(
+            'button.account-third-party-login-form-button, button.starii-account-third-party-login-form-button'
+          )
+        )
+      ) {
+        return true;
+      }
+    }
+    return false;
   }
 
   function removeUpsellUI() {
     if (location.hostname !== 'vmake.ai') return;
 
     const removeNow = () => {
-      // Top banner "Recreate Viral Thumbnail in just one click — powered by Nano Banana Pro🍌"
+      // Top promo banner (often links to /blog/... â€” must not intercept account-picker clicks)
       const banner = document.querySelector('.header-alert-wrap--6cBQU');
       if (banner) {
         console.log('[VMAVE-AUTOLOGIN] Banner detected, trying to close it');
+        Array.from(banner.querySelectorAll('a[href]')).forEach((a) => {
+          try {
+            a.style.pointerEvents = 'none';
+          } catch (_) {}
+        });
         const closeBtn = banner.querySelector(
           '.header-alert-close--3tNHT, .vmake-close-bold-icon.header-alert-close--3tNHT'
         );
         if (closeBtn) {
-          // Cliquer d'abord sur la croix pour que le site ferme la bannière proprement
           console.log('[VMAVE-AUTOLOGIN] Clicking banner close icon');
           humanClick(closeBtn);
         } else {
-          // Fallback : masquer la bannière sans toucher à la structure React
           console.log('[VMAVE-AUTOLOGIN] No close icon, hiding banner with display:none');
           banner.style.display = 'none';
         }
       }
+
+      // Disable blog / partner-program links in header promos
+      Array.from(document.querySelectorAll('a[href*="/blog/"]')).forEach((a) => {
+        try {
+          a.style.pointerEvents = 'none';
+          a.setAttribute('tabindex', '-1');
+        } catch (_) {}
+      });
 
       // "Upgrade" button that points to /pricing
       const upgradeBtn = document.querySelector(
@@ -342,26 +879,39 @@
 
   function ensureAccountSelection() {
     return new Promise((resolve) => {
-      // If VIP crown is present, user is already logged in - skip account selection
-      // Use strict check (crown only) to avoid false positives from cookies
       if (hasVipCrown()) {
-        console.log('[VMAVE-AUTOLOGIN] VIP crown detected in ensureAccountSelection, skipping account selection');
+        console.log('[VMAVE-AUTOLOGIN] VIP crown detected, skipping account picker');
         resolve(null);
         return;
       }
 
-      // If already selected, resolve immediately
-      const existing = getStoredAccountKey();
-      if (existing) {
-        resolve(existing);
+      // Only skip the picker after the user explicitly chose an account this session.
+      if (accountChosenThisSession && getStoredAccountKey()) {
+        resolve(getStoredAccountKey());
         return;
       }
 
-      // Build small overlay for account choice
       const overlayId = 'vmake-account-choice';
-      if (document.getElementById(overlayId)) {
-        return; // already showing
+      function waitForAccountPick() {
+        const poll = setInterval(() => {
+          if (accountChosenThisSession && getStoredAccountKey()) {
+            clearInterval(poll);
+            resolve(getStoredAccountKey());
+          }
+        }, 100);
+        setTimeout(() => {
+          clearInterval(poll);
+          if (accountChosenThisSession && getStoredAccountKey()) {
+            resolve(getStoredAccountKey());
+          }
+        }, 120000);
       }
+
+      if (document.getElementById(overlayId) || accountPickerBuilding) {
+        waitForAccountPick();
+        return;
+      }
+      accountPickerBuilding = true;
 
       const ov = document.createElement('div');
       ov.id = overlayId;
@@ -412,10 +962,23 @@
           transition: 'transform 120ms ease, box-shadow 120ms ease, border-color 120ms ease',
           boxShadow: '0 6px 16px rgba(139,69,196,0.25)',
         });
-        btn.addEventListener('click', () => {
+        btn.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          accountChosenThisSession = true;
           setStoredAccountKey(key);
-          ov.remove();
-          resolve(key);
+          ov.style.pointerEvents = 'none';
+          setTimeout(() => {
+            try {
+              ov.remove();
+            } catch (_) {}
+            resolve(key);
+            setTimeout(() => {
+              startEmailLoginFlow().catch((e) =>
+                console.warn('[VMAVE-AUTOLOGIN] startEmailLoginFlow failed:', e)
+              );
+            }, 500);
+          }, 50);
         });
         btn.addEventListener('mouseenter', () => {
           btn.style.transform = 'translateY(-1px)';
@@ -431,128 +994,163 @@
       });
 
       ov.appendChild(card);
-      document.body.appendChild(ov);
+      accountPickerBuilding = false;
+      const mount = document.body || document.documentElement;
+      if (mount) {
+        mount.appendChild(ov);
+        console.log('[VMAVE-AUTOLOGIN] Account picker overlay shown');
+      } else {
+        document.addEventListener(
+          'DOMContentLoaded',
+          () => {
+            (document.body || document.documentElement).appendChild(ov);
+            console.log('[VMAVE-AUTOLOGIN] Account picker overlay shown (after DOMContentLoaded)');
+          },
+          { once: true }
+        );
+      }
     });
   }
 
-  function findContinueWithEmailButton() {
-    const docs = [document];
-    // Also inspect same-origin iframes if any (login form may be rendered there)
-    for (const frame of Array.from(document.querySelectorAll('iframe'))) {
-      try {
-        if (frame.contentWindow && frame.contentWindow.document) {
-          docs.push(frame.contentWindow.document);
-        }
-      } catch (_) {
-        // cross-origin iframe, ignore
-      }
+  function isInViewport(el) {
+    if (!el) return false;
+    try {
+      const rect = el.getBoundingClientRect();
+      if (rect.width < 2 || rect.height < 2) return false;
+      return (
+        rect.bottom > 0 &&
+        rect.right > 0 &&
+        rect.top < window.innerHeight &&
+        rect.left < window.innerWidth
+      );
+    } catch (_) {
+      return false;
     }
+  }
 
-    for (const doc of docs) {
-      // Scope the search to the popup if it exists in this document
-      const scope =
-        doc.querySelector(LOGIN_POPUP_SELECTOR) ||
-        doc.querySelector('.vmake-account-login-popup') ||
-        doc;
+  function pickVisibleContinueButton(btn) {
+    if (!btn || isBlockedNavLink(btn)) return null;
+    if (!isElementVisible(btn) && !hasNonZeroRect(btn)) return null;
+    if (!isInViewport(btn)) return null;
+    const popup = btn.closest(
+      '.vmake-account-login-popup, [class*="account-login-popup"], .account-popuper-container'
+    );
+    if (popup && !isElementVisible(popup) && !hasNonZeroRect(popup)) return null;
+    return btn;
+  }
 
-      // 0) Try the exact button the user described
-      const exactBtn = Array.from(
-        scope.querySelectorAll(
-          'button.starii-account-button.starii-account-button-primary.starii-account-third-party-login-form-button'
-        )
-      ).find((btn) => {
-        const txt = (btn.textContent || '').toLowerCase();
-        return txt.includes('continue with email');
-      });
-      if (exactBtn) {
-        console.log(
-          '[VMAVE-AUTOLOGIN] Found exact "Continue with email" button in',
-          scope === doc ? 'document root' : 'popup scope'
+  function findContinueWithEmailButton() {
+    const CONTINUE_BTN_SEL =
+      'button.account-button.account-button-primary.account-third-party-login-form-button, ' +
+      'button.account-third-party-login-form-button, ' +
+      'button.starii-account-button.starii-account-button-primary.starii-account-third-party-login-form-button, ' +
+      'button.starii-account-third-party-login-form-button';
+
+    for (const doc of getLoginDocuments()) {
+      for (const btn of doc.querySelectorAll(CONTINUE_EMAIL_BTN_EXACT)) {
+        const picked = pickVisibleContinueButton(btn);
+        if (picked) {
+          console.log('[VMAVE-AUTOLOGIN] Found "Continue with email" (exact selector)');
+          return picked;
+        }
+      }
+
+      for (const scope of getLoginPopupScopes(doc)) {
+        const exactBtn = Array.from(scope.querySelectorAll(CONTINUE_BTN_SEL)).find((btn) => {
+          const txt = (btn.textContent || '').toLowerCase();
+          return txt.includes('continue with email');
+        });
+        const picked = pickVisibleContinueButton(exactBtn);
+        if (picked) {
+          console.log('[VMAVE-AUTOLOGIN] Found "Continue with email" button');
+          return picked;
+        }
+
+        const spanMatch = Array.from(
+          scope.querySelectorAll(
+            '.account-third-party-login-form-button-text, .starii-account-third-party-login-form-button-text'
+          )
+        ).find((el) => (el.textContent || '').toLowerCase().includes('continue with email'));
+        if (spanMatch) {
+          const fromSpan = pickVisibleContinueButton(spanMatch.closest('button'));
+          if (fromSpan) return fromSpan;
+        }
+
+        const mailIcon = scope.querySelector(
+          '.account-icon-mail, .account-third-party-login-form-button-icon, ' +
+            '.starii-account-icon-mail, .starii-account-third-party-login-form-button-icon-email'
         );
-        return exactBtn;
-      }
-
-      // 1) Look for the dedicated text span then climb to button
-      const textSpans = Array.from(
-        scope.querySelectorAll(
-          '.starii-account-third-party-login-form-button-text'
-        )
-      );
-      const spanMatch = textSpans.find((el) => {
-        const txt = (el.textContent || '').toLowerCase();
-        return txt.includes('continue with email') || txt.includes('email');
-      });
-      if (spanMatch) {
-        const btn = spanMatch.closest('button');
-        if (btn) {
-          console.log('[VMAVE-AUTOLOGIN] Found "Continue with email" via text span in', doc === document ? 'main document' : 'iframe');
-          return btn;
+        if (mailIcon) {
+          const fromIcon = pickVisibleContinueButton(mailIcon.closest('button'));
+          if (fromIcon) return fromIcon;
         }
-      }
 
-      // 2) Fallback: direct button class selectors + text match
-      const buttons = Array.from(
-        scope.querySelectorAll(
-          'button.starii-account-third-party-login-form-button, button.starii-account-button'
-        )
-      );
-      const btnByText = buttons.find((btn) => {
-        const txt = (btn.textContent || '').toLowerCase();
-        return txt.includes('continue with email') || txt.includes('email');
-      });
-      if (btnByText) {
-        console.log('[VMAVE-AUTOLOGIN] Found "Continue with email" via button text match in', doc === document ? 'main document' : 'iframe');
-        return btnByText;
-      }
-
-      // 3) Fallback by icon mail + any surrounding button
-      const mailIcon = scope.querySelector(
-        '.starii-account-icon-mail, .starii-account-third-party-login-form-button-icon-email'
-      );
-      if (mailIcon) {
-        const btnFromIcon = mailIcon.closest('button');
-        if (btnFromIcon) {
-          console.log('[VMAVE-AUTOLOGIN] Found "Continue with email" via mail icon in', doc === document ? 'main document' : 'iframe');
-          return btnFromIcon;
-        }
-      }
-
-      // 4) Very generic fallback: any node whose text contains "Continue with email"
-      // Relaxed rule: accept DIV or SPAN if no button found
-      const anyNode = Array.from(scope.querySelectorAll('div, span, p, button, a')).find((el) => {
-        const txt = (el.textContent || '').toLowerCase().trim();
-        return txt === 'continue with email' || txt === 'email';
-      });
-
-      if (anyNode) {
-        const btnClosest = anyNode.closest('button') || anyNode.closest('.starii-account-button') || anyNode;
-        console.log('[VMAVE-AUTOLOGIN] Found "Continue with email" via generic text search (relaxed):', btnClosest.tagName);
-        return btnClosest;
+        const btnByText = Array.from(
+          scope.querySelectorAll(
+            'button.account-third-party-login-form-button, button.account-button, ' +
+              'button.starii-account-third-party-login-form-button, button.starii-account-button'
+          )
+        ).find((btn) => (btn.textContent || '').toLowerCase().includes('continue with email'));
+        const pickedText = pickVisibleContinueButton(btnByText);
+        if (pickedText) return pickedText;
       }
     }
 
     return null;
   }
 
-  function hasVipCrown() {
-    // Look for the VIP badge/crown in multiple ways
-    // Method 1: Inside the account area
-    const account = document.querySelector(
-      '.account-account--6Pkj5.workbench-layout-account--xLQe0'
-    );
-    if (account) {
-      const crown = account.querySelector(
-        '.account-vip-badge--VzVkQ .vmake-vip-icon, .badge-badge--LQ0Th.account-badge--YgpaI .vmake-vip-icon'
-      );
-      if (crown) return true;
+  function findEmailInput() {
+    const EMAIL_INPUT_SEL =
+      'input.account-input-native[placeholder="Enter your email address"], ' +
+      'input.account-input-native[placeholder*="email" i], ' +
+      'input.starii-account-input-native[placeholder="Enter your email address"], ' +
+      'input.starii-account-input-native[placeholder*="email" i]';
+
+    for (const doc of getLoginDocuments()) {
+      const input = getLoginPopupScope(doc).querySelector(EMAIL_INPUT_SEL);
+      if (input && isElementVisible(input)) return input;
     }
-    
-    // Method 2: Search globally for VIP crown (more flexible)
-    const globalCrown = document.querySelector(
-      '.badge-badge--LQ0Th.account-badge--YgpaI .vmake-vip-icon, .account-vip-badge--VzVkQ .vmake-vip-icon, .vmake-vip-icon'
+    return null;
+  }
+
+  function findSendButton() {
+    const SEND_BTN_SEL =
+      'button.account-button.account-button-primary.account-email-verify-login-view-submit, ' +
+      'button.account-email-verify-login-view-submit, ' +
+      'button.starii-account-button.starii-account-button-primary.starii-account-email-verify-login-view-submit, ' +
+      'button.starii-account-email-verify-login-view-submit';
+
+    for (const doc of getLoginDocuments()) {
+      const scope = getLoginPopupScope(doc);
+      const exactBtn = scope.querySelector(SEND_BTN_SEL);
+      if (exactBtn && /send/i.test(exactBtn.textContent || '')) return exactBtn;
+
+      const byText = Array.from(
+        scope.querySelectorAll(
+          'button.account-email-verify-login-view-submit, button.account-button-primary, ' +
+            'button.starii-account-email-verify-login-view-submit, button.starii-account-button-primary'
+        )
+      ).find((btn) => /^send$/i.test((btn.textContent || '').trim()));
+      if (byText) return byText;
+    }
+    return null;
+  }
+
+  function hasVipCrown() {
+    const scopes = document.querySelectorAll(
+      '.ant-dropdown-trigger[class*="account"], [class*="workbench-layout-account"], ' +
+        'section[class*="header-right-content"]'
     );
-    if (globalCrown) return true;
-    
+    for (const scope of scopes) {
+      if (
+        scope.querySelector(
+          '[class*="account-vip-badge"] [class*="vmake-vip-icon"], ' +
+            '[class*="account-badge"] [class*="vmake-vip-icon"]'
+        )
+      ) {
+        return true;
+      }
+    }
     return false;
   }
 
@@ -602,224 +1200,40 @@
 
   let emailFlowRunning = false;
 
-  async function openLoginPopupIfNeeded() {
-    console.log('[VMAVE-AUTOLOGIN] openLoginPopupIfNeeded called');
-    if (hasVipCrown()) {
-      console.log('[VMAVE-AUTOLOGIN] Already on VIP account, nothing to do.');
-      return false;
-    }
-
-    const accountBtn =
-      // 1. Try exact classes provided by user (header variant)
-      document.querySelector('.ant-dropdown-trigger.account-account--6Pkj5.header-account--cs5Lc') ||
-      // 2. Try exact classes (workbench variant)
-      document.querySelector('.ant-dropdown-trigger.account-account--6Pkj5.workbench-layout-account--xLQe0') ||
-      // 3. Try basic account dropdown trigger
-      document.querySelector('.ant-dropdown-trigger.account-account--6Pkj5') ||
-      // 4. Try generic account class parts (often stable)
-      document.querySelector('[class*="workbench-layout-account"]') ||
-      document.querySelector('[class*="account-account"]') ||
-      // 5. Try finding the avatar image and going up to parent
-      (function() {
-         const svg = document.querySelector('.ant-avatar svg');
-         return svg ? svg.closest('.ant-dropdown-trigger') : null;
-      })() ||
-      // 6. Wait for it if needed
-      (await waitForElementFn(() =>
-        document.querySelector('.ant-dropdown-trigger.account-account--6Pkj5.header-account--cs5Lc, .ant-dropdown-trigger.account-account--6Pkj5')
-      ));
-
-    if (!accountBtn) {
-      console.warn(
-        '[VMAVE-AUTOLOGIN] Account button not found, forcing click on top-right area.'
-      );
-      // Force click top right (coordinates x=window.width-50, y=30)
-      const x = window.innerWidth - 60;
-      const y = 35;
-      const el = document.elementFromPoint(x, y);
-      if (el) {
-          console.log('[VMAVE-AUTOLOGIN] Clicking element at top-right:', el);
-          humanClick(el);
-          el.click(); // Try both
-      }
-      return true;
-    }
-
-    // Simule un vrai clic souris sur l'avatar (même si l'attribut disabled est présent)
-    console.log('[VMAVE-AUTOLOGIN] Account avatar found, performing humanClick');
-    humanClick(accountBtn);
-
-    // Fallback: if nothing appears, also click top-right corner once
-    setTimeout(() => {
-      console.log('[VMAVE-AUTOLOGIN] Fallback: extra click in top-right area');
-      clickTopRightArea();
-    }, 500);
-
-    return true;
-  }
-
   async function startEmailLoginFlow() {
     if (emailFlowRunning) {
       console.log('[VMAVE-AUTOLOGIN] startEmailLoginFlow: already running, skip');
       return;
     }
-    // Ensure account is selected
-    const accKey = getStoredAccountKey();
-    if (!accKey) {
-      await ensureAccountSelection();
-    }
+    if (hasVipCrown()) return;
 
-    // Show fullscreen loading overlay until the manual code step appears
-    try { showLoadingSpinner(); } catch (_) {}
+    await ensureAccountSelection();
+
     emailFlowRunning = true;
+    setLoginInProgress(true);
+    try {
+      showLoadingSpinner();
+    } catch (_) {}
 
     try {
       console.log('[VMAVE-AUTOLOGIN] startEmailLoginFlow: begin');
-      // Make sure loading overlay is visible during login steps
-      try { showLoadingSpinner(); } catch (_) {}
 
-      if (!isLoginPopupVisible()) {
-        const popupOpened = await openLoginPopupIfNeeded();
-        console.log(
-          '[VMAVE-AUTOLOGIN] startEmailLoginFlow: popupOpened =',
-          popupOpened
-        );
-        if (!popupOpened && hasVipCrown()) {
-          // already logged, nothing else
-          console.log(
-            '[VMAVE-AUTOLOGIN] Popup not opened but crown detected afterwards, stopping auto-login.'
-          );
-          hideLoadingSpinner();
-          return;
-        }
-      } else {
-        console.log(
-          '[VMAVE-AUTOLOGIN] Login popup already visible, skipping avatar click'
-        );
+      let continueBtn = findContinueWithEmailButton();
+
+      if (!findEmailInput()) {
+        console.log('[VMAVE-AUTOLOGIN] Opening profile menu (top-right click)');
+        await clickTopRightArea();
+        continueBtn = await waitForElementFn(() => findContinueWithEmailButton(), 20000);
       }
 
-      // 1) Click "Continue with email"
-      console.log('[VMAVE-AUTOLOGIN] Waiting for "Continue with email" button');
-      const emailBtn = await waitForElementFn(
-        () => findContinueWithEmailButton(),
-        15000
-      );
-
-      if (!emailBtn) {
-        console.warn(
-          '[VMAVE-AUTOLOGIN] "Continue with email" button not found.'
-        );
-        return;
-      }
-      console.log(
-        '[VMAVE-AUTOLOGIN] "Continue with email" button found, performing humanClick'
-      );
-      humanClick(emailBtn);
-
-      // 2) Fill email field
-      console.log('[VMAVE-AUTOLOGIN] Waiting for email input field');
-      const emailInput = await waitForElementFn(
-        () =>
-          document.querySelector(
-            'input.starii-account-input-native[placeholder="Enter your email address"]'
-          ),
-        15000
-      );
-
-      if (!emailInput) {
-        console.warn(
-          '[VMAVE-AUTOLOGIN] Email input not found after clicking "Continue with email".'
-        );
+      if (!continueBtn) {
+        console.warn('[VMAVE-AUTOLOGIN] "Continue with email" not visible — cannot continue');
         return;
       }
 
-      const account = getSelectedAccount();
-      console.log('[VMAVE-AUTOLOGIN] Email input found, filling with', account.email);
-      // Blur the email value so it does not flash on screen.
-      maskEmailInputValue(emailInput);
-      setNativeValue(emailInput, account.email);
-
-      // Wait a bit for the input to be processed
-      await new Promise((r) => setTimeout(r, 300));
-
-      // 3) Click "Send" button
-      console.log('[VMAVE-AUTOLOGIN] Waiting for "Send" button');
-      const sendBtn = await waitForElementFn(
-        () => {
-          // Try exact selector first
-          const exactBtn = document.querySelector(
-            'button.starii-account-button.starii-account-button-primary.starii-account-email-verify-login-view-submit'
-          );
-          if (exactBtn && /send/i.test(exactBtn.textContent || '')) {
-            return exactBtn;
-          }
-          
-          // Fallback: search by class and text
-          return Array.from(
-            document.querySelectorAll(
-              'button.starii-account-email-verify-login-view-submit, button.starii-account-button.starii-account-button-primary'
-            )
-          ).find((btn) => {
-            const text = (btn.textContent || '').trim();
-            return /^send$/i.test(text) || text.toLowerCase() === 'send';
-          });
-        },
-        10000
-      );
-
-      if (!sendBtn) {
-        console.warn(
-          '[VMAVE-AUTOLOGIN] "Send" button for verification code not found.'
-        );
-        return;
-      }
-
-      console.log('[VMAVE-AUTOLOGIN] "Send" button found:', {
-        text: sendBtn.textContent,
-        classes: sendBtn.className,
-        disabled: sendBtn.disabled
-      });
-
-      // Wait for button to be enabled (sometimes disabled briefly while validating)
-      let attempts = 0;
-      while (sendBtn.disabled && attempts < 10) {
-        console.log('[VMAVE-AUTOLOGIN] Send button is disabled, waiting...');
-        await new Promise((r) => setTimeout(r, 200));
-        attempts++;
-      }
-
-      // Use humanClick instead of simple click() for better React compatibility
-      setTimeout(async () => {
-        console.log('[VMAVE-AUTOLOGIN] Clicking "Send" button with humanClick');
-        humanClick(sendBtn);
-        otpEarliestAcceptedAt = Date.now();
-        
-        console.log('[VMAVE-AUTOLOGIN] "Send" clicked. Waiting for OTP input to appear...', {
-          earliestAcceptedAt: otpEarliestAcceptedAt
-        });
-        
-        // 4) Wait for OTP input (usually appears after send)
-        // Try to find the verify code input
-        const otpInput = await waitForElementFn(() => 
-          document.querySelector('input[placeholder*="verification code"], input[placeholder*="code"], .starii-account-input-code') ||
-          document.querySelector('input.starii-account-input-native[type="text"]')
-        , 10000);
-        
-        if (otpInput) {
-             console.log('[VMAVE-AUTOLOGIN] OTP Input detected.');
-             // Manual step reached: allow user to interact
-             hideLoadingSpinner();
-             // Replace email with dots in the subtitle (no blur).
-             maskEmailInOtpSubtitle();
-        } else {
-             console.log('[VMAVE-AUTOLOGIN] OTP Input not specificly detected, continuing with timer...');
-        }
-
-        // Start polling immediately (0.5s). Email delivery can take time, countdown shown in UI.
-        console.log('[VMAVE-AUTOLOGIN] Starting OTP polling (0.5s interval, up to 60s)...');
-        startOtpPolling();
-
-      }, 500);
+      await runEmailLoginSteps();
+    } catch (e) {
+      console.warn('[VMAVE-AUTOLOGIN] startEmailLoginFlow error:', e);
     } finally {
       emailFlowRunning = false;
     }
@@ -910,7 +1324,7 @@
 
     const hint = document.createElement('div');
     hint.id = 'vmake-otp-hint';
-    // Utilisation de innerHTML pour insérer le lien
+    // Utilisation de innerHTML pour insÃ©rer le lien
     const accForLink = (getSelectedAccount && getSelectedAccount()) || { id: '3' };
     const linkUrl = `http://51.83.103.21:20016/otp-vmake${accForLink.id}`;
     hint.innerHTML =
@@ -1024,20 +1438,6 @@
         console.warn('[VMAVE-AUTOLOGIN] Clipboard write failed:', e);
       }
     };
-
-    // Auto-close overlay when OTP input disappears (login success)
-    const checkInterval = setInterval(() => {
-      const otpInput = document.querySelector('input[placeholder*="verification code"], input[placeholder*="code"], .starii-account-input-code, input.starii-account-input-native[type="text"]');
-      // If OTP input is gone and we are not in the "searching" phase (code is displayed), close overlay
-      if (!otpInput) {
-        const ov = document.getElementById('vmake-otp-overlay');
-        if (ov) {
-            console.log('[VMAVE-AUTOLOGIN] OTP input gone, closing overlay.');
-            ov.remove();
-        }
-        clearInterval(checkInterval);
-      }
-    }, 1000);
   }
 
   async function requestOtpCodeOnce() {
@@ -1120,8 +1520,26 @@
     }, OTP_POLL_INTERVAL_MS);
   }
 
+  function isVmakeHost() {
+    return location.hostname === 'vmake.ai' || location.hostname === 'www.vmake.ai';
+  }
+
+  function showAccountPickerIfNeeded() {
+    if (!isOnVmakeWorkspace() || hasVipCrown()) return;
+    if (accountChosenThisSession) return;
+    if (document.getElementById('vmake-account-choice')) return;
+    console.log('[VMAVE-AUTOLOGIN] No VIP crown — showing account picker');
+    ensureAccountSelection();
+  }
+
+  function onWorkspaceRoute() {
+    if (!isOnVmakeWorkspace()) return;
+    if (isOtpManualStepVisible()) hideLoadingSpinner();
+    showAccountPickerIfNeeded();
+  }
+
   function init() {
-    if (location.hostname !== 'vmake.ai') return;
+    if (!isVmakeHost()) return;
 
     console.log(
       '[VMAVE-AUTOLOGIN] init on',
@@ -1130,46 +1548,37 @@
       location.pathname
     );
 
-    // Always clean banner + upgrade button on any vmake.ai page
     removeUpsellUI();
 
-    // Auto-login uniquement sur /workspace quand il n'y a pas encore la couronne
-    if (!isOnVmakeWorkspace()) return;
-
-    // Safety: if we are already at manual OTP step, never block the screen.
-    if (isOtpManualStepVisible()) hideLoadingSpinner();
-
-    // Watcher toutes les 0.5s pour déclencher le process dès que le popup est visible
-    let popupHandled = false;
     setInterval(() => {
       if (!isOnVmakeWorkspace()) return;
-      if (isOtpManualStepVisible()) hideLoadingSpinner();
-      // Keep subtitle masked if it re-renders during OTP step
-      if (isOtpManualStepVisible()) maskEmailInOtpSubtitle();
-      // Skip if VIP crown is present (strict check - only block if really logged in)
-      if (hasVipCrown()) return;
-      if (!isLoginPopupVisible()) return;
-      if (popupHandled) return;
-      console.log(
-        '[VMAVE-AUTOLOGIN] Login popup detected by watcher, starting email flow'
-      );
-      popupHandled = true;
-      startEmailLoginFlow();
+      if (isOtpManualStepVisible()) {
+        hideLoadingSpinner();
+        maskEmailInOtpSubtitle();
+      }
     }, 500);
 
-    // Wait a bit longer for header/page to render fully (avoid false negatives on crown)
-    setTimeout(async () => {
-      console.log('[VMAVE-AUTOLOGIN] Checking VIP crown before auto-login (delayed)');
-      // Use strict check (crown only) to avoid false positives from cookies
-      if (hasVipCrown()) {
-        console.log('[VMAVE-AUTOLOGIN] VIP crown detected, already logged in.');
-        return;
-      }
-      // Ensure account is selected before login
-      await ensureAccountSelection();
-      console.log('[VMAVE-AUTOLOGIN] No VIP crown, starting email login flow');
-      startEmailLoginFlow();
-    }, 7000); // wait 7s to let the workspace load fully
+    // Account picker: show whenever workspace is open without VIP crown
+    onWorkspaceRoute();
+    setTimeout(onWorkspaceRoute, 500);
+    setTimeout(onWorkspaceRoute, 1500);
+    setInterval(onWorkspaceRoute, 2500);
+
+    // SPA navigations (e.g. home -> /workspace)
+    const runAfterRoute = () => setTimeout(onWorkspaceRoute, 0);
+    const pushState = history.pushState;
+    const replaceState = history.replaceState;
+    history.pushState = function () {
+      const r = pushState.apply(this, arguments);
+      runAfterRoute();
+      return r;
+    };
+    history.replaceState = function () {
+      const r = replaceState.apply(this, arguments);
+      runAfterRoute();
+      return r;
+    };
+    window.addEventListener('popstate', runAfterRoute, true);
   }
 
   if (document.readyState === 'loading') {

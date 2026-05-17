@@ -5,6 +5,7 @@
 
   const SAFE_REDIRECT_PATH = '/workspace';
   const PRICING_PATH_RE = /^\/pricing(\/|$)/i;
+  const BLOG_PATH_RE = /^\/blog(\/|$)/i;
 
   function ensureBlackout() {
     if (document.getElementById('ecom-vmake-blackout')) return;
@@ -35,20 +36,28 @@
     }
   }
 
+  function isBlockedPath(pathname) {
+    return PRICING_PATH_RE.test(pathname) || BLOG_PATH_RE.test(pathname);
+  }
+
   function handleRoute() {
-    if (PRICING_PATH_RE.test(location.pathname)) {
+    if (isBlockedPath(location.pathname)) {
       redirectAwayFromPricing();
     }
   }
 
-  function isPricingHref(href) {
+  function isBlockedHref(href) {
     if (!href) return false;
     try {
       const u = new URL(href, location.href);
-      return u.hostname === location.hostname && PRICING_PATH_RE.test(u.pathname);
+      return u.hostname === location.hostname && isBlockedPath(u.pathname);
     } catch (_) {
       return false;
     }
+  }
+
+  function isPricingHref(href) {
+    return isBlockedHref(href);
   }
 
   function blockPricingClicks() {
@@ -59,7 +68,7 @@
         const a = e.target && e.target.closest ? e.target.closest('a[href]') : null;
         if (!a) return;
         const href = a.getAttribute('href') || '';
-        if (!isPricingHref(href)) return;
+        if (!isBlockedHref(href)) return;
         try {
           e.preventDefault();
           e.stopPropagation();
@@ -73,8 +82,29 @@
   }
 
   function hasVipCrown() {
-    // Keep this intentionally simple and robust across class hash changes.
-    return !!document.querySelector('.vmake-vip-icon, [class*="vmake-vip-icon"]');
+    const scopes = document.querySelectorAll(
+      '.ant-dropdown-trigger[class*="account"], [class*="workbench-layout-account"], ' +
+        'section[class*="header-right-content"]'
+    );
+    for (const scope of scopes) {
+      if (
+        scope.querySelector(
+          '[class*="account-vip-badge"] [class*="vmake-vip-icon"], ' +
+            '[class*="account-badge"] [class*="vmake-vip-icon"]'
+        )
+      ) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  function isVmakeLoginInProgress() {
+    try {
+      return window.__eeVmakeLoginInProgress === true;
+    } catch (_) {
+      return false;
+    }
   }
 
   function disablePricingAnchors(scope) {
@@ -135,14 +165,38 @@
     }
   }
 
+  function unlockHeaderForLogin(section) {
+    if (!section) return;
+    try {
+      if (section.dataset._ecomVmakeLocked === '1') {
+        section.style.pointerEvents = '';
+        section.style.userSelect = '';
+        section.style.cursor = '';
+        delete section.dataset._ecomVmakeLocked;
+      }
+      const trigger = section.querySelector('.ant-dropdown-trigger');
+      if (trigger) {
+        trigger.removeAttribute('disabled');
+        trigger.style.pointerEvents = 'auto';
+        trigger.style.cursor = 'pointer';
+      }
+    } catch (_) {}
+  }
+
   function lockHeaderRightSectionIfLoggedIn() {
-    const section = document.querySelector('section.header-right-content--uM0Co');
+    const section = document.querySelector('section[class*="header-right-content"]');
     if (!section) return;
 
-    // Keep login flow working when not logged in (auto_login_vmake clicks the account avatar).
-    // Once logged in (VIP crown visible), lock this whole area.
+    // Never block the account avatar while extension auto-login is running.
+    if (isVmakeLoginInProgress()) {
+      unlockHeaderForLogin(section);
+      disablePricingAnchors(section);
+      return;
+    }
+
     if (!hasVipCrown()) {
       disablePricingAnchors(section);
+      unlockHeaderForLogin(section);
       return;
     }
 

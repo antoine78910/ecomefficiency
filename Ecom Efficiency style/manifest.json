@@ -725,7 +725,11 @@
         "https://higgsfield.ai/mcp*",
         "https://www.higgsfield.ai/mcp*",
         "https://higgsfield.ai/supercomputer*",
-        "https://www.higgsfield.ai/supercomputer*"
+        "https://www.higgsfield.ai/supercomputer*",
+        "https://higgsfield.ai/marketing-studio*",
+        "https://www.higgsfield.ai/marketing-studio*",
+        "https://higgsfield.ai/marketing-studio-community*",
+        "https://www.higgsfield.ai/marketing-studio-community*"
       ],
       "js": ["higgsfield_supercomputer_rules.js", "higgsfield_url_blocker.js"],
       "run_at": "document_start"

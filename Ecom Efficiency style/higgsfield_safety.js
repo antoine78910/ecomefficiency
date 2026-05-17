@@ -295,15 +295,22 @@
       a[href="/canvas"],
       a[href="/cli"],
       a[href="/mcp"],
+      a[href="/marketing-studio"],
+      a[href="/marketing-studio-community"],
+      a[href*="/marketing-studio"],
+      a[title="Marketing Studio"],
       ${hiddenSupercomputerLinks},
       a[data-header-active-on*="/cli"],
       a[data-header-active-on*="/mcp"],
+      a[data-header-active-on*="/marketing-studio"],
       a[href^="https://higgsfield.ai/canvas"],
       a[href^="https://www.higgsfield.ai/canvas"],
       a[href^="https://higgsfield.ai/cli"],
       a[href^="https://www.higgsfield.ai/cli"],
       a[href^="https://higgsfield.ai/mcp"],
-      a[href^="https://www.higgsfield.ai/mcp"] {
+      a[href^="https://www.higgsfield.ai/mcp"],
+      a[href^="https://higgsfield.ai/marketing-studio"],
+      a[href^="https://www.higgsfield.ai/marketing-studio"] {
         display: none !important;
         visibility: hidden !important;
         pointer-events: none !important;
@@ -324,7 +331,11 @@
       style2.textContent = `
         [data-radix-popper-content-wrapper]:has(#profile-menu),
         ${supercomputerCardContainers},
-        ${supercomputerBannerContainers} {
+        ${supercomputerBannerContainers},
+        section:has(img[src*="home-marketing-stu"]),
+        section:has(a[href="/marketing-studio-community"]),
+        li:has(a[href*="/marketing-studio"]),
+        a[href="/supercomputer"]:has(img[src*="explore-banner-supercomputer"]) {
           display: none !important;
           visibility: hidden !important;
           pointer-events: none !important;
@@ -951,14 +962,22 @@
         'a[href="/canvas"]',
         'a[href="/cli"]',
         'a[href="/mcp"]',
+        'a[href="/marketing-studio"]',
+        'a[href="/marketing-studio-community"]',
+        'a[href*="/marketing-studio"]',
+        'a[title="Marketing Studio"]',
+        'a[href="/supercomputer"]',
         'a[data-header-active-on*="/cli"]',
         'a[data-header-active-on*="/mcp"]',
+        'a[data-header-active-on*="/marketing-studio"]',
         'a[href^="https://higgsfield.ai/cli"]',
         'a[href^="https://www.higgsfield.ai/cli"]',
         'a[href^="https://higgsfield.ai/canvas"]',
         'a[href^="https://www.higgsfield.ai/canvas"]',
         'a[href^="https://higgsfield.ai/mcp"]',
         'a[href^="https://www.higgsfield.ai/mcp"]',
+        'a[href^="https://higgsfield.ai/marketing-studio"]',
+        'a[href^="https://www.higgsfield.ai/marketing-studio"]',
         ...supercomputerSelectors.nav,
         ...supercomputerSelectors.card,
       ].join(',');
@@ -1021,20 +1040,80 @@
     } catch (_) {}
   }
 
+  function isHomeLandingPage() {
+    const p = String(location.pathname || '');
+    return p === '/' || p === '/home';
+  }
+
+  // ===== Home: remove Marketing Studio hero, Supercomputer explore card, MS grid cards =====
+  function removeHomeMarketingStudioSections() {
+    try {
+      if (!isHomeLandingPage()) return;
+
+      // 1) "One link in. marketing out." hero section
+      for (const img of document.querySelectorAll(
+        'img[src*="home-marketing-stu"], img[alt*="Marketing Studio product preview"]'
+      )) {
+        const section = img.closest && img.closest('section');
+        if (section) {
+          try { section.remove(); } catch (_) { hideElementHard(section, 'ms-hero'); }
+        }
+      }
+      for (const h2 of document.querySelectorAll('h2')) {
+        const t = String(h2.textContent || '').toLowerCase();
+        if (!t.includes('one link in') || !t.includes('marketing out')) continue;
+        const section = h2.closest && h2.closest('section');
+        if (section) {
+          try { section.remove(); } catch (_) { hideElementHard(section, 'ms-hero'); }
+        }
+      }
+
+      // 2) Supercomputer explore card (not header nav)
+      for (const a of document.querySelectorAll('a[href="/supercomputer"]')) {
+        if (a.closest && (a.closest('header') || a.closest('nav'))) continue;
+        const hasExploreImg = a.querySelector && a.querySelector('img[src*="explore-banner-supercomputer"]');
+        const txt = String(a.textContent || '').toLowerCase();
+        if (!hasExploreImg && !txt.includes('supercomputer')) continue;
+        try { a.remove(); } catch (_) { hideElementHard(a, 'sc-explore-card'); }
+      }
+
+      // 3) Marketing Studio grid cards + community CTA
+      for (const a of document.querySelectorAll(
+        'a[href*="/marketing-studio"], a[href="/marketing-studio-community"]'
+      )) {
+        if (a.closest && (a.closest('header') || a.closest('nav'))) continue;
+        const li = a.closest && a.closest('li');
+        if (li) {
+          try { li.remove(); } catch (_) { hideElementHard(li, 'ms-card'); }
+          continue;
+        }
+        const block =
+          (a.closest && a.closest('section.relative.isolate')) ||
+          (a.closest && a.closest('section'));
+        if (block) {
+          try { block.remove(); } catch (_) { hideElementHard(block, 'ms-block'); }
+          continue;
+        }
+        try { a.remove(); } catch (_) { hideElementHard(a, 'ms-link'); }
+      }
+    } catch (_) {}
+  }
+
   // ===== Requested (home): remove remaining marketing upsells (Seedance / Marketing Studio / extra promos) =====
   function removeHomeMarketingBlocks() {
     try {
-      // Only apply on the home landing pages to avoid breaking in-app UI.
-      const p = String(location.pathname || '');
-      const isHome = p === '/' || p === '/home';
-      if (!isHome) return;
+      if (!isHomeLandingPage()) return;
 
       const phrases = [
         'get seedance',
         'seedance 2.0',
         'special offer',
         'try marketing studio',
+        'view all marketing studio',
         'marketing studio hooks',
+        'ad reference by marketing studio',
+        'one link in',
+        'marketing out',
         'buy more',
         'buy extra',
         'pricing'
@@ -1109,6 +1188,7 @@
     restoreInteractivity();
     removeBlockedPromoLinks();
     removeSupercomputerBanners();
+    removeHomeMarketingStudioSections();
     removeHomeMarketingBlocks();
   }
 
