@@ -35,6 +35,9 @@ DATAFAST_API_KEY=ton_api_key_datafast
 # NEXT_PUBLIC_GOOGLE_ADS_CONVERSION_SEND_TO=AW-18002488181/7zVqCOqVlKscEPXWoIhD
 # Sign-up: create action in Google Ads → copy label → set here (required for signup tracking):
 # NEXT_PUBLIC_GOOGLE_ADS_SIGNUP_SEND_TO=AW-18002488181/MEHOCIGEmK4cEPXWoIhD
+#
+# Signup tracking debug page (/signup-tracking-verify?key=...&auto=1) — set a long random secret:
+# SIGNUP_TRACKING_VERIFY_SECRET=your_long_random_secret
 
 # FirstPromoter (Affiliate)
 # API key + Account ID: FirstPromoter → Settings → Integrations → API (private key / account id for API v2).

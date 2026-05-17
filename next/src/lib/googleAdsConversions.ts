@@ -73,12 +73,22 @@ export function fireGoogleAdsConversion(
   setTimeout(check, 100);
 }
 
+export function googleAdsSignupDedupeKey(userId: string) {
+  return `google_ads_signup_conversion_${userId}`;
+}
+
 /** Sign-up conversion (new account, email or OAuth). */
-export function fireGoogleAdsSignupConversion(userId: string) {
+export function fireGoogleAdsSignupConversion(userId: string, options?: { force?: boolean }) {
   if (!GOOGLE_ADS_SIGNUP_SEND_TO || !userId) return;
-  fireGoogleAdsConversion(
-    GOOGLE_ADS_SIGNUP_SEND_TO,
-    undefined,
-    `google_ads_signup_conversion_${userId}`,
-  );
+
+  const dedupeKey = googleAdsSignupDedupeKey(userId);
+  if (options?.force) {
+    try {
+      localStorage.removeItem(dedupeKey);
+    } catch {
+      // ignore
+    }
+  }
+
+  fireGoogleAdsConversion(GOOGLE_ADS_SIGNUP_SEND_TO, undefined, dedupeKey);
 }

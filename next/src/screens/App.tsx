@@ -8,6 +8,12 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { postGoal } from "@/lib/analytics";
 import { trackFunnelEvent } from "@/lib/funnelTrackingClient";
 import { fireGoogleAdsSignupConversion } from "@/lib/googleAdsConversions";
+import {
+  markEeSignupTracked,
+  pushGtmSignupCompleteEvent,
+  readSignupTrackingSnapshot,
+  retryMissingSignupTracking,
+} from "@/lib/signupTrackingClient";
 import { trackDatafastGoal } from "@/lib/datafastGoals";
 import { trackFirstPromoterReferral } from "@/lib/firstpromoterReferral";
 import TrendTrackStatus from "@/components/TrendTrackStatus";
@@ -157,10 +163,7 @@ const App = ({
         const storageKey = `ee_signup_tracked_${user.id}`;
         if (localStorage.getItem(storageKey)) return;
 
-        // 3. On marque comme tracké immédiatement
-        try { localStorage.setItem(storageKey, '1'); } catch {}
-
-        // 4. Tracking DataFast
+        // 3. Tracking DataFast
         try {
             const providerRaw: unknown =
               (user?.app_metadata && (user.app_metadata.provider || (Array.isArray(user.app_metadata.providers) ? user.app_metadata.providers[0] : undefined))) ||
@@ -195,7 +198,9 @@ const App = ({
 
         void trackFunnelEvent('signup', { userId: user.id, email: user.email });
 
+        pushGtmSignupCompleteEvent(user, "app_signup");
         fireGoogleAdsSignupConversion(user.id);
+        markEeSignupTracked(user.id);
     };
 
     // Fallback: if just=1 param present and user is already authenticated, mark complete_signup
@@ -325,6 +330,23 @@ const App = ({
       })()
     }
   }, [])
+
+  // Retry Google Ads / GTM signup if OAuth landed before gtag was ready
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    (async () => {
+      try {
+        const mod = await import("@/integrations/supabase/client");
+        const { data } = await mod.supabase.auth.getUser();
+        const user = data.user;
+        if (!user?.id) return;
+        const snap = readSignupTrackingSnapshot(user.id, user.email || null);
+        if (snap.eeSignupTracked && (!snap.googleAdsSignupSent || !snap.gtmSignupEventSent)) {
+          retryMissingSignupTracking(user, "app_load_retry");
+        }
+      } catch {}
+    })();
+  }, []);
 
   // Live-refresh Canva invite every 10s
   React.useEffect(() => {

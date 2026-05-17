@@ -629,6 +629,8 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith('/verify-email/') ||
     pathname === '/classic-login' ||
     pathname.startsWith('/classic-login/') ||
+    pathname === '/signup-tracking-verify' ||
+    pathname.startsWith('/signup-tracking-verify/') ||
     pathname === '/domains' ||
     pathname.startsWith('/domains/') ||
     pathname === '/proxy' ||
