@@ -1,24 +1,32 @@
 /**
- * Client-side device fingerprint (FingerprintJS + canvas + AudioContext).
- * Used for account-sharing detection — more reliable than IP alone (VPNs).
+ * Client-side device fingerprint (FingerprintJS + AdsPower-style signals).
+ * Trio fort : WebGL unmasked + AudioContext + Canvas. IP/VPN ne change pas l’empreinte.
  */
 
-export const DEVICE_FINGERPRINT_VERSION = "v3";
+export const DEVICE_FINGERPRINT_VERSION = "v4";
 
 export type DeviceFingerprintSignals = {
   screen?: string;
+  screenDetail?: string;
   colorDepth?: number;
   devicePixelRatio?: number;
   webgl?: string;
+  webglVendor?: string;
+  webglRenderer?: string;
+  webglUnmaskedVendor?: string;
+  webglUnmaskedRenderer?: string;
   timezone?: string;
   languages?: string;
   platform?: string;
+  userAgent?: string;
+  chromeVersion?: string;
   hardwareConcurrency?: number;
   deviceMemory?: number;
-  /** SHA-256 hex of canvas rendering fingerprint */
   canvasHash?: string;
-  /** SHA-256 hex of AudioContext offline render fingerprint */
   audioHash?: string;
+  audioSampleRate?: number;
+  fontsHash?: string;
+  fontsCount?: number;
 };
 
 export type DeviceFingerprintPayload = {
@@ -29,9 +37,36 @@ export type DeviceFingerprintPayload = {
   signals?: DeviceFingerprintSignals;
 };
 
-const CACHE_KEY = "ee_device_fingerprint_v3";
+const CACHE_KEY = "ee_device_fingerprint_v4";
 
 let inflight: Promise<DeviceFingerprintPayload | null> | null = null;
+
+const FONT_PROBE_LIST = [
+  "Arial",
+  "Arial Black",
+  "Calibri",
+  "Cambria",
+  "Comic Sans MS",
+  "Consolas",
+  "Courier New",
+  "Georgia",
+  "Helvetica",
+  "Impact",
+  "Lucida Console",
+  "Lucida Sans Unicode",
+  "Microsoft Sans Serif",
+  "Palatino Linotype",
+  "Segoe UI",
+  "Tahoma",
+  "Times New Roman",
+  "Trebuchet MS",
+  "Verdana",
+  "Menlo",
+  "Monaco",
+  "SF Pro Display",
+  "PingFang SC",
+  "Helvetica Neue",
+];
 
 async function sha256Hex(input: string): Promise<string> {
   if (typeof window === "undefined" || !window.crypto?.subtle || !window.TextEncoder) return "";
@@ -42,7 +77,62 @@ async function sha256Hex(input: string): Promise<string> {
     .join("");
 }
 
-/** Canvas 2D render — stable across sessions, hard to spoof without dedicated libs. */
+function parseChromeVersion(userAgent: string): string {
+  const m = userAgent.match(/(?:Chrome|CriOS)\/(\d+(?:\.\d+){0,3})/i);
+  return m?.[1] || "";
+}
+
+type WebGLInfo = {
+  vendor: string;
+  renderer: string;
+  unmaskedVendor: string;
+  unmaskedRenderer: string;
+};
+
+function collectWebGLInfo(): WebGLInfo {
+  const empty = { vendor: "", renderer: "", unmaskedVendor: "", unmaskedRenderer: "" };
+  if (typeof document === "undefined") return empty;
+  try {
+    const canvas = document.createElement("canvas");
+    const gl =
+      (canvas.getContext("webgl") as WebGLRenderingContext | null) ||
+      (canvas.getContext("experimental-webgl") as WebGLRenderingContext | null);
+    if (!gl) return empty;
+
+    const dbg = gl.getExtension("WEBGL_debug_renderer_info");
+    const vendor = String(gl.getParameter(gl.VENDOR) || "");
+    const renderer = String(gl.getParameter(gl.RENDERER) || "");
+    const unmaskedVendor = dbg
+      ? String(gl.getParameter(dbg.UNMASKED_VENDOR_WEBGL) || "")
+      : vendor;
+    const unmaskedRenderer = dbg
+      ? String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || "")
+      : renderer;
+
+    return {
+      vendor: vendor.slice(0, 120),
+      renderer: renderer.slice(0, 160),
+      unmaskedVendor: unmaskedVendor.slice(0, 120),
+      unmaskedRenderer: unmaskedRenderer.slice(0, 200),
+    };
+  } catch {
+    return empty;
+  }
+}
+
+function collectScreenSignals(): { screen: string; screenDetail: string } {
+  if (typeof window === "undefined") return { screen: "", screenDetail: "" };
+  const s = window.screen;
+  const screen = `${s?.width || 0}x${s?.height || 0}`;
+  const outer = `${window.outerWidth || 0}x${window.outerHeight || 0}`;
+  const inner = `${window.innerWidth || 0}x${window.innerHeight || 0}`;
+  const avail = `${s?.availWidth || 0}x${s?.availHeight || 0}`;
+  const toolbarRatio =
+    window.outerHeight > 0 ? (window.innerHeight / window.outerHeight).toFixed(3) : "";
+  const screenDetail = `outer:${outer}|inner:${inner}|avail:${avail}|ratio:${toolbarRatio}`;
+  return { screen, screenDetail };
+}
+
 async function collectCanvasHash(): Promise<string> {
   if (typeof document === "undefined") return "";
   try {
@@ -73,17 +163,17 @@ async function collectCanvasHash(): Promise<string> {
   }
 }
 
-/** Offline AudioContext sum — stable hardware/audio stack signature. */
-async function collectAudioContextHash(): Promise<string> {
-  if (typeof window === "undefined") return "";
+async function collectAudioFingerprint(): Promise<{ audioHash: string; sampleRate: number }> {
+  if (typeof window === "undefined") return { audioHash: "", sampleRate: 0 };
   try {
     const Ctx =
       window.OfflineAudioContext ||
       (window as Window & { webkitOfflineAudioContext?: typeof OfflineAudioContext })
         .webkitOfflineAudioContext;
-    if (!Ctx) return "";
+    if (!Ctx) return { audioHash: "", sampleRate: 0 };
 
-    const offline = new Ctx(1, 44100, 44100);
+    const sampleRate = 44100;
+    const offline = new Ctx(1, sampleRate, sampleRate);
     const osc = offline.createOscillator();
     osc.type = "triangle";
     osc.frequency.setValueAtTime(10000, offline.currentTime);
@@ -101,15 +191,16 @@ async function collectAudioContextHash(): Promise<string> {
 
     const buffer = await offline.startRendering();
     const channel = buffer.getChannelData(0);
-    if (!channel?.length) return "";
+    if (!channel?.length) return { audioHash: "", sampleRate };
 
     let sum = 0;
     const start = Math.min(4500, channel.length - 1);
     const end = Math.min(5000, channel.length);
     for (let i = start; i < end; i++) sum += Math.abs(channel[i]);
 
-    return sha256Hex(
+    const audioHash = await sha256Hex(
       [
+        String(sampleRate),
         String(sum),
         String(comp.threshold.value),
         String(comp.knee.value),
@@ -118,38 +209,114 @@ async function collectAudioContextHash(): Promise<string> {
         String(comp.release.value),
       ].join("|")
     );
+
+    return { audioHash, sampleRate };
   } catch {
-    return "";
+    return { audioHash: "", sampleRate: 0 };
   }
+}
+
+async function collectFontsHash(): Promise<{ fontsHash: string; fontsCount: number }> {
+  if (typeof document === "undefined") return { fontsHash: "", fontsCount: 0 };
+  try {
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return { fontsHash: "", fontsCount: 0 };
+
+    const testString = "mmmmmmmmmmlli";
+    const baseFonts = ["monospace", "sans-serif", "serif"] as const;
+    const baseWidths: Record<string, number> = {};
+
+    for (const base of baseFonts) {
+      ctx.font = `72px ${base}`;
+      baseWidths[base] = ctx.measureText(testString).width;
+    }
+
+    const detected: string[] = [];
+    for (const font of FONT_PROBE_LIST) {
+      let match = false;
+      for (const base of baseFonts) {
+        ctx.font = `72px "${font}",${base}`;
+        const w = ctx.measureText(testString).width;
+        if (w !== baseWidths[base]) {
+          match = true;
+          break;
+        }
+      }
+      if (match) detected.push(font);
+    }
+
+    const fontsHash = await sha256Hex(detected.sort().join(","));
+    return { fontsHash, fontsCount: detected.length };
+  } catch {
+    return { fontsHash: "", fontsCount: 0 };
+  }
+}
+
+function collectNavigatorSignals(): Pick<
+  DeviceFingerprintSignals,
+  "platform" | "languages" | "hardwareConcurrency" | "deviceMemory" | "userAgent" | "chromeVersion"
+> {
+  const nav = typeof navigator !== "undefined" ? navigator : ({} as Navigator);
+  const userAgent = String(nav.userAgent || "");
+  return {
+    platform: String(nav.platform || ""),
+    languages: (nav.languages || []).join(","),
+    hardwareConcurrency: nav.hardwareConcurrency,
+    deviceMemory: (nav as Navigator & { deviceMemory?: number }).deviceMemory,
+    userAgent: userAgent.slice(0, 512),
+    chromeVersion: parseChromeVersion(userAgent),
+  };
+}
+
+async function buildCoreSignals(): Promise<{
+  canvasHash: string;
+  audioHash: string;
+  audioSampleRate: number;
+  fontsHash: string;
+  fontsCount: number;
+  webgl: WebGLInfo;
+  screen: string;
+  screenDetail: string;
+  nav: ReturnType<typeof collectNavigatorSignals>;
+}> {
+  const [canvasHash, audio, fonts, webgl] = await Promise.all([
+    collectCanvasHash(),
+    collectAudioFingerprint(),
+    collectFontsHash(),
+    Promise.resolve(collectWebGLInfo()),
+  ]);
+  const { screen, screenDetail } = collectScreenSignals();
+  const nav = collectNavigatorSignals();
+  return {
+    canvasHash,
+    audioHash: audio.audioHash,
+    audioSampleRate: audio.sampleRate,
+    fontsHash: fonts.fontsHash,
+    fontsCount: fonts.fontsCount,
+    webgl,
+    screen,
+    screenDetail,
+    nav,
+  };
 }
 
 async function buildFallbackFingerprint(): Promise<DeviceFingerprintPayload | null> {
   if (typeof window === "undefined") return null;
   try {
-    const [canvasHash, audioHash] = await Promise.all([
-      collectCanvasHash(),
-      collectAudioContextHash(),
-    ]);
-    const nav = window.navigator;
+    const core = await buildCoreSignals();
     const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "";
-    const screenW = window.screen?.width || 0;
-    const screenH = window.screen?.height || 0;
-    const pixelRatio = window.devicePixelRatio || 1;
     const raw = [
       "v1_fallback",
-      canvasHash,
-      audioHash,
-      nav.platform || "",
-      nav.language || "",
-      (nav.languages || []).join(","),
-      nav.userAgent || "",
+      core.canvasHash,
+      core.audioHash,
+      core.webgl.unmaskedRenderer,
+      core.webgl.unmaskedVendor,
+      core.fontsHash,
+      core.nav.userAgent,
+      core.nav.chromeVersion,
+      core.screenDetail,
       tz,
-      `${screenW}x${screenH}`,
-      String(window.screen?.colorDepth || ""),
-      String(pixelRatio),
-      String(nav.hardwareConcurrency || ""),
-      String((nav as Navigator & { deviceMemory?: number }).deviceMemory || ""),
-      String(nav.maxTouchPoints || 0),
     ].join("|");
     const hash = await sha256Hex(raw);
     if (!hash) return null;
@@ -157,16 +324,22 @@ async function buildFallbackFingerprint(): Promise<DeviceFingerprintPayload | nu
       fingerprint: `v1_${hash.slice(0, 32)}`,
       fingerprint_version: "v1",
       signals: {
-        screen: `${screenW}x${screenH}`,
-        colorDepth: window.screen?.colorDepth,
-        devicePixelRatio: pixelRatio,
+        ...core.nav,
+        screen: core.screen,
+        screenDetail: core.screenDetail,
         timezone: tz,
-        languages: (nav.languages || []).join(","),
-        platform: nav.platform || "",
-        hardwareConcurrency: nav.hardwareConcurrency,
-        deviceMemory: (nav as Navigator & { deviceMemory?: number }).deviceMemory,
-        canvasHash: canvasHash || undefined,
-        audioHash: audioHash || undefined,
+        webgl: core.webgl.unmaskedRenderer,
+        webglVendor: core.webgl.vendor,
+        webglRenderer: core.webgl.renderer,
+        webglUnmaskedVendor: core.webgl.unmaskedVendor,
+        webglUnmaskedRenderer: core.webgl.unmaskedRenderer,
+        canvasHash: core.canvasHash || undefined,
+        audioHash: core.audioHash || undefined,
+        audioSampleRate: core.audioSampleRate || undefined,
+        fontsHash: core.fontsHash || undefined,
+        fontsCount: core.fontsCount,
+        colorDepth: window.screen?.colorDepth,
+        devicePixelRatio: window.devicePixelRatio,
       },
     };
   } catch {
@@ -191,9 +364,8 @@ export async function collectDeviceFingerprint(): Promise<DeviceFingerprintPaylo
   if (!inflight) {
     inflight = (async () => {
       try {
-        const [canvasHash, audioHash, fpjsResult] = await Promise.all([
-          collectCanvasHash(),
-          collectAudioContextHash(),
+        const [core, fpjsResult] = await Promise.all([
+          buildCoreSignals(),
           (async () => {
             try {
               const FingerprintJS = await import("@fingerprintjs/fingerprintjs");
@@ -205,33 +377,34 @@ export async function collectDeviceFingerprint(): Promise<DeviceFingerprintPaylo
           })(),
         ]);
 
-        const components = (fpjsResult?.components || {}) as Record<string, { value?: unknown }>;
-        const screenRes = components.screenResolution?.value;
-        const screen =
-          Array.isArray(screenRes) && screenRes.length >= 2
-            ? `${screenRes[0]}x${screenRes[1]}`
-            : String(screenRes || "");
-
-        const webgl =
-          String(components.webglRenderer?.value || components.webglVendor?.value || "").slice(0, 160) ||
-          undefined;
-
         const visitorId = fpjsResult?.visitorId || "";
+        const tz =
+          String(
+            (fpjsResult?.components as Record<string, { value?: unknown }>)?.timezone?.value || ""
+          ) || Intl.DateTimeFormat().resolvedOptions().timeZone;
+
         const compositeRaw = [
           DEVICE_FINGERPRINT_VERSION,
           visitorId,
-          canvasHash,
-          audioHash,
-          webgl || "",
-          screen,
+          core.canvasHash,
+          core.audioHash,
+          String(core.audioSampleRate),
+          core.webgl.unmaskedVendor,
+          core.webgl.unmaskedRenderer,
+          core.fontsHash,
+          core.nav.chromeVersion,
+          core.nav.userAgent,
+          core.screenDetail,
+          core.nav.platform,
+          String(core.nav.hardwareConcurrency),
+          String(core.nav.deviceMemory),
         ].join("|");
+
         const compositeHash = await sha256Hex(compositeRaw);
-        if (!compositeHash) {
-          return buildFallbackFingerprint();
-        }
+        if (!compositeHash) return buildFallbackFingerprint();
 
         const payload: DeviceFingerprintPayload = {
-          fingerprint: `v3_${compositeHash.slice(0, 32)}`,
+          fingerprint: `v4_${compositeHash.slice(0, 32)}`,
           fingerprint_version: DEVICE_FINGERPRINT_VERSION,
           visitor_id: visitorId || undefined,
           confidence:
@@ -239,31 +412,22 @@ export async function collectDeviceFingerprint(): Promise<DeviceFingerprintPaylo
               ? fpjsResult.confidence.score
               : undefined,
           signals: {
-            screen,
-            colorDepth:
-              typeof components.colorDepth?.value === "number"
-                ? components.colorDepth.value
-                : window.screen?.colorDepth,
-            devicePixelRatio:
-              typeof components.devicePixelRatio?.value === "number"
-                ? components.devicePixelRatio.value
-                : window.devicePixelRatio,
-            webgl,
-            timezone: String(components.timezone?.value || ""),
-            languages: Array.isArray(components.languages?.value)
-              ? (components.languages.value as string[]).join(",")
-              : "",
-            platform: String(components.platform?.value || ""),
-            hardwareConcurrency:
-              typeof components.hardwareConcurrency?.value === "number"
-                ? components.hardwareConcurrency.value
-                : navigator.hardwareConcurrency,
-            deviceMemory:
-              typeof components.deviceMemory?.value === "number"
-                ? components.deviceMemory.value
-                : (navigator as Navigator & { deviceMemory?: number }).deviceMemory,
-            canvasHash: canvasHash || undefined,
-            audioHash: audioHash || undefined,
+            ...core.nav,
+            screen: core.screen,
+            screenDetail: core.screenDetail,
+            colorDepth: window.screen?.colorDepth,
+            devicePixelRatio: window.devicePixelRatio,
+            timezone: tz,
+            webgl: core.webgl.unmaskedRenderer,
+            webglVendor: core.webgl.vendor,
+            webglRenderer: core.webgl.renderer,
+            webglUnmaskedVendor: core.webgl.unmaskedVendor,
+            webglUnmaskedRenderer: core.webgl.unmaskedRenderer,
+            canvasHash: core.canvasHash || undefined,
+            audioHash: core.audioHash || undefined,
+            audioSampleRate: core.audioSampleRate || undefined,
+            fontsHash: core.fontsHash || undefined,
+            fontsCount: core.fontsCount,
           },
         };
 
@@ -306,14 +470,18 @@ export function fingerprintMetaForEvent(
   payload: DeviceFingerprintPayload | null
 ): Record<string, unknown> | null {
   if (!payload?.fingerprint) return null;
+  const s = payload.signals;
   return {
     device_fingerprint: payload.fingerprint,
     fingerprint_version: payload.fingerprint_version,
     fp_visitor_id: payload.visitor_id || null,
     fp_confidence: payload.confidence ?? null,
-    fp_signals: payload.signals || null,
-    fp_canvas_hash: payload.signals?.canvasHash || null,
-    fp_audio_hash: payload.signals?.audioHash || null,
+    fp_signals: s || null,
+    fp_canvas_hash: s?.canvasHash || null,
+    fp_audio_hash: s?.audioHash || null,
+    fp_chrome_version: s?.chromeVersion || null,
+    fp_webgl_unmasked: s?.webglUnmaskedRenderer || null,
+    fp_fonts_count: s?.fontsCount ?? null,
   };
 }
 

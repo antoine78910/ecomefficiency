@@ -2,16 +2,26 @@
 
 export type FingerprintSignalsSnapshot = {
   screen?: string;
+  screenDetail?: string;
   colorDepth?: number;
   devicePixelRatio?: number;
   webgl?: string;
+  webglVendor?: string;
+  webglRenderer?: string;
+  webglUnmaskedVendor?: string;
+  webglUnmaskedRenderer?: string;
   timezone?: string;
   languages?: string;
   platform?: string;
+  userAgent?: string;
+  chromeVersion?: string;
   hardwareConcurrency?: number;
   deviceMemory?: number;
   canvasHash?: string;
   audioHash?: string;
+  audioSampleRate?: number;
+  fontsHash?: string;
+  fontsCount?: number;
 };
 
 export type FingerprintDetail = {

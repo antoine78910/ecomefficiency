@@ -286,7 +286,7 @@ function computeRisk(
       id: 'stable_device_ip_churn',
       emoji: '🔒',
       label: 'Même appareil (canvas/audio/WebGL)',
-      detail: `1 empreinte stable sur ${uniqueIps.length} IPs — churn IP ignoré (VPN / mobile)`,
+      detail: `1 empreinte v4 stable (WebGL/canvas/audio) sur ${uniqueIps.length} IPs — churn IP ignoré (VPN / AdsPower)`,
       severity: 'low',
       score: 0,
     })
@@ -677,7 +677,7 @@ export default async function AdminIpTrackerPage() {
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-1">🛡️ Radar Partage de Compte</h1>
           <p className="text-gray-400 text-sm">
-            Détection par empreinte (FingerprintJS + canvas + AudioContext). Changement d’IP seul est ignoré si l’appareil reste identique (VPN).
+            Empreinte v4 : WebGL unmasked + canvas + audio + fonts + Chrome/UA + écran. Changement d’IP ignoré si le device reste identique (VPN / AdsPower).
           </p>
         </div>
 
@@ -919,19 +919,22 @@ function UserCard({ summary }: { summary: UserSummary }) {
 
         {/* Devices & fingerprints */}
         <div>
-          <h4 className="text-sm font-semibold text-gray-300 mb-2">🖥️ Empreintes (FingerprintJS + canvas + audio)</h4>
+          <h4 className="text-sm font-semibold text-gray-300 mb-2">🖥️ Empreintes v4 (WebGL + canvas + audio + fonts + Chrome)</h4>
           {!fingerprintDetails.length ? (
             <span className="text-gray-500 text-xs">Aucune empreinte — les prochaines visites/copies alimenteront ce bloc.</span>
           ) : (
             <div className="border border-white/10 rounded-lg overflow-x-auto">
-              <table className="w-full text-sm min-w-[720px]">
+              <table className="w-full text-sm min-w-[960px]">
                 <thead className="bg-white/5">
                   <tr>
                     <th className="text-left p-2 text-xs text-gray-400 font-medium">Empreinte</th>
+                    <th className="text-left p-2 text-xs text-gray-400 font-medium hidden lg:table-cell">Chrome</th>
                     <th className="text-left p-2 text-xs text-gray-400 font-medium hidden xl:table-cell">Canvas</th>
                     <th className="text-left p-2 text-xs text-gray-400 font-medium hidden xl:table-cell">Audio</th>
-                    <th className="text-left p-2 text-xs text-gray-400 font-medium hidden lg:table-cell">GPU / écran</th>
-                    <th className="text-left p-2 text-xs text-gray-400 font-medium hidden md:table-cell">TZ / langue</th>
+                    <th className="text-left p-2 text-xs text-gray-400 font-medium hidden lg:table-cell">WebGL unmasked</th>
+                    <th className="text-left p-2 text-xs text-gray-400 font-medium hidden xl:table-cell">Fonts</th>
+                    <th className="text-left p-2 text-xs text-gray-400 font-medium hidden lg:table-cell">Écran</th>
+                    <th className="text-left p-2 text-xs text-gray-400 font-medium hidden md:table-cell">TZ / HW</th>
                     <th className="text-right p-2 text-xs text-gray-400 font-medium">Events</th>
                     <th className="text-right p-2 text-xs text-gray-400 font-medium">Sessions</th>
                     <th className="text-left p-2 text-xs text-gray-400 font-medium">IPs vues</th>
@@ -941,17 +944,32 @@ function UserCard({ summary }: { summary: UserSummary }) {
                   {fingerprintDetails.map((fp) => (
                     <tr key={fp.id} className="border-t border-white/5 hover:bg-white/5">
                       <td className="p-2 font-mono text-xs text-emerald-200" title={fp.id}>{fp.shortLabel}</td>
+                      <td className="p-2 text-gray-300 text-xs hidden lg:table-cell" title={fp.signals?.userAgent || ''}>
+                        {fp.signals?.chromeVersion ? `Chrome ${fp.signals.chromeVersion}` : '—'}
+                      </td>
                       <td className="p-2 font-mono text-[11px] text-violet-200/90 hidden xl:table-cell" title={fp.signals?.canvasHash || ''}>
                         {shortHashLabel(fp.signals?.canvasHash)}
                       </td>
                       <td className="p-2 font-mono text-[11px] text-sky-200/90 hidden xl:table-cell" title={fp.signals?.audioHash || ''}>
-                        {shortHashLabel(fp.signals?.audioHash)}
+                        {fp.signals?.audioSampleRate
+                          ? `${shortHashLabel(fp.signals?.audioHash)} @${fp.signals.audioSampleRate}`
+                          : shortHashLabel(fp.signals?.audioHash)}
                       </td>
-                      <td className="p-2 text-gray-400 text-xs hidden lg:table-cell max-w-[200px] truncate" title={fp.signals?.webgl || ''}>
-                        {[fp.signals?.webgl, fp.signals?.screen, fp.signals?.devicePixelRatio ? `dpr ${fp.signals.devicePixelRatio}` : ''].filter(Boolean).join(' · ') || '—'}
+                      <td className="p-2 text-gray-400 text-xs hidden lg:table-cell max-w-[220px] truncate" title={fp.signals?.webglUnmaskedRenderer || fp.signals?.webgl || ''}>
+                        {fp.signals?.webglUnmaskedRenderer || fp.signals?.webgl || '—'}
+                      </td>
+                      <td className="p-2 text-gray-400 text-xs hidden xl:table-cell" title={fp.signals?.fontsHash || ''}>
+                        {fp.signals?.fontsCount != null ? `${fp.signals.fontsCount} fonts` : '—'}
+                      </td>
+                      <td className="p-2 text-gray-400 text-xs hidden lg:table-cell max-w-[180px] truncate" title={fp.signals?.screenDetail || ''}>
+                        {[fp.signals?.screen, fp.signals?.screenDetail?.split('|')[0]?.replace('outer:', '')].filter(Boolean).join(' · ') || '—'}
                       </td>
                       <td className="p-2 text-gray-400 text-xs hidden md:table-cell">
-                        {[fp.signals?.timezone, fp.signals?.languages].filter(Boolean).join(' · ') || '—'}
+                        {[
+                          fp.signals?.timezone,
+                          fp.signals?.hardwareConcurrency != null ? `${fp.signals.hardwareConcurrency}c` : '',
+                          fp.signals?.deviceMemory != null ? `${fp.signals.deviceMemory}GB` : '',
+                        ].filter(Boolean).join(' · ') || '—'}
                       </td>
                       <td className="p-2 text-right text-gray-400 text-xs">{fp.eventCount}</td>
                       <td className="p-2 text-right text-gray-400 text-xs">{fp.sessionCount}</td>
@@ -970,7 +988,7 @@ function UserCard({ summary }: { summary: UserSummary }) {
             </div>
           ) : null}
           <p className="mt-2 text-[11px] text-gray-500">
-            {uniqueFingerprints.length} empreinte{uniqueFingerprints.length > 1 ? 's' : ''} — canvas/audio/WebGL stables ; le radar ne pénalise pas le churn IP sur un même device.
+            {uniqueFingerprints.length} empreinte{uniqueFingerprints.length > 1 ? 's' : ''} — trio WebGL unmasked + canvas + audio ; Chrome/UA/fonts/écran en support. IP churn ignoré sur même device.
           </p>
         </div>
 
