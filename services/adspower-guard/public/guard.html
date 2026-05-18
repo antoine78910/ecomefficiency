@@ -46,8 +46,7 @@
   var ADSPOWER_PROFILE_ID = __ADSPOWER_PROFILE_ID_JSON__;
   var REDIRECT_URL = __GUARD_REDIRECT_URL_JSON__;
   var DELAY_MS = __GUARD_DELAY_MS_JSON__;
-  var HOSTS = ['local.adspower.net', '127.0.0.1'];
-  var PORTS = [50325, 50326, 58888];
+  var ENDPOINTS = __ADSPOWER_ENDPOINTS_JSON__;
 
   var msg = document.getElementById('msg');
   var bar = document.getElementById('bar');
@@ -89,21 +88,20 @@
 
   function closeAdsPower() {
     return new Promise(function (resolve) {
-      var hi = 0, pi = 0;
+      var ei = 0;
 
       function tryStopProfile(profileId) {
-        if (hi >= HOSTS.length) return resolve({ ok: false, profileId: profileId });
-        var base = 'http://' + HOSTS[hi] + ':' + PORTS[pi];
+        if (ei >= ENDPOINTS.length) return resolve({ ok: false, profileId: profileId });
+        var ep = ENDPOINTS[ei];
+        var base = 'http://' + ep.host + ':' + ep.port;
         stopProfileOnBase(base, profileId)
           .then(function (result) {
             if (result.ok) return resolve(result);
-            pi++;
-            if (pi >= PORTS.length) { pi = 0; hi++; }
+            ei++;
             tryStopProfile(profileId);
           })
           .catch(function () {
-            pi++;
-            if (pi >= PORTS.length) { pi = 0; hi++; }
+            ei++;
             tryStopProfile(profileId);
           });
       }
@@ -114,22 +112,26 @@
       }
 
       function nextActive() {
-        if (hi >= HOSTS.length) return resolve({ ok: false });
-        var base = 'http://' + HOSTS[hi] + ':' + PORTS[pi];
+        if (ei >= ENDPOINTS.length) return resolve({ ok: false });
+        var ep = ENDPOINTS[ei];
+        var base = 'http://' + ep.host + ':' + ep.port;
         fetch(base + '/api/v1/browser/active', { headers: headers(), signal: AbortSignal.timeout(2500) })
           .then(function (r) { return r.json(); })
           .then(function (active) {
             if (active.code !== 0 || !active.data || !active.data.list || !active.data.list.length) {
-              pi++; if (pi >= PORTS.length) { pi = 0; hi++; } nextActive(); return;
+              ei++;
+              nextActive();
+              return;
             }
             var row = active.data.list[0];
             var profileId = row.user_id || row.profile_id;
-            if (!profileId) { pi++; if (pi >= PORTS.length) { pi = 0; hi++; } nextActive(); return; }
-            hi = 0; pi = 0;
+            if (!profileId) { ei++; nextActive(); return; }
+            ei = 0;
             tryStopProfile(profileId);
           })
           .catch(function () {
-            pi++; if (pi >= PORTS.length) { pi = 0; hi++; } nextActive();
+            ei++;
+            nextActive();
           });
       }
       nextActive();

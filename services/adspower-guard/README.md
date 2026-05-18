@@ -11,10 +11,11 @@ Runs in the **AdsPower browser** on the user's PC: if the extension is missing a
 
 | Variable | Default | Description |
 |----------|---------|-------------|
+| `ADSPOWER_API_URL` | `http://local.adspower.com:50325` | AdsPower Local API base (from AdsPower → Automation → API) |
+| `ADSPOWER_API_KEY` | — | API key (Bearer) — set in Railway secrets, never commit |
 | `ADSPOWER_PROFILE_ID` | `k14q9qo9` | Profile to close when extension is missing |
-| `ADSPOWER_API_KEY` | — | Bearer token if API security is enabled in AdsPower |
 | `GUARD_REDIRECT_URL` | `https://tools.ecomefficiency.com/pro` | Redirect when extension is detected |
-| `GUARD_DELAY_MS` | `3000` | Seconds before close (ms) |
+| `GUARD_DELAY_MS` | `3000` | Delay before close (ms) |
 
 4. Set AdsPower profile startup URL to your Railway URL: `https://YOUR-APP.up.railway.app/`
 
