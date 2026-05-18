@@ -50,7 +50,10 @@
     "https://fnf.higgsfield.ai/*",
     "https://clerk.higgsfield.ai/*",
     "https://*.vercel.app/*",
-    "https://*.supabase.co/*"],
+    "https://*.supabase.co/*",
+    "https://tools.ecomefficiency.com/*",
+    "https://www.ecomefficiency.com/*",
+    "https://ecomefficiency.com/*"],
 
 
   "background": {
@@ -85,6 +88,15 @@
     {
       "matches": ["*://*/*"],
       "js": ["ee_silence_console.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://tools.ecomefficiency.com/*",
+        "https://www.ecomefficiency.com/tools/*",
+        "https://ecomefficiency.com/tools/*"
+      ],
+      "js": ["ee_presence_beacon.js"],
       "run_at": "document_start"
     },
     
