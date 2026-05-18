@@ -18,7 +18,7 @@ const buildKeyframes = (
   return keyframes;
 };
 
-type BlurTextAs = "p" | "h1" | "h2" | "h3" | "span";
+type BlurTextAs = "p" | "h1" | "h2" | "h3" | "span" | "div";
 
 type BlurTextProps = {
   text?: string;
