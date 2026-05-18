@@ -57,7 +57,20 @@ export default function BlurText({
   const ref = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    if (!ref.current) return;
+    const el = ref.current;
+    if (!el) return;
+
+    const isInViewport = () => {
+      const rect = el.getBoundingClientRect();
+      const vh = window.innerHeight || document.documentElement.clientHeight;
+      return rect.top < vh && rect.bottom > 0;
+    };
+
+    if (isInViewport()) {
+      setInView(true);
+      return;
+    }
+
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry?.isIntersecting && ref.current) {
@@ -67,7 +80,7 @@ export default function BlurText({
       },
       { threshold, rootMargin }
     );
-    observer.observe(ref.current);
+    observer.observe(el);
     return () => observer.disconnect();
   }, [threshold, rootMargin]);
 

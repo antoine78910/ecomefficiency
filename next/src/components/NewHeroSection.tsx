@@ -1,6 +1,6 @@
 import { Check, ArrowRight } from "lucide-react";
 import Link from "next/link";
-import NewHeroAnimatedWord from "@/components/NewHeroAnimatedWord";
+import HomeHeroContent from "@/components/home/HomeHeroContent";
 
 const NewHeroSection = () => {
   return (
@@ -44,21 +44,7 @@ const NewHeroSection = () => {
 
           {/* Removed redundant ECOM EFFICIENCY TOOLS badge per request */}
 
-          {/* Main Heading (visual only — SEO headings are sr-only in the page) */}
-          <div className="text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-4 leading-[1.06] tracking-normal">
-            <span className="block">Access the</span>
-            <span className="block">
-              Most Powerful <NewHeroAnimatedWord /> Tools
-            </span>
-            <span className="block">
-              for <span className="text-purple-400">99% OFF</span> in one click
-            </span>
-          </div>
-
-          {/* Subheading */}
-          <p className="text-xl text-gray-400 mb-6 md:mb-8 max-w-3xl mx-auto">
-            Boost your productivity while minimizing your costs
-          </p>
+          <HomeHeroContent />
 
           {/* CTA Buttons */}
           <div className="flex flex-row flex-wrap gap-4 justify-center mb-6">

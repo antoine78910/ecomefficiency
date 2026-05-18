@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ArrowRight } from "lucide-react";
 import { carouselTools } from "@/data/carouselTools";
+import ToolsScrollingIntro from "@/components/home/ToolsScrollingIntro";
 
 const ToolsScrollingSection = () => {
   const tools = carouselTools;
@@ -22,11 +23,7 @@ const ToolsScrollingSection = () => {
         </div>
         {/* Mobile layout: title + paragraph above 3 auto-scrolling rows */}
         <div className="md:hidden ee-mobile-rows">
-          <div className="text-3xl font-bold text-white mb-2">
-            The only subscription
-            <br />
-            <span className="gradient-text">You'll ever need</span>
-          </div>
+          <ToolsScrollingIntro variant="mobile-title" />
           <div className="mt-6 space-y-3">
             {[0, 1, 2].map((row) => {
               const data = row === 0 ? leftColumn : row === 1 ? middleColumn : rightColumn;
@@ -71,9 +68,7 @@ const ToolsScrollingSection = () => {
 
           {/* After rows: paragraph and CTA */}
           <div className="mt-6">
-            <p className="text-base text-gray-400">
-              Boost your sales and outpace competitors with instant access to 50+ of the best AI, SEO & Spy tools—without paying for them individually.
-            </p>
+            <ToolsScrollingIntro variant="mobile-body" />
             <div className="mt-4">
               <Link prefetch={false} href="/tools">
                 <button className="cursor-pointer bg-white/10 hover:bg-white/20 px-5 py-2.5 rounded-xl border-[1px] border-white/20 text-white font-medium group">
@@ -91,14 +86,7 @@ const ToolsScrollingSection = () => {
         <div className="hidden md:flex items-center justify-between gap-16">
           {/* Left side - Title */}
           <div className="flex-shrink-0 w-1/3 pr-12">
-            <div className="text-4xl md:text-5xl font-bold text-white mb-4">
-              The only subscription
-              <br />
-              <span className="gradient-text">You'll ever need</span>
-            </div>
-            <p className="text-xl text-gray-400 max-w-2xl">
-              Boost your sales and outpace competitors with instant access to 50+ of the best AI, SEO & Spy tools—without paying for them individually.
-            </p>
+            <ToolsScrollingIntro variant="desktop" />
             <div className="mt-6">
               <Link prefetch={false} href="/tools">
                 <button className="cursor-pointer bg-white/10 hover:bg-white/20 px-6 py-3 rounded-xl border-[1px] border-white/20 text-white font-medium group">

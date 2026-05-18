@@ -9,6 +9,7 @@ export default function PlayButtonVideo({
   className = "absolute inset-0 w-full h-full object-cover",
   autoPlay,
   autoPlayOnVisible,
+  hidePlayOverlay = false,
   loop,
 }: {
   src: string;
@@ -17,6 +18,8 @@ export default function PlayButtonVideo({
   className?: string;
   autoPlay?: boolean;
   autoPlayOnVisible?: boolean;
+  /** When true, never show the Play overlay (use with autoPlayOnVisible). */
+  hidePlayOverlay?: boolean;
   loop?: boolean;
 }) {
   const videoRef = React.useRef<HTMLVideoElement | null>(null);
@@ -24,6 +27,7 @@ export default function PlayButtonVideo({
 
   const [isPlaying, setIsPlaying] = React.useState(false);
   const [autoplayTried, setAutoplayTried] = React.useState(false);
+  const [autoplayFailed, setAutoplayFailed] = React.useState(false);
 
   const play = React.useCallback(() => {
     const v = videoRef.current;
@@ -49,41 +53,54 @@ export default function PlayButtonVideo({
         const v = videoRef.current;
         if (!v) return;
         v.muted = true;
-        v.play().then(() => setIsPlaying(true)).catch(() => {});
+        v.play()
+          .then(() => setIsPlaying(true))
+          .catch(() => setAutoplayFailed(true));
       } catch {}
     }, 50);
     return () => window.clearTimeout(t);
   }, [autoPlay, autoplayTried]);
 
-  // Optional: attempt autoplay when visible (best for LP perf).
+  const attemptAutoplay = React.useCallback(() => {
+    const v = videoRef.current;
+    if (!v) return;
+    v.muted = true;
+    v.play()
+      .then(() => {
+        setIsPlaying(true);
+        setAutoplayFailed(false);
+      })
+      .catch(() => setAutoplayFailed(true));
+  }, []);
+
+  // Autoplay when scrolled into view (muted).
   React.useEffect(() => {
     if (!autoPlayOnVisible) return;
-    if (autoplayTried) return;
     const el = wrapperRef.current;
     if (!el) return;
-    let done = false;
+
     const io = new IntersectionObserver(
       (entries) => {
-        if (done) return;
         const e = entries[0];
         if (!e?.isIntersecting) return;
-        done = true;
+        if (autoplayTried) return;
         setAutoplayTried(true);
+        attemptAutoplay();
         try {
-          const v = videoRef.current;
-          if (!v) return;
-          v.muted = true;
-          v.play().then(() => setIsPlaying(true)).catch(() => {});
+          io.disconnect();
         } catch {}
-        try { io.disconnect(); } catch {}
       },
-      { root: null, rootMargin: "200px", threshold: 0.15 }
+      { root: null, rootMargin: "120px", threshold: 0.35 }
     );
-    try { io.observe(el); } catch {}
+    try {
+      io.observe(el);
+    } catch {}
     return () => {
-      try { io.disconnect(); } catch {}
+      try {
+        io.disconnect();
+      } catch {}
     };
-  }, [autoPlayOnVisible, autoplayTried]);
+  }, [autoPlayOnVisible, autoplayTried, attemptAutoplay]);
 
   const pause = React.useCallback(() => {
     const v = videoRef.current;
@@ -104,7 +121,7 @@ export default function PlayButtonVideo({
         className={className}
         // If poster is provided, we can avoid downloading video until click.
         // If not, preload enough to display the first frame as the preview.
-        preload={poster ? "none" : "auto"}
+        preload={autoPlayOnVisible || autoPlay ? "auto" : poster ? "none" : "auto"}
         poster={poster}
         playsInline
         muted
@@ -113,15 +130,15 @@ export default function PlayButtonVideo({
         controlsList="nodownload noremoteplayback noplaybackrate"
         disablePictureInPicture
         title={title}
+        onPlay={() => setIsPlaying(true)}
         onPause={() => setIsPlaying(false)}
         onEnded={() => setIsPlaying(false)}
-        onClick={toggle}
+        onClick={hidePlayOverlay ? undefined : toggle}
       >
         <source src={src} type="video/mp4" />
       </video>
 
-      {/* Overlay + play button (center). We keep it on top when paused. */}
-      {!isPlaying ? (
+      {!hidePlayOverlay && !isPlaying && (autoplayFailed || !autoPlayOnVisible) ? (
         <button
           type="button"
           onClick={play}

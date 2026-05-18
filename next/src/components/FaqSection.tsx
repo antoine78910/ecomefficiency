@@ -1,4 +1,4 @@
-
+import FaqSectionTitle from "@/components/home/FaqSectionTitle";
 import {
   Accordion,
   AccordionContent,
@@ -11,9 +11,7 @@ const FaqSection = () => {
   return (
     <section id="faq" className="py-16 md:py-24 px-6 md:px-12 bg-black">
       <div className="max-w-4xl mx-auto">
-        <h2 className="text-3xl md:text-4xl font-bold mb-12 text-center text-white">
-          Frequently Asked <span className="gradient-text">Questions</span>
-        </h2>
+        <FaqSectionTitle />
 
         <Accordion type="single" collapsible className="space-y-4">
           {ECOM_EFFICIENCY_FAQ.map((faq, index) => (

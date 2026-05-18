@@ -6,6 +6,8 @@ import { Check, X, ChevronDown, Info } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { postGoal } from "@/lib/analytics";
 import { trackDatafastGoal } from "@/lib/datafastGoals";
+import BlurText from "@/components/BlurText";
+import { BLUR_TEXT_PRESETS } from "@/lib/blurTextPresets";
 
 type Currency = 'USD' | 'EUR';
 
@@ -246,9 +248,15 @@ const PricingSection = ({
           Starter from $19.99/month (or $11.99/month billed annually). Pro from $29.99/month (or $17.99/month billed annually). Community plan: custom pricing.
         </p>
 
-        <div className="text-3xl md:text-4xl font-bold text-center mb-6 text-white font-sans tracking-normal">
-					Simple and Flexible Pricing
-				</div>
+        <BlurText
+          as="h2"
+          text="Simple and Flexible Pricing"
+          delay={BLUR_TEXT_PRESETS.home.titleDelay}
+          stepDuration={BLUR_TEXT_PRESETS.home.stepDuration}
+          animateBy="words"
+          direction="top"
+          className="text-3xl md:text-4xl font-bold text-center mb-6 text-white font-sans tracking-normal justify-center"
+        />
 
         <div className="flex flex-wrap items-center justify-center gap-4 mb-10">
           <div className="inline-flex items-center rounded-full border border-purple-500/30 bg-black/40 overflow-hidden">

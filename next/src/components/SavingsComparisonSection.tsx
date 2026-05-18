@@ -2,6 +2,7 @@
 
 import React from 'react';
 import { Check } from 'lucide-react';
+import AnimatedSectionHeader from '@/components/AnimatedSectionHeader';
 
 type Currency = 'USD' | 'EUR';
 
@@ -99,12 +100,14 @@ const SavingsComparisonSection = () => {
       {/* Bottom gradient to blend into Pricing section */}
       <div className="pointer-events-none absolute -bottom-16 left-1/2 -translate-x-1/2 h-80 w-[60rem] bg-gradient-to-t from-purple-600/20 to-transparent blur-3xl" aria-hidden />
       <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8">
-        <div className="text-center mb-10">
-          <h2 className="text-3xl md:text-4xl font-bold text-white">
-            Save Big with <span className="text-[#ab63ff] drop-shadow-[0_0_12px_rgba(171,99,255,0.35)]">Ecom Efficiency</span>
-          </h2>
-          <p className="text-gray-400 mt-3">Why pay for multiple subscriptions when you can get everything for less?</p>
-        </div>
+        <AnimatedSectionHeader
+          className="mb-10"
+          centered
+          title="Save Big with Ecom Efficiency"
+          subtitle="Why pay for multiple subscriptions when you can get everything for less?"
+          titleClassName="text-3xl md:text-4xl justify-center"
+          subtitleClassName="text-gray-400 mt-3 justify-center"
+        />
 
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Without Ecom Efficiency */}

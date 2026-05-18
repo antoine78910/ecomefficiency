@@ -2,6 +2,10 @@
 
 import React from 'react';
 import styled from 'styled-components';
+import BlurText from '@/components/BlurText';
+import { BLUR_TEXT_PRESETS } from '@/lib/blurTextPresets';
+
+const { titleDelay, subtitleDelay, stepDuration } = BLUR_TEXT_PRESETS.home;
 
 const JoinMembersSection = () => {
   return (
@@ -15,12 +19,24 @@ const JoinMembersSection = () => {
           <div className="flex flex-col md:flex-row items-center justify-between gap-8">
             {/* Text Content */}
             <div className="flex-1 text-center md:text-left">
-              <div className="text-3xl md:text-4xl font-bold text-white mb-3">
-                Join <span className="gradient-text">+3000 Members</span>
-              </div>
-              <p className="text-lg text-white">
-              Access our free community of e-commerce experts and take part in the monthly vote to pick your favorite tool.
-              </p>
+              <BlurText
+                as="h2"
+                text="Join +3000 Members"
+                delay={titleDelay}
+                stepDuration={stepDuration}
+                animateBy="words"
+                direction="top"
+                className="text-3xl md:text-4xl font-bold text-white mb-3"
+              />
+              <BlurText
+                as="p"
+                text="Access our free community of e-commerce experts and take part in the monthly vote to pick your favorite tool."
+                delay={subtitleDelay}
+                stepDuration={stepDuration}
+                animateBy="words"
+                direction="top"
+                className="text-lg text-white"
+              />
             </div>
             {/* CTA Button */}
             <div className="flex-shrink-0">

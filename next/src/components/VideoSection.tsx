@@ -44,7 +44,7 @@ export default async function VideoSection() {
             ))}
           </div>
         ) : (
-          <LandingDemoVideo src="/landing/demo.mp4" poster="/ecomefficiency.png" />
+          <LandingDemoVideo src="/landing/demo.mp4" />
         )}
       </div>
     </section>

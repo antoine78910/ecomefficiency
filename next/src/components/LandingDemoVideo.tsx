@@ -22,11 +22,11 @@ const shineStyle: CSSProperties = {
 
 export default function LandingDemoVideo({
   src = "/landing/demo.mp4",
-  poster = "/ecomefficiency.png",
+  poster,
   title = "Ecom Efficiency product demo",
 }: LandingDemoVideoProps) {
   return (
-    <div className="relative mx-auto w-full max-w-7xl">
+    <div className="relative mx-auto w-full max-w-5xl">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-x-6 -inset-y-3 rounded-[2rem] bg-[radial-gradient(ellipse_at_center,rgba(149,65,224,0.38)_0%,rgba(124,48,199,0.2)_42%,rgba(124,48,199,0)_74%)] blur-3xl sm:inset-x-8"
@@ -50,6 +50,7 @@ export default function LandingDemoVideo({
             poster={poster}
             title={title}
             autoPlayOnVisible
+            hidePlayOverlay
             loop
           />
           <div
