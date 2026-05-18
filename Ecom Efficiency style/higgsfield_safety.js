@@ -76,6 +76,32 @@
           limitLine;
       } catch (_) {}
     }
+    var _lastWalletSnapshotAt = 0; // throttle admin snapshot POSTs to once per minute
+    function postWalletSnapshotToAdmin(p) {
+      try {
+        var now = Date.now();
+        if (now - _lastWalletSnapshotAt < 60000) return; // max 1/min
+        _lastWalletSnapshotAt = now;
+        var email = null;
+        try { email = sessionStorage.getItem('ee_hf_ecom_verified_email') || sessionStorage.getItem('EE_HF_AUTH_VERIFIED_EMAIL') || null; } catch (_) {}
+        fetch('https://www.ecomefficiency.com/api/higgsfield/wallet', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'omit',
+          body: JSON.stringify({
+            workspace_id: p.workspaceId || null,
+            credits_balance_raw: typeof p.creditsBalanceRaw === 'number' ? p.creditsBalanceRaw : null,
+            credits_balance_display: typeof p.creditsRemaining === 'number' ? p.creditsRemaining : (typeof p.credits === 'number' ? p.credits : null),
+            subscription_balance: typeof p.subscriptionBalance === 'number' ? p.subscriptionBalance : null,
+            total_credits: typeof p.totalCredits === 'number' ? p.totalCredits : null,
+            ee_email: email,
+            at: new Date().toISOString(),
+            after_gen: !!p.afterGen
+          })
+        }).catch(function () {});
+      } catch (_) {}
+    }
+
     function persistAndUpdateWidget(credits, todayUsage, limitReached) {
       var payload = { credits: credits, used: todayUsage, usedFromDeltas: usedFromDeltas, todayUsage: todayUsage, updatedAt: Date.now() };
       chrome.storage.local.get('ee_hf_credit_tracking', function (data) {
@@ -221,6 +247,14 @@
         }
         if (credits !== undefined && credits !== null) lastKnownBalance = credits;
         if (p.source === 'workspaces/wallet' && credits !== undefined && credits !== null) {
+          // Store raw balance too, for accurate popup display
+          var storeExtra = {};
+          if (typeof p.creditsBalanceRaw === 'number') storeExtra.creditsBalanceRaw = p.creditsBalanceRaw;
+          if (typeof p.subscriptionBalance === 'number') storeExtra.subscriptionBalance = p.subscriptionBalance;
+          if (typeof p.totalCredits === 'number') storeExtra.totalCredits = p.totalCredits;
+          if (p.workspaceId) storeExtra.workspaceId = p.workspaceId;
+          // Send snapshot to admin backend (throttled to 1/min, always on afterGen)
+          if (p.afterGen || (Date.now() - _lastWalletSnapshotAt > 60000)) postWalletSnapshotToAdmin(p);
           chrome.storage.local.get('ee_hf_credit_tracking', function (data) {
             var t = applyDailyReset(data);
             if (isGenerating && creditsBeforeGeneration !== null) {
@@ -235,7 +269,7 @@
             chrome.storage.local.set({ ee_hf_credit_tracking: t });
             setBlockGenerations(t.todayUsage >= MAX_DAILY_CREDITS);
             var used = p.used !== undefined && p.used !== null ? p.used : (t.todayUsage || 0);
-            var walletPayload = { credits: credits, used: used, todayUsage: t.todayUsage, updatedAt: Date.now() };
+            var walletPayload = Object.assign({ credits: credits, creditsRemaining: credits, used: used, todayUsage: t.todayUsage, updatedAt: Date.now() }, storeExtra || {});
             chrome.storage.local.set({ ee_hf_wallet: walletPayload });
             updateWalletWidget(credits, t.todayUsage, t.todayUsage >= MAX_DAILY_CREDITS);
           });

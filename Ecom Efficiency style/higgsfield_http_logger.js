@@ -192,6 +192,9 @@
   }
   function extractCreditsRemaining(j) {
     if (j == null) return undefined;
+    // Explicit HF wallet field: credits_balance is the raw balance (e.g., 10057 = 100.57 credits)
+    // Divide by 100 to get the display value matching Higgsfield UI.
+    if (typeof j.credits_balance === 'number' && !isNaN(j.credits_balance)) return j.credits_balance / 100;
     var v = j.creditsRemaining ?? j.credits_remaining ?? j.remainingCredits ?? j.credit ?? j.credits ?? j.balance;
     if (typeof v === 'number' && !isNaN(v)) return v;
     if (j.wallet && typeof j.wallet.creditsRemaining === 'number') return j.wallet.creditsRemaining;
@@ -202,22 +205,38 @@
     response.clone().text().then(function (text) {
       try {
         var j = JSON.parse(text);
-        var seen = new WeakSet();
-        var credits = j.credits ?? j.credit ?? j.balance ?? j.wallet?.credits ?? j.wallet?.balance ?? j.user?.credits ?? j.data?.credits ?? j.result?.credits ?? j.meta?.credits ?? findCreditLike(j, new WeakSet());
-        var used = j.usedToday ?? j.used ?? j.consumed ?? j.data?.used ?? j.user?.used ?? findUsedLike(j, new WeakSet());
         var creditsRemaining = extractCreditsRemaining(j);
-        if (isWorkspacesWallet(url) && creditsRemaining !== undefined) {
-          lastKnownCredits = creditsRemaining;
-          console.log('[EE][HIGGSFIELD][WALLET] workspaces/wallet creditsRemaining=', creditsRemaining);
+        if (isWorkspacesWallet(url)) {
+          // Explicit wallet fields from fnf.higgsfield.ai/workspaces/wallet
+          var creditsBalanceRaw = typeof j.credits_balance === 'number' ? j.credits_balance : null;
+          var subscriptionBalance = typeof j.subscription_balance === 'number' ? j.subscription_balance : null;
+          var totalCredits = typeof j.total_credits === 'number' ? j.total_credits : null;
+          var workspaceId = j.workspace_id || null;
+          var display = creditsBalanceRaw !== null ? creditsBalanceRaw / 100 : creditsRemaining;
+          if (display !== undefined && display !== null) lastKnownCredits = display;
+          console.log('[EE][HIGGSFIELD][WALLET] workspaces/wallet credits_balance_raw=' + creditsBalanceRaw + ' display=' + display);
           try {
-            window.postMessage({ type: 'EE_HIGGSFIELD_WALLET', source: 'ee-logger', payload: { creditsRemaining: creditsRemaining, credits: creditsRemaining, used: used, source: 'workspaces/wallet' } }, '*');
+            window.postMessage({
+              type: 'EE_HIGGSFIELD_WALLET',
+              source: 'ee-logger',
+              payload: {
+                creditsRemaining: display,
+                credits: display,
+                creditsBalanceRaw: creditsBalanceRaw,
+                subscriptionBalance: subscriptionBalance,
+                totalCredits: totalCredits,
+                workspaceId: workspaceId,
+                source: 'workspaces/wallet'
+              }
+            }, '*');
           } catch (_) {}
           return;
         }
+        var credits = j.credits ?? j.credit ?? j.balance ?? (j.wallet && j.wallet.credits) ?? (j.wallet && j.wallet.balance) ?? (j.user && j.user.credits) ?? (j.data && j.data.credits) ?? findCreditLike(j, new WeakSet());
+        var used = j.usedToday ?? j.used ?? j.consumed ?? (j.data && j.data.used) ?? (j.user && j.user.used) ?? findUsedLike(j, new WeakSet());
         if (credits !== undefined && typeof credits === 'number') lastKnownCredits = credits;
         var rawSnippet = undefined;
         try { rawSnippet = JSON.stringify(j).slice(0, 400); } catch (_) {}
-        console.log('[EE][HIGGSFIELD][WALLET] response', url, { credits: credits, used: used, rawSnippet: rawSnippet });
         try {
           window.postMessage({ type: 'EE_HIGGSFIELD_WALLET', source: 'ee-logger', payload: { credits: credits, used: used, rawSnippet: rawSnippet } }, '*');
         } catch (_) {}
@@ -295,6 +314,33 @@
                   at: new Date().toISOString()
                 }
               }, '*');
+              // Auto-refresh wallet 3s after generation so the balance is up to date
+              setTimeout(function () {
+                try {
+                  origFetch.call(window, 'https://fnf.higgsfield.ai/workspaces/wallet', { credentials: 'include' })
+                    .then(function (r) { return r.json(); })
+                    .then(function (data) {
+                      var raw = typeof data.credits_balance === 'number' ? data.credits_balance : null;
+                      var display = raw !== null ? raw / 100 : null;
+                      if (display === null) return;
+                      lastKnownCredits = display;
+                      window.postMessage({
+                        type: 'EE_HIGGSFIELD_WALLET',
+                        source: 'ee-logger',
+                        payload: {
+                          creditsRemaining: display,
+                          credits: display,
+                          creditsBalanceRaw: raw,
+                          subscriptionBalance: typeof data.subscription_balance === 'number' ? data.subscription_balance : null,
+                          totalCredits: typeof data.total_credits === 'number' ? data.total_credits : null,
+                          workspaceId: data.workspace_id || null,
+                          source: 'workspaces/wallet',
+                          afterGen: true
+                        }
+                      }, '*');
+                    }).catch(function () {});
+                } catch (_) {}
+              }, 3000);
             } catch (_) {}
           }).catch(function () {});
         }

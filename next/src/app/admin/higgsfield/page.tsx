@@ -3,6 +3,7 @@ import { Zap, AlertTriangle } from 'lucide-react'
 import { supabaseAdmin } from '@/integrations/supabase/server'
 import { HiggsfieldEmailTable, HiggsfieldEventsTable, HiggsfieldCreditHistory, HiggsfieldAnomalyTable } from '@/components/HiggsfieldTables'
 import { summarizeHiggsfieldUsageRows, type HiggsfieldUsageEvent } from '@/components/higgsfieldUsageUtils'
+import { HiggsfieldWalletCard } from '@/components/HiggsfieldWalletCard'
 
 export const dynamic = 'force-dynamic'
 
@@ -79,6 +80,11 @@ export default async function AdminHiggsfieldPage() {
           <p className="text-gray-400">
             Générations enregistrées via l&apos;extension (extension → POST /api/usage/higgsfield)
           </p>
+        </div>
+
+        {/* Live Wallet Balance — client component, auto-refreshes every 30s */}
+        <div className="mb-8">
+          <HiggsfieldWalletCard />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">

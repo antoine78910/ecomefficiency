@@ -1263,12 +1263,17 @@
     }
   }
 
-  function showLowCreditsResetPopup(percent) {
+  // opts: { creditsBalance: number|null, costNeeded: number|null }
+  function showLowCreditsResetPopup(opts) {
     try {
       var existing = document.getElementById('ee-hf-low-credits-popup-root');
       if (existing) return;
+      var creditsBalance = opts && typeof opts.creditsBalance === 'number' ? opts.creditsBalance : null;
+      var costNeeded = opts && typeof opts.costNeeded === 'number' ? opts.costNeeded : null;
       var nextReset = getNextHiggsfieldResetDate();
       var resetCountdown = formatResetCountdown(nextReset);
+      var balanceStr = creditsBalance !== null ? creditsBalance.toFixed(2) + ' cr' : '< 1 credit';
+      var costStr = costNeeded !== null ? costNeeded + ' cr needed' : '';
       var root = document.createElement('div');
       root.id = 'ee-hf-low-credits-popup-root';
       root.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(3,6,17,0.58);backdrop-filter:blur(2px);animation:eeLowCreditsFadeIn .18s ease;';
@@ -1281,7 +1286,8 @@
         '<div style="position:absolute;top:-1px;left:50%;transform:translateX(-50%);width:68%;height:3px;background:linear-gradient(90deg,transparent,#ef4444,#f97316,#ef4444,transparent);border-radius:0 0 4px 4px;"></div>' +
         '<div style="font-size:11px;font-weight:700;letter-spacing:1.25px;text-transform:uppercase;color:#fb7185;margin-bottom:10px;">Higgsfield Credits</div>' +
         '<div style="font-size:20px;font-weight:700;color:#fecaca;line-height:1.25;margin-bottom:8px;">No Higgsfield credits available</div>' +
-        '<div style="font-size:13px;line-height:1.55;color:#e5e7eb;">The connected <b style="color:#fbcfe8;">Higgsfield account</b> is low on credits (profile ring: <b style="color:#fda4af;">' + String(percent) + '%</b> or less). Generation is paused to avoid failed requests.</div>' +
+        '<div style="font-size:13px;line-height:1.55;color:#e5e7eb;">The connected <b style="color:#fbcfe8;">Higgsfield account</b> has insufficient credits. ' +
+          'Current balance: <b style="color:#fda4af;">' + balanceStr + '</b>' + (costStr ? ' — <b style="color:#fda4af;">' + costStr + '</b>' : '') + '.</div>' +
         '<div style="margin-top:8px;font-size:12px;line-height:1.55;color:#cbd5e1;">This is related to Higgsfield credits, not your Ecom Efficiency balance.</div>' +
         '<div style="margin-top:12px;padding:10px 12px;border-radius:12px;background:rgba(30,41,59,0.45);border:1px solid rgba(148,163,184,0.25);">' +
           '<div style="font-size:12px;line-height:1.55;color:#cbd5e1;">Higgsfield credits reset every 3 days.</div>' +
@@ -1404,13 +1410,6 @@
   function runPaidGenerationPrecheck(source, buttonFinder) {
     log('verifying generation cost...', source);
     showGenerateStatus('Checking credits...', 0);
-    var headerCreditsPct = getHiggsfieldHeaderCreditsPercent();
-    if (typeof headerCreditsPct === 'number' && headerCreditsPct <= 5) {
-      showGenerateStatus('No more Higgsfield credits available.', 6000);
-      showLowCreditsResetPopup(headerCreditsPct);
-      log('generation blocked: header credits ring <= 5%', source, 'pct=' + headerCreditsPct);
-      return;
-    }
     var actualBtn = buttonFinder ? buttonFinder() : null;
     const costInfo = getGenerationCostInfo(actualBtn);
     const limit = CONFIG.DAILY_CREDIT_LIMIT;
@@ -1419,7 +1418,7 @@
     const email = getVerifiedEmail();
     log('generation cost resolved', source, 'cost=' + costInfo.cost, 'used=' + used, 'remaining=' + remaining, 'limit=' + limit);
 
-    waitForWalletCredits(600, function (walletCredits) {
+    waitForWalletCredits(800, function (walletCredits) {
       // If wallet credits are not readable yet, do NOT hard-block.
       // In production this can happen transiently even with valid credits.
       if (walletCredits === null) {
@@ -1427,9 +1426,12 @@
         walletCredits = Number.POSITIVE_INFINITY;
       }
 
-      // Block if Higgsfield wallet itself is empty (monthly/plan credits).
-      if (walletCredits < costInfo.cost) {
+      // Block if Higgsfield wallet itself is empty — compare actual wallet balance
+      // to the cost of this generation. Use the real credits_balance (via /workspaces/wallet)
+      // instead of the unreliable header ring SVG percentage.
+      if (isFinite(walletCredits) && walletCredits < costInfo.cost) {
         showGenerateStatus('No more Higgsfield credits available.', 6000);
+        showLowCreditsResetPopup({ creditsBalance: walletCredits, costNeeded: costInfo.cost });
         log('generation blocked: wallet credits insufficient', source, 'wallet=' + walletCredits, 'cost=' + costInfo.cost);
         return;
       }
