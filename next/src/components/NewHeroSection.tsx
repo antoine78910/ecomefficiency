@@ -1,4 +1,4 @@
-﻿import { Check, ArrowRight } from "lucide-react";
+import { Check, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import NewHeroAnimatedWord from "@/components/NewHeroAnimatedWord";
 
@@ -44,11 +44,11 @@ const NewHeroSection = () => {
 
           {/* Removed redundant ECOM EFFICIENCY TOOLS badge per request */}
 
-          {/* Main Heading (visual only ÔÇö SEO headings are sr-only in the page) */}
-          <div className="text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-4 leading-[1.06] tracking-normal">
+          {/* Main Heading (visual only ??? SEO headings are sr-only in the page) */}
+          <div className="text-[1.75rem] sm:text-4xl md:text-6xl lg:text-7xl font-bold text-white mb-3 md:mb-4 leading-[1.12] sm:leading-[1.08] tracking-normal px-1">
             <span className="block">Access the</span>
             <span className="block">
-              <span className="inline-flex items-baseline justify-center flex-wrap gap-x-2">
+              <span className="inline-flex items-baseline justify-center flex-wrap gap-x-1.5 sm:gap-x-2 max-w-[18rem] sm:max-w-none mx-auto">
                 <span>Most Powerful</span>
                 <NewHeroAnimatedWord />
                 <span>Tools</span>
@@ -60,7 +60,7 @@ const NewHeroSection = () => {
           </div>
 
           {/* Subheading */}
-          <p className="text-xl text-gray-400 mb-6 md:mb-8 max-w-3xl mx-auto">
+          <p className="text-base sm:text-xl text-gray-400 mb-6 md:mb-8 max-w-3xl mx-auto">
             Boost your productivity while minimizing your costs
           </p>
 

@@ -4,7 +4,7 @@ import React, { useEffect, useRef } from "react";
 
 /**
  * Client-only animated word cycle used in the homepage hero.
- * Isolated so the rest of the hero can be server-rendered (smaller initial JS + faster crawl).
+ * Fixed slot width so surrounding text does not shift between Ecom / SPY / SEO / AI.
  */
 export default function NewHeroAnimatedWord() {
   const wordTrackRef = useRef<HTMLDivElement | null>(null);
@@ -16,14 +16,7 @@ export default function NewHeroAnimatedWord() {
     const wrapper = wordWrapperRef.current;
     if (!track || !wrapper) return;
 
-    const margins = [
-      { ml: 0, mr: 0 }, // Ecom
-      { ml: -12, mr: -12 }, // SPY tighter
-      { ml: -12, mr: -12 }, // SEO tighter
-      { ml: -36, mr: -36 }, // AI even tighter spacing
-      { ml: 0, mr: 0 }, // Ecom
-    ];
-    const widthBuffer = 8; // prevent clipping due to subpixel rounding
+    const widthBuffer = 6;
 
     const build = () => {
       try {
@@ -35,22 +28,21 @@ export default function NewHeroAnimatedWord() {
 
         const itemHeight = rect.height || 0;
         const children = Array.from(track.children) as HTMLElement[];
-        const widths = children.map((el) => {
-          try {
-            return el.offsetWidth || 0;
-          } catch {
-            return 0;
-          }
-        });
+        const widths = children.map((el) => el.offsetWidth || 0);
+
+        const slotWidth = Math.max(
+          ...widths.map((w) => Math.ceil(w) + widthBuffer),
+          56
+        );
 
         wrapper.style.display = "inline-block";
         wrapper.style.height = `${itemHeight}px`;
-        const initialW = Math.max(Math.ceil(widths[0]) + widthBuffer, 76);
-        wrapper.style.width = `${initialW}px`;
-        wrapper.style.marginLeft = `${margins[0].ml}px`;
-        wrapper.style.marginRight = `${margins[0].mr}px`;
+        wrapper.style.width = `${slotWidth}px`;
+        wrapper.style.marginLeft = "0";
+        wrapper.style.marginRight = "0";
+        wrapper.style.verticalAlign = "middle";
 
-        if (itemHeight === 0 || widths.length === 0 || widths.every((w) => w === 0)) return;
+        if (itemHeight === 0 || widths.every((w) => w === 0)) return;
         if (!(window as any).__ee_gsap) return;
 
         const gsap = (window as any).__ee_gsap;
@@ -63,40 +55,18 @@ export default function NewHeroAnimatedWord() {
 
         const tl = gsap.timeline({ repeat: -1 });
         tl
-          // Ecom hold ~3s, then SPY/SEO/AI with ~0.5s display each
           .to(track, { y: -itemHeight * 1, duration: 0.6, ease: "power2.inOut", delay: 3 })
-          .to(
-            wrapper,
-            { width: (Math.ceil(widths[1]) + widthBuffer) || 0, marginLeft: `${margins[1].ml}px`, marginRight: `${margins[1].mr}px`, duration: 0.6, ease: "power2.inOut" },
-            "<"
-          )
           .to({}, { duration: 0.5 })
           .to(track, { y: -itemHeight * 2, duration: 0.6, ease: "power2.inOut" })
-          .to(
-            wrapper,
-            { width: (Math.ceil(widths[2]) + widthBuffer) || 0, marginLeft: `${margins[2].ml}px`, marginRight: `${margins[2].mr}px`, duration: 0.6, ease: "power2.inOut" },
-            "<"
-          )
           .to({}, { duration: 0.5 })
           .to(track, { y: -itemHeight * 3, duration: 0.6, ease: "power2.inOut" })
-          .to(
-            wrapper,
-            { width: (Math.ceil(widths[3]) + widthBuffer) || 0, marginLeft: `${margins[3].ml}px`, marginRight: `${margins[3].mr}px`, duration: 0.6, ease: "power2.inOut" },
-            "<"
-          )
           .to({}, { duration: 0.5 })
           .to(track, { y: -itemHeight * 4, duration: 0.6, ease: "power2.inOut" })
-          .to(
-            wrapper,
-            { width: (Math.ceil(widths[4]) + widthBuffer) || 0, marginLeft: `${margins[4].ml}px`, marginRight: `${margins[4].mr}px`, duration: 0.6, ease: "power2.inOut" },
-            "<"
-          )
-          .set(track, { y: 0 })
-          .set(wrapper, { width: (Math.ceil(widths[0]) + widthBuffer) || 0, marginLeft: `${margins[0].ml}px`, marginRight: `${margins[0].mr}px` });
+          .set(track, { y: 0 });
 
         tlRef.current = tl;
       } catch {
-        // Silently ignore; animation is non-critical.
+        // Animation is non-critical.
       }
     };
 
@@ -109,12 +79,8 @@ export default function NewHeroAnimatedWord() {
         const mod: any = await import("gsap");
         if (cancelled) return;
         (window as any).__ee_gsap = mod?.default ?? mod;
-        try {
-          build();
-        } catch {}
-      } catch {
-        // If GSAP fails to load, skip animation.
-      }
+        build();
+      } catch {}
     })();
 
     try {
@@ -128,40 +94,29 @@ export default function NewHeroAnimatedWord() {
         build();
       } catch {}
     };
-    try {
-      window.addEventListener("resize", onResize);
-    } catch {}
+    window.addEventListener("resize", onResize);
 
     return () => {
       cancelled = true;
-      try {
-        window.removeEventListener("resize", onResize);
-      } catch {}
-      try {
-        if (rafId1) cancelAnimationFrame(rafId1);
-      } catch {}
-      try {
-        if (rafId2) cancelAnimationFrame(rafId2);
-      } catch {}
-      try {
-        if (tlRef.current) tlRef.current.kill();
-      } catch {}
+      window.removeEventListener("resize", onResize);
+      if (rafId1) cancelAnimationFrame(rafId1);
+      if (rafId2) cancelAnimationFrame(rafId2);
+      if (tlRef.current) tlRef.current.kill();
     };
   }, []);
 
   return (
     <span
       ref={wordWrapperRef}
-      className="relative inline-block align-middle h-[1.1em] min-w-[4.75rem] overflow-hidden whitespace-nowrap text-purple-400 translate-y-[0.03em] mx-0.5"
+      className="relative inline-block align-middle h-[1.1em] w-[3.6rem] sm:w-[4.75rem] overflow-hidden whitespace-nowrap text-purple-400 translate-y-[0.03em] mx-0.5 shrink-0"
     >
-      <div ref={wordTrackRef} className="leading-[1]">
-        <span className="block">Ecom</span>
-        <span className="block">SPY</span>
-        <span className="block">SEO</span>
-        <span className="block">AI</span>
-        <span className="block">Ecom</span>
+      <div ref={wordTrackRef} className="leading-[1] text-center w-full">
+        <span className="block w-full text-center">Ecom</span>
+        <span className="block w-full text-center">SPY</span>
+        <span className="block w-full text-center">SEO</span>
+        <span className="block w-full text-center">AI</span>
+        <span className="block w-full text-center">Ecom</span>
       </div>
     </span>
   );
 }
-
