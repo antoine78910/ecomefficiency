@@ -2,47 +2,84 @@
 
 import React, { useEffect, useRef } from "react";
 
+/** Per-word slot tuning: width + horizontal margins pull neighbors closer on short words. */
+const WORD_SLOT = [
+  { ml: 0, mr: 0 },
+  { ml: -12, mr: -12 },
+  { ml: -12, mr: -12 },
+  { ml: -36, mr: -36 },
+  { ml: 0, mr: 0 },
+] as const;
+
+/** AI needs looser side spacing on narrow screens (less negative pull). */
+const WORD_SLOT_AI_MOBILE = { ml: -10, mr: -10 } as const;
+
+const isMobileViewport = () =>
+  typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches;
+
+const WIDTH_BUFFER = 8;
+
 /**
  * Client-only animated word cycle used in the homepage hero.
- * Fixed slot width so surrounding text does not shift between Ecom / SPY / SEO / AI.
+ * Width and margins animate per word so short labels (e.g. AI) stay tight in the line.
  */
 export default function NewHeroAnimatedWord() {
   const wordTrackRef = useRef<HTMLDivElement | null>(null);
   const wordWrapperRef = useRef<HTMLSpanElement | null>(null);
-  const tlRef = useRef<any>(null);
+  const tlRef = useRef<{ kill: () => void } | null>(null);
 
   useEffect(() => {
     const track = wordTrackRef.current;
     const wrapper = wordWrapperRef.current;
     if (!track || !wrapper) return;
 
-    const widthBuffer = 6;
+    const marginScale = (widths: number[]) => {
+      const base = Math.ceil(widths[0] ?? 0) + WIDTH_BUFFER;
+      return Math.min(1.15, Math.max(0.55, base / 76));
+    };
+
+    const scaledMargin = (index: number, scale: number) => {
+      const mobile = isMobileViewport();
+      const m =
+        index === 3 && mobile ? WORD_SLOT_AI_MOBILE : (WORD_SLOT[index] ?? WORD_SLOT[0]);
+      return {
+        ml: Math.round(m.ml * scale),
+        mr: Math.round(m.mr * scale),
+      };
+    };
+
+    const applySlot = (index: number, widths: number[], itemHeight: number, scale: number) => {
+      const w = Math.ceil(widths[index] ?? 0) + WIDTH_BUFFER;
+      const m = scaledMargin(index, scale);
+      wrapper.style.width = `${w}px`;
+      wrapper.style.height = `${itemHeight}px`;
+      wrapper.style.marginLeft = `${m.ml}px`;
+      wrapper.style.marginRight = `${m.mr}px`;
+    };
 
     const build = () => {
       try {
         const firstChild = track.children[0] as HTMLElement | undefined;
         if (!firstChild) return;
 
-        const rect = firstChild.getBoundingClientRect();
-        if (rect.height === 0 || rect.width === 0) return;
-
-        const itemHeight = rect.height || 0;
-        const children = Array.from(track.children) as HTMLElement[];
-        const widths = children.map((el) => el.offsetWidth || 0);
-
-        const slotWidth = Math.max(
-          ...widths.map((w) => Math.ceil(w) + widthBuffer),
-          56
-        );
-
         wrapper.style.display = "inline-block";
-        wrapper.style.height = `${itemHeight}px`;
-        wrapper.style.width = `${slotWidth}px`;
-        wrapper.style.marginLeft = "0";
-        wrapper.style.marginRight = "0";
         wrapper.style.verticalAlign = "middle";
+        wrapper.style.width = "auto";
+        wrapper.style.minWidth = "0";
+
+        const children = Array.from(track.children) as HTMLElement[];
+        const widths = children.map((el) => el.offsetWidth || el.getBoundingClientRect().width || 0);
+        const itemHeight =
+          Math.max(
+            ...children.map((el) => el.offsetHeight || el.getBoundingClientRect().height || 0),
+            firstChild.getBoundingClientRect().height
+          ) || 0;
 
         if (itemHeight === 0 || widths.every((w) => w === 0)) return;
+
+        const scale = marginScale(widths);
+        applySlot(0, widths, itemHeight, scale);
+
         if (!(window as any).__ee_gsap) return;
 
         const gsap = (window as any).__ee_gsap;
@@ -53,16 +90,40 @@ export default function NewHeroAnimatedWord() {
           tlRef.current = null;
         }
 
+        const slide = 0.6;
+        const pause = 0.5;
+        const ease = "power2.inOut";
+
+        const slotTween = (index: number) => {
+          const m = scaledMargin(index, scale);
+          return {
+            width: Math.ceil(widths[index] ?? 0) + WIDTH_BUFFER,
+            marginLeft: `${m.ml}px`,
+            marginRight: `${m.mr}px`,
+            duration: slide,
+            ease,
+          };
+        };
+
         const tl = gsap.timeline({ repeat: -1 });
         tl
-          .to(track, { y: -itemHeight * 1, duration: 0.6, ease: "power2.inOut", delay: 3 })
-          .to({}, { duration: 0.5 })
-          .to(track, { y: -itemHeight * 2, duration: 0.6, ease: "power2.inOut" })
-          .to({}, { duration: 0.5 })
-          .to(track, { y: -itemHeight * 3, duration: 0.6, ease: "power2.inOut" })
-          .to({}, { duration: 0.5 })
-          .to(track, { y: -itemHeight * 4, duration: 0.6, ease: "power2.inOut" })
-          .set(track, { y: 0 });
+          .to(track, { y: -itemHeight * 1, duration: slide, ease, delay: 3 })
+          .to(wrapper, slotTween(1), "<")
+          .to({}, { duration: pause })
+          .to(track, { y: -itemHeight * 2, duration: slide, ease })
+          .to(wrapper, slotTween(2), "<")
+          .to({}, { duration: pause })
+          .to(track, { y: -itemHeight * 3, duration: slide, ease })
+          .to(wrapper, slotTween(3), "<")
+          .to({}, { duration: pause })
+          .to(track, { y: -itemHeight * 4, duration: slide, ease })
+          .to(wrapper, slotTween(4), "<")
+          .set(track, { y: 0 })
+          .set(wrapper, {
+            width: Math.ceil(widths[0] ?? 0) + WIDTH_BUFFER,
+            marginLeft: `${scaledMargin(0, scale).ml}px`,
+            marginRight: `${scaledMargin(0, scale).mr}px`,
+          });
 
         tlRef.current = tl;
       } catch {
@@ -76,7 +137,7 @@ export default function NewHeroAnimatedWord() {
 
     (async () => {
       try {
-        const mod: any = await import("gsap");
+        const mod: { default?: unknown } = await import("gsap");
         if (cancelled) return;
         (window as any).__ee_gsap = mod?.default ?? mod;
         build();
@@ -95,6 +156,9 @@ export default function NewHeroAnimatedWord() {
       } catch {}
     };
     window.addEventListener("resize", onResize);
+    document.fonts?.ready?.then(() => {
+      if (!cancelled) build();
+    });
 
     return () => {
       cancelled = true;
@@ -108,14 +172,14 @@ export default function NewHeroAnimatedWord() {
   return (
     <span
       ref={wordWrapperRef}
-      className="relative inline-block align-middle h-[1.1em] w-[3.6rem] sm:w-[4.75rem] overflow-hidden whitespace-nowrap text-purple-400 translate-y-[0.03em] mx-0.5 shrink-0"
+      className="relative inline-block align-middle h-[1.1em] min-w-0 overflow-hidden whitespace-nowrap text-purple-400 translate-y-[0.03em] shrink-0"
     >
-      <div ref={wordTrackRef} className="leading-[1] text-center w-full">
-        <span className="block w-full text-center">Ecom</span>
-        <span className="block w-full text-center">SPY</span>
-        <span className="block w-full text-center">SEO</span>
-        <span className="block w-full text-center">AI</span>
-        <span className="block w-full text-center">Ecom</span>
+      <div ref={wordTrackRef} className="leading-[1]">
+        <span className="block">Ecom</span>
+        <span className="block">SPY</span>
+        <span className="block">SEO</span>
+        <span className="block">AI</span>
+        <span className="block">Ecom</span>
       </div>
     </span>
   );

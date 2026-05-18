@@ -23,7 +23,7 @@ export default async function VideoSection() {
         aria-hidden
       />
 
-      <div className="max-w-7xl mx-auto px-6 lg:px-8 py-16">
+      <div className="max-w-7xl mx-auto px-6 lg:px-8 pt-6 pb-12 sm:py-16">
         {partners ? (
           <div className="space-y-8">
             {[1, 2, 3].map((i) => (

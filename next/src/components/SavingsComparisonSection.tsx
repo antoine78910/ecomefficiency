@@ -44,11 +44,11 @@ const tools: SavingsTool[] = [
   { name: 'Freepik', price: 40 },
   { name: 'TurboScribe', price: 20 },
   { name: 'GPT', price: 20 },
-  { name: 'Claude', price: 100 },
+  { name: 'Claude', price: 200 },
   { name: 'Semrush', price: 399 },
   { name: 'Similarweb', price: 199 },
   { name: 'Higgsfield', price: 250 },
-  { name: 'Vmake', price: 9.99 },
+  { name: 'Vmake', price: 29.99 },
   { name: '+30 other SEO tools', price: 1000 },
 ];
 

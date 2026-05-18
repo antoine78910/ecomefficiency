@@ -3,6 +3,13 @@ import { ArrowRight } from "lucide-react";
 import { carouselTools } from "@/data/carouselTools";
 import ToolsScrollingIntro from "@/components/home/ToolsScrollingIntro";
 
+function carouselLogoClass(name: string) {
+  if (name.toLowerCase() === "claude") {
+    return "w-full h-full object-contain bg-black scale-[0.72] p-2";
+  }
+  return "w-full h-full object-contain bg-black";
+}
+
 const ToolsScrollingSection = () => {
   const tools = carouselTools;
 
@@ -39,7 +46,7 @@ const ToolsScrollingSection = () => {
                         className="tool-card bg-gray-900 rounded-xl p-3 transition-all duration-300 relative overflow-hidden inline-flex flex-col items-center text-center border border-white/10 align-top"
                         style={{ width: 170 }}
                       >
-                        <div className="w-full h-24 mb-2.5 rounded-lg overflow-hidden">
+                        <div className="w-full h-24 mb-2.5 rounded-lg overflow-hidden bg-black flex items-center justify-center">
                           {/* Use plain <img> to avoid huge next/image variants on the LP */}
                           {/* eslint-disable-next-line @next/next/no-img-element */}
                           <img
@@ -50,7 +57,7 @@ const ToolsScrollingSection = () => {
                             height={160}
                             loading="lazy"
                             decoding="async"
-                            className="w-full h-full object-contain bg-black"
+                            className={carouselLogoClass(tool.name)}
                           />
                         </div>
                         <div className="text-white font-semibold text-xs mb-0.5">{tool.name}</div>
@@ -111,7 +118,7 @@ const ToolsScrollingSection = () => {
                     key={`left-${index}`}
                     className="tool-card bg-gray-900 rounded-2xl p-4 transition-all duration-300 relative overflow-hidden min-h-[200px] flex flex-col items-center text-center"
                   >
-                    <div className="w-full h-32 md:h-36 mb-4 rounded-xl overflow-hidden">
+                    <div className="w-full h-32 md:h-36 mb-4 rounded-xl overflow-hidden bg-black flex items-center justify-center">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={tool.icon}
@@ -121,7 +128,7 @@ const ToolsScrollingSection = () => {
                         height={160}
                         loading="lazy"
                         decoding="async"
-                        className="w-full h-full object-contain bg-black"
+                        className={carouselLogoClass(tool.name)}
                       />
                     </div>
                     <div className="text-white font-semibold text-base mb-2">{tool.name}</div>
@@ -139,7 +146,7 @@ const ToolsScrollingSection = () => {
                     key={`middle-${index}`}
                     className="tool-card bg-gray-900 rounded-2xl p-4 transition-all duration-300 relative overflow-hidden min-h-[200px] flex flex-col items-center text-center"
                   >
-                    <div className="w-full h-32 md:h-36 mb-4 rounded-xl overflow-hidden">
+                    <div className="w-full h-32 md:h-36 mb-4 rounded-xl overflow-hidden bg-black flex items-center justify-center">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={tool.icon}
@@ -149,7 +156,7 @@ const ToolsScrollingSection = () => {
                         height={160}
                         loading="lazy"
                         decoding="async"
-                        className="w-full h-full object-contain bg-black"
+                        className={carouselLogoClass(tool.name)}
                       />
                     </div>
                     <div className="text-white font-semibold text-base mb-2">{tool.name}</div>
@@ -167,7 +174,7 @@ const ToolsScrollingSection = () => {
                     key={`right-${index}`}
                     className="tool-card bg-gray-900 rounded-2xl p-4 transition-all duration-300 relative overflow-hidden min-h-[200px] flex flex-col items-center text-center"
                   >
-                    <div className="w-full h-32 md:h-36 mb-4 rounded-xl overflow-hidden">
+                    <div className="w-full h-32 md:h-36 mb-4 rounded-xl overflow-hidden bg-black flex items-center justify-center">
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={tool.icon}
@@ -177,7 +184,7 @@ const ToolsScrollingSection = () => {
                         height={160}
                         loading="lazy"
                         decoding="async"
-                        className="w-full h-full object-contain bg-black"
+                        className={carouselLogoClass(tool.name)}
                       />
                     </div>
                     <div className="text-white font-semibold text-base mb-2">{tool.name}</div>

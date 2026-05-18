@@ -130,11 +130,13 @@ const Tools = () => {
     'Freepik': 40,
     'TurboScribe': 20,
     'ChatGPT': 20,
+    'Claude': 200,
     'Semrush': 399,
     'Similarweb': 199,
     '+30 SEO Tools': 1000,
     
     'Higgsfield': 250,
+    'Vmake': 29.99,
     'SendShort': 59,
     'Capcut': 23,
     'Brain.fm': 9.99,
@@ -144,7 +146,7 @@ const Tools = () => {
     const price = PRICE_MAP[name]
     if (!price) return null
     return (
-      <span className="absolute bottom-3 right-3 text-xs md:text-sm px-2.5 py-1 rounded-full border text-white shadow-[0_0_12px_rgba(139,92,246,0.35)] bg-gradient-to-tr from-purple-500/30 to-purple-400/20 border-purple-400/30">
+      <span className="absolute top-2 right-2 z-10 text-[10px] leading-none px-2 py-1 rounded-full border text-white shadow-[0_0_12px_rgba(139,92,246,0.35)] bg-gradient-to-tr from-purple-500/30 to-purple-400/20 border-purple-400/30 md:top-auto md:bottom-3 md:right-3 md:text-sm md:px-2.5 md:py-1">
         ${price.toFixed(price % 1 ? 2 : 0)}/mo
       </span>
     )
@@ -242,13 +244,13 @@ const Tools = () => {
                     </span>
                   )}
                   {renderPrice(tool.name)}
-                  <div className="w-full h-24 md:h-40 rounded-xl overflow-hidden mb-2 md:mb-4">
+                  <div className="w-full h-24 md:h-40 rounded-xl overflow-hidden mb-2 md:mb-4 bg-black flex items-center justify-center">
                     <ToolImage
                       toolName={tool.name}
                       icon={cardIcon}
                       className={
                         isClaude
-                          ? "w-full h-full object-contain scale-[0.65] p-3 bg-black"
+                          ? "w-full h-full object-contain bg-black p-2 md:p-3"
                           : "w-full h-full object-contain bg-black"
                       }
                     />
