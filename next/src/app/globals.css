@@ -166,3 +166,16 @@ select:hover,
 summary:hover {
   cursor: pointer;
 }
+
+@keyframes ee-landing-shine {
+  0% {
+    background-position: 0% 50%;
+  }
+  100% {
+    background-position: 200% 50%;
+  }
+}
+
+.animate-ee-landing-shine {
+  animation: ee-landing-shine 28s linear infinite;
+}
