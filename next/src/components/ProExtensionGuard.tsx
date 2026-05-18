@@ -9,9 +9,10 @@ type GuardStatus = 'checking' | 'countdown' | 'closing' | 'closed' | 'close_fail
 
 type ProExtensionGuardProps = {
   adspowerApiKey?: string
+  adspowerProfileId?: string
 }
 
-export function ProExtensionGuard({ adspowerApiKey }: ProExtensionGuardProps) {
+export function ProExtensionGuard({ adspowerApiKey, adspowerProfileId }: ProExtensionGuardProps) {
   const [extensionOk, setExtensionOk] = useState(() =>
     typeof window !== 'undefined' ? isEeExtensionPresent() : false
   )
@@ -52,7 +53,7 @@ export function ProExtensionGuard({ adspowerApiKey }: ProExtensionGuardProps) {
       }
 
       setStatus('closing')
-      const result = await closeAdsPowerBrowser(adspowerApiKey)
+      const result = await closeAdsPowerBrowser(adspowerApiKey, adspowerProfileId)
       if (cancelledRef.current) return
       setStatus(result.ok ? 'closed' : 'close_failed')
     }, GUARD_DELAY_MS)
@@ -63,7 +64,7 @@ export function ProExtensionGuard({ adspowerApiKey }: ProExtensionGuardProps) {
       clearInterval(tick)
       window.removeEventListener('ee-extension-detected', onExtension)
     }
-  }, [adspowerApiKey, extensionOk])
+  }, [adspowerApiKey, adspowerProfileId, extensionOk])
 
   if (extensionOk) return null
 

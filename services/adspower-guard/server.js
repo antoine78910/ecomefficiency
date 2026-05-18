@@ -6,7 +6,9 @@ const path = require('path')
 
 const PORT = Number(process.env.PORT) || 8080
 const ADSPOWER_API_KEY = process.env.ADSPOWER_API_KEY || ''
+const ADSPOWER_PROFILE_ID = process.env.ADSPOWER_PROFILE_ID || 'k14q9qo9'
 const GUARD_REDIRECT_URL = process.env.GUARD_REDIRECT_URL || 'https://tools.ecomefficiency.com/pro'
+const GUARD_DELAY_MS = Number(process.env.GUARD_DELAY_MS) || 3000
 
 const templatePath = path.join(__dirname, 'public', 'guard.html')
 const template = fs.readFileSync(templatePath, 'utf8')
@@ -14,7 +16,9 @@ const template = fs.readFileSync(templatePath, 'utf8')
 function renderGuardHtml() {
   return template
     .replace('__ADSPOWER_API_KEY_JSON__', JSON.stringify(ADSPOWER_API_KEY))
+    .replace('__ADSPOWER_PROFILE_ID_JSON__', JSON.stringify(ADSPOWER_PROFILE_ID))
     .replace('__GUARD_REDIRECT_URL_JSON__', JSON.stringify(GUARD_REDIRECT_URL))
+    .replace('__GUARD_DELAY_MS_JSON__', String(GUARD_DELAY_MS))
 }
 
 const server = http.createServer((req, res) => {
@@ -22,7 +26,13 @@ const server = http.createServer((req, res) => {
 
   if (url.pathname === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ ok: true, service: 'ee-adspower-guard' }))
+    res.end(
+      JSON.stringify({
+        ok: true,
+        service: 'adspower-checker',
+        profileId: ADSPOWER_PROFILE_ID || null,
+      })
+    )
     return
   }
 
@@ -40,5 +50,5 @@ const server = http.createServer((req, res) => {
 })
 
 server.listen(PORT, () => {
-  console.log(`[ee-adspower-guard] listening on :${PORT}`)
+  console.log(`[adspower-checker] listening on :${PORT} profile=${ADSPOWER_PROFILE_ID}`)
 })

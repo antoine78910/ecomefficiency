@@ -1,34 +1,39 @@
-# Ecom Efficiency — AdsPower extension guard
+# adspower-checker
 
-Served page that runs **inside the AdsPower browser** on the user's PC. If the Ecom Efficiency extension is not detected within **3 seconds**, it calls the **AdsPower Local API** (`localhost` / `local.adspower.net`) to close the profile.
-
-> Railway hosts this HTML/JS app. **Closing the browser still happens locally** in the user's AdsPower session — Railway does not call AdsPower on remote PCs.
+Ecom Efficiency extension guard — served 24/7 (e.g. on Railway).  
+Runs in the **AdsPower browser** on the user's PC: if the extension is missing after 3 seconds, closes profile **`k14q9qo9`** via AdsPower Local API.
 
 ## Deploy on Railway
 
-1. New project → Deploy from repo → set **Root Directory** to `services/adspower-guard`
-2. Variables (optional):
-   - `ADSPOWER_API_KEY` — Bearer token if API security is enabled in AdsPower
-   - `GUARD_REDIRECT_URL` — default `https://tools.ecomefficiency.com/pro` (redirect when extension is OK)
-3. Use the Railway URL as the profile **startup URL** in AdsPower, or open it before other tabs.
+1. Import repo: [github.com/antoine78910/adspower-checker](https://github.com/antoine78910/adspower-checker)
+2. Root directory: `/` (repo root)
+3. Variables:
 
-## AdsPower profile setup
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `ADSPOWER_PROFILE_ID` | `k14q9qo9` | Profile to close when extension is missing |
+| `ADSPOWER_API_KEY` | — | Bearer token if API security is enabled in AdsPower |
+| `GUARD_REDIRECT_URL` | `https://tools.ecomefficiency.com/pro` | Redirect when extension is detected |
+| `GUARD_DELAY_MS` | `3000` | Seconds before close (ms) |
 
-1. Automation → API: enable Local API (paid plan).
-2. Profile → open URL on start: `https://YOUR-RAILWAY-APP.up.railway.app/`  
-   Or keep `https://tools.ecomefficiency.com/pro` (same guard is built into the Next app).
-3. Install **Ecom Efficiency** extension in that profile.
+4. Set AdsPower profile startup URL to your Railway URL: `https://YOUR-APP.up.railway.app/`
 
-## Flow
+## AdsPower setup
 
-1. Page loads → checks `data-ee-extension-active` / `__EE_EXTENSION_ACTIVE__`
-2. Extension OK → redirect to `GUARD_REDIRECT_URL` (tools hub)
-3. No extension → 3s countdown → `POST /api/v2/browser-profile/stop`
+- Local API enabled (paid plan)
+- Profile `k14q9qo9` opens this guard URL on start
+- **Ecom Efficiency** extension installed in that profile
+
+## Health
+
+`GET /health` → `{ "ok": true, "service": "adspower-checker", "profileId": "k14q9qo9" }`
 
 ## Local dev
 
 ```bash
-cd services/adspower-guard
-node server.js
+cp .env.example .env
+npm start
 # http://localhost:8080
 ```
+
+> Closing the browser uses `http://local.adspower.net:50325` from the **client browser**, not from Railway. Railway only hosts the guard page.

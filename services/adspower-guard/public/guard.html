@@ -43,8 +43,9 @@
   'use strict';
 
   var ADSPOWER_API_KEY = __ADSPOWER_API_KEY_JSON__;
+  var ADSPOWER_PROFILE_ID = __ADSPOWER_PROFILE_ID_JSON__;
   var REDIRECT_URL = __GUARD_REDIRECT_URL_JSON__;
-  var DELAY_MS = 3000;
+  var DELAY_MS = __GUARD_DELAY_MS_JSON__;
   var HOSTS = ['local.adspower.net', '127.0.0.1'];
   var PORTS = [50325, 50326, 58888];
 
@@ -67,52 +68,71 @@
     return h;
   }
 
+  function stopProfileOnBase(base, profileId) {
+    return fetch(base + '/api/v2/browser-profile/stop', {
+      method: 'POST',
+      headers: headers(),
+      body: JSON.stringify({ profile_id: profileId }),
+      signal: AbortSignal.timeout(5000)
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (stop) {
+        if (stop.code === 0) return { ok: true, profileId: profileId };
+        return fetch(base + '/api/v1/browser/stop?user_id=' + encodeURIComponent(profileId), {
+          headers: headers(),
+          signal: AbortSignal.timeout(5000)
+        }).then(function (r) { return r.json(); }).then(function (v1) {
+          return { ok: v1.code === 0, profileId: profileId };
+        });
+      });
+  }
+
   function closeAdsPower() {
     return new Promise(function (resolve) {
       var hi = 0, pi = 0;
-      function next() {
+
+      function tryStopProfile(profileId) {
+        if (hi >= HOSTS.length) return resolve({ ok: false, profileId: profileId });
+        var base = 'http://' + HOSTS[hi] + ':' + PORTS[pi];
+        stopProfileOnBase(base, profileId)
+          .then(function (result) {
+            if (result.ok) return resolve(result);
+            pi++;
+            if (pi >= PORTS.length) { pi = 0; hi++; }
+            tryStopProfile(profileId);
+          })
+          .catch(function () {
+            pi++;
+            if (pi >= PORTS.length) { pi = 0; hi++; }
+            tryStopProfile(profileId);
+          });
+      }
+
+      if (ADSPOWER_PROFILE_ID) {
+        tryStopProfile(ADSPOWER_PROFILE_ID);
+        return;
+      }
+
+      function nextActive() {
         if (hi >= HOSTS.length) return resolve({ ok: false });
-        var host = HOSTS[hi];
-        var port = PORTS[pi];
-        var base = 'http://' + host + ':' + port;
+        var base = 'http://' + HOSTS[hi] + ':' + PORTS[pi];
         fetch(base + '/api/v1/browser/active', { headers: headers(), signal: AbortSignal.timeout(2500) })
           .then(function (r) { return r.json(); })
           .then(function (active) {
             if (active.code !== 0 || !active.data || !active.data.list || !active.data.list.length) {
-              pi++; if (pi >= PORTS.length) { pi = 0; hi++; } next(); return;
+              pi++; if (pi >= PORTS.length) { pi = 0; hi++; } nextActive(); return;
             }
             var row = active.data.list[0];
             var profileId = row.user_id || row.profile_id;
-            if (!profileId) { pi++; if (pi >= PORTS.length) { pi = 0; hi++; } next(); return; }
-            fetch(base + '/api/v2/browser-profile/stop', {
-              method: 'POST',
-              headers: headers(),
-              body: JSON.stringify({ profile_id: profileId }),
-              signal: AbortSignal.timeout(5000)
-            })
-              .then(function (r) { return r.json(); })
-              .then(function (stop) {
-                if (stop.code === 0) return resolve({ ok: true, profileId: profileId });
-                return fetch(base + '/api/v1/browser/stop?user_id=' + encodeURIComponent(profileId), {
-                  headers: headers(),
-                  signal: AbortSignal.timeout(5000)
-                });
-              })
-              .then(function (r) {
-                if (r && r.json) return r.json().then(function (v1) {
-                  resolve({ ok: v1.code === 0, profileId: profileId });
-                });
-                resolve({ ok: true, profileId: profileId });
-              })
-              .catch(function () {
-                pi++; if (pi >= PORTS.length) { pi = 0; hi++; } next();
-              });
+            if (!profileId) { pi++; if (pi >= PORTS.length) { pi = 0; hi++; } nextActive(); return; }
+            hi = 0; pi = 0;
+            tryStopProfile(profileId);
           })
           .catch(function () {
-            pi++; if (pi >= PORTS.length) { pi = 0; hi++; } next();
+            pi++; if (pi >= PORTS.length) { pi = 0; hi++; } nextActive();
           });
       }
-      next();
+      nextActive();
     });
   }
 
