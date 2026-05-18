@@ -222,13 +222,15 @@ const Tools = () => {
           </div>
 
           {/* Tools Grid - using same visual style as the carousel cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-4 md:gap-6">
+          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 gap-3 md:gap-6">
             {filteredTools.map((tool) => {
-              const isFreepik = String(tool.name || '').trim().toLowerCase() === 'freepik';
+              const toolNameLower = String(tool.name || '').trim().toLowerCase();
+              const isFreepik = toolNameLower === 'freepik';
+              const isClaude = toolNameLower === 'claude';
               const cardIcon = isFreepik ? '/tools-logos/freepik.png' : tool.icon;
               const card = (
                 <Card
-                  className={`relative p-3 md:p-4 bg-gray-900 border border-white/10 rounded-2xl ${
+                  className={`relative p-2.5 md:p-4 bg-gray-900 border border-white/10 rounded-2xl ${
                     tool.name === '+30 SEO Tools'
                       ? 'hover:border-white/20 transition-all duration-300 hover:scale-105 group cursor-pointer'
                       : 'cursor-default'
@@ -240,8 +242,16 @@ const Tools = () => {
                     </span>
                   )}
                   {renderPrice(tool.name)}
-                  <div className="w-full h-28 md:h-40 rounded-xl overflow-hidden mb-3 md:mb-4">
-                    <ToolImage toolName={tool.name} icon={cardIcon} />
+                  <div className="w-full h-24 md:h-40 rounded-xl overflow-hidden mb-2 md:mb-4">
+                    <ToolImage
+                      toolName={tool.name}
+                      icon={cardIcon}
+                      className={
+                        isClaude
+                          ? "w-full h-full object-contain scale-[0.65] p-3 bg-black"
+                          : "w-full h-full object-contain bg-black"
+                      }
+                    />
                   </div>
                   <h3 className="text-white font-semibold text-sm md:text-base mb-1">{tool.name}</h3>
                   <p className="text-gray-400 text-xs md:text-sm leading-relaxed">{tool.description}</p>
