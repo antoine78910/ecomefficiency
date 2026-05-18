@@ -24,7 +24,7 @@
     st.id = 'ee-pro-hide-style';
     st.textContent =
       'html,body{margin:0!important;padding:0!important;min-height:100vh;background:#fff!important;overflow:hidden!important}' +
-      'body>*:not(#ee-pro-frame){display:none!important}';
+      '#ee-pro-no-extension{display:none!important}';
     (document.head || document.documentElement).appendChild(st);
   }
 
