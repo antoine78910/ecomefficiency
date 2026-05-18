@@ -1,0 +1,169 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ecom Efficiency — Extension required</title>
+  <style>
+    html, body { margin: 0; padding: 0; min-height: 100vh; background: #050208; font-family: system-ui, -apple-system, sans-serif; }
+    #guard {
+      position: fixed; inset: 0; display: flex; align-items: center; justify-content: center; padding: 1rem;
+    }
+    .card {
+      text-align: center; max-width: 420px; padding: 2.5rem 2rem;
+      border: 1px solid rgba(239, 68, 68, 0.35); border-radius: 1.25rem;
+      background: #0e0a18; box-shadow: 0 0 60px rgba(239, 68, 68, 0.12);
+    }
+    .label { font-size: 0.65rem; font-weight: 700; letter-spacing: 0.12em; text-transform: uppercase; color: #a78bfa; margin-bottom: 0.5rem; }
+    h1 { font-size: 1.35rem; font-weight: 700; color: #f87171; margin: 0 0 0.75rem; }
+    p { color: #9ca3af; font-size: 0.875rem; line-height: 1.6; margin-bottom: 1.25rem; }
+    .bar { height: 6px; background: rgba(239, 68, 68, 0.15); border-radius: 999px; overflow: hidden; margin-bottom: 0.5rem; }
+    .bar-fill { height: 100%; background: #f87171; border-radius: 999px; transition: width 1s linear; width: 0; }
+    button {
+      width: 100%; padding: 0.65rem; border-radius: 0.75rem;
+      background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3);
+      color: #fca5a5; font-size: 0.875rem; cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="guard" role="alert">
+    <div class="card">
+      <p class="label">Ecom Efficiency</p>
+      <div style="font-size: 3rem; margin-bottom: 1rem;">🔒</div>
+      <h1>Extension not found</h1>
+      <p id="msg">Checking extension…</p>
+      <div class="bar" id="bar" style="display:none"><div class="bar-fill" id="barFill"></div></div>
+      <button type="button" id="retry" style="display:none">Re-check extension</button>
+    </div>
+  </div>
+
+  <script>
+(function () {
+  'use strict';
+
+  var ADSPOWER_API_KEY = __ADSPOWER_API_KEY_JSON__;
+  var REDIRECT_URL = __GUARD_REDIRECT_URL_JSON__;
+  var DELAY_MS = 3000;
+  var HOSTS = ['local.adspower.net', '127.0.0.1'];
+  var PORTS = [50325, 50326, 58888];
+
+  var msg = document.getElementById('msg');
+  var bar = document.getElementById('bar');
+  var barFill = document.getElementById('barFill');
+  var retry = document.getElementById('retry');
+  var cancelled = false;
+
+  function isExtensionPresent() {
+    try {
+      return document.documentElement.dataset.eeExtensionActive === '1' ||
+        !!window.__EE_EXTENSION_ACTIVE__;
+    } catch (e) { return false; }
+  }
+
+  function headers() {
+    var h = { 'Content-Type': 'application/json' };
+    if (ADSPOWER_API_KEY) h['Authorization'] = 'Bearer ' + ADSPOWER_API_KEY;
+    return h;
+  }
+
+  function closeAdsPower() {
+    return new Promise(function (resolve) {
+      var hi = 0, pi = 0;
+      function next() {
+        if (hi >= HOSTS.length) return resolve({ ok: false });
+        var host = HOSTS[hi];
+        var port = PORTS[pi];
+        var base = 'http://' + host + ':' + port;
+        fetch(base + '/api/v1/browser/active', { headers: headers(), signal: AbortSignal.timeout(2500) })
+          .then(function (r) { return r.json(); })
+          .then(function (active) {
+            if (active.code !== 0 || !active.data || !active.data.list || !active.data.list.length) {
+              pi++; if (pi >= PORTS.length) { pi = 0; hi++; } next(); return;
+            }
+            var row = active.data.list[0];
+            var profileId = row.user_id || row.profile_id;
+            if (!profileId) { pi++; if (pi >= PORTS.length) { pi = 0; hi++; } next(); return; }
+            fetch(base + '/api/v2/browser-profile/stop', {
+              method: 'POST',
+              headers: headers(),
+              body: JSON.stringify({ profile_id: profileId }),
+              signal: AbortSignal.timeout(5000)
+            })
+              .then(function (r) { return r.json(); })
+              .then(function (stop) {
+                if (stop.code === 0) return resolve({ ok: true, profileId: profileId });
+                return fetch(base + '/api/v1/browser/stop?user_id=' + encodeURIComponent(profileId), {
+                  headers: headers(),
+                  signal: AbortSignal.timeout(5000)
+                });
+              })
+              .then(function (r) {
+                if (r && r.json) return r.json().then(function (v1) {
+                  resolve({ ok: v1.code === 0, profileId: profileId });
+                });
+                resolve({ ok: true, profileId: profileId });
+              })
+              .catch(function () {
+                pi++; if (pi >= PORTS.length) { pi = 0; hi++; } next();
+              });
+          })
+          .catch(function () {
+            pi++; if (pi >= PORTS.length) { pi = 0; hi++; } next();
+          });
+      }
+      next();
+    });
+  }
+
+  function cancel() {
+    cancelled = true;
+  }
+
+  window.addEventListener('ee-extension-detected', cancel);
+
+  if (isExtensionPresent()) {
+    window.location.replace(REDIRECT_URL);
+    return;
+  }
+
+  var sec = 3;
+  msg.textContent = 'Extension not detected. Closing browser in ' + sec + 's…';
+  bar.style.display = 'block';
+
+  var tick = setInterval(function () {
+    if (cancelled || isExtensionPresent()) {
+      clearInterval(tick);
+      if (isExtensionPresent()) window.location.replace(REDIRECT_URL);
+      return;
+    }
+    sec--;
+    if (sec <= 0) sec = 0;
+    msg.textContent = 'Extension not detected. Closing browser in ' + sec + 's…';
+    barFill.style.width = ((3 - sec) / 3 * 100) + '%';
+  }, 1000);
+
+  setTimeout(function () {
+    clearInterval(tick);
+    if (cancelled || isExtensionPresent()) {
+      if (isExtensionPresent()) window.location.replace(REDIRECT_URL);
+      return;
+    }
+    msg.textContent = 'Closing AdsPower profile…';
+    closeAdsPower().then(function (result) {
+      if (cancelled) return;
+      if (result.ok) {
+        msg.textContent = 'Browser closed. Reopen from AdsPower with the extension enabled.';
+      } else {
+        msg.textContent = 'Could not reach AdsPower. Close the browser manually and reopen from AdsPower.';
+      }
+      bar.style.display = 'none';
+      retry.style.display = 'block';
+    });
+  }, DELAY_MS);
+
+  retry.addEventListener('click', function () { window.location.reload(); });
+})();
+  </script>
+</body>
+</html>
