@@ -2,11 +2,6 @@
 
 import React from 'react';
 import styled from 'styled-components';
-import BlurText from '@/components/BlurText';
-import { BLUR_TEXT_PRESETS } from '@/lib/blurTextPresets';
-
-const { titleDelay, stepDuration } = BLUR_TEXT_PRESETS.home;
-
 const JoinMembersSection = () => {
   return (
     <div className="relative py-16 px-6 lg:px-8">
@@ -19,15 +14,7 @@ const JoinMembersSection = () => {
           <div className="flex flex-col md:flex-row items-center justify-between gap-8">
             {/* Text Content */}
             <div className="flex-1 text-center md:text-left">
-              <BlurText
-                as="h2"
-                text="Join +3000 Members"
-                delay={titleDelay}
-                stepDuration={stepDuration}
-                animateBy="words"
-                direction="top"
-                className="text-3xl md:text-4xl font-bold text-white mb-3"
-              />
+              <h2 className="text-3xl md:text-4xl font-bold text-white mb-3">Join +3000 Members</h2>
               <p className="text-lg text-white">
                 Access our free community of e-commerce experts and take part in the monthly vote to
                 pick your favorite tool.

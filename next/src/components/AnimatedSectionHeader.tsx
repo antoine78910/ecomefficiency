@@ -1,4 +1,4 @@
-"use client";
+﻿"use client";
 
 import BlurText from "@/components/BlurText";
 import { BLUR_TEXT_PRESETS, type BlurTextPreset } from "@/lib/blurTextPresets";
@@ -11,9 +11,6 @@ type AnimatedSectionHeaderProps = {
   className?: string;
   titleClassName?: string;
   subtitleClassName?: string;
-  titleDelay?: number;
-  subtitleDelay?: number;
-  stepDuration?: number;
   centered?: boolean;
 };
 
@@ -24,33 +21,20 @@ export default function AnimatedSectionHeader({
   className,
   titleClassName,
   subtitleClassName,
-  titleDelay,
-  subtitleDelay,
-  stepDuration,
   centered = false,
 }: AnimatedSectionHeaderProps) {
-  const p = BLUR_TEXT_PRESETS[preset];
-  const titleMs = titleDelay ?? p.titleDelay;
-  const subtitleMs = subtitleDelay ?? p.subtitleDelay;
-  const stepSec = stepDuration ?? p.stepDuration;
-
-  return (
-    <div className={cn(centered && "text-center", className)}>
-      <BlurText
-        as="h2"
-        text={title}
-        delay={titleMs}
-        stepDuration={stepSec}
-        animateBy="words"
-        direction="top"
-        className={cn(
-          "text-3xl md:text-5xl font-bold text-white leading-tight",
-          centered && "justify-center",
-          titleClassName
-        )}
-      />
-      {subtitle ? (
-        preset === "home" ? (
+  if (preset === "home") {
+    return (
+      <div className={cn(centered && "text-center", className)}>
+        <h2
+          className={cn(
+            "text-3xl md:text-5xl font-bold text-white leading-tight",
+            titleClassName
+          )}
+        >
+          {title}
+        </h2>
+        {subtitle ? (
           <p
             className={cn(
               "mt-4 text-gray-300",
@@ -60,24 +44,42 @@ export default function AnimatedSectionHeader({
           >
             {subtitle}
           </p>
-        ) : (
-          <BlurText
-            as="p"
-            text={subtitle}
-            delay={subtitleMs}
-            stepDuration={stepSec}
-            animateBy="words"
-            direction="top"
-            className={cn(
-              "mt-4 text-gray-300",
-              centered && "justify-center max-w-3xl mx-auto",
-              subtitleClassName
-            )}
-          />
-        )
+        ) : null}
+      </div>
+    );
+  }
+
+  const p = BLUR_TEXT_PRESETS.lp;
+  return (
+    <div className={cn(centered && "text-center", className)}>
+      <BlurText
+        as="h2"
+        text={title}
+        delay={p.titleDelay}
+        stepDuration={p.stepDuration}
+        animateBy="words"
+        direction="top"
+        className={cn(
+          "text-3xl md:text-5xl font-bold text-white leading-tight",
+          centered && "justify-center",
+          titleClassName
+        )}
+      />
+      {subtitle ? (
+        <BlurText
+          as="p"
+          text={subtitle}
+          delay={p.subtitleDelay}
+          stepDuration={p.stepDuration}
+          animateBy="words"
+          direction="top"
+          className={cn(
+            "mt-4 text-gray-300",
+            centered && "justify-center max-w-3xl mx-auto",
+            subtitleClassName
+          )}
+        />
       ) : null}
     </div>
   );
 }
-
-
