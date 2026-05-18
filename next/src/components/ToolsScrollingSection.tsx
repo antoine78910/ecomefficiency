@@ -17,7 +17,7 @@ const ToolsScrollingSection = () => {
         <div className="sr-only">
           <h2>The only subscription you&apos;ll ever need</h2>
           <h3>
-            Boost your sales and outpace competitors with instant access to 50+ of the best AI, SEO &amp; Spy tools—without paying for them individually.
+            Boost your sales and outpace competitors with instant access to 50+ of the best AI, SEO &amp; Spy tools without paying for them individually.
           </h3>
           <h3>Why pay for multiple subscriptions when you can get everything for less?</h3>
         </div>

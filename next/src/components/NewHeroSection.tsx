@@ -39,7 +39,7 @@ const NewHeroSection = () => {
             <span className="text-white text-sm font-semibold tracking-wide inline-flex items-center gap-2">
               Higgsfield added
             </span>
-            <span className="text-[11px] text-purple-200/90 leading-tight">Unlimited Nanobanana & Seedream 4.0 generation</span>
+            <span className="text-[11px] text-purple-200/90 leading-tight">Unlimited Nanobanana Pro, & Seedream 5.0 generation</span>
           </div>
 
           {/* Removed redundant ECOM EFFICIENCY TOOLS badge per request */}

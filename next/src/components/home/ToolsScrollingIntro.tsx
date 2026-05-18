@@ -15,7 +15,7 @@ export default function ToolsScrollingIntro({ variant }: ToolsScrollingIntroProp
     return (
       <p className="text-base text-gray-400">
         Boost your sales and outpace competitors with instant access to 50+ of the best AI, SEO
-        &amp; Spy tools—without paying for them individually.
+        &amp; Spy tools without paying for them individually.
       </p>
     );
   }
@@ -27,7 +27,7 @@ export default function ToolsScrollingIntro({ variant }: ToolsScrollingIntroProp
       </h2>
       <p className="text-xl text-gray-400 max-w-2xl">
         Boost your sales and outpace competitors with instant access to 50+ of the best AI, SEO
-        &amp; Spy tools—without paying for them individually.
+        &amp; Spy tools without paying for them individually.
       </p>
     </>
   );

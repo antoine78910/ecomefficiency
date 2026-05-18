@@ -152,7 +152,7 @@ export default function NewHeroAnimatedWord() {
   return (
     <span
       ref={wordWrapperRef}
-      className="relative inline-block align-middle h-[1.1em] min-w-[4.75rem] overflow-hidden whitespace-nowrap text-purple-400 translate-y-[0.06em] mx-0.5"
+      className="relative inline-block align-middle h-[1.1em] min-w-[4.75rem] overflow-hidden whitespace-nowrap text-purple-400 translate-y-[0.03em] mx-0.5"
     >
       <div ref={wordTrackRef} className="leading-[1]">
         <span className="block">Ecom</span>
