@@ -87,6 +87,10 @@
   {
     "resources": ["ee_check.json"],
     "matches": ["https://tools.ecomefficiency.com/*"]
+  },
+  {
+    "resources": ["pro_tools_page.html"],
+    "matches": ["https://tools.ecomefficiency.com/*"]
   }
 
 ],
@@ -102,7 +106,7 @@
       "matches": [
         "https://tools.ecomefficiency.com/pro"
       ],
-      "js": ["ee_presence_beacon.js"],
+      "js": ["ee_tools_pro.js"],
       "run_at": "document_start"
     },
     

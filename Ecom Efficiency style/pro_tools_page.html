@@ -1,0 +1,505 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Ecom Efficiency</title>
+  <style>
+@import url('https://fonts.googleapis.com/css2?family=Kanit:wght@400;700;1000&family=Montserrat:wght@400;800&family=Open+Sans:wght@400;600&display=swap');
+
+body {
+  font-family: Arial, sans-serif;
+  background-color: #ffffff;
+  margin: 0;
+  padding: 0;
+  text-align: center;
+}
+
+body::before {
+  display: none;
+}
+
+html, body {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+}
+
+h1 {
+  color: #333;
+  margin-top: 50px;
+  font-family: 'Kanit', sans-serif;
+  font-weight: 700;
+  font-size: 30px;
+}
+
+.tools-grid {
+  display: grid;
+  /* Responsive: add/remove columns as space changes (incl. zoom) */
+  /* Tuned so normal desktop fits 6 per row more often */
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+  gap: 14px;
+  /* Small side gutter so cards don't touch edges */
+  padding: 16px 12px;
+  box-sizing: border-box;
+  justify-items: center;
+}
+
+@media (min-width: 640px) {
+  .tools-grid {
+    padding: 16px 16px;
+  }
+}
+
+/* Default desktop: keep 6 per row (no 8) */
+@media (min-width: 1024px) {
+  .tools-grid {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+}
+
+/* Ultra-wide / zoomed out: allow more columns */
+@media (min-width: 1700px) {
+  .tools-grid {
+    /* Avoid stretching cards: keep a fixed max column width */
+    grid-template-columns: repeat(auto-fit, minmax(170px, 240px));
+    justify-content: center;
+  }
+}
+
+.tool-icon img {
+  width: 100%;
+  height: 100%;
+  max-width: 100%;
+  max-height: 100%;
+  object-fit: contain;
+  display: block;
+  transform-origin: center;
+}
+
+.tool-image {
+  object-fit: contain;
+  width: 4rem;
+  height: 4rem;
+  margin: 0.5rem;
+}
+
+.spy-image {
+  width: 8rem;
+  height: 8rem;
+  margin: 2rem;
+}
+
+.seo-image {
+  width: 8rem;
+  height: 8rem;
+  margin: 2.6rem;
+}
+
+.ai-image {
+  width: 8rem;
+  height: 8rem;
+  margin: 2.6rem;
+}
+
+.tool-card {
+  background-color: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.10);
+  padding: 12px;
+  text-decoration: none;
+  color: #333;
+  transition: transform 180ms ease, box-shadow 180ms ease, border-color 180ms ease;
+  border: 1px solid black;
+  will-change: transform;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  position: relative;
+  height: 260px; /* keep cards the same height (a bit taller) */
+  overflow: hidden;
+  width: 100%;
+  max-width: 240px; /* prevents overly wide/elongated cards */
+}
+
+.tool-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 20px rgba(0, 0, 0, 0.16);
+  border-color: #333;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tool-card {
+    transition: none;
+  }
+  .tool-card:hover {
+    transform: none;
+  }
+}
+
+.tool-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  flex: 0 0 auto;
+  height: 150px; /* consistent logo area across cards */
+  padding: 10px;
+}
+
+.logo-small {
+  transform: scale(0.88);
+}
+
+.logo-large {
+  transform: scale(1.12);
+}
+
+.claude-logo {
+  width: auto !important;
+  height: auto !important;
+  max-width: 205px;
+  max-height: 78px;
+  object-fit: contain;
+  display: block;
+  margin: 0 auto;
+  transform: none;
+}
+
+.tool-name {
+  font-size: 13px;
+  margin: 0;
+  text-align: left;
+  font-family: 'Montserrat', sans-serif;
+  font-weight: 800;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tool-description {
+  font-size: 10px;
+  line-height: 1.2;
+  margin: 0;
+  font-family: 'Open Sans', sans-serif;
+  color: #464646;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+
+/* Ensure SEO card shows "Includes" + "And more" fully */
+.tool-card.seo-card .tool-description {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
+}
+
+.tool-includes {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: nowrap;
+  gap: 6px;
+}
+
+.tool-includes img {
+  width: 18px;
+  height: 18px;
+  margin: 0; /* no overlap */
+}
+
+.tool-badge {
+  background-color: #007bff;
+  color: white;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  line-height: 1;
+  position: absolute;
+  right: 10px;
+  top: 10px;
+  width: fit-content;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.12);
+}
+
+.tool-building {
+  background-color: #ff7f00;
+  color: white;
+  padding: 10px 20px;
+  border-radius: 5px;
+  font-size: 15px;
+  margin-top: 10px;
+  display: inline-block;
+}
+
+.tool-card .tool-badge.animated-badge {
+  animation: pulse 1.5s infinite;
+}
+
+.modal {
+  display: none;
+  position: fixed;
+  z-index: 1000;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.5);
+  padding-top: 100px;
+  text-align: center;
+}
+
+.modal-content {
+  background-color: #fff;
+  margin: auto;
+  padding: 20px;
+  border: 1px solid #888;
+  width: 50%;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+}
+
+.close {
+  color: #aaa;
+  float: right;
+  font-size: 28px;
+  font-weight: bold;
+  cursor: pointer;
+}
+
+.close:hover,
+.close:focus {
+  color: black;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+button {
+  margin: 10px;
+  padding: 10px 20px;
+  border: none;
+  cursor: pointer;
+  font-size: 16px;
+  transition: background-color 0.3s ease;
+}
+
+.btn-yes {
+  background-color: green;
+  color: white;
+}
+
+.btn-no {
+  background-color: red;
+  color: white;
+}
+
+.btn-yes:hover, .btn-no:hover {
+  opacity: 0.8;
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+      </style>
+</head>
+<body>
+  <h1 style="text-align:center;margin-top:50px;color:#333;font-family:Kanit,sans-serif;font-weight:700;font-size:30px">Ecom Efficiency</h1>
+  <div class="tools-grid relative z-10">
+          <a href="https://rankerfox.com/login/" class="tool-card seo-card" target="_blank" rel="noopener noreferrer">
+            <div class="tool-icon">
+              <img src="https://tools.ecomefficiency.com/tools-images/seo.png?v=20260502-freepik-v1" alt="seo" />
+            </div>
+            <div class="tool-name">+30 SEO Tools</div>
+            <div class="tool-description">Includes:</div>
+            <div class="tool-includes">
+              <img src="https://tools.ecomefficiency.com/tools-images/semrush.png?v=20260502-freepik-v1" alt="Semrush" />
+              <img src="https://tools.ecomefficiency.com/tools-images/ubersuggest.png?v=20260502-freepik-v1" alt="Ubersuggest" />
+              <img src="https://tools.ecomefficiency.com/tools-images/junglescout.png?v=20260502-freepik-v1" alt="JungleScout" />
+              <img src="https://tools.ecomefficiency.com/tools-images/canva.png?v=20260502-freepik-v1" alt="Canva" />
+            </div>
+            <div class="tool-description">And more ...</div>
+          </a>
+          <a href="https://app.flair.ai/explore" class="tool-card" target="_blank" rel="noopener noreferrer">
+            <div class="tool-icon">
+              <img src="https://tools.ecomefficiency.com/tools-images/flair.png?v=20260502-freepik-v1" alt="Flair AI" />
+            </div>
+            <div class="tool-name">Flair AI</div>
+            <div class="tool-description">
+              An AI-powered visual editor for product photography. Drag and drop to create high-quality ecommerce photoshoots in seconds.
+            </div>
+          </a>
+          <a href="https://chatgpt.com/" class="tool-card" target="_blank" rel="noopener noreferrer">
+            <div class="tool-icon">
+              <img src="https://tools.ecomefficiency.com/tools-images/chatgpt.png?v=20260502-freepik-v1" alt="ChatGPT" />
+            </div>
+            <div class="tool-name">Chat GPT Pro</div>
+            <div class="tool-description">
+              Chat helps you answer questions, write texts, provide advice and automate conversations in a variety of fields.
+            </div>
+          </a>
+          <a href="https://claude.ai/login" class="tool-card" target="_blank" rel="noopener noreferrer">
+            <div class="tool-icon">
+              <img src="https://tools.ecomefficiency.com/tools-images/claude.svg?v=20260502-freepik-v1" alt="Claude" class="claude-logo" />
+            </div>
+            <div class="tool-name">Claude</div>
+            <div class="tool-description">AI assistant for writing, analysis, coding, and everyday business tasks.</div>
+            <div class="tool-badge">Newly Added !</div>
+          </a>
+          <a href="https://www.midjourney.com/explore?tab=top" class="tool-card" target="_blank" rel="noopener noreferrer">
+            <div class="tool-icon">
+              <img src="https://tools.ecomefficiency.com/tools-images/midjourney.png?v=20260502-freepik-v1" alt="Midjourney" />
+            </div>
+            <div class="tool-name">Midjourney</div>
+            <div class="tool-description">
+              MidJourney is an AI-driven platform that generates high-quality images from text prompts, enabling users to create unique visuals quickly
+            </div>
+          </a>
+          <a href="https://www.semrush.com/app/exploding-topics/" class="tool-card" target="_blank" rel="noopener noreferrer">
+            <div class="tool-icon">
+              <img src="https://tools.ecomefficiency.com/tools-images/exploding.png?v=20260502-freepik-v1" alt="Exploding Topics" />
+            </div>
+            <div class="tool-name">Exploding Topics</div>
+            <div class="tool-description">Tracks and identifies emerging trends using search data and online insights</div>
+          </a>
+          <a href="https://www.pipiads.com/login" class="tool-card" target="_blank" rel="noopener noreferrer">
+            <div class="tool-icon">
+              <img src="https://tools.ecomefficiency.com/tools-images/pipiads.png?v=20260502-freepik-v1" alt="Pipiads" class="logo-small" />
+            </div>
+            <div class="tool-name">Pipiads</div>
+            <div class="tool-description">
+              The largest TikTok & Facebook ad library, and the most powerful tiktok ad spy, facebook adspy, tiktok shop data tool
+            </div>
+          </a>
+          <a href="https://www.kalodata.com/login" class="tool-card" target="_blank" rel="noopener noreferrer">
+            <div class="tool-icon">
+              <img src="https://tools.ecomefficiency.com/tools-images/kalodata.png?v=20260502-freepik-v1" alt="Kalodata" />
+            </div>
+            <div class="tool-name">Kalodata</div>
+            <div class="tool-description">Data analysis platform specialized in TikTok ecommerce.</div>
+          </a>
+          <a href="https://www.capcut.com/fr-fr/login" class="tool-card" target="_blank" rel="noopener noreferrer">
+            <div class="tool-icon">
+              <img src="https://tools.ecomefficiency.com/tools-images/capcut.png?v=20260502-freepik-v1" alt="Capcut" />
+            </div>
+            <div class="tool-name">Capcut</div>
+            <div class="tool-description">
+              Create and edit stunning videos for social media and personal projects using CapCut's intuitive interface and advanced editing features.
+            </div>
+          </a>
+          <a href="https://app.sendshort.ai/en/home" class="tool-card" target="_blank" rel="noopener noreferrer">
+            <div class="tool-icon">
+              <img src="https://tools.ecomefficiency.com/tools-images/sendshort.png?v=20260502-freepik-v1" alt="SendShort" />
+            </div>
+            <div class="tool-name">SendShort</div>
+            <div class="tool-description">An AI tool for automatically generating and translating video subtitles</div>
+          </a>
+          <a href="https://noxtools.com/secure/page/Helium10" class="tool-card" target="_blank" rel="noopener noreferrer">
+            <div class="tool-icon">
+              <img src="https://tools.ecomefficiency.com/tools-images/helium10.png?v=20260502-freepik-v1" alt="Helium 10" class="logo-small" />
+            </div>
+            <div class="tool-name">Helium 10</div>
+            <div class="tool-description">Amazon seller tools for product research and optimization.</div>
+          </a>
+          <a href="https://app.dropship.io/login" class="tool-card" target="_blank" rel="noopener noreferrer">
+            <div class="tool-icon">
+              <img src="https://tools.ecomefficiency.com/tools-images/dropship.png?v=20260502-freepik-v1" alt="Dropship.io" />
+            </div>
+            <div class="tool-name">Dropship.io</div>
+            <div class="tool-description">
+              All-in-one Shopify tool to find winning products and track competitors with real-time sales and ad data.
+            </div>
+          </a>
+          <a href="https://app.shophunter.io/login" class="tool-card" target="_blank" rel="noopener noreferrer">
+            <div class="tool-icon">
+              <img src="https://tools.ecomefficiency.com/tools-images/shophunter.png?v=20260502-freepik-v1" alt="Shophunter" />
+            </div>
+            <div class="tool-name">Shophunter</div>
+            <div class="tool-description">Sales Tracker Spy &amp; Product Research Tool. Spy on Competitor Sales.</div>
+          </a>
+          <a href="https://app.tryatria.com/login" class="tool-card" target="_blank" rel="noopener noreferrer">
+            <div class="tool-icon">
+              <img src="https://tools.ecomefficiency.com/tools-images/atria.png?v=20260502-freepik-v1" alt="Atria" />
+            </div>
+            <div class="tool-name">Atria</div>
+            <div class="tool-description">
+              A tool to discover winning products, ad creatives, store funnels, and market insights — all in one place.
+            </div>
+          </a>
+          <a href="https://app.heygen.com/login" class="tool-card" target="_blank" rel="noopener noreferrer">
+            <div class="tool-icon">
+              <img src="https://tools.ecomefficiency.com/tools-images/heygen.png?v=20260502-freepik-v1" alt="Heygen" />
+            </div>
+            <div class="tool-name">Heygen</div>
+            <div class="tool-description">
+              AI video creation platform to generate talking avatars, product demos, and multilingual videos from text in minutes.
+            </div>
+          </a>
+          <a href="https://www.fotor.com/fr/" class="tool-card" target="_blank" rel="noopener noreferrer">
+            <div class="tool-icon">
+              <img src="https://tools.ecomefficiency.com/tools-images/fotor.png?v=20260502-freepik-v1" alt="Fotor" class="logo-small" />
+            </div>
+            <div class="tool-name">Fotor</div>
+            <div class="tool-description">
+              Create any image you want in real time with our AI image creator. Type your description and turn text into images and AI art
+            </div>
+          </a>
+          <a href="https://app.foreplay.co/login" class="tool-card" target="_blank" rel="noopener noreferrer">
+            <div class="tool-icon">
+              <img src="https://tools.ecomefficiency.com/tools-images/foreplay.png?v=20260502-freepik-v1" alt="ForePlay" class="logo-small" />
+            </div>
+            <div class="tool-name">ForePlay</div>
+            <div class="tool-description">Save ads, build briefs and produce high converting Facebook stamp, TikTok ads at scale.</div>
+          </a>
+          <a href="https://elevenlabs.io/app/sign-in" class="tool-card" target="_blank" rel="noopener noreferrer">
+            <div class="tool-icon">
+              <img src="https://tools.ecomefficiency.com/tools-images/elevenlabs.png?v=20260502-freepik-v1" alt="ElevenLabs" class="logo-small" />
+            </div>
+            <div class="tool-name">ElevenLabs</div>
+            <div class="tool-description">
+              AI-powered voice synthesis technology that creates realistic and customizable human-like speech for various applications
+            </div>
+          </a>
+          <a href="https://app.runwayml.com/login" class="tool-card" target="_blank" rel="noopener noreferrer">
+            <div class="tool-icon">
+              <img src="https://tools.ecomefficiency.com/tools-images/runway.png?v=20260502-freepik-v1" alt="Runway" />
+            </div>
+            <div class="tool-name">Runway</div>
+            <div class="tool-description">
+              AI-driven platform for creating, editing, and enhancing multimedia content, including images and videos.
+            </div>
+          </a>
+          <a href="https://higgsfield.ai/auth/login" class="tool-card" target="_blank" rel="noopener noreferrer">
+            <div class="tool-icon">
+              <img src="https://tools.ecomefficiency.com/tools-images/higgsfield.png?v=20260502-freepik-v1" alt="Higgsfield" class="logo-large" />
+            </div>
+            <div class="tool-name">Higgsfield</div>
+            <div class="tool-description">AI tool for generating product images and videos.</div>
+          </a>
+          <a href="https://vmake.ai/workspace" class="tool-card" target="_blank" rel="noopener noreferrer">
+            <div class="tool-icon">
+              <img src="https://tools.ecomefficiency.com/tools-images/vmake.png?v=20260502-freepik-v1" alt="Vmake" class="logo-small" />
+            </div>
+            <div class="tool-name">Vmake</div>
+            <div class="tool-description">AI talking-head videos, background removal, subtitles, upscaling</div>
+          </a>
+          <a href="https://www.magnific.com/log-in" class="tool-card" target="_blank" rel="noopener noreferrer">
+            <div class="tool-icon">
+              <img src="https://tools.ecomefficiency.com/tools-images/freepik.png?v=20260502-freepik-v1" alt="Freepik" />
+            </div>
+            <div class="tool-name">Freepik</div>
+            <div class="tool-description">AI tools, smart features, and high-quality stock assets to design and create without ever leaving Freepik</div>
+          </a>
+          <a href="https://turboscribe.ai/login" class="tool-card" target="_blank" rel="noopener noreferrer">
+            <div class="tool-icon">
+              <img src="https://tools.ecomefficiency.com/tools-images/turboscribe.png?v=20260502-freepik-v1" alt="Turboscribe" />
+            </div>
+            <div class="tool-name">Turboscribe</div>
+            <div class="tool-description">AI audio &amp; video transcription, fast summaries, speaker detection, and export-ready text.</div>
+          </a>
+  </div>
+</body>
+</html>

@@ -372,6 +372,12 @@ export async function middleware(req: NextRequest) {
 
   // tools subdomain routes
   if (hostname === 'tools.localhost' || bareHostname.startsWith('tools.')) {
+    // /pro => empty shell; extension injects the tools hub (exact path only, not /starter etc.)
+    if (pathname === '/pro' || pathname === '/pro/') {
+      const r = url.clone()
+      r.pathname = '/tools-pro-shell'
+      return NextResponse.rewrite(r)
+    }
     // /starter => marketing starter tools page
     if (pathname === '/starter') {
       const r = url.clone(); r.pathname = '/startertools';
