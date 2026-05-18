@@ -87,11 +87,120 @@
         updateWalletWidget(credits, t.todayUsage, t.todayUsage >= MAX_DAILY_CREDITS || limitReached);
       });
     }
+    // ── Network gen tracker ────────────────────────────────────────────────────
+    // Rapid-fire detection: remember recent network gen timestamps in chrome.storage
+    var _rapidGenTimes = [];
+    function _recordRapidGen() {
+      var now = Date.now();
+      _rapidGenTimes.push(now);
+      if (_rapidGenTimes.length > 20) _rapidGenTimes.shift();
+    }
+    function _getRapidFireCount(windowMs) {
+      var cutoff = Date.now() - (windowMs || 60000);
+      return _rapidGenTimes.filter(function (t) { return t >= cutoff; }).length;
+    }
+
+    // Last ecom-tracked generation info (to compare against network tracking)
+    var _lastEcomGen = null; // { delta, at, source }
+
+    function _getEEEmail() {
+      try { return sessionStorage.getItem('ee_hf_ecom_verified_email') || sessionStorage.getItem('EE_HF_AUTH_VERIFIED_EMAIL') || null; } catch (_) { return null; }
+    }
+
+    function _postNetworkGenToApi(payload) {
+      var email = _getEEEmail() || payload.hfEmail || null;
+      var body = {
+        email: email,
+        delta: typeof payload.creditCost === 'number' ? payload.creditCost : 0,
+        usedToday: null,
+        at: payload.at || new Date().toISOString(),
+        source: 'network_jobs_api',
+        hf_user_id: payload.hfUserId || null,
+        model: payload.model || null,
+        hf_cost_raw: typeof payload.costRaw === 'number' ? payload.costRaw : null,
+        use_unlim: payload.useUnlim === true,
+        abuse_flags: (payload.abuseFlags && payload.abuseFlags.length) ? payload.abuseFlags.join(',') : null,
+        comparison_source: null,
+        comparison_delta: null
+      };
+      // Compare against last ecom-tracked gen (was it also tracked by overlay?)
+      if (_lastEcomGen) {
+        var timeDiff = Math.abs(Date.now() - _lastEcomGen.at);
+        if (timeDiff < 30000) { // within 30s window → likely same gen
+          body.comparison_source = _lastEcomGen.source;
+          // negative means network cost > ecom estimate (undercharged by overlay)
+          if (typeof payload.creditCost === 'number' && typeof _lastEcomGen.delta === 'number') {
+            body.comparison_delta = _lastEcomGen.delta - payload.creditCost;
+          }
+        } else {
+          // No ecom event within 30s → gen was not tracked by overlay system at all
+          body.comparison_source = 'not_tracked_by_overlay';
+        }
+      } else {
+        body.comparison_source = 'no_ecom_event_found';
+      }
+      try {
+        fetch('https://www.ecomefficiency.com/api/usage/higgsfield', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'omit',
+          body: JSON.stringify(body)
+        }).catch(function () {});
+      } catch (_) {}
+    }
+
+    function _handleAbuseFlags(flags, payload) {
+      if (!flags || !flags.length) return;
+      var critical = flags.some(function (f) {
+        return f === 'unlim_but_hf_charged' || f === 'no_activity_before_gen' || f === 'rapid_fire_5_in_60s';
+      });
+      if (critical) {
+        // Block next generation attempt
+        try { document.documentElement.dataset.eeBlockGenerations = '1'; } catch (_) {}
+        // Report the abuse event separately
+        try {
+          fetch('https://www.ecomefficiency.com/api/usage/higgsfield', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'omit',
+            body: JSON.stringify({
+              email: _getEEEmail() || payload.hfEmail || null,
+              delta: 0,
+              at: payload.at || new Date().toISOString(),
+              source: 'abuse_detected',
+              hf_user_id: payload.hfUserId || null,
+              model: payload.model || null,
+              hf_cost_raw: payload.costRaw || null,
+              abuse_flags: flags.join(','),
+              use_unlim: payload.useUnlim === true
+            })
+          }).catch(function () {});
+        } catch (_) {}
+      }
+    }
+
     window.addEventListener('message', function (e) {
       if (!e.data || e.data.source !== 'ee-logger') return;
       var type = e.data.type;
       var p = e.data.payload || {};
       try {
+        // ── Capture last ecom-tracked event for comparison ───────────────────
+        if (type === 'EE_HIGGSFIELD_ECOM_LOGGED') {
+          _lastEcomGen = { delta: p.delta, source: p.source, at: Date.now(), email: p.email };
+          return;
+        }
+        // ── New: /jobs/* network gen event ──────────────────────────────────
+        if (type === 'EE_HIGGSFIELD_NETWORK_GEN') {
+          _recordRapidGen();
+          var rapidCount = _getRapidFireCount(60000);
+          var extraFlags = (p.abuseFlags || []).slice();
+          if (rapidCount >= 5 && extraFlags.indexOf('rapid_fire_5_in_60s') === -1) extraFlags.push('rapid_fire_5_in_60s');
+          else if (rapidCount >= 3 && extraFlags.indexOf('rapid_fire_3_in_60s') === -1) extraFlags.push('rapid_fire_3_in_60s');
+          p.abuseFlags = extraFlags;
+          _postNetworkGenToApi(p);
+          _handleAbuseFlags(extraFlags, p);
+          return;
+        }
         if (type === 'EE_HIGGSFIELD_GENERATION_START') {
           creditsBeforeGeneration = p.creditsBeforeGeneration;
           isGenerating = true;

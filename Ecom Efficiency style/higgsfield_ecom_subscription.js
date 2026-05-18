@@ -149,11 +149,12 @@
     try {
       if (delta === undefined || delta === null) return;
       const url = 'https://www.ecomefficiency.com/api/usage/higgsfield';
+      const at = new Date().toISOString();
       const payload = {
         email: email || null,
         delta: delta,
         usedToday: usedToday,
-        at: new Date().toISOString(),
+        at: at,
         source: source || null
       };
       log('logUsage POST', source, email, delta);
@@ -163,6 +164,14 @@
         credentials: 'omit',
         body: JSON.stringify(payload)
       }).then(function (r) { if (DEBUG) log('logUsage response', r.status, source); }).catch(function (err) { if (DEBUG) log('logUsage error', err && err.message, source); });
+      // Broadcast to safety/logger scripts so they can compare ecom vs network tracking
+      try {
+        window.postMessage({
+          type: 'EE_HIGGSFIELD_ECOM_LOGGED',
+          source: 'ee-ecom-subscription',
+          payload: { email: email || null, delta: delta, source: source || null, at: at }
+        }, '*');
+      } catch (_) {}
     } catch (e) { if (DEBUG) log('logUsage exception', e && e.message); }
   }
 

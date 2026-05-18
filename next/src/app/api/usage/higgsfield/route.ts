@@ -8,6 +8,14 @@ type HiggsfieldUsageEvent = {
   at: string;
   user_agent: string | null;
   source: string | null;
+  // Extended fields from network-level tracking (optional — columns may not exist yet)
+  hf_user_id?: string | null;
+  model?: string | null;
+  hf_cost_raw?: number | null;
+  use_unlim?: boolean | null;
+  abuse_flags?: string | null;
+  comparison_source?: string | null;
+  comparison_delta?: number | null;
 };
 
 function getSupabaseAdmin() {
@@ -88,6 +96,14 @@ export async function POST(req: Request) {
       usedToday?: number;
       at?: string;
       source?: string | null;
+      // Network tracking extended fields
+      hf_user_id?: string | null;
+      model?: string | null;
+      hf_cost_raw?: number | null;
+      use_unlim?: boolean | null;
+      abuse_flags?: string | null;
+      comparison_source?: string | null;
+      comparison_delta?: number | null;
     };
 
     const rawEmail = typeof json.email === "string" ? json.email.trim() : "";
@@ -117,7 +133,7 @@ export async function POST(req: Request) {
     const ua =
       (req.headers.get("user-agent") || "").slice(0, 500) || null;
 
-    const event: HiggsfieldUsageEvent = {
+    const baseEvent: HiggsfieldUsageEvent = {
       email,
       delta,
       used_today: usedToday,
@@ -126,11 +142,36 @@ export async function POST(req: Request) {
       source,
     };
 
+    // Extended fields for network-level tracking — only include if present
+    const extendedEvent: HiggsfieldUsageEvent = { ...baseEvent };
+    if (json.hf_user_id != null) extendedEvent.hf_user_id = String(json.hf_user_id).slice(0, 128);
+    if (json.model != null) extendedEvent.model = String(json.model).slice(0, 64);
+    if (typeof json.hf_cost_raw === "number") extendedEvent.hf_cost_raw = json.hf_cost_raw;
+    if (json.use_unlim != null) extendedEvent.use_unlim = !!json.use_unlim;
+    if (json.abuse_flags != null) extendedEvent.abuse_flags = String(json.abuse_flags).slice(0, 256);
+    if (json.comparison_source != null) extendedEvent.comparison_source = String(json.comparison_source).slice(0, 64);
+    if (typeof json.comparison_delta === "number") extendedEvent.comparison_delta = json.comparison_delta;
+
     const supabase = getSupabaseAdmin();
-    let result = await supabase.from("higgsfield_usage_events").insert(event);
+
+    // Try full insert with extended fields first; fall back to progressively
+    // simpler inserts if columns don't exist yet (gradual migration).
+    async function tryInsert(event: Record<string, unknown>) {
+      return supabase.from("higgsfield_usage_events").insert(event);
+    }
+
+    let result = await tryInsert(extendedEvent as unknown as Record<string, unknown>);
+
+    if (result.error) {
+      const msg = result.error.message || "";
+      // Some new columns may not exist yet — drop them and retry
+      if (msg.includes("column") || msg.includes("hf_") || msg.includes("model") || msg.includes("use_unlim") || msg.includes("abuse") || msg.includes("comparison")) {
+        result = await tryInsert(baseEvent as unknown as Record<string, unknown>);
+      }
+    }
     if (result.error && (result.error.message?.includes("source") || result.error.message?.includes("column"))) {
-      const { source: _s, ...eventWithoutSource } = event;
-      result = await supabase.from("higgsfield_usage_events").insert(eventWithoutSource);
+      const { source: _s, ...eventWithoutSource } = baseEvent;
+      result = await tryInsert(eventWithoutSource as unknown as Record<string, unknown>);
     }
     const { error } = result;
 

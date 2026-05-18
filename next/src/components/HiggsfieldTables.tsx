@@ -1,12 +1,14 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import { ArrowUpDown, Search, History, Info } from 'lucide-react'
+import { ArrowUpDown, Search, History, Info, AlertTriangle, ShieldAlert, Zap } from 'lucide-react'
 import {
   filterHiggsfieldEvents,
   summarizeHiggsfieldUsageRows,
+  detectHiggsfieldAnomalies,
   type HiggsfieldEventFilterMode,
   type HiggsfieldUsageEvent as UsageRow,
+  type HiggsfieldAnomaly,
 } from './higgsfieldUsageUtils'
 
 type EmailRow = { email: string; credits: number }
@@ -36,7 +38,29 @@ function sourceLabel(source: string | null | undefined): string {
   switch (s) {
     case 'unlimited_generate': return 'Unlimited Generate'
     case 'standard_generate': return 'Standard Generate'
+    case 'network_jobs_api': return 'Réseau /jobs API'
+    case 'abuse_detected': return '⚠ Abus détecté'
+    case 'intercepted_generate': return 'Intercepté'
     default: return s || '—'
+  }
+}
+
+function severityBadge(severity: HiggsfieldAnomaly['severity']) {
+  const base = 'inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold'
+  switch (severity) {
+    case 'high': return <span className={`${base} bg-red-500/20 text-red-400 border border-red-500/30`}>🔴 Critique</span>
+    case 'medium': return <span className={`${base} bg-amber-500/20 text-amber-400 border border-amber-500/30`}>🟡 Moyen</span>
+    case 'low': return <span className={`${base} bg-blue-500/20 text-blue-400 border border-blue-500/30`}>🔵 Faible</span>
+  }
+}
+
+function anomalyTypeLabel(type: HiggsfieldAnomaly['type']) {
+  switch (type) {
+    case 'not_tracked_by_overlay': return 'Non tracké par overlay'
+    case 'cost_mismatch': return 'Écart de coût'
+    case 'unlim_but_charged': return 'Unlimited → crédits débités'
+    case 'abuse_detected': return 'Comportement suspect'
+    case 'rapid_fire': return 'Rapid-fire'
   }
 }
 
@@ -383,6 +407,222 @@ export function HiggsfieldCreditHistory({ data }: { data: UsageRow[] }) {
             </div>
           )}
         </>
+      )}
+    </div>
+  )
+}
+
+/* ------------------------------------------------------------------ */
+/*  Anomaly / Discrepancy Module                                        */
+/* ------------------------------------------------------------------ */
+
+export function HiggsfieldAnomalyTable({ data }: { data: UsageRow[] }) {
+  const [expandedIdx, setExpandedIdx] = useState<number | null>(null)
+  const [filter, setFilter] = useState('')
+  const [typeFilter, setTypeFilter] = useState<HiggsfieldAnomaly['type'] | 'all'>('all')
+
+  const anomalies = useMemo(() => detectHiggsfieldAnomalies(data), [data])
+
+  const filtered = useMemo(() => {
+    let rows = anomalies
+    if (typeFilter !== 'all') rows = rows.filter(a => a.type === typeFilter)
+    if (filter.trim()) {
+      const q = filter.trim().toLowerCase()
+      rows = rows.filter(a =>
+        (a.email || '').toLowerCase().includes(q) ||
+        (a.model || '').toLowerCase().includes(q) ||
+        (a.hfUserId || '').toLowerCase().includes(q)
+      )
+    }
+    return rows
+  }, [anomalies, typeFilter, filter])
+
+  const counts = useMemo(() => {
+    const c: Record<string, number> = { all: anomalies.length }
+    for (const a of anomalies) {
+      c[a.type] = (c[a.type] || 0) + 1
+    }
+    return c
+  }, [anomalies])
+
+  const networkRows = data.filter(r => r.source === 'network_jobs_api' || r.source === 'abuse_detected')
+  const ecomRows = data.filter(r => r.source && ['standard_generate', 'unlimited_generate', 'intercepted_generate'].includes(r.source))
+
+  if (anomalies.length === 0 && networkRows.length === 0) {
+    return (
+      <div className="border border-white/10 rounded-xl bg-white/5 p-8 text-center text-gray-400">
+        <ShieldAlert className="h-8 w-8 text-gray-600 mx-auto mb-3" />
+        <p className="font-medium">Aucune anomalie détectée</p>
+        <p className="text-sm mt-1 text-gray-500">
+          Le module réseau n&apos;a pas encore reçu d&apos;événements <code className="text-xs bg-gray-800 px-1 rounded">network_jobs_api</code>. Mettez à jour l&apos;extension pour activer le tracking réseau.
+        </p>
+      </div>
+    )
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Coverage summary */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-gray-900/60 border border-white/10 rounded-xl p-4">
+          <div className="text-xs text-gray-400 mb-1">Événements réseau (/jobs API)</div>
+          <div className="text-2xl font-bold text-white">{networkRows.length}</div>
+          <div className="text-xs text-gray-500 mt-1">Générations capturées au niveau réseau</div>
+        </div>
+        <div className="bg-gray-900/60 border border-white/10 rounded-xl p-4">
+          <div className="text-xs text-gray-400 mb-1">Événements overlay (ancien système)</div>
+          <div className="text-2xl font-bold text-white">{ecomRows.length}</div>
+          <div className="text-xs text-gray-500 mt-1">Clics bouton trackés par l&apos;overlay</div>
+        </div>
+        <div className={`border rounded-xl p-4 ${anomalies.filter(a => a.severity === 'high').length > 0 ? 'bg-red-900/20 border-red-500/30' : 'bg-gray-900/60 border-white/10'}`}>
+          <div className="text-xs text-gray-400 mb-1">Anomalies détectées</div>
+          <div className={`text-2xl font-bold ${anomalies.filter(a => a.severity === 'high').length > 0 ? 'text-red-400' : 'text-white'}`}>{anomalies.length}</div>
+          <div className="text-xs text-gray-500 mt-1">
+            {anomalies.filter(a => a.severity === 'high').length} critiques · {anomalies.filter(a => a.severity === 'medium').length} moyennes
+          </div>
+        </div>
+      </div>
+
+      {/* Filters */}
+      <div className="flex flex-wrap items-center gap-3">
+        <div className="flex items-center gap-2">
+          <AlertTriangle className="h-5 w-5 text-amber-500" />
+          <h2 className="text-xl font-semibold">Anomalies à rectifier</h2>
+        </div>
+        <div className="relative flex-1 max-w-xs">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
+          <input
+            type="text"
+            value={filter}
+            onChange={e => setFilter(e.target.value)}
+            placeholder="Email, modèle, user_id…"
+            className="w-full pl-9 pr-3 py-1.5 bg-gray-900/60 border border-white/10 rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-amber-500/50"
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          {([
+            { id: 'all', label: `Tous (${counts.all || 0})` },
+            { id: 'not_tracked_by_overlay', label: `Non tracké (${counts.not_tracked_by_overlay || 0})` },
+            { id: 'cost_mismatch', label: `Écart coût (${counts.cost_mismatch || 0})` },
+            { id: 'unlim_but_charged', label: `Unlimited+coût (${counts.unlim_but_charged || 0})` },
+            { id: 'abuse_detected', label: `Abus (${counts.abuse_detected || 0})` },
+            { id: 'rapid_fire', label: `Rapid-fire (${counts.rapid_fire || 0})` },
+          ] as const).map(opt => (
+            <button
+              key={opt.id}
+              onClick={() => setTypeFilter(opt.id)}
+              className={`px-2.5 py-1 rounded-lg border text-xs transition-colors ${
+                typeFilter === opt.id
+                  ? 'bg-amber-500/20 border-amber-500/40 text-amber-200'
+                  : 'bg-gray-900/60 border-white/10 text-gray-400 hover:text-white'
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {filtered.length === 0 ? (
+        <div className="border border-white/10 rounded-xl bg-white/5 p-6 text-center text-gray-400">
+          Aucune anomalie pour ce filtre.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          {filtered.map((anomaly, idx) => (
+            <div
+              key={idx}
+              className={`border rounded-xl overflow-hidden transition-colors ${
+                anomaly.severity === 'high'
+                  ? 'border-red-500/30 bg-red-900/10'
+                  : anomaly.severity === 'medium'
+                  ? 'border-amber-500/30 bg-amber-900/10'
+                  : 'border-white/10 bg-gray-900/30'
+              }`}
+            >
+              {/* Header row */}
+              <button
+                className="w-full text-left p-4 flex flex-wrap items-start gap-3"
+                onClick={() => setExpandedIdx(expandedIdx === idx ? null : idx)}
+              >
+                <div className="flex-1 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-1.5">
+                    {severityBadge(anomaly.severity)}
+                    <span className="text-sm font-semibold text-white">{anomalyTypeLabel(anomaly.type)}</span>
+                    {anomaly.model && (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-500/15 border border-purple-500/25 text-purple-300 text-xs">
+                        <Zap className="h-3 w-3" />
+                        {anomaly.model}
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-sm text-gray-300 leading-snug">{anomaly.description}</p>
+                </div>
+                <div className="text-right shrink-0">
+                  <div className="text-xs text-gray-500">{formatDateFR(anomaly.at)}</div>
+                  <div className="text-xs text-gray-400 mt-0.5">{anomaly.email || anomaly.hfUserId || '—'}</div>
+                  <div className="text-xs text-amber-400 mt-0.5">
+                    {expandedIdx === idx ? '▲ Réduire' : '▼ Voir fix'}
+                  </div>
+                </div>
+              </button>
+
+              {/* Expanded detail */}
+              {expandedIdx === idx && (
+                <div className="border-t border-white/5 p-4 space-y-3 bg-black/20">
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+                    <div>
+                      <div className="text-gray-500 mb-0.5">Email EE</div>
+                      <div className="text-white font-mono break-all">{anomaly.email || '—'}</div>
+                    </div>
+                    <div>
+                      <div className="text-gray-500 mb-0.5">HF User ID</div>
+                      <div className="text-white font-mono break-all text-[11px]">{anomaly.hfUserId || '—'}</div>
+                    </div>
+                    <div>
+                      <div className="text-gray-500 mb-0.5">Coût réseau</div>
+                      <div className="text-amber-400 font-semibold">{anomaly.networkDelta != null ? `${anomaly.networkDelta} cr` : '—'}</div>
+                    </div>
+                    <div>
+                      <div className="text-gray-500 mb-0.5">Coût overlay</div>
+                      <div className={`font-semibold ${anomaly.ecomDelta != null && anomaly.networkDelta != null && anomaly.ecomDelta < anomaly.networkDelta ? 'text-red-400' : 'text-white'}`}>
+                        {anomaly.ecomDelta != null ? `${anomaly.ecomDelta} cr` : '—'}
+                      </div>
+                    </div>
+                    {anomaly.diff != null && (
+                      <div>
+                        <div className="text-gray-500 mb-0.5">Écart</div>
+                        <div className={`font-semibold ${anomaly.diff < 0 ? 'text-red-400' : 'text-green-400'}`}>
+                          {anomaly.diff > 0 ? '+' : ''}{anomaly.diff} cr
+                          {anomaly.diff < 0 && <span className="text-gray-400 font-normal ml-1">(sous-décompté)</span>}
+                        </div>
+                      </div>
+                    )}
+                    {anomaly.abuseFlags.length > 0 && (
+                      <div className="col-span-2 sm:col-span-3">
+                        <div className="text-gray-500 mb-0.5">Flags abus</div>
+                        <div className="flex flex-wrap gap-1">
+                          {anomaly.abuseFlags.map(f => (
+                            <span key={f} className="px-1.5 py-0.5 rounded bg-red-500/15 text-red-300 text-[11px] font-mono border border-red-500/20">{f}</span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  <div className="rounded-lg bg-amber-500/10 border border-amber-500/20 p-3">
+                    <div className="text-xs font-semibold text-amber-300 mb-1">Correctif suggéré</div>
+                    <p className="text-xs text-amber-100/80 leading-relaxed">{anomaly.suggestedFix}</p>
+                  </div>
+                  {anomaly.comparisonSource && (
+                    <div className="text-xs text-gray-500">
+                      Source comparaison : <code className="bg-gray-800 px-1 rounded text-gray-300">{anomaly.comparisonSource}</code>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
       )}
     </div>
   )
