@@ -1,4 +1,13 @@
 // background.js
+try {
+  importScripts(
+    'nox-tools/ex1/background.js',
+    'nox-tools/ex2/background.js',
+    'nox-tools/nox-cookie-override.js'
+  );
+} catch (e) {
+  console.error('[EE] NoxTools backgrounds failed to load', e);
+}
 
 // Silence most console output from the service worker.
 // Keep originals for targeted diagnostic logging (Freepik OTP, etc.)
@@ -32,12 +41,99 @@ chrome.runtime.onInstalled.addListener(() => {
 let discordReloadTimer = null;
 let discordTabId = null;
 
+const EE_ADSPOWER_PORTS = [50325, 50326, 58888, 50327];
+const EE_ADSPOWER_DOMAINS = ['local.adspower.com', 'local.adspower.net', '127.0.0.1', 'localhost'];
+
+async function eeFetchJson(url, options) {
+  const res = await fetch(url, options || {});
+  const text = await res.text();
+  let json = null;
+  try { json = JSON.parse(text); } catch (_) {}
+  if (!res.ok) throw new Error((json && (json.msg || json.error)) || ('HTTP ' + res.status));
+  if (!json) throw new Error('Invalid JSON response');
+  return json;
+}
+
+async function detectAdsPowerApiBase() {
+  for (let d = 0; d < EE_ADSPOWER_DOMAINS.length; d++) {
+    for (let p = 0; p < EE_ADSPOWER_PORTS.length; p++) {
+      const base = `http://${EE_ADSPOWER_DOMAINS[d]}:${EE_ADSPOWER_PORTS[p]}`;
+      try {
+        const data = await eeFetchJson(`${base}/status`);
+        if (data && data.code === 0) return `${base}/api/v1`;
+      } catch (_) {}
+    }
+  }
+  throw new Error('AdsPower API is not reachable');
+}
+
+async function detectActiveAdsPowerProfileId(apiBase) {
+  const endpoints = [
+    `${apiBase}/browser/active`,
+    `${apiBase}/browser/list?status=Active`,
+    `${apiBase}/browser/list?page=1&page_size=100`,
+  ];
+  for (let i = 0; i < endpoints.length; i++) {
+    try {
+      const data = await eeFetchJson(endpoints[i]);
+      if (!data || data.code !== 0) continue;
+      const payload = data.data;
+      if (payload && payload.user_id) return payload.user_id;
+      if (Array.isArray(payload) && payload.length > 0) {
+        const active = payload.find((item) => item && (item.status === 'Active' || item.status === 'active')) || payload[0];
+        if (active && active.user_id) return active.user_id;
+      }
+      if (payload && Array.isArray(payload.list) && payload.list.length > 0) {
+        const activeList = payload.list.find((item) => item && (item.status === 'Active' || item.status === 'active')) || payload.list[0];
+        if (activeList && activeList.user_id) return activeList.user_id;
+      }
+    } catch (_) {}
+  }
+  throw new Error('No active AdsPower profile found');
+}
+
+async function closeAdsPowerProfile(userId) {
+  const apiBase = await detectAdsPowerApiBase();
+  const profileId = userId || (await detectActiveAdsPowerProfileId(apiBase));
+  const result = await eeFetchJson(`${apiBase}/browser/stop?user_id=${encodeURIComponent(profileId)}`);
+  if (!result || result.code !== 0) {
+    throw new Error((result && (result.msg || result.error)) || 'AdsPower stop failed');
+  }
+  return { profileId, apiBase };
+}
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message && message.type === 'WH_CLOSE_ADSPOWER_PROFILE') {
+    (async () => {
+      try {
+        const closed = await closeAdsPowerProfile(message.profileId || '');
+        sendResponse({ ok: true, profileId: closed.profileId, apiBase: closed.apiBase });
+      } catch (e) {
+        sendResponse({ ok: false, error: String(e && e.message ? e.message : e) });
+      }
+    })();
+    return true;
+  }
+
   // Higgsfield: inject logger in page context without adding a script tag (avoids React #418).
   if (message && message.type === 'INJECT_HIGGSFIELD_LOGGER' && sender && sender.tab && sender.tab.id) {
     chrome.scripting.executeScript({ target: { tabId: sender.tab.id }, files: ['higgsfield_http_logger.js'], world: 'MAIN' })
       .then(() => { sendResponse({ ok: true }); })
       .catch(() => { sendResponse({ ok: false }); });
+    return true;
+  }
+
+  if (message && message.action === 'closeCurrentTab') {
+    try {
+      const tabId = sender && sender.tab && sender.tab.id;
+      if (tabId) {
+        chrome.tabs.remove(tabId, () => sendResponse({ ok: true }));
+      } else {
+        sendResponse({ ok: false, error: 'No sender tab' });
+      }
+    } catch (e) {
+      sendResponse({ ok: false, error: String(e && e.message ? e.message : e) });
+    }
     return true;
   }
 

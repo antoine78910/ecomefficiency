@@ -2,7 +2,7 @@
   "name": "adspower-checker",
   "version": "1.0.0",
   "private": true,
-  "description": "Ecom Efficiency — extension guard with AdsPower auto-close (Railway 24/7)",
+  "description": "Ecom Efficiency — extension guard + central VPS session manager (Katabump Option A)",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

@@ -28,6 +28,10 @@ function parseAdsPowerEndpoints(apiUrl) {
     }
   }
 
+  if (/^(1|true|yes)$/i.test(String(process.env.ADSPOWER_USE_DOCKER_HOST || ''))) {
+    add('host.docker.internal', 50325)
+  }
+
   return endpoints
 }
 

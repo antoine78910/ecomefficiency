@@ -9,6 +9,8 @@ import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/
 import PlayButtonVideo from "@/components/PlayButtonVideo";
 import RevenueSimulator from "./RevenueSimulator";
 import AutoRedirectToApp from "./AutoRedirectToApp";
+import PartnersLpHero from "@/components/lp/PartnersLpHero";
+import LpSectionHeader from "@/components/lp/LpSectionHeader";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -202,24 +204,7 @@ export default async function PartnersLpPage() {
 
         <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8 py-14 md:py-20">
           <div className="max-w-4xl">
-            <p className="text-sm text-purple-200/90">
-              You focus on marketing & community. We handle everything painful.
-            </p>
-
-            <h1 className="mt-4 text-5xl md:text-7xl font-bold leading-[1.05] tracking-normal">
-              Launch Your Own SaaS.
-              <br />
-              <span className="text-[#ab63ff] drop-shadow-[0_0_12px_rgba(171,99,255,0.35)]">Without Building One.</span>
-            </h1>
-
-            <p className="mt-6 text-lg md:text-xl text-gray-300 max-w-3xl">
-              White-label a fully operational SaaS with 50+ premium e-commerce & AI tools, under your brand, your Stripe,
-              your rules.
-            </p>
-
-            <p className="mt-4 text-sm text-gray-400">
-              Used by communities, agencies & creators with thousands of users.
-            </p>
+            <PartnersLpHero />
 
             <div className="mt-8 flex flex-wrap gap-3" id="request">
               <AnimatedPrimaryButton href="/signup">Launch your SaaS</AnimatedPrimaryButton>
@@ -249,10 +234,10 @@ export default async function PartnersLpPage() {
         <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8">
           <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
             <div>
-              <h2 className="text-3xl md:text-5xl font-bold text-white">You Own the Infra</h2>
-              <p className="mt-4 text-gray-300">
-                Stripe, domain, email sender and data ownership — it’s your SaaS.
-              </p>
+              <LpSectionHeader
+                title="You Own the Infra"
+                subtitle="Stripe, domain, email sender and data ownership — it's your SaaS."
+              />
 
               <ul className="mt-6 space-y-3 text-gray-200">
                 {[
@@ -296,8 +281,10 @@ export default async function PartnersLpPage() {
             </div>
 
             <div className="order-1 lg:order-2">
-              <h2 className="text-3xl md:text-5xl font-bold text-white">Personalise Your SaaS</h2>
-              <p className="mt-4 text-gray-300">Make it yours. Every detail, every color, every word.</p>
+              <LpSectionHeader
+                title="Personalise Your SaaS"
+                subtitle="Make it yours. Every detail, every color, every word."
+              />
 
               <ul className="mt-6 space-y-3 text-gray-200">
                 {[
@@ -325,8 +312,10 @@ export default async function PartnersLpPage() {
         <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8">
           <div className="mt-4 grid grid-cols-1 lg:grid-cols-2 gap-10 items-start">
             <div>
-              <h2 className="text-3xl md:text-5xl font-bold text-white">Your SaaS. Your Rules.</h2>
-              <p className="mt-4 text-gray-300">You decide how your SaaS looks, feels, and sells.</p>
+              <LpSectionHeader
+                title="Your SaaS. Your Rules."
+                subtitle="You decide how your SaaS looks, feels, and sells."
+              />
 
               <ul className="mt-6 space-y-3 text-gray-200">
                 {[
@@ -360,12 +349,10 @@ export default async function PartnersLpPage() {
       <section className="relative bg-black py-16 md:py-20">
         <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8">
           <div className="max-w-3xl">
-            <h2 className="text-3xl md:text-5xl font-bold text-white">We Only Win If You Win.</h2>
-            <p className="mt-4 text-gray-300">
-              <span className="text-white font-semibold">50%</span> revenue share.
-              <br />
-              No setup fees. No upfront costs. No hidden charges.
-            </p>
+            <LpSectionHeader
+              title="We Only Win If You Win."
+              subtitle="50% revenue share. No setup fees. No upfront costs. No hidden charges."
+            />
           </div>
 
           <div className="mt-10 rounded-2xl border border-white/10 bg-[#0d0e12] p-6 md:p-8">
@@ -399,12 +386,10 @@ export default async function PartnersLpPage() {
         <div className="pointer-events-none absolute -top-24 left-1/2 -translate-x-1/2 h-80 w-[60rem] bg-gradient-to-b from-purple-600/20 to-transparent blur-3xl" />
         <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8">
           <div className="max-w-3xl">
-            <h2 className="text-3xl md:text-5xl font-bold text-white">
-              You Could Be Earning, By Doing Almost Nothing.
-            </h2>
-            <p className="mt-4 text-gray-300">
-              Plug your numbers. We split revenue 50/50. You keep the brand and the audience.
-            </p>
+            <LpSectionHeader
+              title="You Could Be Earning, By Doing Almost Nothing."
+              subtitle="Plug your numbers. We split revenue 50/50. You keep the brand and the audience."
+            />
           </div>
 
           <div className="mt-10">
@@ -423,12 +408,11 @@ export default async function PartnersLpPage() {
           <div className="max-w-6xl mx-auto">
             <div className="grid md:grid-cols-[1.2fr_.8fr] gap-8 md:gap-12 items-start">
               <div>
-                <h2 className="text-3xl md:text-5xl font-bold text-white">Who is this for?</h2>
-                <p className="mt-4 text-gray-300 text-base max-w-2xl">
-                  This white-label SaaS is designed for creators, communities, and agencies who want to sell a real product under their
-                  brand, without building or supporting it, and help their communities with an all-in-one solution that adds value
-                  without spending months building it.
-                </p>
+                <LpSectionHeader
+                  title="Who is this for?"
+                  subtitle="This white-label SaaS is designed for creators, communities, and agencies who want to sell a real product under their brand, without building or supporting it, and help their communities with an all-in-one solution that adds value without spending months building it."
+                  subtitleClassName="text-base max-w-2xl"
+                />
               </div>
               <div>
                 <ul className="space-y-3 text-gray-100 text-sm">
@@ -479,10 +463,11 @@ export default async function PartnersLpPage() {
         <div className="pointer-events-none absolute -bottom-16 left-1/2 -translate-x-1/2 h-80 w-[60rem] bg-gradient-to-t from-purple-600/20 to-transparent blur-3xl" />
         <div className="relative z-10 max-w-7xl mx-auto px-6 lg:px-8">
           <div className="max-w-3xl mx-auto text-center">
-            <h2 className="text-3xl md:text-5xl font-bold text-white">Launch Your SaaS This Week.</h2>
-            <p className="mt-4 text-gray-300">
-              Book a demo or request access. You bring distribution — we bring the SaaS.
-            </p>
+            <LpSectionHeader
+              title="Launch Your SaaS This Week."
+              subtitle="Book a demo or request access. You bring distribution — we bring the SaaS."
+              centered
+            />
           </div>
 
           <div className="mt-8 flex flex-wrap gap-3 justify-center">
@@ -505,9 +490,11 @@ export default async function PartnersLpPage() {
           </div>
 
           <div className="mt-20 max-w-4xl mx-auto">
-            <h3 className="text-2xl font-bold text-center text-white">
-              FAQ <span className="gradient-text">white-label</span>
-            </h3>
+            <LpSectionHeader
+              title="FAQ — white-label"
+              centered
+              titleClassName="text-2xl md:text-3xl justify-center"
+            />
             <div className="mt-8">
               <Accordion type="single" collapsible className="space-y-4">
                 {faq.map((f, idx) => (

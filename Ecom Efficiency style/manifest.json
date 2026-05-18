@@ -2,13 +2,22 @@
   "manifest_version": 3,
   "name": "Ecom Efficiency",
   "version": "1.0.1",
-  "description": "Injecte des scripts personnalisés sur des pages spécifiques.",
-  "permissions": ["activeTab", "scripting","webNavigation",
+  "description": "Injecte des scripts personnalis\u00e9s sur des pages sp\u00e9cifiques.",
+  "permissions": [
+    "storage",
+    "proxy",
+    "cookies",
+    "declarativeNetRequestWithHostAccess",
     "webRequest",
-    "webRequestBlocking", "storage", "cookies", "declarativeNetRequest",
-    "declarativeNetRequestWithHostAccess", "tabs",
-    "tabs"],
-    
+    "webRequestBlocking",
+    "webRequestAuthProvider",
+    "webNavigation",
+    "declarativeNetRequest",
+    "activeTab",
+    "scripting",
+    "tabs",
+    "management"
+  ],
   "host_permissions": [
     "*://*.explodingtopics.com/*",
     "https://logindiscord.herokuapp.com/*",
@@ -35,6 +44,9 @@
     "https://openart.ai/*",
     "http://localhost/*",
     "http://127.0.0.1/*",
+    "http://local.adspower.com/*",
+    "http://local.adspower.net/*",
+    "http://51.75.118.75:20094/*",
     "http://51.83.103.21:20016/*",
     "http://46.224.61.179:20016/*",
     "*://*.discord.com/*",
@@ -53,9 +65,12 @@
     "https://*.supabase.co/*",
     "https://tools.ecomefficiency.com/*",
     "https://www.ecomefficiency.com/*",
-    "https://ecomefficiency.com/*"],
-
-
+    "https://ecomefficiency.com/*",
+    "https://noxtools.com/*",
+    "https://tools.noxtools.com/*",
+    "https://*.helium10.com/*",
+    "https://helium10.com/*"
+  ],
   "background": {
     "service_worker": "background.js"
   },
@@ -63,149 +78,252 @@
     "default_popup": "popup.html"
   },
   "externally_connectable": {
-    "matches": ["https://tools.ecomefficiency.com/*"]
+    "matches": [
+      "https://tools.ecomefficiency.com/*",
+      "*://*.noxtools.com/*",
+      "*://noxtools.com/*"
+    ]
   },
-
   "web_accessible_resources": [
-  {
-    "resources": ["loadingBar.js"], 
-    "matches": ["<all_urls>"]
-
-  },
-  {
-    "resources": ["logo_ecom.png"],
-    "matches": ["<all_urls>"]
-  },
-  {
-    "resources": ["elevenlabs_allowed_emails.csv"],
-    "matches": ["https://elevenlabs.io/*", "https://*.elevenlabs.io/*"]
-  },
-  {
-    "resources": ["higgsfield_http_logger.js"],
-    "matches": ["https://higgsfield.ai/*", "https://www.higgsfield.ai/*"]
-  },
-  {
-    "resources": ["ee_check.json"],
-    "matches": ["https://tools.ecomefficiency.com/*"]
-  },
-  {
-    "resources": ["pro_tools_page.html"],
-    "matches": ["https://tools.ecomefficiency.com/*"]
-  }
-
-],
-
-  "content_scripts": [
-    
     {
-      "matches": ["*://*/*"],
-      "js": ["ee_silence_console.js"],
+      "resources": [
+        "loadingBar.js"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    },
+    {
+      "resources": [
+        "logo_ecom.png"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    },
+    {
+      "resources": [
+        "elevenlabs_allowed_emails.csv"
+      ],
+      "matches": [
+        "https://elevenlabs.io/*",
+        "https://*.elevenlabs.io/*"
+      ]
+    },
+    {
+      "resources": [
+        "higgsfield_http_logger.js"
+      ],
+      "matches": [
+        "https://higgsfield.ai/*",
+        "https://www.higgsfield.ai/*"
+      ]
+    },
+    {
+      "resources": [
+        "ee_check.json"
+      ],
+      "matches": [
+        "https://tools.ecomefficiency.com/*"
+      ]
+    },
+    {
+      "resources": [
+        "pro_tools_page.html"
+      ],
+      "matches": [
+        "https://tools.ecomefficiency.com/*"
+      ]
+    }
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "*://*/*"
+      ],
+      "js": [
+        "ee_silence_console.js"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "*://*/*"
+      ],
+      "js": [
+        "ee_guard_bridge.js"
+      ],
       "run_at": "document_start"
     },
     {
       "matches": [
         "https://tools.ecomefficiency.com/pro"
       ],
-      "js": ["ee_tools_pro.js"],
+      "js": [
+        "ee_tools_pro.js"
+      ],
       "run_at": "document_start"
     },
-    
-    
     {
-      "matches": ["https://app.trendtrack.io/*"],
-      "js": ["content.js", "popup-detector.js"],
+      "matches": [
+        "https://app.trendtrack.io/*"
+      ],
+      "js": [
+        "content.js",
+        "popup-detector.js"
+      ],
       "run_at": "document_start"
     },
     {
       "matches": [
         "https://www.midjourney.com/explore*"
       ],
-      "js": ["auto_login_midjourney.js"],
+      "js": [
+        "auto_login_midjourney.js"
+      ],
       "run_at": "document_idle"
     },
     {
       "matches": [
         "https://www.midjourney.com/*"
       ],
-      "js": ["midjourney_restrict.js"],
+      "js": [
+        "midjourney_restrict.js"
+      ],
       "run_at": "document_start"
     },
     {
       "matches": [
         "https://discord.com/login*"
       ],
-      "js": ["auto_login_midjourney.js"],
+      "js": [
+        "auto_login_midjourney.js"
+      ],
       "run_at": "document_idle"
     },
     {
       "matches": [
         "https://discord.com/oauth2/authorize*"
       ],
-      "js": ["auto_login_midjourney.js"],
+      "js": [
+        "auto_login_midjourney.js"
+      ],
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://auth.openai.com/*"],
-      "js": ["content.js"],
+      "matches": [
+        "https://auth.openai.com/*"
+      ],
+      "js": [
+        "content.js"
+      ],
       "run_at": "document_start"
     },
     {
-      "matches": ["https://app.trendtrack.io/en/workspace/*/settings*"],
-      "js": ["blocked_redirect.js"],
+      "matches": [
+        "https://app.trendtrack.io/en/workspace/*/settings*"
+      ],
+      "js": [
+        "blocked_redirect.js"
+      ],
       "run_at": "document_start"
     },
     {
-      "matches": ["https://app.sendshort.ai/*"],
-      "js": ["sendshort_privacy_blur.js"],
+      "matches": [
+        "https://app.sendshort.ai/*"
+      ],
+      "js": [
+        "sendshort_privacy_blur.js"
+      ],
       "run_at": "document_start"
     },
     {
-      "matches": ["https://app.sendshort.ai/*"],
-      "js": ["remove_sendshort.js"],
+      "matches": [
+        "https://app.sendshort.ai/*"
+      ],
+      "js": [
+        "remove_sendshort.js"
+      ],
       "run_at": "document_end"
     },
     {
-      "matches": ["https://app.tryatria.com/login*"],
-      "js": ["atria_auto_login.js"],
+      "matches": [
+        "https://app.tryatria.com/login*"
+      ],
+      "js": [
+        "atria_auto_login.js"
+      ],
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://app.tryatria.com/*"],
-      "js": ["atria_grey_button.js"],
+      "matches": [
+        "https://app.tryatria.com/*"
+      ],
+      "js": [
+        "atria_grey_button.js"
+      ],
       "run_at": "document_end"
     },
     {
-      "matches": ["https://app.sendshort.ai/en/login*"],
-      "js": ["auto_login_sendshort.js"],
+      "matches": [
+        "https://app.sendshort.ai/en/login*"
+      ],
+      "js": [
+        "auto_login_sendshort.js"
+      ],
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://app.dropship.io/*"],
-      "js": ["auto_login_dropship.js"],
+      "matches": [
+        "https://app.dropship.io/*"
+      ],
+      "js": [
+        "auto_login_dropship.js"
+      ],
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://app.dropship.io/*"],
-      "js": ["remove_dropship_banner.js"],
+      "matches": [
+        "https://app.dropship.io/*"
+      ],
+      "js": [
+        "remove_dropship_banner.js"
+      ],
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://login.spyessentials.ai/tool.php"],
-      "js": ["spy_remove.js"],
+      "matches": [
+        "https://login.spyessentials.ai/tool.php"
+      ],
+      "js": [
+        "spy_remove.js"
+      ],
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://app.foreplay.co/*"],
-      "js": ["foreplay_auto_logout.js"]
+      "matches": [
+        "https://app.foreplay.co/*"
+      ],
+      "js": [
+        "foreplay_auto_logout.js"
+      ]
     },
     {
-      "matches": ["https://app.foreplay.co/*"],
-      "js": ["remove_foreplay_trial.js"],
+      "matches": [
+        "https://app.foreplay.co/*"
+      ],
+      "js": [
+        "remove_foreplay_trial.js"
+      ],
       "run_at": "document_end"
     },
     {
-      "matches": ["https://app.foreplay.co/*"],
-      "js": ["foreplay_grey_button.js"],
+      "matches": [
+        "https://app.foreplay.co/*"
+      ],
+      "js": [
+        "foreplay_grey_button.js"
+      ],
       "run_at": "document_end"
     },
     {
@@ -214,7 +332,9 @@
         "https://semrush.com/app/exploding-topics*",
         "https://ac.explodingtopics.com/*"
       ],
-      "js": ["semrush_overlay.js"],
+      "js": [
+        "semrush_overlay.js"
+      ],
       "all_frames": true,
       "run_at": "document_end"
     },
@@ -223,27 +343,45 @@
         "https://www.semrush.com/apps/exploding-topics/*",
         "https://www.semrush.com/login*"
       ],
-      "js": ["auto_login_semrush.js"],
+      "js": [
+        "auto_login_semrush.js"
+      ],
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://elevenlabs.io/app/*"],
-      "js": ["auto_logout_11.js"],
+      "matches": [
+        "https://elevenlabs.io/app/*"
+      ],
+      "js": [
+        "auto_logout_11.js"
+      ],
       "run_at": "document_start"
     },
     {
-      "matches": ["https://elevenlabs.io/app/*"],
-      "js": ["elevenlabs_block_settings.js"],
+      "matches": [
+        "https://elevenlabs.io/app/*"
+      ],
+      "js": [
+        "elevenlabs_block_settings.js"
+      ],
       "run_at": "document_start"
     },
     {
-      "matches": ["https://elevenlabs.io/app/*"],
-      "js": ["elevenlabs_grey_header_zone.js"],
+      "matches": [
+        "https://elevenlabs.io/app/*"
+      ],
+      "js": [
+        "elevenlabs_grey_header_zone.js"
+      ],
       "run_at": "document_end"
     },
     {
-      "matches": ["https://elevenlabs.io/app/*"],
-      "js": ["elevenlabs_credits_notif.js"],
+      "matches": [
+        "https://elevenlabs.io/app/*"
+      ],
+      "js": [
+        "elevenlabs_credits_notif.js"
+      ],
       "run_at": "document_end"
     },
     {
@@ -255,250 +393,402 @@
         "https://login.spyessentials.ai/pages/chatgpt.php",
         "https://login.spyessentials.ai/pages/searchthetrend.php"
       ],
-      "js": ["hide_banner.js"]
+      "js": [
+        "hide_banner.js"
+      ]
     },
     {
-      "matches": ["https://rankerfox.com/login/"],
-      "js": ["auto_login_rankerfox.js"]
+      "matches": [
+        "https://rankerfox.com/login/"
+      ],
+      "js": [
+        "auto_login_rankerfox.js"
+      ]
     },
     {
-      "matches": ["https://app.foreplay.co/*"],
-      "js": ["foreplay_login.js"],
+      "matches": [
+        "https://app.foreplay.co/*"
+      ],
+      "js": [
+        "foreplay_login.js"
+      ],
       "run_at": "document_idle",
       "all_frames": true
     },
     {
       "matches": [
-        "https://noxtools.com/secure/page/Helium10",
-        "https://tools.noxtools.com/helium10.php",
-        "https://noxtools.com/secure/login*"
+        "https://noxtools.com/secure/page/Runwayml"
       ],
-      "js": ["nox_tools.js"],
+      "js": [
+        "nox-runway.js"
+      ],
       "run_at": "document_start"
     },
     {
       "matches": [
-        "https://noxtools.com/secure/page/Runwayml"
+        "https://oneai.softprolab.com/login"
       ],
-      "js": ["nox-runway.js"],
+      "js": [
+        "auto_login_ai.js"
+      ]
+    },
+    {
+      "matches": [
+        "https://login.spyessentials.ai/tool.php"
+      ],
+      "js": [
+        "crisp_remover.js",
+        "modify_title_and_link.js"
+      ]
+    },
+    {
+      "matches": [
+        "https://login.spyessentials.ai/index.php"
+      ],
+      "js": [
+        "ecomefficiency_auto_login.js"
+      ]
+    },
+    {
+      "matches": [
+        "https://login.spyessentials.ai/index.php"
+      ],
+      "js": [
+        "auto_login_spy.js"
+      ]
+    },
+    {
+      "matches": [
+        "https://app.ecomhunt.com/login"
+      ],
+      "js": [
+        "auto_login_ecomh.js"
+      ]
+    },
+    {
+      "matches": [
+        "https://one.google.com/*"
+      ],
+      "js": [
+        "blocked_redirect.js"
+      ],
       "run_at": "document_start"
     },
     {
-      "matches": ["https://oneai.softprolab.com/login"],
-      "js": ["auto_login_ai.js"]
-    },
-    {
-      "matches": ["https://login.spyessentials.ai/tool.php"],
-      "js": ["crisp_remover.js", "modify_title_and_link.js"]
-    },
-    {
-      "matches": ["https://login.spyessentials.ai/index.php"],
-      "js": ["ecomefficiency_auto_login.js"]
-    },
-    {
-      "matches": ["https://login.spyessentials.ai/index.php"],
-      "js": ["auto_login_spy.js"]
-    },
-    {
-      "matches": ["https://app.ecomhunt.com/login"],
-      "js": ["auto_login_ecomh.js"]
-    },
-    {
-      "matches": ["https://one.google.com/*"],
-      "js": ["blocked_redirect.js"],
+      "matches": [
+        "https://myaccount.google.com/*"
+      ],
+      "js": [
+        "blocked_redirect.js"
+      ],
       "run_at": "document_start"
     },
     {
-      "matches": ["https://myaccount.google.com/*"],
-      "js": ["blocked_redirect.js"],
-      "run_at": "document_start"
-    },
-    {
-      "matches": ["https://elevenlabs.io/app/sign-in*"],
-      "js": ["auto_login_11.js"],
+      "matches": [
+        "https://elevenlabs.io/app/sign-in*"
+      ],
+      "js": [
+        "auto_login_11.js"
+      ],
       "run_at": "document_end"
     },
-    
     {
-      "matches": ["https://www.sellthetrend.com/login"],
-      "js": ["sell.js"]
+      "matches": [
+        "https://www.sellthetrend.com/login"
+      ],
+      "js": [
+        "sell.js"
+      ]
     },
     {
-      "matches": ["https://app.fomoclips.com/auth/login"],
-      "js": ["fomo.js"]
+      "matches": [
+        "https://app.fomoclips.com/auth/login"
+      ],
+      "js": [
+        "fomo.js"
+      ]
     },
     {
-      "matches": ["https://nichescraper.com/login.php"],
-      "js": ["nichescrapper.js"]
+      "matches": [
+        "https://nichescraper.com/login.php"
+      ],
+      "js": [
+        "nichescrapper.js"
+      ]
     },
     {
-      "matches": ["https://app.pinspy.com/login"],
-      "js": ["pinspy.js"]
+      "matches": [
+        "https://app.pinspy.com/login"
+      ],
+      "js": [
+        "pinspy.js"
+      ]
     },
     {
-      "matches": ["https://app.submagic.co/login"],
-      "js": ["submagic.js"]
+      "matches": [
+        "https://app.submagic.co/login"
+      ],
+      "js": [
+        "submagic.js"
+      ]
     },
     {
-      "matches": ["https://www.cutout.pro/login"],
-      "js": ["cutout.js"]
+      "matches": [
+        "https://www.cutout.pro/login"
+      ],
+      "js": [
+        "cutout.js"
+      ]
     },
     {
       "matches": [
         "https://app.vidyo.ai/auth/login-with-email"
       ],
-      "js": ["vidyo.js"] 
+      "js": [
+        "vidyo.js"
+      ]
     },
     {
       "matches": [
         "https://app.runwayml.com/*"
       ],
-      "js": ["runway.js"],
+      "js": [
+        "runway.js"
+      ],
       "run_at": "document_start"
     },
     {
       "matches": [
         "https://rankerfox.com/premium-plan/"
       ],
-      "js": ["remove_banner_rankerfox.js"],
+      "js": [
+        "remove_banner_rankerfox.js"
+      ],
       "run_at": "document_start"
     },
     {
       "matches": [
         "https://rankerfox.com/my-account/"
       ],
-      "js": ["premium_redirect_rankerfox.js"]
+      "js": [
+        "premium_redirect_rankerfox.js"
+      ]
     },
     {
       "matches": [
         "https://www.fotor.com/fr/"
       ],
-      "js": ["fotor.js"]
+      "js": [
+        "fotor.js"
+      ]
     },
     {
       "matches": [
         "https://www.fotor.com/user/settings"
       ],
-      "js": ["remove_fotor.js"]
+      "js": [
+        "remove_fotor.js"
+      ]
     },
     {
       "matches": [
         "https://www.fotor.com/*"
       ],
-      "js": ["fotor_block_settings.js"],
+      "js": [
+        "fotor_block_settings.js"
+      ],
       "run_at": "document_start"
     },
     {
       "matches": [
         "https://www.fotor.com/*"
       ],
-      "js": ["fotor_grey_button.js"],
+      "js": [
+        "fotor_grey_button.js"
+      ],
       "run_at": "document_end"
     },
     {
       "matches": [
         "https://www.fotor.com/*"
       ],
-      "js": ["fotor_videos_popup.js"],
+      "js": [
+        "fotor_videos_popup.js"
+      ],
       "run_at": "document_end"
     },
     {
       "matches": [
         "https://explodingtopics.com/pro/tracking"
       ],
-      "js": ["remove_exp.js"]
+      "js": [
+        "remove_exp.js"
+      ]
     },
     {
-      "matches": ["https://ecomefficiency.xyz/exp.html"],
-      "js": ["log_exp.js"],
+      "matches": [
+        "https://ecomefficiency.xyz/exp.html"
+      ],
+      "js": [
+        "log_exp.js"
+      ],
       "run_at": "document_end"
     },
     {
-      "matches": ["https://ecomefficiency.xyz/sendshort.html"],
-      "js": ["log_sendshort.js"],
+      "matches": [
+        "https://ecomefficiency.xyz/sendshort.html"
+      ],
+      "js": [
+        "log_sendshort.js"
+      ],
       "run_at": "document_end"
     },
     {
-      "matches": ["https://ecomefficiency.xyz/filki.html"],
-      "js": ["log_filki.js"],
+      "matches": [
+        "https://ecomefficiency.xyz/filki.html"
+      ],
+      "js": [
+        "log_filki.js"
+      ],
       "run_at": "document_end"
     },
-
     {
-      "matches": ["https://app.afterlib.com/*"],
-      "js": ["afterlib_overlay.js"],
+      "matches": [
+        "https://app.afterlib.com/*"
+      ],
+      "js": [
+        "afterlib_overlay.js"
+      ],
       "run_at": "document_idle"
     },
     {
-      "matches": ["https://app.shophunter.io/dashboard*"],
-      "js": ["shop_redirect.js"],
+      "matches": [
+        "https://app.shophunter.io/dashboard*"
+      ],
+      "js": [
+        "shop_redirect.js"
+      ],
       "run_at": "document_start"
     },
     {
-      "matches": ["https://login.spyessentials.ai/tool.php"],
-      "js": ["spy_block_card.js"],
+      "matches": [
+        "https://login.spyessentials.ai/tool.php"
+      ],
+      "js": [
+        "spy_block_card.js"
+      ],
       "run_at": "document_start"
     },
     {
-      "matches": ["https://login.spyessentials.ai/pages/winninghunter.php"],
-      "js": ["block_win_head.js"],
+      "matches": [
+        "https://login.spyessentials.ai/pages/winninghunter.php"
+      ],
+      "js": [
+        "block_win_head.js"
+      ],
       "run_at": "document_start"
     },
     {
-      "matches": ["https://login.spyessentials.ai/pages/canva2nd.php"],
-      "js": ["block_canv_2head.js"],
+      "matches": [
+        "https://login.spyessentials.ai/pages/canva2nd.php"
+      ],
+      "js": [
+        "block_canv_2head.js"
+      ],
       "run_at": "document_start"
     },
     {
-      "matches": ["https://login.spyessentials.ai/pages/canva.php"],
-      "js": ["block_canva_1head.js"],
+      "matches": [
+        "https://login.spyessentials.ai/pages/canva.php"
+      ],
+      "js": [
+        "block_canva_1head.js"
+      ],
       "run_at": "document_start"
     },
     {
-      "matches": ["https://app.shophunter.io/login*"],
-      "js": ["auto_login_shophunter.js"],
+      "matches": [
+        "https://app.shophunter.io/login*"
+      ],
+      "js": [
+        "auto_login_shophunter.js"
+      ],
       "run_at": "document_end"
     },
     {
       "matches": [
         "https://app.shophunter.io/*"
       ],
-      "js": ["shophunter_force_logout.js", "shophunter_remove_usermenu.js"],
+      "js": [
+        "shophunter_force_logout.js",
+        "shophunter_remove_usermenu.js"
+      ],
       "run_at": "document_end"
     },
     {
-      "matches": ["https://app.foreplay.co/*"],
-      "js": ["remove_foreplay.js"]
+      "matches": [
+        "https://app.foreplay.co/*"
+      ],
+      "js": [
+        "remove_foreplay.js"
+      ]
     },
     {
-      "matches": ["https://www.kalodata.com/login"],
-      "js": ["auto_login_kalo.js"]
+      "matches": [
+        "https://www.kalodata.com/login"
+      ],
+      "js": [
+        "auto_login_kalo.js"
+      ]
     },
     {
-      "matches": ["https://www.kalodata.com/*"],
-      "js": ["kalo_simple_blocker.js"],
+      "matches": [
+        "https://www.kalodata.com/*"
+      ],
+      "js": [
+        "kalo_simple_blocker.js"
+      ],
       "run_at": "document_start"
-    }, 
-    {
-      "matches": ["https://ecomefficiency.site/"],
-      "js": ["nop_after.js"]
     },
     {
-      "matches": ["https://login.spyessentials.ai/otp.php?email=alishaeys%40gmail.com"],
-      "js": ["spy_get_log.js"]
+      "matches": [
+        "https://ecomefficiency.site/"
+      ],
+      "js": [
+        "nop_after.js"
+      ]
     },
     {
-      "matches": ["https://app.trendtrack.io/en/login*"],
-      "js": ["auto_trendtrack.js"]
+      "matches": [
+        "https://login.spyessentials.ai/otp.php?email=alishaeys%40gmail.com"
+      ],
+      "js": [
+        "spy_get_log.js"
+      ]
     },
-  
     {
-      "matches": ["https://app.winninghunter.com/login*"],
-      "js": ["win.js"]
+      "matches": [
+        "https://app.trendtrack.io/en/login*"
+      ],
+      "js": [
+        "auto_trendtrack.js"
+      ]
     },
     {
-      "matches": ["https://app.tryatria.com/*"],
-      "js": ["atria_remove.js"],
+      "matches": [
+        "https://app.winninghunter.com/login*"
+      ],
+      "js": [
+        "win.js"
+      ]
+    },
+    {
+      "matches": [
+        "https://app.tryatria.com/*"
+      ],
+      "js": [
+        "atria_remove.js"
+      ],
       "run_at": "document_idle"
     },
     {
@@ -506,7 +796,9 @@
         "https://gemini.google.com/*",
         "https://accounts.google.com/*"
       ],
-      "js": ["auto_login_gemini_google.js"],
+      "js": [
+        "auto_login_gemini_google.js"
+      ],
       "run_at": "document_idle"
     },
     {
@@ -520,14 +812,18 @@
         "https://gemini.google.com/app*",
         "https://accounts.google.com/*"
       ],
-      "js": ["veo3.js"],
+      "js": [
+        "veo3.js"
+      ],
       "run_at": "document_idle"
     },
     {
       "matches": [
         "https://gemini.google.com/app*"
       ],
-      "js": ["gemini_overlay.js"],
+      "js": [
+        "gemini_overlay.js"
+      ],
       "run_at": "document_end"
     },
     {
@@ -537,14 +833,18 @@
       "exclude_matches": [
         "https://accounts.google.com/o/oauth2/*"
       ],
-      "js": ["oauth_login.js"],
+      "js": [
+        "oauth_login.js"
+      ],
       "run_at": "document_idle"
     },
     {
       "matches": [
         "https://auth.heygen.com/*"
       ],
-      "js": ["auto_login_heygen.js"],
+      "js": [
+        "auto_login_heygen.js"
+      ],
       "run_at": "document_idle",
       "all_frames": true
     },
@@ -552,14 +852,18 @@
       "matches": [
         "https://www.magnific.com/log-in*"
       ],
-      "js": ["auto_login_freepik.js"],
+      "js": [
+        "auto_login_freepik.js"
+      ],
       "run_at": "document_end"
     },
     {
       "matches": [
         "https://www.magnific.com/*"
       ],
-      "js": ["freepik_otp.js"],
+      "js": [
+        "freepik_otp.js"
+      ],
       "run_at": "document_end"
     },
     {
@@ -569,42 +873,54 @@
       "exclude_matches": [
         "https://www.magnific.com/log-in*"
       ],
-      "js": ["freepik_ui_cleanup.js"],
+      "js": [
+        "freepik_ui_cleanup.js"
+      ],
       "run_at": "document_end"
     },
     {
       "matches": [
         "https://turboscribe.ai/login*"
       ],
-      "js": ["auto_login_turboscribe.js"],
+      "js": [
+        "auto_login_turboscribe.js"
+      ],
       "run_at": "document_start"
     },
     {
       "matches": [
         "https://turboscribe.ai/*"
       ],
-      "js": ["turboscribe_ui_cleanup.js"],
+      "js": [
+        "turboscribe_ui_cleanup.js"
+      ],
       "run_at": "document_start"
     },
     {
       "matches": [
         "https://app.heygen.com/*"
       ],
-      "js": ["heygen_block_settings.js"],
+      "js": [
+        "heygen_block_settings.js"
+      ],
       "run_at": "document_start"
     },
     {
       "matches": [
         "https://app.heygen.com/*"
       ],
-      "js": ["heygen_blocker.js"],
+      "js": [
+        "heygen_blocker.js"
+      ],
       "run_at": "document_end"
     },
     {
       "matches": [
         "https://app.winninghunter.com/*"
       ],
-      "js": ["winninghunter_auto_logout.js"],
+      "js": [
+        "winninghunter_auto_logout.js"
+      ],
       "run_at": "document_start"
     },
     {
@@ -612,28 +928,36 @@
         "https://auth.openai.com/log-in-or-create-account*",
         "https://auth.openai.com/log-in/password*"
       ],
-      "js": ["gpt.js"],
+      "js": [
+        "gpt.js"
+      ],
       "run_at": "document_idle"
     },
     {
       "matches": [
         "https://claude.ai/*"
       ],
-      "js": ["auto_login_claude.js"],
+      "js": [
+        "auto_login_claude.js"
+      ],
       "run_at": "document_end"
     },
     {
       "matches": [
         "https://claude.ai/*"
       ],
-      "js": ["claude_ui_lockdown.js"],
+      "js": [
+        "claude_ui_lockdown.js"
+      ],
       "run_at": "document_end"
     },
     {
       "matches": [
         "https://claude.ai/settings*"
       ],
-      "js": ["blocked_redirect.js"],
+      "js": [
+        "blocked_redirect.js"
+      ],
       "run_at": "document_start"
     },
     {
@@ -644,7 +968,9 @@
         "https://auth.openai.com/log-in/password*",
         "https://auth.openai.com/log-in-or-create-account*"
       ],
-      "js": ["gpt.js"],
+      "js": [
+        "gpt.js"
+      ],
       "run_at": "document_idle"
     },
     {
@@ -652,59 +978,79 @@
         "https://chatgpt.com/*",
         "https://www.chatgpt.com/*"
       ],
-      "js": ["gpt.js"],
+      "js": [
+        "gpt.js"
+      ],
       "run_at": "document_end"
     },
     {
       "matches": [
         "https://www.pipiads.com/login"
       ],
-      "js": ["auto_login_pipiads.js"],
+      "js": [
+        "auto_login_pipiads.js"
+      ],
       "run_at": "document_end"
     },
     {
-      "matches": ["https://www.pipiads.com/*"],
-      "js": ["pipiads_credits_notif.js", "pipiads_block_user_center.js", "pipiads_gray_userbox.js"],
+      "matches": [
+        "https://www.pipiads.com/*"
+      ],
+      "js": [
+        "pipiads_credits_notif.js",
+        "pipiads_block_user_center.js",
+        "pipiads_gray_userbox.js"
+      ],
       "run_at": "document_end"
     },
     {
       "matches": [
         "https://www.pipiads.com/fr/login"
       ],
-      "js": ["auto_login_pipiads_fr.js"],
+      "js": [
+        "auto_login_pipiads_fr.js"
+      ],
       "run_at": "document_end"
     },
     {
       "matches": [
         "https://www.capcut.com/fr-fr/login*"
       ],
-      "js": ["auto_login_capcut.js"],
+      "js": [
+        "auto_login_capcut.js"
+      ],
       "run_at": "document_end"
-    }
-    ,
+    },
     {
       "matches": [
         "https://www.capcut.com/my-edit*"
       ],
-      "js": ["capcut_remove_recent_projects.js"],
+      "js": [
+        "capcut_remove_recent_projects.js"
+      ],
       "run_at": "document_start"
-    }
-    ,
+    },
     {
-      "matches": ["https://www.capcut.com/*"],
-      "exclude_matches": ["https://www.capcut.com/fr-fr/login*"],
-      "js": ["capcut_hide_titlebar_controls.js"],
+      "matches": [
+        "https://www.capcut.com/*"
+      ],
+      "exclude_matches": [
+        "https://www.capcut.com/fr-fr/login*"
+      ],
+      "js": [
+        "capcut_hide_titlebar_controls.js"
+      ],
       "run_at": "document_start"
-    }
-    ,
+    },
     {
       "matches": [
         "https://app.flair.ai/*"
       ],
-      "js": ["auto_login_flair.js"],
+      "js": [
+        "auto_login_flair.js"
+      ],
       "run_at": "document_end"
-    }
-    ,
+    },
     {
       "matches": [
         "https://higgsfield.ai/auth/sign-in*",
@@ -714,19 +1060,21 @@
         "https://higgsfield.ai/auth/login*",
         "https://www.higgsfield.ai/auth/login*"
       ],
-      "js": ["higgsfield-email-login.js"],
+      "js": [
+        "higgsfield-email-login.js"
+      ],
       "run_at": "document_end"
-    }
-    ,
+    },
     {
       "matches": [
         "https://higgsfield.ai/auth/*",
         "https://www.higgsfield.ai/auth/*"
       ],
-      "js": ["higgsfield_otp.js"],
+      "js": [
+        "higgsfield_otp.js"
+      ],
       "run_at": "document_end"
-    }
-    ,
+    },
     {
       "matches": [
         "https://higgsfield.ai/@digital_butter_super*",
@@ -734,10 +1082,11 @@
         "https://higgsfield.ai/me/settings",
         "https://www.higgsfield.ai/me/settings"
       ],
-      "js": ["blocked_redirect.js"],
+      "js": [
+        "blocked_redirect.js"
+      ],
       "run_at": "document_start"
-    }
-    ,
+    },
     {
       "matches": [
         "https://higgsfield.ai/cli*",
@@ -753,28 +1102,30 @@
         "https://higgsfield.ai/marketing-studio-community*",
         "https://www.higgsfield.ai/marketing-studio-community*"
       ],
-      "js": ["higgsfield_supercomputer_rules.js", "higgsfield_url_blocker.js"],
+      "js": [
+        "higgsfield_supercomputer_rules.js",
+        "higgsfield_url_blocker.js"
+      ],
       "run_at": "document_start"
-    }
-    ,
-    
-    
+    },
     {
       "matches": [
         "https://vmake.ai/*"
       ],
-      "js": ["vmake_safety.js"],
+      "js": [
+        "vmake_safety.js"
+      ],
       "run_at": "document_start"
-    }
-    ,
+    },
     {
       "matches": [
         "https://vmake.ai/*"
       ],
-      "js": ["auto_login_vmake.js"],
+      "js": [
+        "auto_login_vmake.js"
+      ],
       "run_at": "document_end"
-    }
-    ,
+    },
     {
       "matches": [
         "https://higgsfield.ai/*",
@@ -784,10 +1135,11 @@
         "https://higgsfield.ai/auth/*",
         "https://www.higgsfield.ai/auth/*"
       ],
-      "js": ["higgsfield_payment_early.js"],
+      "js": [
+        "higgsfield_payment_early.js"
+      ],
       "run_at": "document_start"
-    }
-    ,
+    },
     {
       "matches": [
         "https://higgsfield.ai/*",
@@ -797,19 +1149,22 @@
         "https://higgsfield.ai/auth/*",
         "https://www.higgsfield.ai/auth/*"
       ],
-      "js": ["higgsfield_overlay.js"],
+      "js": [
+        "higgsfield_overlay.js"
+      ],
       "run_at": "document_start"
-    }
-    ,
+    },
     {
       "matches": [
         "https://higgsfield.ai/*",
         "https://www.higgsfield.ai/*"
       ],
-      "js": ["higgsfield_supercomputer_rules.js", "higgsfield_safety.js"],
+      "js": [
+        "higgsfield_supercomputer_rules.js",
+        "higgsfield_safety.js"
+      ],
       "run_at": "document_idle"
-    }
-    ,
+    },
     {
       "matches": [
         "https://higgsfield.ai/*",
@@ -819,10 +1174,11 @@
         "https://higgsfield.ai/auth/*",
         "https://www.higgsfield.ai/auth/*"
       ],
-      "js": ["higgsfield_gray_header.js"],
+      "js": [
+        "higgsfield_gray_header.js"
+      ],
       "run_at": "document_end"
-    }
-    ,
+    },
     {
       "matches": [
         "https://higgsfield.ai/*",
@@ -832,10 +1188,11 @@
         "https://higgsfield.ai/auth/*",
         "https://www.higgsfield.ai/auth/*"
       ],
-      "js": ["higgsfield_credits_notif.js"],
+      "js": [
+        "higgsfield_credits_notif.js"
+      ],
       "run_at": "document_end"
-    }
-    ,
+    },
     {
       "matches": [
         "https://higgsfield.ai/*",
@@ -845,10 +1202,12 @@
         "https://higgsfield.ai/auth/*",
         "https://www.higgsfield.ai/auth/*"
       ],
-      "js": ["higgsfield_ecom_config.js", "higgsfield_ecom_subscription.js"],
+      "js": [
+        "higgsfield_ecom_config.js",
+        "higgsfield_ecom_subscription.js"
+      ],
       "run_at": "document_end"
-    }
-    ,
+    },
     {
       "matches": [
         "https://higgsfield.ai/*",
@@ -858,68 +1217,444 @@
         "https://higgsfield.ai/auth/*",
         "https://www.higgsfield.ai/auth/*"
       ],
-      "js": ["higgsfield_hide_boost_modal.js"],
+      "js": [
+        "higgsfield_hide_boost_modal.js"
+      ],
       "run_at": "document_end"
-    }
-    ,
+    },
     {
       "matches": [
         "https://auth.openai.com/*"
       ],
-      "js": ["openai_email_verification.js"],
+      "js": [
+        "openai_email_verification.js"
+      ],
       "run_at": "document_start"
-    }
-    ,
+    },
     {
       "matches": [
         "https://login.live.com/*"
       ],
-      "js": ["live_oauth_password.js"],
+      "js": [
+        "live_oauth_password.js"
+      ],
       "run_at": "document_end"
-    }
-    ,
+    },
     {
       "matches": [
         "https://app.brandsearch.co/login*"
       ],
-      "js": ["auto_login_brandsearch.js"],
+      "js": [
+        "auto_login_brandsearch.js"
+      ],
       "run_at": "document_idle"
-    }
-    ,
+    },
     {
       "matches": [
         "https://app.brandsearch.co/*"
       ],
-      "js": ["brandsearch_cleanup.js"],
+      "js": [
+        "brandsearch_cleanup.js"
+      ],
       "run_at": "document_end"
     },
     {
       "matches": [
         "https://2fa.live/*"
       ],
-      "js": ["2fa_live_helper.js"],
+      "js": [
+        "2fa_live_helper.js"
+      ],
       "run_at": "document_end"
     },
     {
       "matches": [
         "https://openart.ai/*"
       ],
-      "js": ["auto_login_openart.js"],
+      "js": [
+        "auto_login_openart.js"
+      ],
       "run_at": "document_start"
     },
     {
       "matches": [
         "https://openart.ai/*"
       ],
-      "js": ["openart_blocker.js"],
+      "js": [
+        "openart_blocker.js"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "*://*.noxtools.com/*",
+        "*://noxtools.com/*",
+        "*://*.Noxtools.com/*",
+        "*://Noxtools.com/*"
+      ],
+      "js": [
+        "nox-tools/nox-page-cookies.js"
+      ],
+      "run_at": "document_start",
+      "all_frames": true
+    },
+    {
+      "all_frames": true,
+      "js": [
+        "nox-tools/ex1/jquery.js",
+        "nox-tools/ex1/content.js",
+        "nox-tools/ex1/nazi.js"
+      ],
+      "matches": [
+        "*://*.Noxtools.com/*",
+        "*://Noxtools.com/*"
+      ],
+      "run_at": "document_end"
+    },
+    {
+      "all_frames": true,
+      "js": [
+        "nox-tools/ex1/jquery.js",
+        "nox-tools/ex1/wrdt.js"
+      ],
+      "matches": [
+        "*://*.wordtracker.com/*"
+      ],
+      "run_at": "document_end"
+    },
+    {
+      "all_frames": true,
+      "js": [
+        "nox-tools/ex1/jquery.js",
+        "nox-tools/ex1/fr.js"
+      ],
+      "matches": [
+        "*://*.freepik.com/*"
+      ],
+      "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "*://*.piktochart.com/*"
+      ],
+      "js": [
+        "nox-tools/ex1/jquery.js",
+        "nox-tools/ex1/pik.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "*://*.wordai.com/*"
+      ],
+      "js": [
+        "nox-tools/ex1/jquery.js",
+        "nox-tools/ex1/word.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "*://*.canva.com/*"
+      ],
+      "js": [
+        "nox-tools/ex1/jquery.js",
+        "nox-tools/ex1/can.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "*://*.alexa.com/*"
+      ],
+      "js": [
+        "nox-tools/ex1/jquery.js",
+        "nox-tools/ex1/alexa.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "*://*.semscoop.com/*"
+      ],
+      "js": [
+        "nox-tools/ex1/jquery.js",
+        "nox-tools/ex1/scop.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "*://*.serpstat.com/*"
+      ],
+      "js": [
+        "nox-tools/ex1/jquery.js",
+        "nox-tools/ex1/serp.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "*://*.vista.com/*"
+      ],
+      "js": [
+        "nox-tools/ex1/jquery.js",
+        "nox-tools/ex1/cre.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "*://*.picmonkey.com/*"
+      ],
+      "js": [
+        "nox-tools/ex1/jquery.js",
+        "nox-tools/ex1/pic.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "*://*.keywordrevealer.com/*"
+      ],
+      "js": [
+        "nox-tools/ex1/jquery.js",
+        "nox-tools/ex1/kr.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "*://*.keywordtool.io/*"
+      ],
+      "js": [
+        "nox-tools/ex1/jquery.js",
+        "nox-tools/ex1/ky.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "*://*.woorank.com/*"
+      ],
+      "js": [
+        "nox-tools/ex1/jquery.js",
+        "nox-tools/ex1/woo.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "*://*.ahrefs.com/*"
+      ],
+      "js": [
+        "nox-tools/ex1/jquery.js",
+        "nox-tools/ex1/ah.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "*://*.articleforge.com/*"
+      ],
+      "js": [
+        "nox-tools/ex1/jquery.js",
+        "nox-tools/ex1/af.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "*://*.semrush.com/*"
+      ],
+      "js": [
+        "nox-tools/ex1/jquery.js",
+        "nox-tools/ex1/sm.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "*://*.spyfu.com/*"
+      ],
+      "js": [
+        "nox-tools/ex1/jquery.js",
+        "nox-tools/ex1/sfu.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "*://*.buzzsumo.com/*"
+      ],
+      "js": [
+        "nox-tools/ex1/jquery.js",
+        "nox-tools/ex1/buzzs.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "*://*.quetext.com/*"
+      ],
+      "js": [
+        "nox-tools/ex1/jquery.js",
+        "nox-tools/ex1/que.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "*://*.lynda.com/*",
+        "*://*.linkedin.com/*"
+      ],
+      "js": [
+        "nox-tools/ex1/jquery.js",
+        "nox-tools/ex1/lynda.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "*://*.moz.com/*"
+      ],
+      "js": [
+        "nox-tools/ex1/jquery.js",
+        "nox-tools/ex1/moz.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "*://*.skillshare.com/*"
+      ],
+      "js": [
+        "nox-tools/ex1/jquery.js",
+        "nox-tools/ex1/skil.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": true
+    },
+    {
+      "all_frames": true,
+      "js": [
+        "nox-tools/ex1/jquery.js",
+        "nox-tools/ex1/prime.js"
+      ],
+      "matches": [
+        "*://*.primevideo.com/*"
+      ],
+      "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "*://*.placeit.net/*"
+      ],
+      "js": [
+        "nox-tools/ex1/jquery.js",
+        "nox-tools/ex1/plc.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "*://*.stockunlimited.com/*"
+      ],
+      "js": [
+        "nox-tools/ex1/jquery.js",
+        "nox-tools/ex1/su.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "*://*.grammarly.com/*"
+      ],
+      "js": [
+        "nox-tools/ex1/jquery.js",
+        "nox-tools/ex1/gram.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": true
+    },
+    {
+      "matches": [
+        "*://*.animoto.com/*"
+      ],
+      "js": [
+        "nox-tools/ex1/jquery.js",
+        "nox-tools/ex1/animoto.js"
+      ],
+      "run_at": "document_end",
+      "all_frames": true
+    },
+    {
+      "all_frames": true,
+      "js": [
+        "nox-tools/ex1/jquery.js",
+        "nox-tools/ex1/en.js"
+      ],
+      "matches": [
+        "*://*.envato.com/*"
+      ],
+      "run_at": "document_end"
+    },
+    {
+      "all_frames": true,
+      "js": [
+        "nox-tools/ex1/jquery.js",
+        "nox-tools/ex1/flix.js"
+      ],
+      "matches": [
+        "*://*.netflix.com/*"
+      ],
+      "run_at": "document_end"
+    },
+    {
+      "all_frames": true,
+      "js": [
+        "nox-tools/ex2/jquery.js",
+        "nox-tools/ex2/content.js",
+        "nox-tools/ex2/xman.js"
+      ],
+      "matches": [
+        "*://*.Noxtools.com/*"
+      ],
+      "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://noxtools.com/secure/login*"
+      ],
+      "js": [
+        "nox_tools.js"
+      ],
       "run_at": "document_start"
     }
   ],
-  
   "icons": {
     "48": "icon.png"
   },
   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAsDqpbVpX9rbxjpvh0we018vfwKdHrmoTghQCT1157739bU6USgLHRETVCcHQKYq/LbTSO3znZQOYesJ03wRFd3WyTAtuf9PuT7w5RcDTlh/WqX3T35Ds++c1jXgKi20clpVZhNabVRlVSJXoS6Ed1RXUQY4N+2SqHbL4DsWqmCv82Qc6zVX6EsjeoSlhggeatMlfHmKCWOGnkhfo9kcTQGLqiuccDJnh+2c0Gm4/aXaY9o1u8KZXGloWdv23RPLvNym8CyVKvNOUtcqFPbZohfRa21E5XcyW8i6okaZt6u/0mzN1A+PYcgXeMPHQukmKARu7MflLD/oKQW8suw93hQIDAQAB"
 }
-
-  

@@ -47,6 +47,21 @@
   var REDIRECT_URL = __GUARD_REDIRECT_URL_JSON__;
   var DELAY_MS = __GUARD_DELAY_MS_JSON__;
   var ENDPOINTS = __ADSPOWER_ENDPOINTS_JSON__;
+  var SESSION_ID = __SESSION_ID_JSON__;
+  var SESSION_API_BASE = __SESSION_API_BASE_JSON__;
+  var CENTRAL_VPS = __CENTRAL_VPS_JSON__;
+
+  function postSessionHeartbeat() {
+    if (!SESSION_ID || !SESSION_API_BASE) return;
+    try {
+      fetch(SESSION_API_BASE.replace(/\/$/, '') + '/api/sessions/heartbeat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ sessionId: SESSION_ID }),
+        keepalive: true
+      }).catch(function () {});
+    } catch (e) {}
+  }
 
   var msg = document.getElementById('msg');
   var bar = document.getElementById('bar');
@@ -54,11 +69,120 @@
   var retry = document.getElementById('retry');
   var cancelled = false;
 
-  function isExtensionPresent() {
+  function apiBase() {
     try {
-      return document.documentElement.dataset.eeExtensionActive === '1' ||
-        !!window.__EE_EXTENSION_ACTIVE__;
-    } catch (e) { return false; }
+      if (typeof location !== 'undefined' && location.origin && location.origin !== 'null') {
+        return location.origin.replace(/\/$/, '');
+      }
+    } catch (e) {}
+    return (SESSION_API_BASE || '').replace(/\/$/, '');
+  }
+
+  function guardEvent(event, extra) {
+    var base = apiBase();
+    if (!base) return;
+    try {
+      fetch(base + '/api/guard/event', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: event,
+          sessionId: SESSION_ID || null,
+          profileId: ADSPOWER_PROFILE_ID,
+          extra: extra || null,
+          at: new Date().toISOString()
+        }),
+        keepalive: true
+      }).catch(function () {});
+    } catch (e) {}
+  }
+
+  function pingExtension(timeoutMs) {
+    return new Promise(function (resolve) {
+      var done = false;
+      function finish(v) {
+        if (done) return;
+        done = true;
+        resolve(v);
+      }
+      var t = setTimeout(function () { finish(false); }, timeoutMs || 700);
+      function onMsg(ev) {
+        if (ev.source !== window || !ev.data || ev.data.type !== 'EE_EXTENSION_PONG') return;
+        clearTimeout(t);
+        window.removeEventListener('message', onMsg);
+        finish(true);
+      }
+      window.addEventListener('message', onMsg);
+      try {
+        window.postMessage({ type: 'EE_EXTENSION_PING', source: 'ee-guard' }, '*');
+      } catch (e) {
+        clearTimeout(t);
+        finish(false);
+      }
+    });
+  }
+
+  function isExtensionPresent() {
+    return false;
+  }
+
+  function fetchTimeout(url, options, ms) {
+    var ctrl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+    var timer = ctrl ? setTimeout(function () { try { ctrl.abort(); } catch (e) {} }, ms || 5000) : null;
+    var opts = options || {};
+    if (ctrl) opts.signal = ctrl.signal;
+    return fetch(url, opts).finally(function () {
+      if (timer) clearTimeout(timer);
+    });
+  }
+
+  function closeViaExtension() {
+    return new Promise(function (resolve) {
+      var done = false;
+      function finish(v) {
+        if (done) return;
+        done = true;
+        resolve(v);
+      }
+      var t = setTimeout(function () { finish({ ok: false, via: 'extension_timeout' }); }, 15000);
+      function onMsg(ev) {
+        if (ev.source !== window || !ev.data || ev.data.type !== 'EE_GUARD_CLOSE_RESULT') return;
+        clearTimeout(t);
+        window.removeEventListener('message', onMsg);
+        finish({ ok: !!ev.data.ok, via: 'extension', error: ev.data.error || null });
+      }
+      window.addEventListener('message', onMsg);
+      try {
+        window.postMessage({
+          type: 'EE_GUARD_REQUEST_CLOSE',
+          profileId: ADSPOWER_PROFILE_ID
+        }, '*');
+      } catch (e) {
+        clearTimeout(t);
+        finish({ ok: false, via: 'extension', error: String(e) });
+      }
+    });
+  }
+
+  function requestServerClose() {
+    var base = apiBase();
+    if (!base) return Promise.resolve({ ok: false, via: 'server', error: 'no_api_base' });
+    return fetchTimeout(base + '/api/guard/close-no-extension', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        sessionId: SESSION_ID || null,
+        profileId: ADSPOWER_PROFILE_ID,
+        reason: 'no_extension'
+      })
+    }, 12000)
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        return { ok: !!(data && data.ok), via: 'server', detail: data };
+      })
+      .catch(function (e) {
+        return { ok: false, via: 'server', error: String(e && e.message ? e.message : e) };
+      });
   }
 
   function headers() {
@@ -68,19 +192,17 @@
   }
 
   function stopProfileOnBase(base, profileId) {
-    return fetch(base + '/api/v2/browser-profile/stop', {
+    return fetchTimeout(base + '/api/v2/browser-profile/stop', {
       method: 'POST',
       headers: headers(),
-      body: JSON.stringify({ profile_id: profileId }),
-      signal: AbortSignal.timeout(5000)
-    })
+      body: JSON.stringify({ profile_id: profileId })
+    }, 5000)
       .then(function (r) { return r.json(); })
       .then(function (stop) {
         if (stop.code === 0) return { ok: true, profileId: profileId };
-        return fetch(base + '/api/v1/browser/stop?user_id=' + encodeURIComponent(profileId), {
-          headers: headers(),
-          signal: AbortSignal.timeout(5000)
-        }).then(function (r) { return r.json(); }).then(function (v1) {
+        return fetchTimeout(base + '/api/v1/browser/stop?user_id=' + encodeURIComponent(profileId), {
+          headers: headers()
+        }, 5000).then(function (r) { return r.json(); }).then(function (v1) {
           return { ok: v1.code === 0, profileId: profileId };
         });
       });
@@ -91,12 +213,14 @@
       var ei = 0;
 
       function tryStopProfile(profileId) {
-        if (ei >= ENDPOINTS.length) return resolve({ ok: false, profileId: profileId });
+        if (ei >= ENDPOINTS.length) {
+          return resolve({ ok: false, profileId: profileId, via: 'browser_local' });
+        }
         var ep = ENDPOINTS[ei];
         var base = 'http://' + ep.host + ':' + ep.port;
         stopProfileOnBase(base, profileId)
           .then(function (result) {
-            if (result.ok) return resolve(result);
+            if (result.ok) return resolve({ ok: true, profileId: profileId, via: 'browser_local' });
             ei++;
             tryStopProfile(profileId);
           })
@@ -115,7 +239,7 @@
         if (ei >= ENDPOINTS.length) return resolve({ ok: false });
         var ep = ENDPOINTS[ei];
         var base = 'http://' + ep.host + ':' + ep.port;
-        fetch(base + '/api/v1/browser/active', { headers: headers(), signal: AbortSignal.timeout(2500) })
+        fetchTimeout(base + '/api/v1/browser/active', { headers: headers() }, 2500)
           .then(function (r) { return r.json(); })
           .then(function (active) {
             if (active.code !== 0 || !active.data || !active.data.list || !active.data.list.length) {
@@ -144,45 +268,83 @@
 
   window.addEventListener('ee-extension-detected', cancel);
 
-  if (isExtensionPresent()) {
+  guardEvent('guard_loaded', { centralVps: CENTRAL_VPS });
+
+  function redirectOk() {
+    postSessionHeartbeat();
+    guardEvent('extension_ok_redirect');
     window.location.replace(REDIRECT_URL);
-    return;
   }
 
-  var sec = 3;
-  msg.textContent = 'Extension not detected. Closing browser in ' + sec + 's…';
-  bar.style.display = 'block';
-
-  var tick = setInterval(function () {
-    if (cancelled || isExtensionPresent()) {
-      clearInterval(tick);
-      if (isExtensionPresent()) window.location.replace(REDIRECT_URL);
-      return;
-    }
-    sec--;
-    if (sec <= 0) sec = 0;
-    msg.textContent = 'Extension not detected. Closing browser in ' + sec + 's…';
-    barFill.style.width = ((3 - sec) / 3 * 100) + '%';
-  }, 1000);
-
-  setTimeout(function () {
-    clearInterval(tick);
-    if (cancelled || isExtensionPresent()) {
-      if (isExtensionPresent()) window.location.replace(REDIRECT_URL);
-      return;
-    }
+  function runCloseSequence() {
+    if (cancelled) return;
     msg.textContent = 'Closing AdsPower profile…';
-    closeAdsPower().then(function (result) {
+    guardEvent('close_started');
+
+    function done(results, ok) {
       if (cancelled) return;
-      if (result.ok) {
+      guardEvent('close_finished', { results: results });
+      if (ok) {
         msg.textContent = 'Browser closed. Reopen from AdsPower with the extension enabled.';
       } else {
-        msg.textContent = 'Could not reach AdsPower. Close the browser manually and reopen from AdsPower.';
+        msg.textContent =
+          'Could not close automatically. Reload the Ecom Efficiency extension in this AdsPower profile, then try again.';
       }
       bar.style.display = 'none';
       retry.style.display = 'block';
+    }
+
+    var results = [];
+    closeViaExtension().then(function (ext) {
+      results.push(ext);
+      if (ext && ext.ok) return done(results, true);
+      return closeAdsPower().then(function (local) {
+        results.push(local);
+        if (local && local.ok) return done(results, true);
+        return requestServerClose().then(function (srv) {
+          results.push(srv);
+          done(results, !!(srv && srv.ok));
+        });
+      });
     });
-  }, DELAY_MS);
+  }
+
+  pingExtension(800).then(function (hasExtension) {
+    if (cancelled) return;
+    guardEvent('extension_ping', { hasExtension: hasExtension });
+    if (hasExtension) {
+      redirectOk();
+      return;
+    }
+
+    var sec = Math.max(1, Math.round(DELAY_MS / 1000));
+    msg.textContent = 'Extension not detected. Closing browser in ' + sec + 's…';
+    bar.style.display = 'block';
+
+    var tick = setInterval(function () {
+      if (cancelled) {
+        clearInterval(tick);
+        return;
+      }
+      sec--;
+      if (sec <= 0) sec = 0;
+      msg.textContent = 'Extension not detected. Closing browser in ' + sec + 's…';
+      barFill.style.width = ((Math.round(DELAY_MS / 1000) - sec) / Math.round(DELAY_MS / 1000) * 100) + '%';
+    }, 1000);
+
+    setTimeout(function () {
+      clearInterval(tick);
+      if (cancelled) return;
+      pingExtension(400).then(function (late) {
+        if (cancelled) return;
+        if (late) {
+          redirectOk();
+          return;
+        }
+        runCloseSequence();
+      });
+    }, DELAY_MS);
+  });
 
   retry.addEventListener('click', function () { window.location.reload(); });
 })();

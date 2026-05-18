@@ -18,10 +18,13 @@ const buildKeyframes = (
   return keyframes;
 };
 
+type BlurTextAs = "p" | "h1" | "h2" | "h3" | "span";
+
 type BlurTextProps = {
   text?: string;
   delay?: number;
   className?: string;
+  as?: BlurTextAs;
   animateBy?: "words" | "chars";
   direction?: "top" | "bottom";
   threshold?: number;
@@ -37,6 +40,7 @@ export default function BlurText({
   text = "",
   delay = 200,
   className = "",
+  as: Tag = "p",
   animateBy = "words",
   direction = "top",
   threshold = 0.1,
@@ -50,7 +54,7 @@ export default function BlurText({
   const elements =
     animateBy === "words" ? text.split(" ") : text.split("");
   const [inView, setInView] = useState(false);
-  const ref = useRef<HTMLParagraphElement>(null);
+  const ref = useRef<HTMLElement>(null);
 
   useEffect(() => {
     if (!ref.current) return;
@@ -100,7 +104,7 @@ export default function BlurText({
   );
 
   return (
-    <p ref={ref} className={`blur-text ${className} flex flex-wrap`}>
+    <Tag ref={ref as never} className={`blur-text ${className} flex flex-wrap`}>
       {elements.map((segment, index) => {
         const animateKeyframes = buildKeyframes(
           fromSnapshot as Record<string, unknown>,
@@ -130,6 +134,6 @@ export default function BlurText({
           </motion.span>
         );
       })}
-    </p>
+    </Tag>
   );
 }

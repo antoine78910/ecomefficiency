@@ -2,8 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
   try {
-    // Fetch active sessions from the external API
-    const response = await fetch('http://193.70.34.101:20006/api/sessions/active', {
+    const sessionApiBase =
+      process.env.TRENDTRACK_SESSION_API_URL?.replace(/\/$/, "") ||
+      "http://193.70.34.101:20006";
+
+    const response = await fetch(`${sessionApiBase}/api/sessions/active`, {
       cache: 'no-store',
       headers: {
         'Content-Type': 'application/json',
