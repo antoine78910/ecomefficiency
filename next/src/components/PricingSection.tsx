@@ -7,6 +7,8 @@ import { useToast } from "@/hooks/use-toast";
 import { postGoal } from "@/lib/analytics";
 import { trackDatafastGoal } from "@/lib/datafastGoals";
 import BlurText from "@/components/BlurText";
+import PricingToolNewBadge from "@/components/PricingToolNewBadge";
+import { hasPricingNewBadge } from "@/lib/pricingToolBadges";
 import { BLUR_TEXT_PRESETS } from "@/lib/blurTextPresets";
 
 type Currency = 'USD' | 'EUR';
@@ -379,9 +381,7 @@ const PricingSection = ({
                         <li key={t} className="flex items-center gap-2 text-xs">
                           <Check className="w-4 h-4 text-purple-400" />
                           <span>{t}</span>
-                          {t === 'TurboScribe' ? (
-                            <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[linear-gradient(135deg,#8b5cf6,#7c3aed)] text-white/95 border border-[#a78bfa]/40">NEW</span>
-                          ) : null}
+                          {hasPricingNewBadge(t) ? <PricingToolNewBadge /> : null}
                         </li>
                       ))}
                     </ul>

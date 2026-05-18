@@ -45,7 +45,8 @@ export default function NewHeroAnimatedWord() {
 
         wrapper.style.display = "inline-block";
         wrapper.style.height = `${itemHeight}px`;
-        wrapper.style.width = `${Math.ceil(widths[0]) + widthBuffer}px`;
+        const initialW = Math.max(Math.ceil(widths[0]) + widthBuffer, 76);
+        wrapper.style.width = `${initialW}px`;
         wrapper.style.marginLeft = `${margins[0].ml}px`;
         wrapper.style.marginRight = `${margins[0].mr}px`;
 
@@ -151,7 +152,7 @@ export default function NewHeroAnimatedWord() {
   return (
     <span
       ref={wordWrapperRef}
-      className="relative inline-block align-text-bottom h-[1.1em] overflow-hidden whitespace-nowrap text-purple-400 -translate-y-[7px] pr-[4px]"
+      className="relative inline-block align-baseline h-[1.1em] min-w-[4.75rem] overflow-hidden whitespace-nowrap text-purple-400 -translate-y-[7px] mx-0.5"
     >
       <div ref={wordTrackRef} className="leading-[1]">
         <span className="block">Ecom</span>

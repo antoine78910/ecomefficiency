@@ -3,6 +3,8 @@
 import React from "react";
 import { bestTextColorOn, hexWithAlpha, mixHex, normalizeHex } from "@/lib/color";
 import { clampPartnerMonthlyAmount } from "@/lib/partnerPricingMin";
+import PricingToolNewBadge from "@/components/PricingToolNewBadge";
+import { hasPricingNewBadge } from "@/lib/pricingToolBadges";
 
 export default function WhiteLabelPricingModal({
   billing,
@@ -60,6 +62,7 @@ export default function WhiteLabelPricingModal({
     "+30 SEO tools (Ubersuggest, Semrush, Similarweb, ...)",
     "Pipiads",
     "Atria",
+    "Claude",
     "Freepik",
     "TurboScribe",
     "Flair AI",
@@ -140,7 +143,10 @@ export default function WhiteLabelPricingModal({
                   >
                     ✓
                   </span>
-                  <span>{t}</span>
+                  <span className="inline-flex items-center gap-1.5 flex-wrap">
+                    <span>{t}</span>
+                    {hasPricingNewBadge(t) ? <PricingToolNewBadge /> : null}
+                  </span>
                 </li>
               ))}
             </ul>

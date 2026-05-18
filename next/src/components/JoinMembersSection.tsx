@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import BlurText from '@/components/BlurText';
 import { BLUR_TEXT_PRESETS } from '@/lib/blurTextPresets';
 
-const { titleDelay, subtitleDelay, stepDuration } = BLUR_TEXT_PRESETS.home;
+const { titleDelay, stepDuration } = BLUR_TEXT_PRESETS.home;
 
 const JoinMembersSection = () => {
   return (
@@ -28,15 +28,10 @@ const JoinMembersSection = () => {
                 direction="top"
                 className="text-3xl md:text-4xl font-bold text-white mb-3"
               />
-              <BlurText
-                as="p"
-                text="Access our free community of e-commerce experts and take part in the monthly vote to pick your favorite tool."
-                delay={subtitleDelay}
-                stepDuration={stepDuration}
-                animateBy="words"
-                direction="top"
-                className="text-lg text-white"
-              />
+              <p className="text-lg text-white">
+                Access our free community of e-commerce experts and take part in the monthly vote to
+                pick your favorite tool.
+              </p>
             </div>
             {/* CTA Button */}
             <div className="flex-shrink-0">

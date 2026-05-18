@@ -10,6 +10,8 @@ import { seoToolsCatalog } from "@/data/seoToolsCatalog";
 import { postGoal } from "@/lib/analytics";
 import { trackFirstPromoterReferral } from "@/lib/firstpromoterReferral";
 import { BillingCyberSwitch } from "@/components/BillingCyberSwitch";
+import PricingToolNewBadge from "@/components/PricingToolNewBadge";
+import { hasPricingNewBadge } from "@/lib/pricingToolBadges";
 
 const DISCORD_COMMUNITY_URL = "https://discord.gg/7UgABk3jKJ";
 
@@ -68,6 +70,7 @@ const PRO_EXTRAS = [
   "Higgsfield",
   "Vmake",
   "Atria",
+  "Claude",
   "Runway",
   "Heygen",
   "Freepik",
@@ -856,9 +859,7 @@ export default function GettingStartedPage() {
                             <li key={t} className="flex items-center gap-2 text-xs text-gray-200">
                               <Check className="w-4 h-4 text-purple-400" />
                               <span>{t}</span>
-                              {t === "Higgsfield" ? (
-                                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[linear-gradient(135deg,#8b5cf6,#7c3aed)] text-white/95 border border-[#a78bfa]/40">NEW</span>
-                              ) : null}
+                              {hasPricingNewBadge(t) ? <PricingToolNewBadge /> : null}
                             </li>
                           ))}
                         </ul>

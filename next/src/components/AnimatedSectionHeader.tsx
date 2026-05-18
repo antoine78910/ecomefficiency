@@ -50,19 +50,31 @@ export default function AnimatedSectionHeader({
         )}
       />
       {subtitle ? (
-        <BlurText
-          as="p"
-          text={subtitle}
-          delay={subtitleMs}
-          stepDuration={stepSec}
-          animateBy="words"
-          direction="top"
-          className={cn(
-            "mt-4 text-gray-300",
-            centered && "justify-center max-w-3xl mx-auto",
-            subtitleClassName
-          )}
-        />
+        preset === "home" ? (
+          <p
+            className={cn(
+              "mt-4 text-gray-300",
+              centered && "max-w-3xl mx-auto",
+              subtitleClassName
+            )}
+          >
+            {subtitle}
+          </p>
+        ) : (
+          <BlurText
+            as="p"
+            text={subtitle}
+            delay={subtitleMs}
+            stepDuration={stepSec}
+            animateBy="words"
+            direction="top"
+            className={cn(
+              "mt-4 text-gray-300",
+              centered && "justify-center max-w-3xl mx-auto",
+              subtitleClassName
+            )}
+          />
+        )
       ) : null}
     </div>
   );

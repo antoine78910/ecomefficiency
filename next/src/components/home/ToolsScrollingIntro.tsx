@@ -3,7 +3,7 @@
 import BlurText from "@/components/BlurText";
 import { BLUR_TEXT_PRESETS } from "@/lib/blurTextPresets";
 
-const { titleDelay, subtitleDelay, stepDuration } = BLUR_TEXT_PRESETS.home;
+const { titleDelay, stepDuration } = BLUR_TEXT_PRESETS.home;
 
 type ToolsScrollingIntroProps = {
   variant: "mobile-title" | "desktop" | "mobile-body";
@@ -26,15 +26,10 @@ export default function ToolsScrollingIntro({ variant }: ToolsScrollingIntroProp
 
   if (variant === "mobile-body") {
     return (
-      <BlurText
-        as="p"
-        text="Boost your sales and outpace competitors with instant access to 50+ of the best AI, SEO & Spy tools—without paying for them individually."
-        delay={subtitleDelay}
-        stepDuration={stepDuration}
-        animateBy="words"
-        direction="top"
-        className="text-base text-gray-400"
-      />
+      <p className="text-base text-gray-400">
+        Boost your sales and outpace competitors with instant access to 50+ of the best AI, SEO &amp;
+        Spy tools—without paying for them individually.
+      </p>
     );
   }
 
@@ -49,15 +44,10 @@ export default function ToolsScrollingIntro({ variant }: ToolsScrollingIntroProp
         direction="top"
         className="text-4xl md:text-5xl font-bold text-white mb-4"
       />
-      <BlurText
-        as="p"
-        text="Boost your sales and outpace competitors with instant access to 50+ of the best AI, SEO & Spy tools—without paying for them individually."
-        delay={subtitleDelay}
-        stepDuration={stepDuration}
-        animateBy="words"
-        direction="top"
-        className="text-xl text-gray-400 max-w-2xl"
-      />
+      <p className="text-xl text-gray-400 max-w-2xl">
+        Boost your sales and outpace competitors with instant access to 50+ of the best AI, SEO &amp;
+        Spy tools—without paying for them individually.
+      </p>
     </>
   );
 }

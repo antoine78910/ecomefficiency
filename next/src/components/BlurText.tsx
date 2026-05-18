@@ -34,6 +34,8 @@ type BlurTextProps = {
   easing?: (t: number) => number;
   onAnimationComplete?: () => void;
   stepDuration?: number;
+  /** Use inline-flex for embedding next to other inline elements (e.g. hero animated word). */
+  inline?: boolean;
 };
 
 export default function BlurText({
@@ -50,6 +52,7 @@ export default function BlurText({
   easing = (t) => t,
   onAnimationComplete,
   stepDuration = 0.35,
+  inline = false,
 }: BlurTextProps) {
   const elements =
     animateBy === "words" ? text.split(" ") : text.split("");
@@ -117,7 +120,10 @@ export default function BlurText({
   );
 
   return (
-    <Tag ref={ref as never} className={`blur-text ${className} flex flex-wrap`}>
+    <Tag
+      ref={ref as never}
+      className={`blur-text ${className} ${inline ? "inline-flex flex-wrap" : "flex flex-wrap"}`}
+    >
       {elements.map((segment, index) => {
         const animateKeyframes = buildKeyframes(
           fromSnapshot as Record<string, unknown>,
@@ -133,7 +139,7 @@ export default function BlurText({
 
         return (
           <motion.span
-            className="inline-block will-change-[transform,filter,opacity]"
+            className="inline-block text-inherit will-change-[transform,filter,opacity]"
             key={index}
             initial={fromSnapshot as any}
             animate={(inView ? animateKeyframes : fromSnapshot) as any}

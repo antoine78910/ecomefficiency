@@ -28,6 +28,8 @@ import {
   openStripeBillingPortal,
 } from "@/components/subscription/SubscriptionCancelFlow";
 import { getBillingControlsVisibility } from "@/screens/billingControls";
+import PricingToolNewBadge from "@/components/PricingToolNewBadge";
+import { hasPricingNewBadge } from "@/lib/pricingToolBadges";
 
 const App = ({
   showAffiliateCta = true,
@@ -979,9 +981,7 @@ function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'sta
                       <li key={t} className="flex items-center gap-2 text-[11px]">
                         <Check className="w-3.5 h-3.5" style={{ color: wlAccent }} />
                         <span>{t}</span>
-                        {t === 'Higgsfield' ? (
-                          <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[linear-gradient(135deg,#8b5cf6,#7c3aed)] text-white/95 border border-[#a78bfa]/40">NEW</span>
-                        ) : null}
+                        {hasPricingNewBadge(t) ? <PricingToolNewBadge /> : null}
                       </li>
                     ))}
                   </ul>
