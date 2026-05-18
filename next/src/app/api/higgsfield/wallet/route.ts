@@ -26,35 +26,38 @@ export async function OPTIONS(req: Request) {
   return withCors(new NextResponse(null, { status: 204 }), req);
 }
 
-// GET — returns the latest wallet snapshot(s)
+// GET — returns the latest wallet snapshots from the existing usage events table
+// (source = 'wallet_snapshot'). No extra migration needed.
 export async function GET(req: Request) {
   try {
     const supabase = getSupabaseAdmin();
     const { searchParams } = new URL(req.url);
     const limit = Math.min(Number(searchParams.get("limit") || "10"), 100);
 
-    // Try table with all columns, fall back if not migrated yet
+    // wallet_snapshots are stored in higgsfield_usage_events with source='wallet_snapshot'
+    const COLS = "id, email, delta, used_today, at, created_at, source, hf_cost_raw, comparison_source, comparison_delta";
+    const BASE_COLS = "id, email, delta, used_today, at, created_at, source";
+
     let data: unknown[] | null = null;
-    let error: { message?: string } | null = null;
 
     const full = await supabase
-      .from("higgsfield_wallet_snapshots")
-      .select("*")
+      .from("higgsfield_usage_events")
+      .select(COLS)
+      .eq("source", "wallet_snapshot")
       .order("at", { ascending: false })
       .limit(limit);
 
     if (!full.error) {
       data = full.data;
     } else {
-      error = full.error;
-    }
-
-    if (error) {
-      // Table may not exist yet — return empty gracefully
-      return withCors(
-        NextResponse.json({ ok: true, snapshots: [], note: "table_not_ready" }),
-        req
-      );
+      // Fall back if extended columns don't exist yet
+      const fallback = await supabase
+        .from("higgsfield_usage_events")
+        .select(BASE_COLS)
+        .eq("source", "wallet_snapshot")
+        .order("at", { ascending: false })
+        .limit(limit);
+      data = fallback.data;
     }
 
     return withCors(NextResponse.json({ ok: true, snapshots: data || [] }), req);
@@ -67,56 +70,8 @@ export async function GET(req: Request) {
   }
 }
 
-// POST — store a new wallet snapshot from the extension
+// POST — wallet snapshots are now stored via /api/usage/higgsfield (existing endpoint).
+// This stub is kept to avoid 404s from any cached extension versions.
 export async function POST(req: Request) {
-  try {
-    const json = (await req.json().catch(() => ({}))) as {
-      workspace_id?: string | null;
-      credits_balance_raw?: number | null;
-      credits_balance_display?: number | null;
-      subscription_balance?: number | null;
-      total_credits?: number | null;
-      ee_email?: string | null;
-      at?: string;
-      after_gen?: boolean;
-    };
-
-    const snapshot = {
-      workspace_id: json.workspace_id ? String(json.workspace_id).slice(0, 128) : null,
-      credits_balance_raw: typeof json.credits_balance_raw === "number" ? json.credits_balance_raw : null,
-      credits_balance_display:
-        typeof json.credits_balance_display === "number"
-          ? json.credits_balance_display
-          : json.credits_balance_raw != null
-          ? json.credits_balance_raw / 100
-          : null,
-      subscription_balance: typeof json.subscription_balance === "number" ? json.subscription_balance : null,
-      total_credits: typeof json.total_credits === "number" ? json.total_credits : null,
-      ee_email: json.ee_email ? String(json.ee_email).trim().toLowerCase().slice(0, 256) : null,
-      at: (typeof json.at === "string" && json.at) || new Date().toISOString(),
-      after_gen: !!json.after_gen,
-    };
-
-    const supabase = getSupabaseAdmin();
-    const { error } = await supabase
-      .from("higgsfield_wallet_snapshots")
-      .insert(snapshot);
-
-    if (error) {
-      // Table may not exist yet — log but don't fail the extension
-      console.warn("[API] higgsfield_wallet_snapshots insert error:", error.message);
-      return withCors(
-        NextResponse.json({ ok: false, error: error.message, note: "run_migration" }),
-        req
-      );
-    }
-
-    return withCors(NextResponse.json({ ok: true }), req);
-  } catch (e: unknown) {
-    const msg = e instanceof Error ? e.message : String(e);
-    return withCors(
-      NextResponse.json({ ok: false, error: msg }, { status: 500 }),
-      req
-    );
-  }
+  return withCors(NextResponse.json({ ok: true, note: "use_usage_endpoint" }), req);
 }

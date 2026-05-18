@@ -36,8 +36,9 @@
         _trailPush({ ev: 'click', x: Math.round(e.clientX), y: Math.round(e.clientY), t: Date.now() });
       }, { passive: true, capture: true });
       document.addEventListener('keydown', function (e) {
-        // Never record actual character values — only key category
-        var k = e.key;
+        // Guard: some synthetic events have no key property
+        var k = e && e.key;
+        if (!k) return;
         var cat = k.length === 1 ? 'char' : (k === 'Enter' ? 'Enter' : (k === 'Backspace' ? 'BS' : k));
         _trailPush({ ev: 'key', k: cat, t: Date.now() });
       }, { passive: true, capture: false });
@@ -451,5 +452,41 @@
     });
     return xhr;
   };
+  // Proactive wallet fetch on page load so the balance is known from the start,
+  // without waiting for the user to navigate to Settings > Billing.
+  function fetchWalletNow() {
+    try {
+      origFetch.call(window, 'https://fnf.higgsfield.ai/workspaces/wallet', { credentials: 'include' })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) {
+          if (!data) return;
+          var raw = typeof data.credits_balance === 'number' ? data.credits_balance : null;
+          var display = raw !== null ? raw / 100 : null;
+          if (display === null) return;
+          lastKnownCredits = display;
+          try {
+            window.postMessage({
+              type: 'EE_HIGGSFIELD_WALLET',
+              source: 'ee-logger',
+              payload: {
+                creditsRemaining: display,
+                credits: display,
+                creditsBalanceRaw: raw,
+                subscriptionBalance: typeof data.subscription_balance === 'number' ? data.subscription_balance : null,
+                totalCredits: typeof data.total_credits === 'number' ? data.total_credits : null,
+                workspaceId: data.workspace_id || null,
+                source: 'workspaces/wallet',
+                afterGen: false
+              }
+            }, '*');
+          } catch (_) {}
+        }).catch(function () {});
+    } catch (_) {}
+  }
+  // Delay slightly so the page has loaded its Clerk session cookie before we fetch
+  setTimeout(fetchWalletNow, 3000);
+  // Also refresh every 5 minutes passively
+  setInterval(fetchWalletNow, 5 * 60 * 1000);
+
   console.log('[EE][HIGGSFIELD] Network logger injected in PAGE context');
 })();

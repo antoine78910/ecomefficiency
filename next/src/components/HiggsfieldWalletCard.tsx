@@ -3,16 +3,25 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Zap, RefreshCw, Wifi, WifiOff } from 'lucide-react'
 
+// Wallet snapshots are stored in the existing higgsfield_usage_events table
+// with source = 'wallet_snapshot' to avoid requiring a migration.
+// Fields mapping:
+//   email         → EE email
+//   used_today    → credits balance display (e.g. 100.57)
+//   hf_cost_raw   → credits balance raw units (e.g. 10057)
+//   comparison_source → workspace_id
+//   comparison_delta  → total_credits raw
+//   at / created_at   → snapshot timestamp
 type WalletSnapshot = {
   id?: number
-  workspace_id: string | null
-  credits_balance_raw: number | null
-  credits_balance_display: number | null
-  subscription_balance: number | null
-  total_credits: number | null
-  ee_email: string | null
+  email: string | null
+  used_today: number | null        // display credits (e.g. 100.57)
+  hf_cost_raw?: number | null      // raw units (e.g. 10057)
+  comparison_source?: string | null // workspace_id
+  comparison_delta?: number | null  // total_credits
   at: string
-  after_gen: boolean
+  created_at?: string
+  source: string
 }
 
 function timeSince(isoStr: string): string {
@@ -46,15 +55,16 @@ export function HiggsfieldWalletCard() {
   const fetchSnapshots = useCallback(async () => {
     try {
       setError(null)
-      const res = await fetch('/api/higgsfield/wallet?limit=5')
+      // wallet_snapshots are stored in the existing usage events table
+      const res = await fetch('/api/higgsfield/wallet?limit=10')
       const data = await res.json()
       if (data.ok) {
         setSnapshots(data.snapshots || [])
         setLastRefresh(new Date())
       } else {
-        setError(data.note === 'table_not_ready' ? 'Migration SQL requise (voir ci-dessous)' : data.error || 'Erreur API')
+        setError(data.error || 'Erreur API')
       }
-    } catch (e) {
+    } catch {
       setError('Impossible de joindre l\'API')
     } finally {
       setLoading(false)
@@ -74,10 +84,10 @@ export function HiggsfieldWalletCard() {
   }, [])
 
   const latest = snapshots[0] ?? null
-  const display = latest?.credits_balance_display ?? null
-  const raw = latest?.credits_balance_raw ?? null
-  const total = latest?.total_credits ?? null
-  const sub = latest?.subscription_balance ?? null
+  const display = latest?.used_today ?? null                  // credits balance display (e.g. 100.57)
+  const raw = latest?.hf_cost_raw ?? null                    // raw units (e.g. 10057)
+  const total = latest?.comparison_delta ?? null             // total_credits raw
+  const workspaceId = latest?.comparison_source ?? null      // workspace_id
 
   const pct = (raw != null && total != null && total > 0) ? ((raw / total) * 100) : null
 
@@ -148,22 +158,22 @@ export function HiggsfieldWalletCard() {
 
           {/* Detail row */}
           <div className="grid grid-cols-2 gap-3 text-xs">
-            {sub !== null && (
+            {raw !== null && (
               <div className="bg-gray-800/50 rounded-lg p-2.5">
-                <div className="text-gray-500 mb-0.5">Subscription balance</div>
-                <div className="text-white font-semibold">{(sub / 100).toFixed(2)} cr</div>
+                <div className="text-gray-500 mb-0.5">Unités brutes HF</div>
+                <div className="text-white font-semibold">{raw.toLocaleString()}</div>
               </div>
             )}
-            {latest.workspace_id && (
+            {workspaceId && (
               <div className="bg-gray-800/50 rounded-lg p-2.5 col-span-1">
                 <div className="text-gray-500 mb-0.5">Workspace</div>
-                <div className="text-white font-mono text-[10px] truncate">{latest.workspace_id}</div>
+                <div className="text-white font-mono text-[10px] truncate">{workspaceId}</div>
               </div>
             )}
-            {latest.ee_email && (
+            {latest.email && (
               <div className="bg-gray-800/50 rounded-lg p-2.5 col-span-2">
                 <div className="text-gray-500 mb-0.5">Email EE associé</div>
-                <div className="text-white">{latest.ee_email}</div>
+                <div className="text-white">{latest.email}</div>
               </div>
             )}
           </div>
@@ -171,8 +181,7 @@ export function HiggsfieldWalletCard() {
           {/* Footer */}
           <div className="flex items-center justify-between text-xs text-gray-500 border-t border-white/5 pt-3">
             <span>
-              Dernier snapshot : <span className="text-gray-400">{timeSince(latest.at)}</span>
-              {latest.after_gen && <span className="ml-1 text-purple-400">(post-génération)</span>}
+              Dernier snapshot : <span className="text-gray-400">{timeSince(latest.created_at || latest.at)}</span>
             </span>
             {lastRefresh && (
               <span>Rafraîchi {timeSince(lastRefresh.toISOString())}</span>
@@ -188,8 +197,8 @@ export function HiggsfieldWalletCard() {
               <div className="mt-2 space-y-1">
                 {snapshots.slice(1).map((s, i) => (
                   <div key={i} className="flex items-center justify-between text-gray-500 py-0.5 border-b border-white/5">
-                    <span>{timeSince(s.at)}{s.after_gen ? ' ↗' : ''}</span>
-                    <span className="text-gray-400">{s.credits_balance_display !== null ? s.credits_balance_display.toFixed(2) + ' cr' : '—'}</span>
+                    <span>{timeSince(s.created_at || s.at)}</span>
+                    <span className="text-gray-400">{s.used_today !== null && s.used_today !== undefined ? Number(s.used_today).toFixed(2) + ' cr' : '—'}</span>
                   </div>
                 ))}
               </div>

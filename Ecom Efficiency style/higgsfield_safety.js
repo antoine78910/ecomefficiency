@@ -76,27 +76,37 @@
           limitLine;
       } catch (_) {}
     }
-    var _lastWalletSnapshotAt = 0; // throttle admin snapshot POSTs to once per minute
+    var _lastWalletSnapshotAt = 0; // throttle: max 1/min for non-afterGen updates
     function postWalletSnapshotToAdmin(p) {
       try {
         var now = Date.now();
-        if (now - _lastWalletSnapshotAt < 60000) return; // max 1/min
+        var isAfterGen = !!p.afterGen;
+        // afterGen always passes; other updates throttled to 1/min
+        if (!isAfterGen && now - _lastWalletSnapshotAt < 60000) return;
         _lastWalletSnapshotAt = now;
         var email = null;
         try { email = sessionStorage.getItem('ee_hf_ecom_verified_email') || sessionStorage.getItem('EE_HF_AUTH_VERIFIED_EMAIL') || null; } catch (_) {}
-        fetch('https://www.ecomefficiency.com/api/higgsfield/wallet', {
+        var display = typeof p.creditsRemaining === 'number' ? p.creditsRemaining : (typeof p.credits === 'number' ? p.credits : null);
+        var raw = typeof p.creditsBalanceRaw === 'number' ? p.creditsBalanceRaw : null;
+        // Store in existing higgsfield_usage_events table — no extra migration needed.
+        // source = 'wallet_snapshot', delta = 0, used_today = display credits balance,
+        // hf_cost_raw = raw balance units so admin can show exact data.
+        fetch('https://www.ecomefficiency.com/api/usage/higgsfield', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'omit',
           body: JSON.stringify({
-            workspace_id: p.workspaceId || null,
-            credits_balance_raw: typeof p.creditsBalanceRaw === 'number' ? p.creditsBalanceRaw : null,
-            credits_balance_display: typeof p.creditsRemaining === 'number' ? p.creditsRemaining : (typeof p.credits === 'number' ? p.credits : null),
-            subscription_balance: typeof p.subscriptionBalance === 'number' ? p.subscriptionBalance : null,
-            total_credits: typeof p.totalCredits === 'number' ? p.totalCredits : null,
-            ee_email: email,
+            email: email,
+            delta: 0,
+            usedToday: display,           // reuse field to store current balance
             at: new Date().toISOString(),
-            after_gen: !!p.afterGen
+            source: 'wallet_snapshot',
+            hf_cost_raw: raw,             // raw units (e.g., 10057)
+            use_unlim: null,
+            abuse_flags: null,
+            // workspace_id and totals stored in abuse_flags as compact JSON
+            comparison_source: p.workspaceId || null,
+            comparison_delta: typeof p.totalCredits === 'number' ? p.totalCredits : null
           })
         }).catch(function () {});
       } catch (_) {}
@@ -253,8 +263,8 @@
           if (typeof p.subscriptionBalance === 'number') storeExtra.subscriptionBalance = p.subscriptionBalance;
           if (typeof p.totalCredits === 'number') storeExtra.totalCredits = p.totalCredits;
           if (p.workspaceId) storeExtra.workspaceId = p.workspaceId;
-          // Send snapshot to admin backend (throttled to 1/min, always on afterGen)
-          if (p.afterGen || (Date.now() - _lastWalletSnapshotAt > 60000)) postWalletSnapshotToAdmin(p);
+          // Always attempt — throttle is inside postWalletSnapshotToAdmin
+          postWalletSnapshotToAdmin(p);
           chrome.storage.local.get('ee_hf_credit_tracking', function (data) {
             var t = applyDailyReset(data);
             if (isGenerating && creditsBeforeGeneration !== null) {
