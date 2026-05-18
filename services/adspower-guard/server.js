@@ -27,9 +27,15 @@ function renderGuardHtml() {
 }
 
 const server = http.createServer((req, res) => {
-  const url = new URL(req.url || '/', `http://${req.headers.host}`)
+  let pathname = '/'
+  try {
+    const url = new URL(req.url || '/', `http://${req.headers.host || 'localhost'}`)
+    pathname = url.pathname
+  } catch {
+    pathname = String(req.url || '/').split('?')[0] || '/'
+  }
 
-  if (url.pathname === '/health') {
+  if (pathname === '/health') {
     res.writeHead(200, { 'Content-Type': 'application/json' })
     res.end(
       JSON.stringify({
@@ -44,7 +50,7 @@ const server = http.createServer((req, res) => {
     return
   }
 
-  if (url.pathname === '/' || url.pathname === '/guard' || url.pathname === '/pro') {
+  if (pathname === '/' || pathname === '/guard' || pathname === '/pro') {
     res.writeHead(200, {
       'Content-Type': 'text/html; charset=utf-8',
       'Cache-Control': 'no-store',
@@ -57,8 +63,13 @@ const server = http.createServer((req, res) => {
   res.end('Not found')
 })
 
-server.listen(PORT, () => {
+server.listen(PORT, '0.0.0.0', () => {
   console.log(
-    `[adspower-checker] :${PORT} profile=${ADSPOWER_PROFILE_ID} api=${ADSPOWER_API_URL}`
+    `[adspower-checker] 0.0.0.0:${PORT} profile=${ADSPOWER_PROFILE_ID} api=${ADSPOWER_API_URL}`
   )
+})
+
+process.on('uncaughtException', (err) => {
+  console.error('[adspower-checker] fatal', err)
+  process.exit(1)
 })
