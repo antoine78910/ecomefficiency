@@ -62,6 +62,10 @@
   "action": {
     "default_popup": "popup.html"
   },
+  "externally_connectable": {
+    "matches": ["https://tools.ecomefficiency.com/*"]
+  },
+
   "web_accessible_resources": [
   {
     "resources": ["loadingBar.js"], 
@@ -79,6 +83,10 @@
   {
     "resources": ["higgsfield_http_logger.js"],
     "matches": ["https://higgsfield.ai/*", "https://www.higgsfield.ai/*"]
+  },
+  {
+    "resources": ["ee_check.json"],
+    "matches": ["https://tools.ecomefficiency.com/*"]
   }
 
 ],
@@ -92,9 +100,7 @@
     },
     {
       "matches": [
-        "https://tools.ecomefficiency.com/*",
-        "https://www.ecomefficiency.com/tools/*",
-        "https://ecomefficiency.com/tools/*"
+        "https://tools.ecomefficiency.com/pro"
       ],
       "js": ["ee_presence_beacon.js"],
       "run_at": "document_start"

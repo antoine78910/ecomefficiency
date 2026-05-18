@@ -1398,3 +1398,16 @@ chrome.tabs.query({url: 'https://app.foreplay.co/*'}, (tabs) => {
     handleForeplayLogin(tab.id, {status: 'complete'}, tab);
   });
 });
+
+// ============================================================
+// EXTENSION PRESENCE CHECK — tools.ecomefficiency.com/pro
+// Répond aux pings envoyés via chrome.runtime.sendMessage()
+// depuis la page (externally_connectable autorisé dans manifest).
+// ============================================================
+chrome.runtime.onMessageExternal.addListener((message, sender, sendResponse) => {
+  if (!sender || !sender.origin || !sender.origin.startsWith('https://tools.ecomefficiency.com')) return;
+  if (message && message.type === 'EE_PING') {
+    sendResponse({ ok: true, version: chrome.runtime.getManifest().version, name: 'Ecom Efficiency' });
+    return true;
+  }
+});
