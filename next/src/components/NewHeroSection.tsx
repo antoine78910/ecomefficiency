@@ -48,7 +48,11 @@ const NewHeroSection = () => {
           <div className="text-5xl md:text-6xl lg:text-7xl font-bold text-white mb-4 leading-[1.06] tracking-normal">
             <span className="block">Access the</span>
             <span className="block">
-              Most Powerful <NewHeroAnimatedWord /> Tools
+              <span className="inline-flex items-baseline justify-center flex-wrap gap-x-2">
+                <span>Most Powerful</span>
+                <NewHeroAnimatedWord />
+                <span>Tools</span>
+              </span>
             </span>
             <span className="block">
               for <span className="text-purple-400">99% OFF</span> in one click
