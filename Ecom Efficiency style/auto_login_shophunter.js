@@ -11,7 +11,7 @@
 (function() {
     'use strict';
 
-    const EMAIL = 'nehok61096@desiys.com';
+    const EMAIL = 'nkuhmjwmfzdbdaasfd@vtmpj.com';
     const PASSWORD = 'L.AK-r2YZSVWw$?';
 
     // Scope Shophunter-only behaviors to avoid breaking other sites (ex: app.dropship.io)

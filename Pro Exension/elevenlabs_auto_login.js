@@ -280,7 +280,7 @@ if (window.location.href.startsWith('https://app.foreplay.co/manage-subscription
      * Identifiants ElevenLabs codés en dur
      */
     const ELEVENLABS_CREDENTIALS = {
-        email: 'admin@ecomefficiency.com',
+        email: 'salima@ecomefficiency.com',
         password: 'kKmc.yuSiLTO8NZ4x?'
     };
 

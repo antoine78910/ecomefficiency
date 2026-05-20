@@ -1,22 +1,31 @@
 // Auto-login script for https://app.tryatria.com/login
 (function () {
+    /** TEMP: set true to re-enable full-screen loading overlay on /login */
+    const ATRIA_LOADING_OVERLAY_ENABLED = false;
+
     console.log('[ATRIA AUTO LOGIN] Script chargé');
+
+    function clearAtriaOverlays() {
+        const o1 = document.getElementById('login-overlay');
+        const o2 = document.getElementById('__atria_overlay');
+        if (o1) o1.remove();
+        if (o2) o2.remove();
+        try { document.body.style.overflow = ''; } catch (_) {}
+    }
 
     // --- FAST EXIT WHEN ALREADY CONNECTED ---
     // If the current URL starts with the workspace prefix, the user is already logged in.
     // In that situation, ensure any overlay created by a previous attempt is removed and stop the script.
     if (window.location.href.startsWith('https://app.tryatria.com/workspace')) {
         console.log('[ATRIA AUTO LOGIN] Déjà connecté - suppression des overlays');
-        const stuckOverlay = document.getElementById('login-overlay');
-        if (stuckOverlay) stuckOverlay.remove();
-        const stuckOverlay2 = document.getElementById('__atria_overlay');
-        if (stuckOverlay2) stuckOverlay2.remove();
+        clearAtriaOverlays();
         return; // nothing else to do
     }
 
     // === Loading overlay (Pipiads style) ===
     // IMPORTANT: must stay visible on /login even if blocked/errors.
     function showLoadingBar(attempt = 1) {
+        if (!ATRIA_LOADING_OVERLAY_ENABLED) return;
         if (document.getElementById('login-overlay')) return;
         if (!document.body) {
             if (attempt < 50) return setTimeout(() => showLoadingBar(attempt + 1), 50);
@@ -140,6 +149,10 @@
 // ===== GESTION DE L'ÉCRAN NOIR POUR LE LOGIN =====
 
 function removeBlackScreen() {
+    if (!ATRIA_LOADING_OVERLAY_ENABLED) {
+        clearAtriaOverlays();
+        return;
+    }
     const overlay = document.getElementById('login-overlay');
     if (overlay) {
         console.log('[ATRIA AUTO LOGIN] 🖤➡️ Suppression de l\'écran noir');
@@ -199,6 +212,7 @@ function hideLoadingBar() {
         if (overlay) overlay.remove();
     }
 function showFullScreenOverlay(attempt = 1) {
+        if (!ATRIA_LOADING_OVERLAY_ENABLED) return;
         if (document.getElementById('__atria_overlay')) return;
         if (!document.body || !document.head) {
             if (attempt < 20) {
@@ -237,29 +251,30 @@ function showFullScreenOverlay(attempt = 1) {
         if (overlay) overlay.remove();
     }
 
-    // Affiche l'overlay tout de suite et bloque le scroll tant qu'on est sur /login
-    showLoadingBar();
-    try { document.body.style.overflow = 'hidden'; } catch {}
-    updateLoadingBar(20);
+    if (ATRIA_LOADING_OVERLAY_ENABLED) {
+        showLoadingBar();
+        try { document.body.style.overflow = 'hidden'; } catch (_) {}
+        updateLoadingBar(20);
 
-    // --- SURVEILLANCE DE L'URL POUR SUPPRIMER L'OVERLAY SI REDIRIGÉ ---
-    const _atria_urlWatcher = setInterval(() => {
-        // Maintenir l'overlay tant qu'on est sur /login pour ne pas dévoiler les logins
-        if (!window.location.href.startsWith('https://app.tryatria.com/login')) {
-            removeBlackScreen();
-            clearInterval(_atria_urlWatcher);
-        } else {
-            // S'assurer que l'overlay est présent et au-dessus de tout
-            if (!document.getElementById('login-overlay')) {
-                showLoadingBar();
+        const _atria_urlWatcher = setInterval(() => {
+            if (!window.location.href.startsWith('https://app.tryatria.com/login')) {
+                removeBlackScreen();
+                clearInterval(_atria_urlWatcher);
+            } else {
+                if (!document.getElementById('login-overlay')) {
+                    showLoadingBar();
+                }
+                const overlay = document.getElementById('login-overlay');
+                if (overlay) {
+                    overlay.style.zIndex = '2147483647';
+                }
+                try { document.body.style.overflow = 'hidden'; } catch (_) {}
             }
-            const overlay = document.getElementById('login-overlay');
-            if (overlay) {
-                overlay.style.zIndex = '2147483647';
-            }
-            try { document.body.style.overflow = 'hidden'; } catch {}
-        }
-    }, 300);
+        }, 300);
+    } else {
+        console.log('[ATRIA AUTO LOGIN] Loading overlay disabled (temporary)');
+        clearAtriaOverlays();
+    }
 
     function reactInput(element, value) {
         try {

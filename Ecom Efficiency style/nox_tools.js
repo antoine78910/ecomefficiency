@@ -42,22 +42,14 @@
     showBlackScreen();
 
     // -----------------------------------------------
-    // 1.b) Overlay style "Pipiads" (for Noxtools login + Helium10)
+    // 1.b) Overlay style "Pipiads" (Noxtools login only — Helium 10 → nox-helium.js)
     // -----------------------------------------------
     function isOnNoxLogin() {
         return window.location.href.startsWith('https://noxtools.com/secure/login');
     }
 
-    function isOnNoxHelium10() {
-        return window.location.href.startsWith('https://noxtools.com/secure/page/Helium10');
-    }
-
-    function isOnNoxHelium10Tools() {
-        return window.location.href.startsWith('https://tools.noxtools.com/helium10.php');
-    }
-
     function shouldKeepNoxOverlay() {
-        return isOnNoxLogin() || isOnNoxHelium10() || isOnNoxHelium10Tools();
+        return isOnNoxLogin();
     }
 
     function showNoxLoadingOverlay() {
@@ -132,7 +124,7 @@
         }, 500);
     }
 
-    // Garde l’overlay affiché sur login/Helium10, et le retire seulement quand on quitte ces pages
+    // Garde l'overlay affiché sur login, et le retire seulement quand on quitte la page
     function startNoxOverlayUrlWatcher() {
         if (window.__NOX_OVERLAY_WATCHER_STARTED__) return;
         window.__NOX_OVERLAY_WATCHER_STARTED__ = true;
@@ -145,7 +137,7 @@
         }, 500);
     }
 
-    // Afficher immédiatement l’overlay sur login/Helium10 (même si on est "bloqué")
+    // Afficher immédiatement l'overlay sur login (même si on est "bloqué")
     if (shouldKeepNoxOverlay()) {
         showNoxLoadingOverlay();
         startNoxOverlayUrlWatcher();
@@ -656,7 +648,7 @@
             // Si on n'est plus sur la page de login, succès !
             if (!window.location.href.startsWith('https://noxtools.com/secure/login')) {
                 console.log('[NOX-TOOLS] ✅ Login réussi - changement de page détecté');
-                // IMPORTANT: on garde l'overlay pour Helium10 (et on ne retire rien ici).
+                // Login succeeded — overlay stays until user leaves login URL.
                 return;
             }
             
@@ -813,7 +805,7 @@
     //    (au lieu de "load") pour être plus tôt
     // -----------------------------------------------
     document.addEventListener('DOMContentLoaded', async () => {
-    // IMPORTANT: Sur Noxtools login/Helium10, on garde toujours l'overlay (style Pipiads)
+    // Sur Noxtools login, on garde toujours l'overlay (style Pipiads)
     // pour masquer l'UI même si on est bloqué/timeout.
     // Sur les autres pages, on garde l'ancien mini loader 2s.
     if (!shouldKeepNoxOverlay()) {
@@ -916,112 +908,6 @@
         }
         return;
     }
-    if (window.location.href.startsWith('https://noxtools.com/secure/page/Helium10')) {
-        console.log('[NOX-TOOLS] Sur la page Helium10, injection de l\'écran noir et recherche du bouton...');
-        // Overlay style Pipiads déjà affiché, on ne rajoute pas d'écran noir spécifique.
-        
-        // Attendre un peu puis chercher et cliquer sur le bouton automatiquement
-        setTimeout(async () => {
-            console.log('[NOX-TOOLS] Recherche du bouton Access Helium10...');
-            
-            const heliumBtn = document.querySelector('a.button1.button2[onclick*="helium10.php"]');
-            if (heliumBtn) {
-                console.log('[NOX-TOOLS] ✅ Bouton Access Helium10 trouvé, clic automatique...');
-                
-                // Simulation de clic humain comme dans nox-runway.js
-                heliumBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                await new Promise(resolve => setTimeout(resolve, 500));
-                
-                // Événements de souris
-                heliumBtn.dispatchEvent(new MouseEvent('mouseenter', { bubbles: true }));
-                await new Promise(resolve => setTimeout(resolve, 100));
-                heliumBtn.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
-                await new Promise(resolve => setTimeout(resolve, 100));
-                heliumBtn.focus();
-                await new Promise(resolve => setTimeout(resolve, 100));
-                
-                // Click programmé
-                heliumBtn.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true }));
-                console.log('[NOX-TOOLS] ✅ Click programmé effectué');
-                
-                // Click natif (backup)
-                heliumBtn.click();
-                console.log('[NOX-TOOLS] ✅ Click natif effectué');
-                
-                // Fallback final - ouverture directe
-                setTimeout(() => {
-                    window.open('https://tools.noxtools.com/helium10.php', '_blank');
-                    console.log('[NOX-TOOLS] ✅ Fallback: URL Helium10 ouverte directement');
-                    
-                    // Démarrer le décompte de fermeture
-                    showHeliumCountdown();
-                }, 500);
-                
-            } else {
-                console.log('[NOX-TOOLS] ❌ Bouton Access Helium10 non trouvé, fallback direct...');
-                // Si bouton pas trouvé, ouvrir directement
-                window.open('https://tools.noxtools.com/helium10.php', '_blank');
-                showHeliumCountdown();
-            }
-        }, 1500);
-        
-        return;
-    }
-    
-    // Fonction pour afficher le décompte Helium10
-    function showHeliumCountdown() {
-        console.log('[NOX-TOOLS] Démarrage du décompte Helium10...');
-        
-        // Overlay compte à rebours
-        let overlay = document.createElement('div');
-        overlay.id = 'helium-countdown-overlay';
-        overlay.style.position = 'fixed';
-        overlay.style.top = '0';
-        overlay.style.left = '0';
-        overlay.style.width = '100vw';
-        overlay.style.height = '100vh';
-        overlay.style.background = 'rgba(0,0,0,0.85)';
-        overlay.style.display = 'flex';
-        overlay.style.flexDirection = 'column';
-        overlay.style.justifyContent = 'center';
-        overlay.style.alignItems = 'center';
-        overlay.style.zIndex = '2147483647';
-        overlay.innerHTML = '<div style="color:white;font-size:2.5em;font-family:sans-serif;text-align:center;">L\'onglet se fermera dans <span id="helium-countdown-timer">15</span> secondes...<br><br><small>(Tu peux annuler la fermeture en fermant cet overlay)</small></div>';
-        document.body.appendChild(overlay);
-        
-        let seconds = 15;
-        let timerSpan = document.getElementById('helium-countdown-timer');
-        let interval = setInterval(() => {
-            seconds--;
-            if (timerSpan) timerSpan.textContent = seconds;
-            if (seconds <= 0) {
-                clearInterval(interval);
-                // Essayer via extension puis fallback window.close
-                try {
-                    if (typeof chrome !== 'undefined' && chrome.runtime) {
-                        chrome.runtime.sendMessage({ action: 'closeCurrentTab' }, () => {
-                            window.close();
-                        });
-                    } else {
-                        window.close();
-                    }
-                } catch (err) {
-                    window.close();
-                }
-            }
-        }, 1000);
-        
-        // Permettre à l'utilisateur d'annuler la fermeture en cliquant sur l'overlay
-        overlay.addEventListener('click', () => {
-            clearInterval(interval);
-            overlay.remove();
-            // Supprimer aussi l'écran noir pour que l'utilisateur puisse voir la page
-            const blackScreen = document.getElementById('helium-blackout');
-            if (blackScreen) blackScreen.remove();
-        });
-    }
-    
-    // Sinon, ne rien faire pour les autres pages
 });
 
     // -----------------------------------------------

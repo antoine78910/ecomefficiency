@@ -74,7 +74,6 @@ $filesToInclude = @(
     "fotor.js",
     "gemini_overlay.js",
     "gpt.js",
-    "helium.js",
     "heygen_blocker.js",
     "hide_banner.js",
     "higgsfield_ms_click.js",
@@ -152,6 +151,15 @@ foreach ($file in $filesToInclude) {
         $missingFiles += $file
         Write-Host "Fichier manquant: $file" -ForegroundColor Yellow
     }
+}
+
+# NoxTools Ex1 + Ex2 bundled scripts
+$noxToolsSrc = Join-Path $PSScriptRoot "nox-tools"
+$noxToolsDst = Join-Path $tempFolder "nox-tools"
+if (Test-Path $noxToolsSrc) {
+    Copy-Item $noxToolsSrc -Destination $noxToolsDst -Recurse -Force
+    $noxCount = (Get-ChildItem $noxToolsDst -Recurse -File).Count
+    Write-Host "$noxCount fichiers NoxTools copies (nox-tools/)" -ForegroundColor Green
 }
 
 Write-Host "$copiedCount fichiers copies" -ForegroundColor Green
