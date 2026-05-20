@@ -105,7 +105,7 @@ function VideoFrame({
       ) : null}
 
       <div className={(showHeader ? "mt-6 " : "") + "relative mx-auto w-full max-w-5xl aspect-video rounded-xl overflow-hidden border border-white/10 bg-black"}>
-        <PlayButtonVideo src={src} poster={poster} title={title} />
+        <PlayButtonVideo src={src} poster={poster} title={title} playOnHover hidePlayOverlay loop />
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
       </div>
     </div>

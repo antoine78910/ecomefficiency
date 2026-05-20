@@ -9,6 +9,7 @@ export default function PlayButtonVideo({
   className = "absolute inset-0 w-full h-full object-cover",
   autoPlay,
   autoPlayOnVisible,
+  playOnHover = false,
   hidePlayOverlay = false,
   loop,
 }: {
@@ -18,7 +19,9 @@ export default function PlayButtonVideo({
   className?: string;
   autoPlay?: boolean;
   autoPlayOnVisible?: boolean;
-  /** When true, never show the Play overlay (use with autoPlayOnVisible). */
+  /** Play muted on pointer enter, pause on leave. */
+  playOnHover?: boolean;
+  /** When true, never show the Play overlay (use with autoPlayOnVisible / playOnHover). */
   hidePlayOverlay?: boolean;
   loop?: boolean;
 }) {
@@ -114,14 +117,37 @@ export default function PlayButtonVideo({
     else play();
   }, [isPlaying, pause, play]);
 
+  const onWrapperMouseEnter = React.useCallback(() => {
+    if (!playOnHover) return;
+    attemptAutoplay();
+  }, [playOnHover, attemptAutoplay]);
+
+  const onWrapperMouseLeave = React.useCallback(() => {
+    if (!playOnHover) return;
+    pause();
+    const v = videoRef.current;
+    if (v) {
+      try {
+        v.currentTime = 0;
+      } catch {
+        /* ignore */
+      }
+    }
+  }, [playOnHover, pause]);
+
   return (
-    <div ref={wrapperRef} className="absolute inset-0">
+    <div
+      ref={wrapperRef}
+      className="absolute inset-0"
+      onMouseEnter={playOnHover ? onWrapperMouseEnter : undefined}
+      onMouseLeave={playOnHover ? onWrapperMouseLeave : undefined}
+    >
       <video
         ref={videoRef}
         className={className}
         // If poster is provided, we can avoid downloading video until click.
         // If not, preload enough to display the first frame as the preview.
-        preload={autoPlayOnVisible || autoPlay ? "auto" : poster ? "none" : "auto"}
+        preload={autoPlayOnVisible || autoPlay || playOnHover ? "auto" : poster ? "none" : "auto"}
         poster={poster}
         playsInline
         muted
@@ -138,7 +164,10 @@ export default function PlayButtonVideo({
         <source src={src} type="video/mp4" />
       </video>
 
-      {!hidePlayOverlay && !isPlaying && (autoplayFailed || !autoPlayOnVisible) ? (
+      {!hidePlayOverlay &&
+      !playOnHover &&
+      !isPlaying &&
+      (autoplayFailed || (!autoPlayOnVisible && !playOnHover)) ? (
         <button
           type="button"
           onClick={play}

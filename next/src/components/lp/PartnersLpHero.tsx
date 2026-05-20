@@ -1,55 +1,27 @@
-"use client";
-
-import BlurText from "@/components/BlurText";
-
 export default function PartnersLpHero() {
   return (
     <div className="max-w-4xl">
-      <BlurText
-        as="p"
-        text="You focus on marketing & community. We handle everything painful."
-        delay={60}
-        animateBy="words"
-        direction="top"
-        className="text-sm text-purple-200/90"
-      />
+      <p className="text-sm text-purple-200/90">
+        You focus on marketing & community. We handle everything painful.
+      </p>
 
       <div className="mt-4 space-y-1">
-        <BlurText
-          as="h1"
-          text="Launch Your Own SaaS."
-          delay={80}
-          animateBy="words"
-          direction="top"
-          className="text-5xl md:text-7xl font-bold leading-[1.05] tracking-normal text-white"
-        />
-        <BlurText
-          as="h1"
-          text="Without Building One."
-          delay={120}
-          animateBy="words"
-          direction="top"
-          className="text-5xl md:text-7xl font-bold leading-[1.05] tracking-normal text-[#ab63ff] drop-shadow-[0_0_12px_rgba(171,99,255,0.35)]"
-        />
+        <h1 className="text-5xl md:text-7xl font-bold leading-[1.05] tracking-normal text-white">
+          Launch Your Own SaaS.
+        </h1>
+        <h1 className="text-5xl md:text-7xl font-bold leading-[1.05] tracking-normal text-[#ab63ff] drop-shadow-[0_0_12px_rgba(171,99,255,0.35)]">
+          Without Building One.
+        </h1>
       </div>
 
-      <BlurText
-        as="p"
-        text="White-label a fully operational SaaS with 50+ premium e-commerce & AI tools, under your brand, your Stripe, your rules."
-        delay={90}
-        animateBy="words"
-        direction="top"
-        className="mt-6 text-lg md:text-xl text-gray-300 max-w-3xl"
-      />
+      <p className="mt-6 text-lg md:text-xl text-gray-300 max-w-3xl">
+        White-label a fully operational SaaS with 50+ premium e-commerce & AI tools, under your brand,
+        your Stripe, your rules.
+      </p>
 
-      <BlurText
-        as="p"
-        text="Used by communities, agencies & creators with thousands of users."
-        delay={100}
-        animateBy="words"
-        direction="top"
-        className="mt-4 text-sm text-gray-400"
-      />
+      <p className="mt-4 text-sm text-gray-400">
+        Used by communities, agencies & creators with thousands of users.
+      </p>
     </div>
   );
 }
