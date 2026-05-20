@@ -189,7 +189,12 @@ export default function DashboardClient() {
   const [domainVerify, setDomainVerify] = React.useState<{ status: "idle" | "checking" | "ok" | "fail"; message?: string }>({
     status: "idle",
   });
-  const [vercelAttach, setVercelAttach] = React.useState<{ status: "idle" | "working" | "ok" | "fail"; message?: string }>({ status: "idle" });
+  const [vercelAttach, setVercelAttach] = React.useState<{
+    status: "idle" | "working" | "ok" | "fail";
+    message?: string;
+    verified?: boolean;
+    record?: Array<{ type: string; domain: string; value: string }>;
+  }>({ status: "idle" });
   const [requests, setRequests] = React.useState<Array<{ id: string; createdAt: string; email?: string; message: string }>>([]);
   const [requestDraft, setRequestDraft] = React.useState("");
   const [requestLoading, setRequestLoading] = React.useState(false);
@@ -1057,15 +1062,16 @@ export default function DashboardClient() {
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json?.ok) throw new Error(json?.detail || json?.error || "Failed to add domain on Vercel");
 
-      const rec = Array.isArray(json?.vercel?.record) ? json.vercel.record : [];
+      const rec: Array<{ type: string; domain: string; value: string }> = Array.isArray(json?.vercel?.record)
+        ? json.vercel.record.filter((r: any) => r?.type && r?.domain && r?.value)
+        : [];
       const verified = Boolean(json?.vercel?.verified);
-      const hint = rec.length
-        ? ` Verification required: ${rec
-            .slice(0, 2)
-            .map((r: any) => `${r.type} ${r.domain} ${r.value}`)
-            .join(" • ")}`
-        : "";
-      setVercelAttach({ status: "ok", message: verified ? "Domain added on Vercel ✅" : `Domain added on Vercel ✅.${hint}` });
+      setVercelAttach({
+        status: "ok",
+        verified,
+        record: rec,
+        message: verified ? "Domain added and verified on Vercel ✅" : "Domain added on Vercel — set the DNS record below at your registrar.",
+      });
     } catch (e: any) {
       setVercelAttach({ status: "fail", message: e?.message || "Failed to add domain on Vercel" });
     }
