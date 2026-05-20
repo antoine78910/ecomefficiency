@@ -135,14 +135,32 @@ export default function PartnerCustomLandingPanel({
             </button>
             <button
               type="button"
-              disabled={!slug || vercelAttach.status === "working"}
+              disabled={!slug || saving || vercelAttach.status === "working"}
               onClick={async () => {
-                const d = String(config.appSubdomain || "").trim();
-                if (!d) return;
-                setConfig((s) => ({ ...s, customDomain: d }));
+                const marketingUrl = String(config.marketingUrl || "").trim();
+                const appSubdomain = String(config.appSubdomain || "")
+                  .trim()
+                  .replace(/^https?:\/\//, "")
+                  .replace(/\/.*$/, "");
+                if (!appSubdomain) return;
+                if (!appSubdomain.startsWith("app.")) return;
+                setConfig((s) => ({
+                  ...s,
+                  landingMode: "external",
+                  marketingUrl,
+                  appSubdomain,
+                  customDomain: appSubdomain,
+                }));
+                await saveConfig({
+                  landingMode: "external",
+                  marketingUrl,
+                  appSubdomain,
+                  customDomain: appSubdomain,
+                });
                 await addDomainOnVercel();
               }}
               className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-purple-400/30 bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] text-sm disabled:opacity-60"
+              title="Saves app subdomain, registers on Vercel — then add CNAME app → cname.vercel-dns.com at your DNS host."
             >
               {vercelAttach.status === "working" ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
@@ -152,6 +170,22 @@ export default function PartnerCustomLandingPanel({
               Connect app subdomain
             </button>
           </div>
+          {vercelAttach.status !== "idle" ? (
+            <div
+              className={`text-xs ${vercelAttach.status === "ok" ? "text-green-300" : vercelAttach.status === "working" ? "text-gray-400" : "text-red-300"}`}
+            >
+              {vercelAttach.message || ""}
+            </div>
+          ) : null}
+          {!String(config.appSubdomain || "").trim() ? (
+            <p className="text-[11px] text-amber-300/90">Enter app.yourdomain.com above, then connect.</p>
+          ) : !String(config.appSubdomain || "")
+              .trim()
+              .replace(/^https?:\/\//, "")
+              .replace(/\/.*$/, "")
+              .startsWith("app.") ? (
+            <p className="text-[11px] text-amber-300/90">Use app.yourdomain.com only (not your marketing apex).</p>
+          ) : null}
           {appOriginUrl ? (
             <div className="rounded-lg border border-white/10 bg-black/20 p-3 text-xs space-y-1">
               <div className="text-gray-400 mb-1">CTAs for your site</div>
