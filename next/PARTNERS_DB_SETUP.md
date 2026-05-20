@@ -21,3 +21,15 @@ After that:
 - “Page requests” submission will persist correctly
 - Custom domain mapping (`partner_domain:<domain>`) will work
 
+### Custom landing (split domain)
+
+Partners can host their own marketing site and connect only **`app.theirdomain.com`** to the platform.
+
+- Config keys: `landingMode: "external"`, `marketingUrl`, `appSubdomain` on `partner_config:<slug>`
+- Mapping: `partner_domain:app.example.com` → `{ slug }`
+- Optional: `partner_marketing_host:example.com` → redirect apex to `marketingUrl` if it hits our Vercel by mistake
+
+See [PARTNER_STARTER.md](./PARTNER_STARTER.md) and `partner-starter/index.html`.
+
+**Supabase Auth:** add redirect URLs for each partner app subdomain, e.g. `https://app.partner.com/**`.
+

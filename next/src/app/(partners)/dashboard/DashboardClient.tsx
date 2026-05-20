@@ -8,6 +8,7 @@ import { Check, Copy, ExternalLink, Loader2, RefreshCcw, Save, Palette, LayoutTe
 import { supabase } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import TemplatePreview from "./TemplatePreview";
+import PartnerCustomLandingPanel from "./PartnerCustomLandingPanel";
 import {
   clampPartnerMonthlyAmount,
   PARTNER_DASHBOARD_MIN_MONTHLY_PRICE,
@@ -55,6 +56,9 @@ type PartnerConfig = {
   titleHighlightColor?: "accent" | "main" | "secondary";
   subtitleHighlight?: string;
   subtitleHighlightColor?: "accent" | "main" | "secondary";
+  landingMode?: "builtin" | "external";
+  marketingUrl?: string;
+  appSubdomain?: string;
 };
 
 type PartnerStats = {
@@ -421,6 +425,45 @@ export default function DashboardClient() {
     if (!d) return "";
     return `https://${d}`;
   }, [(config as any)?.customDomain]);
+
+  const isExternalLanding = String((config as any)?.landingMode || "builtin") === "external";
+
+  const appOriginUrl = React.useMemo(() => {
+    if (isExternalLanding) {
+      const app = String((config as any)?.appSubdomain || (config as any)?.customDomain || "")
+        .trim()
+        .replace(/^https?:\/\//, "")
+        .replace(/\/.*$/, "")
+        .replace(/^www\./, "");
+      return app ? `https://${app}` : "";
+    }
+    return customDomainUrl;
+  }, [isExternalLanding, (config as any)?.appSubdomain, (config as any)?.customDomain, customDomainUrl]);
+
+  const [integrationBundle, setIntegrationBundle] = React.useState<any>(null);
+  const [integrationLoading, setIntegrationLoading] = React.useState(false);
+
+  const loadIntegrationBundle = React.useCallback(async () => {
+    if (!slug) return;
+    try {
+      setIntegrationLoading(true);
+      const email = await ensureRequesterEmail();
+      if (!email) return;
+      const res = await fetch(`/api/partners/integration?slug=${encodeURIComponent(slug)}`, {
+        cache: "no-store",
+        headers: { "x-user-email": email },
+      });
+      const json = await res.json().catch(() => ({}));
+      if (res.ok && json?.ok) setIntegrationBundle(json);
+    } catch {
+    } finally {
+      setIntegrationLoading(false);
+    }
+  }, [slug]);
+
+  React.useEffect(() => {
+    if (isExternalLanding && slug) void loadIntegrationBundle();
+  }, [isExternalLanding, slug, loadIntegrationBundle]);
 
   const parsePrice = React.useCallback((v: any) => {
     const n = Number(String(v ?? "").replace(",", "."));
@@ -991,7 +1034,11 @@ export default function DashboardClient() {
    */
   const addDomainOnVercel = async () => {
     try {
-      const d = String(config.customDomain || "").trim();
+      const d = String(
+        isExternalLanding
+          ? (config as any)?.appSubdomain || (config as any)?.customDomain || ""
+          : (config as any)?.customDomain || ""
+      ).trim();
       if (!slug) return;
       if (!d) {
         setVercelAttach({ status: "fail", message: "Please enter a domain first." });
@@ -2710,6 +2757,21 @@ export default function DashboardClient() {
             ) : (
               <div className="space-y-4">
                 <Card title="Page & branding">
+                  <PartnerCustomLandingPanel
+                    config={config as Record<string, unknown>}
+                    setConfig={setConfig as React.Dispatch<React.SetStateAction<Record<string, unknown>>>}
+                    isExternalLanding={isExternalLanding}
+                    appOriginUrl={appOriginUrl}
+                    saving={saving}
+                    slug={slug}
+                    vercelAttach={vercelAttach}
+                    integrationBundle={integrationBundle}
+                    integrationLoading={integrationLoading}
+                    saveConfig={saveConfig as (patch: Record<string, unknown>) => Promise<void>}
+                    addDomainOnVercel={addDomainOnVercel}
+                    loadIntegrationBundle={loadIntegrationBundle}
+                    copyText={copyText}
+                  />
                   <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4">
                     <div className="min-w-0">
                       <div className="text-sm text-gray-300">

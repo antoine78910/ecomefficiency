@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import Stripe from "stripe";
 import { supabaseAdmin } from "@/integrations/supabase/server";
 import { clampPartnerMonthlyAmount } from "@/lib/partnerPricingMin";
+import { resolveCheckoutReturnUrls } from "@/lib/partnerLanding";
 
 export const runtime = "nodejs";
 
@@ -211,11 +212,10 @@ export async function POST(req: NextRequest) {
     const stripe = getStripe();
     const origin = req.headers.get("origin") || "https://partners.ecomefficiency.com";
     const host = String(req.headers.get("x-forwarded-host") || req.headers.get("host") || "").toLowerCase();
-    const isPartnersHost = host.includes("partners.ecomefficiency.com");
-    const isCustomDomain = Boolean(host) && !isPartnersHost;
 
     // Load config (best-effort)
     let connectedAccountId = "";
+    let partnerCfg: any = {};
     let saasName = "";
     let offerTitle = "";
     let currency = "EUR";
@@ -226,6 +226,7 @@ export async function POST(req: NextRequest) {
     try {
       if (supabaseAdmin) {
         const cfg = await loadPartnerConfig(slug);
+        partnerCfg = cfg || {};
         connectedAccountId = String(cfg?.connectedAccountId || "");
         saasName = String(cfg?.saasName || "");
         offerTitle = String(cfg?.offerTitle || cfg?.promoTitle || "") || "";
@@ -292,9 +293,7 @@ export async function POST(req: NextRequest) {
 
     const productName = offerTitle || (saasName ? `${saasName} Subscription` : `${slug} Subscription`);
 
-    const successUrl = isCustomDomain ? `${origin}/app?checkout=success` : `${origin}/${encodeURIComponent(slug)}?checkout=success`;
-    // When user cancels/back from Stripe Checkout, always return to the app (not signup).
-    const cancelUrl = isCustomDomain ? `${origin}/app?checkout=cancel` : `${origin}/${encodeURIComponent(slug)}?checkout=cancel`;
+    const { successUrl, cancelUrl } = resolveCheckoutReturnUrls(partnerCfg, slug, { origin, host });
 
     // Ensure stable products/prices so Stripe can enforce promo restrictions (monthly vs annual).
     const { monthProductId, yearProductId } = await ensurePartnerStripeProducts(stripe, slug, connectedAccountId, saasName || slug);
@@ -352,10 +351,9 @@ export async function GET(req: NextRequest) {
     const stripe = getStripe();
     const origin = req.headers.get("origin") || "https://partners.ecomefficiency.com";
     const host = String(req.headers.get("x-forwarded-host") || req.headers.get("host") || "").toLowerCase();
-    const isPartnersHost = host.includes("partners.ecomefficiency.com");
-    const isCustomDomain = Boolean(host) && !isPartnersHost;
 
     let connectedAccountId = "";
+    let partnerCfg: any = {};
     let saasName = "";
     let offerTitle = "";
     let currency = "EUR";
@@ -367,6 +365,7 @@ export async function GET(req: NextRequest) {
         const key = `partner_config:${slug}`;
         const { data } = await supabaseAdmin.from("portal_state").select("value").eq("key", key).maybeSingle();
         const cfg = parseMaybeJson((data as any)?.value) || {};
+        partnerCfg = cfg;
         connectedAccountId = String(cfg?.connectedAccountId || "");
         saasName = String(cfg?.saasName || "");
         offerTitle = String(cfg?.offerTitle || cfg?.promoTitle || "") || "";
@@ -420,8 +419,7 @@ export async function GET(req: NextRequest) {
 
     const productName = offerTitle || (saasName ? `${saasName} Subscription` : `${slug} Subscription`);
 
-    const successUrl = isCustomDomain ? `${origin}/app?checkout=success` : `${origin}/${encodeURIComponent(slug)}?checkout=success`;
-    const cancelUrl = isCustomDomain ? `${origin}/app?checkout=cancel` : `${origin}/${encodeURIComponent(slug)}?checkout=cancel`;
+    const { successUrl, cancelUrl } = resolveCheckoutReturnUrls(partnerCfg, slug, { origin, host });
 
     const session = await stripe.checkout.sessions.create(
       {

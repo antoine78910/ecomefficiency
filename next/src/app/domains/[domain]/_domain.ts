@@ -25,6 +25,13 @@ function cleanDomain(input: string) {
     .replace(/^www\./, "");
 }
 
+async function loadPartnerBySlug(slug: string, domain: string) {
+  const cfgKey = `partner_config:${slug}`;
+  const { data: cfgRow } = await supabaseAdmin!.from("portal_state").select("value").eq("key", cfgKey).maybeSingle();
+  const cfg = parseMaybeJson((cfgRow as any)?.value) || {};
+  return { domain, slug, cfg };
+}
+
 export async function readPartnerForDomain(domainParam: string): Promise<{
   domain: string;
   slug?: string;
@@ -38,12 +45,15 @@ export async function readPartnerForDomain(domainParam: string): Promise<{
     const { data: mapRow } = await supabaseAdmin.from("portal_state").select("value").eq("key", mapKey).maybeSingle();
     const mapping = parseMaybeJson((mapRow as any)?.value) as any;
     const slug = mapping?.slug ? String(mapping.slug) : "";
-    if (!slug) return { domain };
+    if (slug) return loadPartnerBySlug(slug, domain);
 
-    const cfgKey = `partner_config:${slug}`;
-    const { data: cfgRow } = await supabaseAdmin.from("portal_state").select("value").eq("key", cfgKey).maybeSingle();
-    const cfg = parseMaybeJson((cfgRow as any)?.value) || {};
-    return { domain, slug, cfg };
+    const marketingKey = `partner_marketing_host:${domain}`;
+    const { data: mRow } = await supabaseAdmin.from("portal_state").select("value").eq("key", marketingKey).maybeSingle();
+    const m = parseMaybeJson((mRow as any)?.value) as any;
+    const mSlug = m?.slug ? String(m.slug) : "";
+    if (mSlug) return loadPartnerBySlug(mSlug, domain);
+
+    return { domain };
   } catch {
     return { domain };
   }

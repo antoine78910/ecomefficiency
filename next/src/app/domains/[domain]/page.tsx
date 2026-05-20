@@ -1,9 +1,23 @@
+import { redirect } from "next/navigation";
 import { readPartnerForDomain } from "./_domain";
 import PartnerSimpleLanding from "@/components/PartnerSimpleLanding";
+import PartnerExternalAppHome from "@/components/PartnerExternalAppHome";
 import { clampPartnerMonthlyAmount, partnerYearlyBaseFromMonthly } from "@/lib/partnerPricingMin";
+import { getAppSubdomain, getMarketingUrl, isExternalLanding } from "@/lib/partnerLanding";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
+
+function cleanDomain(input: string) {
+  return String(input || "")
+    .trim()
+    .toLowerCase()
+    .replace(/^https?:\/\//, "")
+    .replace(/\/.*$/, "")
+    .replace(/:\d+$/, "")
+    .replace(/\.$/, "")
+    .replace(/^www\./, "");
+}
 
 export default async function DomainRootPage({ params }: { params: Promise<{ domain: string }> }) {
   const { domain } = await params;
@@ -20,10 +34,10 @@ export default async function DomainRootPage({ params }: { params: Promise<{ dom
           </div>
           <div className="mt-5 flex flex-wrap gap-3">
             <a
-              href="https://partners.ecomefficiency.com/dashboard?tab=settings"
+              href="https://partners.ecomefficiency.com/dashboard?tab=page"
               className="inline-flex items-center justify-center h-11 px-5 rounded-xl text-sm font-semibold bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] border border-[#9541e0] hover:brightness-110"
             >
-              Open domain setup
+              Open setup
             </a>
             <a
               href="/signin"
@@ -34,6 +48,22 @@ export default async function DomainRootPage({ params }: { params: Promise<{ dom
           </div>
         </div>
       </div>
+    );
+  }
+
+  if (isExternalLanding(cfg)) {
+    const marketingUrl = getMarketingUrl(cfg);
+    const appHost = getAppSubdomain(cfg);
+    const host = cleanDomain(info.domain || domain);
+
+    if (marketingUrl && host !== appHost && !host.startsWith("app.")) {
+      redirect(marketingUrl);
+    }
+
+    const title = String(cfg?.saasName || info.slug);
+    const colors = (cfg as any)?.colors || {};
+    return (
+      <PartnerExternalAppHome saasName={title} marketingUrl={marketingUrl || undefined} colors={colors} />
     );
   }
 
@@ -78,4 +108,3 @@ export default async function DomainRootPage({ params }: { params: Promise<{ dom
     />
   );
 }
-

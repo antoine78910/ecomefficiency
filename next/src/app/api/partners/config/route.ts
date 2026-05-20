@@ -5,6 +5,12 @@ import {
   clampPartnerMonthlyAmount,
   partnerYearlyBaseFromMonthly,
 } from "@/lib/partnerPricingMin";
+import {
+  getAppSubdomain,
+  marketingHostsFromUrl,
+  normalizeExternalLandingPatch,
+  normalizeLandingMode,
+} from "@/lib/partnerLanding";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -82,7 +88,62 @@ function toPublicConfig(cfg: any) {
     subtitleHighlightColor: c.subtitleHighlightColor,
     customDomain: c.customDomain,
     domainVerified: c.domainVerified,
+    landingMode: normalizeLandingMode(c.landingMode),
+    marketingUrl: c.marketingUrl,
+    appSubdomain: c.appSubdomain,
   };
+}
+
+async function upsertPartnerDomainMapping(domain: string, slug: string) {
+  if (!domain || !slug || !supabaseAdmin) return;
+  const domainKey = `partner_domain:${domain}`;
+  const v = { slug };
+  const shouldStringifyValue = (msg: string) =>
+    /column\s+"value"\s+is\s+of\s+type/i.test(msg) ||
+    /invalid input syntax/i.test(msg) ||
+    /could not parse/i.test(msg) ||
+    (/json/i.test(msg) && /type/i.test(msg));
+
+  const tryUpsertDomain = async (withUpdatedAt: boolean, stringifyValue: boolean) => {
+    const row: any = withUpdatedAt
+      ? { key: domainKey, value: stringifyValue ? JSON.stringify(v) : v, updated_at: new Date().toISOString() }
+      : { key: domainKey, value: stringifyValue ? JSON.stringify(v) : v };
+    const { error } = await supabaseAdmin.from("portal_state").upsert(row, { onConflict: "key" as any });
+    return error;
+  };
+
+  let derr: any = await tryUpsertDomain(true, false);
+  if (derr) {
+    const msg = String(derr?.message || "");
+    const missingUpdatedAt = /updated_at/i.test(msg) && /(does not exist|unknown column|column)/i.test(msg);
+    if (missingUpdatedAt) derr = await tryUpsertDomain(false, false);
+    if (derr && shouldStringifyValue(String(derr?.message || ""))) {
+      derr = await tryUpsertDomain(!missingUpdatedAt, true);
+      if (derr && missingUpdatedAt) derr = await tryUpsertDomain(false, true);
+    }
+  }
+}
+
+async function syncExternalLandingMappings(cfg: any, slug: string) {
+  if (normalizeLandingMode(cfg?.landingMode) !== "external") return;
+  const appHost = getAppSubdomain(cfg);
+  if (appHost) await upsertPartnerDomainMapping(appHost, slug);
+  const marketing = String(cfg?.marketingUrl || "").trim();
+  if (!marketing) return;
+  for (const host of marketingHostsFromUrl(marketing)) {
+    const key = `partner_marketing_host:${host}`;
+    const row = { slug, marketingUrl: marketing };
+    try {
+      await supabaseAdmin.from("portal_state").upsert(
+        { key, value: row, updated_at: new Date().toISOString() } as any,
+        { onConflict: "key" as any }
+      );
+    } catch {
+      try {
+        await supabaseAdmin.from("portal_state").upsert({ key, value: row } as any, { onConflict: "key" as any });
+      } catch {}
+    }
+  }
 }
 
 async function canRead(slug: string, requesterEmail: string) {
@@ -136,12 +197,12 @@ export async function PUT(req: NextRequest) {
     const current = existing.ok ? (existing.config || {}) : {};
 
     // Security: first writer sets adminEmail to the authenticated email (prevents takeover by setting someone else's email).
-    const nextPatch: any = { ...(patch || {}) };
+    const nextPatch: any = normalizeExternalLandingPatch({ ...(patch || {}) });
     const currentAdmin = cleanEmail((current as any)?.adminEmail || "");
     if (!currentAdmin) {
       nextPatch.adminEmail = requesterEmail;
     }
-    const merged = { ...(current || {}), ...(nextPatch || {}), slug };
+    const merged = normalizeExternalLandingPatch({ ...(current || {}), ...(nextPatch || {}), slug });
 
     const allowed = await canRead(slug, requesterEmail);
     if (!allowed) return NextResponse.json({ ok: false, error: "forbidden" }, { status: 403 });
@@ -178,33 +239,11 @@ export async function PUT(req: NextRequest) {
     }
     if (err) return NextResponse.json({ ok: false, error: "db_error", detail: err?.message || "db error" }, { status: 500 });
 
-    // Optional: create a domain->slug mapping for serving the partner template on the custom domain root.
+    // Domain -> slug mapping (builtin: full domain; external: app subdomain only).
     try {
-      const nextDomain = cleanDomain((merged as any)?.customDomain || "");
-      if (nextDomain) {
-        const domainKey = `partner_domain:${nextDomain}`;
-        // Best-effort upsert (tolerant to presence/absence of updated_at)
-        const tryUpsertDomain = async (withUpdatedAt: boolean, stringifyValue: boolean) => {
-          const v = { slug };
-          const row: any = withUpdatedAt
-            ? { key: domainKey, value: stringifyValue ? JSON.stringify(v) : v, updated_at: new Date().toISOString() }
-            : { key: domainKey, value: stringifyValue ? JSON.stringify(v) : v };
-          const { error } = await supabaseAdmin.from("portal_state").upsert(row, { onConflict: "key" as any });
-          return error;
-        };
-        let derr: any = await tryUpsertDomain(true, false);
-        if (derr) {
-          const msg = String(derr?.message || "");
-          const missingUpdatedAt =
-            /updated_at/i.test(msg) &&
-            /(does not exist|unknown column|column)/i.test(msg);
-          if (missingUpdatedAt) derr = await tryUpsertDomain(false, false);
-          if (derr && shouldStringifyValue(String(derr?.message || ""))) {
-            derr = await tryUpsertDomain(!missingUpdatedAt, true);
-            if (derr && missingUpdatedAt) derr = await tryUpsertDomain(false, true);
-          }
-        }
-      }
+      const nextDomain = cleanDomain(getAppSubdomain(merged) || (merged as any)?.customDomain || "");
+      if (nextDomain) await upsertPartnerDomainMapping(nextDomain, slug);
+      await syncExternalLandingMappings(merged, slug);
     } catch {}
 
     return NextResponse.json({ ok: true, config: merged }, { status: 200 });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { Resend } from "resend";
 import { supabaseAdmin } from "@/integrations/supabase/server";
+import { getAppSubdomain, getPlatformOrigin, isExternalLanding } from "@/lib/partnerLanding";
 
 function cleanDomain(input: string) {
   return String(input || "")
@@ -152,7 +153,7 @@ export async function POST(req: NextRequest) {
     const { data: cfgRow } = await supabaseAdmin.from("portal_state").select("value").eq("key", cfgKey).maybeSingle();
     const cfg = (parseMaybeJson((cfgRow as any)?.value) as any) || {};
     const saasName = String(cfg?.saasName || slug);
-    const customDomain = cleanDomain(cfg?.customDomain || host) || host;
+    const customDomain = cleanDomain(getAppSubdomain(cfg) || cfg?.customDomain || host) || host;
 
     // Prefer configured, verified Resend domain (e.g. notify.customdomain.com).
     // IMPORTANT: Never send from an unverified custom domain (hurts deliverability and may be rejected).
@@ -179,9 +180,8 @@ export async function POST(req: NextRequest) {
     const buttonColorDark = String(colors?.secondary || colors?.accent || "#7c30c7").trim();
 
     // Generate a Supabase magic link and send it via Resend
-    // Use custom domain if configured, otherwise use the host from request
-    const targetDomain = customDomain && customDomain !== host ? customDomain : host;
-    const origin = `https://${targetDomain}`;
+    // External landing: always use app subdomain for auth links.
+    const origin = isExternalLanding(cfg) ? getPlatformOrigin(cfg, host) : `https://${customDomain && customDomain !== host ? customDomain : host}`;
     // IMPORTANT:
     // Supabase verifies the link on the auth domain (auth.ecomefficiency.com). Cookies/localStorage cannot be shared
     // to the custom domain, so we must land on the custom domain and set the session there.

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/integrations/supabase/server";
+import { getAppSubdomain, isExternalLanding } from "@/lib/partnerLanding";
 
 export const runtime = "nodejs";
 
@@ -169,10 +170,29 @@ export async function POST(req: NextRequest) {
     }
 
     // Safety: require the domain to match the one saved in config (prevents attaching random domains).
-    const cfgDomain = cleanDomain(cfg?.customDomain || "");
-    if (cfgDomain && cfgDomain !== domain) {
+    const expectedDomain = cleanDomain(
+      isExternalLanding(cfg) ? getAppSubdomain(cfg) || cfg?.appSubdomain || "" : cfg?.customDomain || ""
+    );
+    if (expectedDomain && expectedDomain !== domain) {
       return NextResponse.json(
-        { ok: false, error: "domain_mismatch", detail: `Config domain is ${cfgDomain} but requested ${domain}` },
+        {
+          ok: false,
+          error: "domain_mismatch",
+          detail: isExternalLanding(cfg)
+            ? `External landing: connect app subdomain ${expectedDomain} (not your marketing apex).`
+            : `Config domain is ${expectedDomain} but requested ${domain}`,
+        },
+        { status: 400 }
+      );
+    }
+
+    if (isExternalLanding(cfg) && domain && !domain.startsWith("app.")) {
+      return NextResponse.json(
+        {
+          ok: false,
+          error: "external_requires_app_subdomain",
+          detail: "For a custom marketing site, only add app.yourdomain.com here (host your landing on your own domain separately).",
+        },
         { status: 400 }
       );
     }
