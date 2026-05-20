@@ -34,24 +34,42 @@ export default function PartnerCustomLandingPanel({
   loadIntegrationBundle,
   copyText,
 }: Props) {
+  const pickLandingMode = (mode: "builtin" | "external") => {
+    setConfig((s) => ({ ...s, landingMode: mode }));
+    void saveConfig({ landingMode: mode });
+  };
+
   return (
     <div className="mb-5 rounded-xl border border-purple-400/20 bg-purple-500/5 p-4 space-y-3">
       <div className="text-sm font-medium text-white">Landing</div>
       <p className="text-xs text-gray-400">
         Use our template, or host your own marketing site and connect app.yourdomain.com for signup, billing, and the product.
       </p>
+      {!slug ? (
+        <p className="text-xs text-amber-300">Select or create a partner slug first (configuration).</p>
+      ) : null}
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          onClick={() => void saveConfig({ landingMode: "builtin" })}
-          className={`px-3 py-2 rounded-xl text-sm border ${!isExternalLanding ? "border-purple-400/40 bg-purple-500/15 text-white" : "border-white/10 bg-white/5 text-gray-300 hover:bg-white/10"}`}
+          disabled={!slug || saving}
+          onClick={() => pickLandingMode("builtin")}
+          className={`px-3 py-2 rounded-xl text-sm border ${
+            !isExternalLanding
+              ? "border-purple-400/40 bg-purple-500/15 text-white"
+              : "border-white/10 bg-white/5 text-gray-300 hover:bg-white/10"
+          } disabled:opacity-50`}
         >
           Built-in template
         </button>
         <button
           type="button"
-          onClick={() => void saveConfig({ landingMode: "external" })}
-          className={`px-3 py-2 rounded-xl text-sm border ${isExternalLanding ? "border-purple-400/40 bg-purple-500/15 text-white" : "border-white/10 bg-white/5 text-gray-300 hover:bg-white/10"}`}
+          disabled={!slug || saving}
+          onClick={() => pickLandingMode("external")}
+          className={`px-3 py-2 rounded-xl text-sm border ${
+            isExternalLanding
+              ? "border-purple-400/40 bg-purple-500/15 text-white"
+              : "border-white/10 bg-white/5 text-gray-300 hover:bg-white/10"
+          } disabled:opacity-50`}
         >
           My own site (code)
         </button>
@@ -71,11 +89,19 @@ export default function PartnerCustomLandingPanel({
             <div className="text-xs text-gray-400 mb-1">App subdomain (auth + product)</div>
             <input
               value={String(config.appSubdomain || "")}
-              onChange={(e) => setConfig((s) => ({ ...s, appSubdomain: e.target.value, customDomain: e.target.value }))}
+              onChange={(e) =>
+                setConfig((s) => ({
+                  ...s,
+                  appSubdomain: e.target.value,
+                  customDomain: e.target.value,
+                }))
+              }
               placeholder="app.monsaas.com"
               className="w-full rounded-xl border border-white/15 bg-white/5 px-3 py-2 text-sm font-mono"
             />
-            <p className="mt-1 text-[11px] text-gray-500">CNAME app to cname.vercel-dns.com</p>
+            <p className="mt-1 text-[11px] text-gray-500">
+              CNAME <span className="font-mono">app</span> → <span className="font-mono">cname.vercel-dns.com</span>
+            </p>
           </div>
           <div className="flex flex-wrap gap-2">
             <button
@@ -83,8 +109,23 @@ export default function PartnerCustomLandingPanel({
               disabled={saving}
               onClick={async () => {
                 const marketingUrl = String(config.marketingUrl || "").trim();
-                const appSubdomain = String(config.appSubdomain || "").trim().replace(/^https?:\/\//, "").replace(/\/.*$/, "");
-                await saveConfig({ landingMode: "external", marketingUrl, appSubdomain, customDomain: appSubdomain });
+                const appSubdomain = String(config.appSubdomain || "")
+                  .trim()
+                  .replace(/^https?:\/\//, "")
+                  .replace(/\/.*$/, "");
+                setConfig((s) => ({
+                  ...s,
+                  landingMode: "external",
+                  marketingUrl,
+                  appSubdomain,
+                  customDomain: appSubdomain,
+                }));
+                await saveConfig({
+                  landingMode: "external",
+                  marketingUrl,
+                  appSubdomain,
+                  customDomain: appSubdomain,
+                });
                 await loadIntegrationBundle();
               }}
               className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-white/10 bg-white/5 text-sm"
@@ -103,7 +144,11 @@ export default function PartnerCustomLandingPanel({
               }}
               className="inline-flex items-center gap-2 px-3 py-2 rounded-xl border border-purple-400/30 bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] text-sm disabled:opacity-60"
             >
-              {vercelAttach.status === "working" ? <Loader2 className="w-4 h-4 animate-spin" /> : <Link2 className="w-4 h-4" />}
+              {vercelAttach.status === "working" ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Link2 className="w-4 h-4" />
+              )}
               Connect app subdomain
             </button>
           </div>
