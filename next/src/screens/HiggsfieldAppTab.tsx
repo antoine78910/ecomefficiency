@@ -56,17 +56,16 @@ export default function HiggsfieldAppTab() {
     <div className="max-w-2xl">
       <h1 className="text-2xl font-bold text-white mb-2">Higgsfield</h1>
       <p className="text-sm text-gray-400 mb-6 leading-relaxed">
-        Your personal 4-digit access code is required in the Ecom Efficiency extension popup on{" "}
-        <span className="text-gray-300">higgsfield.ai</span>, together with your subscription
-        email. Each account has a unique code.
+        In the extension popup on <span className="text-gray-300">higgsfield.ai</span>, enter your
+        email first. <strong className="text-gray-200">Pro (Ecom Efficiency)</strong> accounts
+        also need a 4-digit code from this page. <strong className="text-gray-200">Starter</strong>{" "}
+        must upgrade to Pro. <strong className="text-gray-200">Sublaunch / Ecom Agent</strong>{" "}
+        (legacy $15) only needs email — no code.
       </p>
 
       <div className="rounded-xl border border-purple-500/30 bg-purple-950/20 p-4 mb-6 text-sm text-gray-300">
         <p className="font-medium text-white mb-2">How to use it on Higgsfield</p>
         <ol className="list-decimal list-inside space-y-2 text-gray-400">
-          <li>
-            Copy your code below (or save a custom one).
-          </li>
           <li>
             Open{" "}
             <a
@@ -80,8 +79,12 @@ export default function HiggsfieldAppTab() {
             with the Ecom Efficiency extension enabled.
           </li>
           <li>
-            In the verification popup, enter your <strong className="text-gray-200">email</strong>{" "}
-            and your <strong className="text-gray-200">4-digit code</strong>.
+            Enter your <strong className="text-gray-200">email</strong> in the popup — the extension
+            shows whether you are on Ecom Efficiency or Sublaunch.
+          </li>
+          <li>
+            If you are on <strong className="text-gray-200">Pro</strong>, copy your 4-digit code
+            below and paste it in the popup.
           </li>
         </ol>
         <p className="mt-3 text-xs text-purple-300/90">

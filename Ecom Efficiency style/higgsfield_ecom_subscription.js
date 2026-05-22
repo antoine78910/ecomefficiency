@@ -904,19 +904,36 @@
           return { ok: false, message: 'Network or server error. Please try again.', isError: true };
         });
       },
-      onSuccess: function (_email, _pin, result) {
-        var used = (result && result._used != null) ? result._used : getUsedToday();
-        var limit = (result && result._limit != null) ? result._limit : CONFIG.DAILY_CREDIT_LIMIT;
-        setTimeout(function () {
-          var root = document.getElementById('ee-hf-ecom-popup-root');
-          if (root) root.remove();
-          removeShield();
-          ensureWidget();
-          updateWidget(used, limit, used >= limit, 0);
-          startTracking();
-          scheduleBlockingObserver();
-          eeFullyInitialized = true;
-        }, 600);
+      onSuccess: function (email, _pin, result) {
+        function finishUi(used, limit) {
+          setTimeout(function () {
+            var root = document.getElementById('ee-hf-ecom-popup-root');
+            if (root) root.remove();
+            removeShield();
+            ensureWidget();
+            updateWidget(used, limit, used >= limit, 0);
+            startTracking();
+            scheduleBlockingObserver();
+            eeFullyInitialized = true;
+          }, 600);
+        }
+        var raw = result && result.raw ? result.raw : null;
+        if (raw && raw.hf_access_token) {
+          setVerifiedEmail(email);
+          setHfAccessToken(raw.hf_access_token);
+          if (raw.daily_credit_limit) applyDynamicCreditLimit(raw.daily_credit_limit);
+        }
+        if (result && result._used != null) {
+          finishUi(result._used, result._limit != null ? result._limit : CONFIG.DAILY_CREDIT_LIMIT);
+        } else {
+          syncUsageFromBackend(email).then(function () {
+            var used = getUsedToday();
+            var limit = CONFIG.DAILY_CREDIT_LIMIT;
+            finishUi(used, limit);
+          }).catch(function () {
+            finishUi(getUsedToday(), CONFIG.DAILY_CREDIT_LIMIT);
+          });
+        }
       }
     });
   }

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Ecom Efficiency",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Injecte des scripts personnalis\u00e9s sur des pages sp\u00e9cifiques.",
   "permissions": [
     "storage",
@@ -1061,6 +1061,7 @@
         "https://www.higgsfield.ai/auth/login*"
       ],
       "js": [
+        "ee_higgsfield_verify_popup.js",
         "higgsfield_ecom_config.js",
         "higgsfield-email-login.js"
       ],
@@ -1204,6 +1205,7 @@
         "https://www.higgsfield.ai/auth/*"
       ],
       "js": [
+        "ee_higgsfield_verify_popup.js",
         "higgsfield_ecom_config.js",
         "higgsfield_ecom_subscription.js"
       ],

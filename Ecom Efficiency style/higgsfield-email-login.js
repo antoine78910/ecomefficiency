@@ -262,8 +262,19 @@
             return { ok: false, message: 'Network error. Please try again.', isError: true };
           }
         },
-        onSuccess: () => {
+        onSuccess: (email, _pin, result) => {
           if (settled) return;
+          const raw = result && result.raw ? result.raw : null;
+          if (raw && raw.hf_access_token) {
+            try {
+              const lim = raw.daily_credit_limit;
+              if (typeof lim === 'number' && lim > 0) {
+                sessionStorage.setItem('ee_hf_ecom_daily_limit', String(lim));
+              }
+              sessionStorage.setItem('ee_hf_ecom_hf_access_token', String(raw.hf_access_token));
+            } catch (_) {}
+            setVerifiedEmail(email);
+          }
           settled = true;
           setTimeout(() => {
             try {

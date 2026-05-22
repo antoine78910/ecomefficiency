@@ -144,10 +144,46 @@ async function finalizeHiggsfieldExtensionResponse(
 ): Promise<Record<string, unknown>> {
   const gated = applyHiggsfieldProOnlyGate(req, payload);
   if (!isHiggsfieldExtensionRequest(req)) return gated;
-  if (gated.ok !== true || gated.active !== true) return gated;
+
   const em = String(ctx.email || "").trim().toLowerCase();
+  const plan = String(gated.plan ?? "").toLowerCase();
+  const source = String(gated.source ?? "").toLowerCase();
+  const stripeAccount =
+    source === "legacy" || plan === "legacy"
+      ? "legacy"
+      : gated.ok === true && gated.active === true
+        ? "ecomefficiency"
+        : null;
+
+  // Sublaunch / legacy Stripe ($15 Ecom Agent) — active without PIN
+  if (
+    gated.ok === true &&
+    gated.active === true &&
+    (source === "legacy" || plan === "legacy") &&
+    em
+  ) {
+    return {
+      ...gated,
+      active: true,
+      pin_required: false,
+      pin_verified: true,
+      status: "active",
+      stripe_account: "legacy",
+      hf_access_token: issueHiggsfieldAccessToken(em),
+    };
+  }
+
+  if (gated.ok !== true || gated.active !== true) {
+    return stripeAccount ? { ...gated, stripe_account: stripeAccount } : gated;
+  }
   if (!em) {
-    return { ...gated, active: false, status: "missing_email", pin_required: true };
+    return {
+      ...gated,
+      active: false,
+      status: "missing_email",
+      pin_required: true,
+      stripe_account: stripeAccount,
+    };
   }
   const pin = ctx.pin;
   const pinEmpty =
@@ -160,6 +196,7 @@ async function finalizeHiggsfieldExtensionResponse(
       pin_required: true,
       pin_verified: false,
       status: "pin_required",
+      stripe_account: "ecomefficiency",
     };
   }
   const pinOk = await verifyAccessPin(em, pin);
@@ -170,6 +207,7 @@ async function finalizeHiggsfieldExtensionResponse(
       pin_required: true,
       pin_verified: false,
       status: "invalid_pin",
+      stripe_account: "ecomefficiency",
     };
   }
   return {
@@ -178,6 +216,7 @@ async function finalizeHiggsfieldExtensionResponse(
     pin_required: false,
     pin_verified: true,
     status: "active",
+    stripe_account: "ecomefficiency",
     hf_access_token: issueHiggsfieldAccessToken(em),
   };
 }

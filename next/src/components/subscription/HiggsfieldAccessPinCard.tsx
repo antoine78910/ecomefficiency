@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import Link from "next/link";
 import { Check, Clipboard } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
@@ -8,6 +9,12 @@ type PinInfo = {
   default_pin: string;
   has_custom_pin: boolean;
   needs_resave: boolean;
+  higgsfield_eligible: boolean;
+  upgrade_required: boolean;
+  needs_pin: boolean;
+  plan: string | null;
+  stripe_account: string | null;
+  message: string | null;
 };
 
 export function HiggsfieldAccessPinCard({
@@ -19,6 +26,12 @@ export function HiggsfieldAccessPinCard({
     default_pin: "",
     has_custom_pin: false,
     needs_resave: false,
+    higgsfield_eligible: false,
+    upgrade_required: false,
+    needs_pin: false,
+    plan: null,
+    stripe_account: null,
+    message: null,
   });
   const [pin, setPin] = React.useState("");
   const [confirm, setConfirm] = React.useState("");
@@ -28,7 +41,6 @@ export function HiggsfieldAccessPinCard({
   const [error, setError] = React.useState<string | null>(null);
   const [copied, setCopied] = React.useState(false);
 
-  const isPaid = plan === "starter" || plan === "pro";
   const showCard = plan !== "checking" && plan !== "free";
   const displayCode =
     !loading && /^\d{4}$/.test(info.default_pin) ? info.default_pin : "";
@@ -72,6 +84,12 @@ export function HiggsfieldAccessPinCard({
         default_pin: String(json.default_pin || ""),
         has_custom_pin: !!json.has_custom_pin,
         needs_resave: !!json.needs_resave,
+        higgsfield_eligible: !!json.higgsfield_eligible,
+        upgrade_required: !!json.upgrade_required,
+        needs_pin: json.needs_pin !== false && !json.upgrade_required && json.plan !== "legacy",
+        plan: json.plan ? String(json.plan) : null,
+        stripe_account: json.stripe_account ? String(json.stripe_account) : null,
+        message: json.message ? String(json.message) : null,
       });
     } catch {
       setError("Could not load your access code. Refresh the page or try again.");
@@ -119,11 +137,17 @@ export function HiggsfieldAccessPinCard({
       const savedPin = String(json.default_pin || pin);
       setPin("");
       setConfirm("");
-      setInfo({
+      setInfo((prev) => ({
+        ...prev,
         default_pin: savedPin,
         has_custom_pin: true,
         needs_resave: false,
-      });
+        higgsfield_eligible: true,
+        needs_pin: true,
+        upgrade_required: false,
+        plan: "pro",
+        stripe_account: "ecomefficiency",
+      }));
       setMessage("Access code saved. Use it in the Higgsfield extension popup on higgsfield.ai.");
     } catch {
       setError("Could not save code. Try again.");
@@ -138,8 +162,7 @@ export function HiggsfieldAccessPinCard({
         <div className="mt-8 rounded-xl border border-white/10 bg-gray-900/40 p-5">
           <h2 className="text-lg font-semibold text-white mb-1">Higgsfield access code</h2>
           <p className="text-sm text-gray-400">
-            Subscribe to get your personal 4-digit code for the Higgsfield extension (unique to
-            your account).
+            Subscribe to get access to Higgsfield in the extension.
           </p>
         </div>
       );
@@ -147,12 +170,53 @@ export function HiggsfieldAccessPinCard({
     return null;
   }
 
+  if (!loading && info.upgrade_required) {
+    return (
+      <div className="rounded-xl border-2 border-amber-500/40 bg-amber-950/20 p-5">
+        <h2 className="text-lg font-semibold text-white mb-1">Higgsfield requires Pro</h2>
+        <p className="text-sm text-gray-400 mb-4">
+          Your Starter plan does not include a Higgsfield access code. Upgrade to Pro to use
+          Higgsfield in the extension on higgsfield.ai.
+        </p>
+        <Link
+          href="/price"
+          className="inline-block px-4 py-2 rounded-md bg-[#9541e0] hover:bg-[#8636d2] text-white text-sm font-medium"
+        >
+          Upgrade to Pro
+        </Link>
+      </div>
+    );
+  }
+
+  if (!loading && info.plan === "legacy") {
+    return (
+      <div className="rounded-xl border-2 border-emerald-500/30 bg-emerald-950/20 p-5">
+        <h2 className="text-lg font-semibold text-white mb-1">Sublaunch / Ecom Agent</h2>
+        <p className="text-sm text-gray-300 leading-relaxed">
+          {info.message ||
+            "Your legacy Sublaunch subscription ($15 Ecom Agent) is linked to this email. On higgsfield.ai, enter your email in the extension popup — no 4-digit code is required."}
+        </p>
+      </div>
+    );
+  }
+
+  if (!loading && !info.higgsfield_eligible) {
+    return (
+      <div className="rounded-xl border border-white/10 bg-gray-900/40 p-5">
+        <h2 className="text-lg font-semibold text-white mb-1">Higgsfield access</h2>
+        <p className="text-sm text-gray-400">
+          No eligible subscription found for Higgsfield on this account.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-xl border-2 border-purple-500/40 bg-purple-950/30 p-5">
       <h2 className="text-lg font-semibold text-white mb-1">Higgsfield access code</h2>
       <p className="text-sm text-gray-400 mb-4">
-        Required in the extension popup on higgsfield.ai (with your subscription email). Others
-        cannot use your account with email alone.
+        Required in the extension popup on higgsfield.ai (Ecom Efficiency Pro + your subscription
+        email).
       </p>
 
       <div className="mb-5 rounded-lg bg-black/50 border border-purple-500/30 px-4 py-4">
@@ -188,7 +252,7 @@ export function HiggsfieldAccessPinCard({
             Your personal code — change it below anytime
           </p>
         ) : null}
-        {!loading && info.has_custom_pin && displayCode ? (
+        {!loading && info.has_custom_pin ? (
           <p className="text-xs text-emerald-300 mt-3 text-center">Custom code active</p>
         ) : null}
         {!loading && info.needs_resave ? (
@@ -197,13 +261,6 @@ export function HiggsfieldAccessPinCard({
           </p>
         ) : null}
       </div>
-
-      {!isPaid ? (
-        <p className="text-sm text-amber-200/90 mb-3">
-          Higgsfield in the extension requires a Pro plan. You can still set your code here for
-          when you upgrade.
-        </p>
-      ) : null}
 
       {loading ? (
         <div className="h-10 w-full rounded bg-zinc-700/50 animate-pulse" aria-hidden />
