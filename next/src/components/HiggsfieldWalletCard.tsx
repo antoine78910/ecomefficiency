@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { Zap, RefreshCw, Wifi, WifiOff } from 'lucide-react'
-import type { LatestWalletBalance } from './higgsfieldUsageUtils'
+import type { HiggsfieldUsageEvent, LatestWalletBalance } from './higgsfieldUsageUtils'
 
 // Wallet snapshots are stored in the existing higgsfield_usage_events table
 // with source = 'wallet_snapshot' to avoid requiring a migration.
@@ -46,17 +46,7 @@ function CreditBar({ value, max }: { value: number; max: number }) {
   )
 }
 
-function toWalletSnapshot(row: {
-  id?: number
-  email: string | null
-  used_today: number | null
-  hf_cost_raw?: number | null
-  comparison_source?: string | null
-  comparison_delta?: number | null
-  at: string
-  created_at?: string
-  source: string
-}): WalletSnapshot {
+function toWalletSnapshot(row: HiggsfieldUsageEvent): WalletSnapshot {
   return {
     id: row.id,
     email: row.email,
@@ -74,7 +64,7 @@ export function HiggsfieldWalletCard({
   initialSnapshots = [],
   walletBalances = [],
 }: {
-  initialSnapshots?: WalletSnapshot[]
+  initialSnapshots?: HiggsfieldUsageEvent[]
   walletBalances?: LatestWalletBalance[]
 }) {
   const [snapshots, setSnapshots] = useState<WalletSnapshot[]>(() =>
@@ -92,7 +82,7 @@ export function HiggsfieldWalletCard({
       const res = await fetch('/api/higgsfield/wallet?limit=10')
       const data = await res.json()
       if (data.ok) {
-        setSnapshots(data.snapshots || [])
+        setSnapshots((data.snapshots || []).map((s: HiggsfieldUsageEvent) => toWalletSnapshot(s)))
         setLastRefresh(new Date())
       } else {
         setError(data.error || 'Erreur API')

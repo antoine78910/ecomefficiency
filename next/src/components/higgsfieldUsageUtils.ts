@@ -122,7 +122,7 @@ const NOISE_OVERLAY_SOURCES = new Set([
   "direct_touchstart",
 ]);
 
-function eventTime(row: HiggsfieldUsageEvent): number {
+function eventTime(row: { at?: string; created_at?: string }): number {
   return new Date(row.created_at || row.at || 0).getTime();
 }
 
