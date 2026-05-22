@@ -28,7 +28,6 @@ import {
   openStripeBillingPortal,
 } from "@/components/subscription/SubscriptionCancelFlow";
 import { getBillingControlsVisibility } from "@/screens/billingControls";
-import { HiggsfieldAccessPinCard } from "@/components/subscription/HiggsfieldAccessPinCard";
 import PricingToolNewBadge from "@/components/PricingToolNewBadge";
 import { hasPricingNewBadge } from "@/lib/pricingToolBadges";
 
@@ -678,17 +677,6 @@ const App = ({
             preview={preview}
             showSubscriptionBillingControls={false}
           />
-          {!preview && showAffiliateCta ? (
-            <HiggsfieldAccessPinCard
-              plan={
-                appPlan === "starter" || appPlan === "pro"
-                  ? appPlan
-                  : appPlan === "free"
-                    ? "free"
-                    : "checking"
-              }
-            />
-          ) : null}
         </div>
         
         {/* TrendTrack Status - Pro Only Feature - TEMPORARILY DISABLED */}

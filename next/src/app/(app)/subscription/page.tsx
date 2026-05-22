@@ -6,7 +6,6 @@ import {
   SubscriptionCancelFlow,
   openStripeBillingPortal,
 } from "@/components/subscription/SubscriptionCancelFlow";
-import { HiggsfieldAccessPinCard } from "@/components/subscription/HiggsfieldAccessPinCard";
 
 function detectCheckoutCurrency(): "EUR" | "USD" {
   try {
@@ -287,7 +286,12 @@ export default function SubscriptionPage() {
         If you upgraded just now, it may take a few seconds after payment for your account to reflect the new plan.
       </p>
 
-      <HiggsfieldAccessPinCard plan={plan} />
+      <p className="mt-6 text-sm text-gray-400">
+        Higgsfield access code:{" "}
+        <a href="/higgsfield" className="text-purple-300 hover:text-white underline">
+          app.ecomefficiency.com/higgsfield
+        </a>
+      </p>
 
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <button

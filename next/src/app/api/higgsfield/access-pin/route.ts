@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import {
-  HIGGSFIELD_DEFAULT_ACCESS_PIN,
-  hasCustomAccessPin,
+  getAccessPinForDisplay,
   normalizeAccessPin,
   setCustomAccessPin,
 } from "@/lib/higgsfieldAccessPin";
@@ -28,11 +27,11 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
     const email = data.user.email.toLowerCase().trim();
-    const custom = await hasCustomAccessPin(email);
+    const { pin, has_custom_pin } = await getAccessPinForDisplay(email);
     return NextResponse.json({
       ok: true,
-      default_pin: HIGGSFIELD_DEFAULT_ACCESS_PIN,
-      has_custom_pin: custom,
+      default_pin: pin,
+      has_custom_pin,
     });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "error";

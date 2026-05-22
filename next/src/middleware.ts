@@ -338,6 +338,18 @@ export async function middleware(req: NextRequest) {
     return NextResponse.redirect(target, 308)
   }
 
+  if (
+    bareHostname === 'ecomefficiency.com' &&
+    !hostname.startsWith('app.') &&
+    (pathname === '/higgsfield' || pathname.startsWith('/higgsfield/'))
+  ) {
+    const target = new URL(req.nextUrl.toString())
+    target.protocol = 'https:'
+    target.hostname = 'app.ecomefficiency.com'
+    target.port = ''
+    return NextResponse.redirect(target, 308)
+  }
+
   // Pretty aliases to proxy routes
   if (pathname === '/pipiads' || pathname === '/pipiads/') {
     const r = url.clone(); r.pathname = '/proxy/pipiads/dashboard';
@@ -615,6 +627,8 @@ export async function middleware(req: NextRequest) {
     pathname.startsWith('/account/') ||
     pathname === '/subscription' ||
     pathname.startsWith('/subscription/') ||
+    pathname === '/higgsfield' ||
+    pathname.startsWith('/higgsfield/') ||
     pathname === '/checkout' ||
     pathname.startsWith('/checkout/') ||
     pathname === '/create-customer-portal-session' ||

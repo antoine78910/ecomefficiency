@@ -845,91 +845,76 @@
     return !SIMULATE_CONNECTED;
   }
 
+  function hfCodePageUrl() {
+    try {
+      if (window.EE_HiggsfieldVerifyPopup && window.EE_HiggsfieldVerifyPopup.CODE_PAGE_URL) {
+        return String(window.EE_HiggsfieldVerifyPopup.CODE_PAGE_URL);
+      }
+    } catch (_) {}
+    return 'https://app.ecomefficiency.com/higgsfield';
+  }
+
   function createPopup() {
     if (document.getElementById('ee-hf-ecom-popup-root')) return;
     if ((location.pathname || '').startsWith('/auth')) return;
-    var root = document.createElement('div');
-    root.id = 'ee-hf-ecom-popup-root';
-    root.style.cssText = 'position:fixed;inset:0;z-index:2147483646;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.3);animation:eePopIn 0.2s ease;';
-    var popupStyle = document.createElement('style');
-    popupStyle.textContent = '@keyframes eePopIn{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}' +
-      '#ee-hf-ecom-email:focus,#ee-hf-ecom-pin:focus{border-color:rgba(149,65,224,0.5)!important;box-shadow:0 0 0 2px rgba(149,65,224,0.15)!important;}' +
-      '#ee-hf-ecom-submit:hover:not(:disabled){filter:brightness(1.15)}#ee-hf-ecom-submit:disabled{opacity:0.6;cursor:wait}';
-    root.appendChild(popupStyle);
-    var box = document.createElement('div');
-    box.style.cssText = 'max-width:380px;width:90%;background:linear-gradient(170deg,#0f0f1a 0%,#1a1028 50%,#0f0f1a 100%);border:1px solid rgba(149,65,224,0.25);border-radius:20px;padding:32px 28px;box-shadow:0 20px 80px rgba(149,65,224,0.2);font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;color:#fff;text-align:center;position:relative;';
-    box.innerHTML =
-      '<div style="position:absolute;top:-1px;left:50%;transform:translateX(-50%);width:60%;height:3px;background:linear-gradient(90deg,transparent,#9541e0,#b54af3,#9541e0,transparent);border-radius:0 0 4px 4px;"></div>' +
-      '<div style="font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#b54af3;margin-bottom:12px;">Ecom Efficiency</div>' +
-      '<div style="font-size:20px;font-weight:700;margin-bottom:8px;">Verify Your Subscription</div>' +
-      '<div style="font-size:14px;color:rgba(255,255,255,0.7);margin-bottom:16px;line-height:1.5;">Enter your Ecom Efficiency subscription email and 4-digit access code.</div>' +
-      '<label for="ee-hf-ecom-email" style="display:block;text-align:left;font-size:12px;color:rgba(255,255,255,0.55);margin-bottom:6px;">Subscription email</label>' +
-      '<input type="email" id="ee-hf-ecom-email" placeholder="your@email.com" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid rgba(255,255,255,0.1);border-radius:12px;background:rgba(255,255,255,0.06);color:#fff;margin-bottom:14px;font-size:14px;outline:none;transition:border-color 0.2s,box-shadow 0.2s;" />' +
-      '<label for="ee-hf-ecom-pin" style="display:block;text-align:left;font-size:12px;color:rgba(255,255,255,0.55);margin-bottom:6px;">4-digit access code</label>' +
-      '<input type="tel" id="ee-hf-ecom-pin" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="one-time-code" placeholder="e.g. 4821" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid rgba(149,65,224,0.35);border-radius:12px;background:rgba(149,65,224,0.12);color:#fff;margin-bottom:8px;font-size:18px;font-weight:600;outline:none;letter-spacing:0.4em;text-align:center;transition:border-color 0.2s,box-shadow 0.2s;" />' +
-      '<div style="font-size:11px;color:rgba(255,255,255,0.45);margin-bottom:14px;text-align:left;">Default code: <strong style="color:#d8b4fe;">4821</strong> — change anytime on <a href="https://www.ecomefficiency.com/subscription" target="_blank" rel="noopener" style="color:#b54af3;">ecomefficiency.com/subscription</a></div>' +
-      '<div id="ee-hf-ecom-msg" style="min-height:20px;font-size:13px;margin-bottom:14px;"></div>' +
-      '<button type="button" id="ee-hf-ecom-submit" style="width:100%;padding:12px;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;background:linear-gradient(to bottom,#9541e0,#7c30c7);color:#fff;box-shadow:0 8px 40px rgba(149,65,224,0.35);transition:filter 0.15s;">Verify</button>';
-    root.appendChild(box);
-    document.body.appendChild(root);
-
-    var emailEl = document.getElementById('ee-hf-ecom-email');
-    var pinEl = document.getElementById('ee-hf-ecom-pin');
-    var msgEl = document.getElementById('ee-hf-ecom-msg');
-    var submitBtn = document.getElementById('ee-hf-ecom-submit');
-
-    function setMsg(txt, isErr) {
-      msgEl.textContent = txt || '';
-      msgEl.style.color = isErr ? '#f87171' : '#86efac';
-    }
-
-    function doVerify() {
-      var email = (emailEl.value || '').trim().toLowerCase();
-      var pin = (pinEl && pinEl.value ? pinEl.value : '').replace(/\D/g, '').slice(0, 4);
-      if (!email) { setMsg('Please enter an email.', true); return; }
-      if (!/^\d{4}$/.test(pin)) { setMsg('Enter the 4-digit access code (default 4821, or your custom code on ecomefficiency.com/subscription).', true); return; }
-      setMsg('Verifying subscription\u2026');
-      submitBtn.disabled = true;
-      verifySubscription(email, pin).then(function (res) {
-        submitBtn.disabled = false;
-        if (res && res.allowed) {
-          setVerifiedEmail(email);
-          if (res.hf_access_token) setHfAccessToken(res.hf_access_token);
-          if (res.daily_credit_limit) applyDynamicCreditLimit(res.daily_credit_limit);
-          var sourceLabel = res.source === 'legacy' ? ' (legacy)' : '';
-          var planLabel = res.plan ? (' (plan: ' + res.plan + sourceLabel + ')') : '';
-          var limitLabel = CONFIG.DAILY_CREDIT_LIMIT !== 100 ? ' — ' + CONFIG.DAILY_CREDIT_LIMIT + ' credits/day' : '';
-          setMsg('Active subscription detected' + planLabel + limitLabel + '. Syncing credits...', false);
-          syncUsageFromBackend(email).then(function () {
-            var used = getUsedToday();
-            var limit = CONFIG.DAILY_CREDIT_LIMIT;
-            var remaining = Math.max(0, limit - used);
-            setMsg('Access granted. ' + remaining + ' / ' + limit + ' credits remaining.', false);
-            setTimeout(function () { root.remove(); removeShield(); ensureWidget(); updateWidget(used, limit, used >= limit, 0); startTracking(); scheduleBlockingObserver(); eeFullyInitialized = true; }, 600);
-          });
-        } else {
-          if (res && res.reason === 'pin_required') {
-            setMsg('Subscription found. Enter your 4-digit access code (default 4821 on ecomefficiency.com/subscription).', true);
-          } else if (res && res.reason === 'invalid_pin') {
-            setMsg('Incorrect access code. Use 4821 by default or your custom code on ecomefficiency.com/subscription.', true);
-          } else if (res && res.reason === 'requires_pro') {
-            setMsg('Higgsfield tools require the Pro plan ($29.99 / \u20ac29.99), not Starter. Upgrade at ecomefficiency.com/price', true);
-          } else if (res && res.reason === 'no_active_subscription') {
-            setMsg('No active subscription for this email. Please subscribe on ecomefficiency.com.', true);
-          } else if (res && res.reason === 'api_error') {
-            setMsg('Backend replied with an error. Please try again later.', true);
-          } else {
-            setMsg('Network or server error. Please try again later.', true);
+    var mount = window.EE_HiggsfieldVerifyPopup && window.EE_HiggsfieldVerifyPopup.mount;
+    if (!mount) return;
+    var codePage = hfCodePageUrl();
+    mount({
+      prefix: 'ee-hf-ecom',
+      zIndex: 2147483646,
+      onSubmit: function (email, pin) {
+        return verifySubscription(email, pin).then(function (res) {
+          if (res && res.allowed) {
+            setVerifiedEmail(email);
+            if (res.hf_access_token) setHfAccessToken(res.hf_access_token);
+            if (res.daily_credit_limit) applyDynamicCreditLimit(res.daily_credit_limit);
+            return syncUsageFromBackend(email).then(function () {
+              var used = getUsedToday();
+              var limit = CONFIG.DAILY_CREDIT_LIMIT;
+              var remaining = Math.max(0, limit - used);
+              return {
+                ok: true,
+                message: 'Access granted. ' + remaining + ' / ' + limit + ' credits remaining.',
+                isError: false,
+                _used: used,
+                _limit: limit
+              };
+            });
           }
-        }
-      }).catch(function () {
-        submitBtn.disabled = false;
-        setMsg('Network error. Please check backend URL or try again later.', true);
-      });
-    }
-
-    submitBtn.addEventListener('click', doVerify);
-    emailEl.addEventListener('keydown', function (e) { if (e.key === 'Enter') doVerify(); });
+          if (res && res.reason === 'pin_required') {
+            return { ok: false, message: 'Enter your 4-digit code from ' + codePage + '.', isError: true };
+          }
+          if (res && res.reason === 'invalid_pin') {
+            return { ok: false, message: 'Incorrect code. Copy yours from ' + codePage + '.', isError: true };
+          }
+          if (res && res.reason === 'requires_pro') {
+            return { ok: false, message: 'Higgsfield requires Pro ($29.99 / \u20ac29.99). Upgrade at ecomefficiency.com/price', isError: true };
+          }
+          if (res && res.reason === 'no_active_subscription') {
+            return { ok: false, message: 'No active subscription for this email.', isError: true };
+          }
+          if (res && res.reason === 'api_error') {
+            return { ok: false, message: 'Server error. Please try again later.', isError: true };
+          }
+          return { ok: false, message: 'Network or server error. Please try again.', isError: true };
+        });
+      },
+      onSuccess: function (_email, _pin, result) {
+        var used = (result && result._used != null) ? result._used : getUsedToday();
+        var limit = (result && result._limit != null) ? result._limit : CONFIG.DAILY_CREDIT_LIMIT;
+        setTimeout(function () {
+          var root = document.getElementById('ee-hf-ecom-popup-root');
+          if (root) root.remove();
+          removeShield();
+          ensureWidget();
+          updateWidget(used, limit, used >= limit, 0);
+          startTracking();
+          scheduleBlockingObserver();
+          eeFullyInitialized = true;
+        }, 600);
+      }
+    });
   }
 
   // --- Widget ---

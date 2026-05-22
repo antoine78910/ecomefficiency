@@ -14,7 +14,7 @@ export function HiggsfieldAccessPinCard({
   plan: "starter" | "pro" | "free" | "checking";
 }) {
   const [info, setInfo] = React.useState<PinInfo>({
-    default_pin: "4821",
+    default_pin: "",
     has_custom_pin: false,
   });
   const [pin, setPin] = React.useState("");
@@ -46,15 +46,15 @@ export function HiggsfieldAccessPinCard({
       });
       const json = await res.json().catch(() => ({}));
       if (!res.ok || !json.ok) {
-        setError("Could not load settings. Default code is still 4821.");
+        setError("Could not load your access code. Refresh the page or try again.");
         return;
       }
       setInfo({
-        default_pin: String(json.default_pin || "4821"),
+        default_pin: String(json.default_pin || ""),
         has_custom_pin: !!json.has_custom_pin,
       });
     } catch {
-      setError("Could not load settings. Default code is still 4821.");
+      setError("Could not load your access code. Refresh the page or try again.");
     } finally {
       setLoading(false);
     }
@@ -98,7 +98,7 @@ export function HiggsfieldAccessPinCard({
       }
       setPin("");
       setConfirm("");
-      setMessage("Access code saved. Enter it in the Higgsfield extension popup.");
+      setMessage("Access code saved. Use it in the Higgsfield extension popup on higgsfield.ai.");
       await loadInfo();
     } catch {
       setError("Could not save code. Try again.");
@@ -113,8 +113,8 @@ export function HiggsfieldAccessPinCard({
         <div className="mt-8 rounded-xl border border-white/10 bg-gray-900/40 p-5">
           <h2 className="text-lg font-semibold text-white mb-1">Higgsfield access code</h2>
           <p className="text-sm text-gray-400">
-            Subscribe to get your 4-digit code for the Higgsfield extension (default{" "}
-            <span className="font-mono text-white">4821</span> until you set a custom one).
+            Subscribe to get your personal 4-digit code for the Higgsfield extension (unique to
+            your account).
           </p>
         </div>
       );
@@ -123,7 +123,7 @@ export function HiggsfieldAccessPinCard({
   }
 
   return (
-    <div className="mt-8 rounded-xl border-2 border-purple-500/40 bg-purple-950/30 p-5">
+    <div className="rounded-xl border-2 border-purple-500/40 bg-purple-950/30 p-5">
       <h2 className="text-lg font-semibold text-white mb-1">Higgsfield access code</h2>
       <p className="text-sm text-gray-400 mb-4">
         Required in the extension popup on higgsfield.ai (with your subscription email). Others
@@ -131,12 +131,12 @@ export function HiggsfieldAccessPinCard({
       </p>
 
       <div className="mb-5 rounded-lg bg-black/50 border border-purple-500/30 px-4 py-3 text-center">
-        <p className="text-xs text-gray-400 mb-1">Code to enter on higgsfield.ai</p>
+        <p className="text-xs text-gray-400 mb-1">Your code for the Higgsfield extension popup</p>
         <p className="text-3xl font-mono font-bold text-white tracking-[0.35em]">
           {loading ? "····" : info.has_custom_pin ? "••••" : info.default_pin}
         </p>
         {!loading && !info.has_custom_pin ? (
-          <p className="text-xs text-purple-300 mt-1">Default code — change it below anytime</p>
+          <p className="text-xs text-purple-300 mt-1">Your personal code — change it below anytime</p>
         ) : null}
         {!loading && info.has_custom_pin ? (
           <p className="text-xs text-emerald-300 mt-1">Custom code active</p>

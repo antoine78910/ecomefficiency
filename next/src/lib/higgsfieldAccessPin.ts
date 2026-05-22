@@ -1,11 +1,13 @@
 import { createHmac, timingSafeEqual } from "crypto";
 import { supabaseAdmin } from "@/integrations/supabase/server";
 
-export const HIGGSFIELD_DEFAULT_ACCESS_PIN =
-  (process.env.HIGGSFIELD_DEFAULT_ACCESS_PIN || "4821").replace(/\D/g, "").slice(0, 4) ||
-  "4821";
-
 const PIN_KEY_PREFIX = "ee_hf_access_pin:";
+
+type StoredPinValue = {
+  hash?: string;
+  custom?: boolean;
+  updated_at?: string;
+};
 
 function pinSecret(): string {
   return (
@@ -13,6 +15,16 @@ function pinSecret(): string {
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
     "ee-hf-pin-fallback"
   );
+}
+
+/** Stable unique 4-digit code per email (not shared across users). */
+export function deriveDefaultAccessPin(email: string): string {
+  const normalized = email.toLowerCase().trim();
+  const digest = createHmac("sha256", pinSecret())
+    .update(`ee-hf-default-pin:v1|${normalized}`)
+    .digest();
+  const n = digest.readUInt32BE(0) % 10000;
+  return String(n).padStart(4, "0");
 }
 
 export function normalizeAccessPin(input: unknown): string | null {
@@ -31,7 +43,7 @@ function portalKey(email: string): string {
   return PIN_KEY_PREFIX + email.toLowerCase().trim();
 }
 
-export async function getStoredPinHash(email: string): Promise<string | null> {
+async function getStoredPinRecord(email: string): Promise<StoredPinValue | null> {
   if (!supabaseAdmin) return null;
   const key = portalKey(email);
   const { data } = await supabaseAdmin
@@ -39,14 +51,32 @@ export async function getStoredPinHash(email: string): Promise<string | null> {
     .select("value")
     .eq("key", key)
     .maybeSingle();
-  const value = (data as { value?: { hash?: string } } | null)?.value;
-  const hash = value && typeof value.hash === "string" ? value.hash : null;
-  return hash || null;
+  const value = (data as { value?: StoredPinValue } | null)?.value;
+  if (!value || typeof value.hash !== "string") return null;
+  return value;
+}
+
+export async function getStoredPinHash(email: string): Promise<string | null> {
+  const rec = await getStoredPinRecord(email);
+  return rec?.hash || null;
 }
 
 export async function hasCustomAccessPin(email: string): Promise<boolean> {
   const hash = await getStoredPinHash(email);
   return !!hash;
+}
+
+export async function getAccessPinForDisplay(
+  email: string
+): Promise<{ pin: string; has_custom_pin: boolean }> {
+  const custom = await hasCustomAccessPin(email);
+  if (custom) {
+    return { pin: "", has_custom_pin: true };
+  }
+  return {
+    pin: deriveDefaultAccessPin(email),
+    has_custom_pin: false,
+  };
 }
 
 export async function setCustomAccessPin(
@@ -61,7 +91,11 @@ export async function setCustomAccessPin(
   await supabaseAdmin.from("portal_state").upsert(
     {
       key,
-      value: { hash, updated_at: new Date().toISOString() },
+      value: {
+        hash,
+        custom: true,
+        updated_at: new Date().toISOString(),
+      },
       updated_at: new Date().toISOString(),
     },
     { onConflict: "key" as "key" }
@@ -78,7 +112,7 @@ export async function verifyAccessPin(
   const stored = await getStoredPinHash(email);
   const expectedHash = stored
     ? stored
-    : hashAccessPin(email, HIGGSFIELD_DEFAULT_ACCESS_PIN);
+    : hashAccessPin(email, deriveDefaultAccessPin(email));
   const attempt = hashAccessPin(email, normalized);
   try {
     return timingSafeEqual(
