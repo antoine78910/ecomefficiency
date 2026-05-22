@@ -426,11 +426,25 @@
     style.textContent = `
       /* Do NOT touch Ecom Efficiency overlays/popups */
       #ee-hf-ecom-popup-root,
-      #ee-hf-ecom-popup-root * {
+      #ee-hf-ecom-popup-root *,
+      #ee-hf-auth-gate-popup-root,
+      #ee-hf-auth-gate-popup-root * {
         filter: none !important;
         opacity: 1 !important;
         pointer-events: auto !important;
         visibility: visible !important;
+      }
+      #ee-hf-ecom-pin,
+      #ee-hf-auth-gate-pin,
+      #ee-hf-ecom-pin-wrap,
+      #ee-hf-auth-gate-pin-wrap {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+      }
+      #ee-hf-ecom-pin,
+      #ee-hf-auth-gate-pin {
+        min-height: 48px !important;
       }
 
       /* Entire sensitive header area: grey + non-interactive */

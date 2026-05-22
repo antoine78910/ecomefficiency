@@ -855,10 +855,14 @@
   }
 
   function createPopup() {
-    if (document.getElementById('ee-hf-ecom-popup-root')) return;
     if ((location.pathname || '').startsWith('/auth')) return;
-    var mount = window.EE_HiggsfieldVerifyPopup && window.EE_HiggsfieldVerifyPopup.mount;
-    if (!mount) return;
+    var EE = window.EE_HiggsfieldVerifyPopup;
+    if (EE && EE.repairStalePopup) EE.repairStalePopup('ee-hf-ecom');
+    var mount = EE && EE.mount;
+    if (!mount) {
+      try { console.warn('[EE-HF-Ecom] Verify popup module missing — reload extension v1.0.5+'); } catch (_) {}
+      return;
+    }
     var codePage = hfCodePageUrl();
     mount({
       prefix: 'ee-hf-ecom',

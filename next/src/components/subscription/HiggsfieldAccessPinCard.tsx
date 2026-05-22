@@ -1,6 +1,7 @@
 "use client";
 
 import React from "react";
+import { Check, Clipboard } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 type PinInfo = {
@@ -23,9 +24,23 @@ export function HiggsfieldAccessPinCard({
   const [saving, setSaving] = React.useState(false);
   const [message, setMessage] = React.useState<string | null>(null);
   const [error, setError] = React.useState<string | null>(null);
+  const [copied, setCopied] = React.useState(false);
 
   const isPaid = plan === "starter" || plan === "pro";
   const showCard = plan !== "checking" && plan !== "free";
+  const codeToCopy = !info.has_custom_pin ? info.default_pin : "";
+
+  const handleCopyCode = async () => {
+    if (!codeToCopy || !/^\d{4}$/.test(codeToCopy)) return;
+    try {
+      await navigator.clipboard.writeText(codeToCopy);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {
+      setCopied(false);
+      setError("Could not copy. Select the code and copy manually.");
+    }
+  };
 
   const loadInfo = React.useCallback(async () => {
     if (!showCard) {
@@ -130,16 +145,43 @@ export function HiggsfieldAccessPinCard({
         cannot use your account with email alone.
       </p>
 
-      <div className="mb-5 rounded-lg bg-black/50 border border-purple-500/30 px-4 py-3 text-center">
-        <p className="text-xs text-gray-400 mb-1">Your code for the Higgsfield extension popup</p>
-        <p className="text-3xl font-mono font-bold text-white tracking-[0.35em]">
-          {loading ? "····" : info.has_custom_pin ? "••••" : info.default_pin}
+      <div className="mb-5 rounded-lg bg-black/50 border border-purple-500/30 px-4 py-4">
+        <p className="text-xs text-gray-400 mb-3 text-center">
+          Your code for the Higgsfield extension popup (email + code)
         </p>
+        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+          <p className="text-3xl font-mono font-bold text-white tracking-[0.35em] tabular-nums">
+            {loading ? "····" : info.has_custom_pin ? "••••" : info.default_pin}
+          </p>
+          {!loading && codeToCopy ? (
+            <button
+              type="button"
+              onClick={() => void handleCopyCode()}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-purple-500/40 bg-purple-900/40 text-sm font-medium text-white hover:bg-purple-800/50 transition-colors shrink-0"
+            >
+              {copied ? (
+                <>
+                  <Check className="w-4 h-4 text-emerald-400" />
+                  Copied
+                </>
+              ) : (
+                <>
+                  <Clipboard className="w-4 h-4" />
+                  Copy code
+                </>
+              )}
+            </button>
+          ) : null}
+        </div>
         {!loading && !info.has_custom_pin ? (
-          <p className="text-xs text-purple-300 mt-1">Your personal code — change it below anytime</p>
+          <p className="text-xs text-purple-300 mt-3 text-center">
+            Your personal code — change it below anytime
+          </p>
         ) : null}
         {!loading && info.has_custom_pin ? (
-          <p className="text-xs text-emerald-300 mt-1">Custom code active</p>
+          <p className="text-xs text-emerald-300 mt-3 text-center">
+            Custom code active (use the code you saved, or set a new one below)
+          </p>
         ) : null}
       </div>
 

@@ -204,8 +204,10 @@
   function showEcomVerifyPopup() {
     return new Promise((resolve) => {
       const rootId = 'ee-hf-auth-gate-popup-root';
+      const EE = window.EE_HiggsfieldVerifyPopup;
+      if (EE && EE.repairStalePopup) EE.repairStalePopup('ee-hf-auth-gate');
       if (document.getElementById(rootId)) return resolve(false);
-      const mount = window.EE_HiggsfieldVerifyPopup && window.EE_HiggsfieldVerifyPopup.mount;
+      const mount = EE && EE.mount;
       if (!mount) return resolve(false);
       const codePage = hfCodePageUrl();
       let settled = false;
