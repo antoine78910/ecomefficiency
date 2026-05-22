@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { verifyHiggsfieldAccessToken } from "@/lib/higgsfieldAccessSession";
 
 type HiggsfieldUsageEvent = {
   email: string | null;
@@ -35,7 +36,10 @@ function withCors(res: NextResponse, req?: Request) {
     res.headers.set("Access-Control-Allow-Origin", allow);
     res.headers.set("Vary", "Origin");
     res.headers.set("Access-Control-Allow-Methods", "GET,POST,OPTIONS");
-    res.headers.set("Access-Control-Allow-Headers", "Content-Type");
+    res.headers.set(
+      "Access-Control-Allow-Headers",
+      "Content-Type, X-EE-HF-Access-Token"
+    );
   } catch {}
   return res;
 }
@@ -107,18 +111,42 @@ export async function POST(req: Request) {
     };
 
     const rawEmail = typeof json.email === "string" ? json.email.trim() : "";
-    const email = rawEmail || null;
+    const email = rawEmail ? rawEmail.toLowerCase() : null;
     const delta = Number(json.delta || 0);
+
+    const sourceRaw =
+      typeof json.source === "string" ? json.source.trim().slice(0, 64) : "";
+    const origin = req.headers.get("origin") || "";
+    const fromHiggsfield = HIGGSFIELD_ORIGINS.includes(origin);
+    const token =
+      req.headers.get("x-ee-hf-access-token") ||
+      req.headers.get("X-EE-HF-Access-Token");
+
+    // Wallet snapshots + abuse markers are always accepted (delta often 0).
+    // Network /jobs tracking is authoritative — allow without token when email is unknown.
+    const skipTokenCheck =
+      sourceRaw === "wallet_snapshot" ||
+      sourceRaw === "abuse_detected" ||
+      sourceRaw === "network_jobs_api";
+
+    if (fromHiggsfield && delta > 0 && !skipTokenCheck && email) {
+      if (!verifyHiggsfieldAccessToken(token, email)) {
+        return withCors(
+          NextResponse.json(
+            { ok: false, error: "invalid_access_token" },
+            { status: 403 }
+          ),
+          req
+        );
+      }
+    }
     const usedToday =
       json.usedToday != null && !Number.isNaN(Number(json.usedToday))
         ? Number(json.usedToday)
         : null;
     const at =
       (typeof json.at === "string" && json.at) || new Date().toISOString();
-    const source =
-      typeof json.source === "string" && json.source.trim()
-        ? json.source.trim().slice(0, 64)
-        : null;
+    const source = sourceRaw || null;
 
     if (!Number.isFinite(delta)) {
       return withCors(

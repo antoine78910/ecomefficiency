@@ -6,9 +6,11 @@ import {
   filterHiggsfieldEvents,
   summarizeHiggsfieldUsageRows,
   detectHiggsfieldAnomalies,
+  buildUnifiedGenerationHistory,
   type HiggsfieldEventFilterMode,
   type HiggsfieldUsageEvent as UsageRow,
   type HiggsfieldAnomaly,
+  type UnifiedGenerationRow,
 } from './higgsfieldUsageUtils'
 
 type EmailRow = { email: string; credits: number }
@@ -39,8 +41,13 @@ function sourceLabel(source: string | null | undefined): string {
     case 'unlimited_generate': return 'Unlimited Generate'
     case 'standard_generate': return 'Standard Generate'
     case 'network_jobs_api': return 'Réseau /jobs API'
+    case 'wallet_snapshot': return 'Wallet snapshot'
+    case 'wallet_inferred': return 'Wallet HF (débit)'
     case 'abuse_detected': return '⚠ Abus détecté'
     case 'intercepted_generate': return 'Intercepté'
+    case 'document_capture': return '⚠ Bruit (capture)'
+    case 'network_leak': return '⚠ Bruit (network leak)'
+    case 'form_submit': return '⚠ Bruit (form)'
     default: return s || '—'
   }
 }
@@ -61,7 +68,16 @@ function anomalyTypeLabel(type: HiggsfieldAnomaly['type']) {
     case 'unlim_but_charged': return 'Unlimited → crédits débités'
     case 'abuse_detected': return 'Comportement suspect'
     case 'rapid_fire': return 'Rapid-fire'
+    case 'wallet_drop_untracked': return 'Wallet ↓ sans tracking'
+    case 'noise_overlay_spam': return 'Bruit overlay'
   }
+}
+
+function trackingBadge(tracking: UnifiedGenerationRow['tracking']) {
+  const base = 'inline-flex px-2 py-0.5 rounded text-[10px] font-semibold border'
+  if (tracking === 'network') return <span className={`${base} bg-emerald-500/15 text-emerald-300 border-emerald-500/30`}>réseau</span>
+  if (tracking === 'wallet_inferred') return <span className={`${base} bg-sky-500/15 text-sky-300 border-sky-500/30`}>wallet</span>
+  return <span className={`${base} bg-purple-500/15 text-purple-300 border-purple-500/30`}>overlay</span>
 }
 
 function SortButton({ active, dir, onClick }: { active: boolean; dir: SortDir; onClick: () => void }) {
@@ -310,19 +326,16 @@ export function HiggsfieldCreditHistory({ data }: { data: UsageRow[] }) {
   const PAGE_SIZE = 50
 
   const filtered = useMemo(() => {
-    let rows = summarizeHiggsfieldUsageRows(data).chargeableRows
+    let rows = buildUnifiedGenerationHistory(data)
     if (filter.trim()) {
       const q = filter.trim().toLowerCase()
       rows = rows.filter(r =>
         (r.email || '').toLowerCase().includes(q) ||
-        sourceLabel(r.source).toLowerCase().includes(q)
+        r.feature.toLowerCase().includes(q) ||
+        (r.tracking || '').toLowerCase().includes(q)
       )
     }
-    return [...rows].sort((a, b) => {
-      const da = new Date(a.created_at || a.at || 0).getTime()
-      const db = new Date(b.created_at || b.at || 0).getTime()
-      return db - da
-    })
+    return rows
   }, [data, filter])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
@@ -334,6 +347,7 @@ export function HiggsfieldCreditHistory({ data }: { data: UsageRow[] }) {
       <div className="flex items-center gap-3 mb-4">
         <History className="h-5 w-5 text-amber-500" />
         <h2 className="text-xl font-semibold">Credit History</h2>
+        <span className="text-xs text-gray-500">(réseau /jobs + overlay, dédupliqué)</span>
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
           <input
@@ -359,6 +373,7 @@ export function HiggsfieldCreditHistory({ data }: { data: UsageRow[] }) {
                 <tr>
                   <th className="p-4 text-left text-gray-400 font-medium">Credits</th>
                   <th className="p-4 text-left text-gray-400 font-medium">Feature</th>
+                  <th className="p-4 text-left text-gray-400 font-medium">Source</th>
                   <th className="p-4 text-left text-gray-400 font-medium">Action</th>
                   <th className="p-4 text-left text-gray-400 font-medium">Email</th>
                   <th className="p-4 text-left text-gray-400 font-medium">Date</th>
@@ -370,15 +385,16 @@ export function HiggsfieldCreditHistory({ data }: { data: UsageRow[] }) {
                     <td className="p-4">
                       <span className="flex items-center gap-1.5 font-semibold text-white">
                         {e.delta} credit{e.delta !== 1 ? 's' : ''}
-                        <Info className="h-3.5 w-3.5 text-gray-500" />
+                        <Info className="h-3.5 w-3.5 text-gray-500" title={e.source || ''} />
                       </span>
                     </td>
-                    <td className="p-4 text-white">{sourceLabel(e.source)}</td>
+                    <td className="p-4 text-white">{e.feature}</td>
+                    <td className="p-4">{trackingBadge(e.tracking)}</td>
                     <td className="p-4">
-                      <span className="text-amber-400 font-medium">Spent</span>
+                      <span className="text-amber-400 font-medium">{e.action}</span>
                     </td>
                     <td className="p-4 text-gray-400 text-xs">{e.email || '—'}</td>
-                    <td className="p-4 text-gray-400">{formatDateFR(e.created_at || e.at)}</td>
+                    <td className="p-4 text-gray-400">{formatDateFR(e.at)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -487,7 +503,7 @@ export function HiggsfieldAnomalyTable({ data }: { data: UsageRow[] }) {
       <div className="flex flex-wrap items-center gap-3">
         <div className="flex items-center gap-2">
           <AlertTriangle className="h-5 w-5 text-amber-500" />
-          <h2 className="text-xl font-semibold">Anomalies à rectifier</h2>
+          <h2 className="text-xl font-semibold">Signaux</h2>
         </div>
         <div className="relative flex-1 max-w-xs">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-500" />
@@ -507,6 +523,8 @@ export function HiggsfieldAnomalyTable({ data }: { data: UsageRow[] }) {
             { id: 'unlim_but_charged', label: `Unlimited+coût (${counts.unlim_but_charged || 0})` },
             { id: 'abuse_detected', label: `Abus (${counts.abuse_detected || 0})` },
             { id: 'rapid_fire', label: `Rapid-fire (${counts.rapid_fire || 0})` },
+            { id: 'wallet_drop_untracked', label: `Wallet ↓ (${counts.wallet_drop_untracked || 0})` },
+            { id: 'noise_overlay_spam', label: `Bruit (${counts.noise_overlay_spam || 0})` },
           ] as const).map(opt => (
             <button
               key={opt.id}

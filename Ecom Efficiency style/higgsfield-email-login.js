@@ -178,6 +178,11 @@
 
   function setVerifiedEmail(v) {
     const s = String(v || '').trim().toLowerCase();
+    // Never persist the shared Higgsfield login account email as a user identity.
+    const blockedEmails = ['admin@ecomefficiency.com'];
+    if (blockedEmails.indexOf(s) !== -1) return;
+    // Shared browser: sessionStorage only — no localStorage so the identity
+    // doesn't bleed across page reloads to a different person.
     try {
       sessionStorage.setItem(ECOM_VERIFIED_EMAIL_KEY, s);
       if (s) {
@@ -195,7 +200,7 @@
     s.textContent =
       '@keyframes eeHfAuthPopIn{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}' +
       '#ee-hf-auth-gate-root{position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.3);animation:eeHfAuthPopIn 0.2s ease;}' +
-      '#ee-hf-auth-gate-email:focus{border-color:rgba(149,65,224,0.5)!important;box-shadow:0 0 0 2px rgba(149,65,224,0.15)!important;}' +
+      '#ee-hf-auth-gate-email:focus,#ee-hf-auth-gate-pin:focus{border-color:rgba(149,65,224,0.5)!important;box-shadow:0 0 0 2px rgba(149,65,224,0.15)!important;}' +
       '#ee-hf-auth-gate-verify:hover:not(:disabled){filter:brightness(1.15)}' +
       '#ee-hf-auth-gate-verify:disabled{opacity:0.6;cursor:wait}';
     (document.head || document.documentElement).appendChild(s);
@@ -219,9 +224,11 @@
         '<div style="position:absolute;top:-1px;left:50%;transform:translateX(-50%);width:60%;height:3px;background:linear-gradient(90deg,transparent,#9541e0,#b54af3,#9541e0,transparent);border-radius:0 0 4px 4px;"></div>' +
         '<div style="font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#b54af3;margin-bottom:12px;">Ecom Efficiency</div>' +
         '<div style="font-size:20px;font-weight:700;margin-bottom:8px;">Verify Your Subscription</div>' +
-        '<div style="font-size:14px;color:rgba(255,255,255,0.7);margin-bottom:20px;line-height:1.5;">Enter the email you used for your<br>Ecom Efficiency subscription to continue.</div>' +
+        '<div style="font-size:14px;color:rgba(255,255,255,0.7);margin-bottom:20px;line-height:1.5;">Enter your subscription email and your<br>4-digit Higgsfield PIN (ecomefficiency.com/subscription).</div>' +
         '<input type="email" id="ee-hf-auth-gate-email" placeholder="your@email.com" ' +
         'style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid rgba(255,255,255,0.1);border-radius:12px;background:rgba(255,255,255,0.06);color:#fff;margin-bottom:14px;font-size:14px;outline:none;transition:border-color 0.2s,box-shadow 0.2s;" />' +
+        '<input type="password" id="ee-hf-auth-gate-pin" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="4-digit PIN" ' +
+        'style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid rgba(255,255,255,0.1);border-radius:12px;background:rgba(255,255,255,0.06);color:#fff;margin-bottom:14px;font-size:14px;outline:none;letter-spacing:0.35em;text-align:center;transition:border-color 0.2s,box-shadow 0.2s;" />' +
         '<div id="ee-hf-auth-gate-msg" style="min-height:20px;font-size:13px;margin-bottom:14px;"></div>' +
         '<button type="button" id="ee-hf-auth-gate-verify" ' +
         'style="width:100%;padding:12px;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;background:linear-gradient(to bottom,#9541e0,#7c30c7);color:#fff;box-shadow:0 8px 40px rgba(149,65,224,0.35);transition:filter 0.15s;">Verify</button>';
@@ -229,6 +236,7 @@
       (document.body || document.documentElement).appendChild(root);
 
       const emailEl = document.getElementById('ee-hf-auth-gate-email');
+      const pinEl = document.getElementById('ee-hf-auth-gate-pin');
       const msgEl = document.getElementById('ee-hf-auth-gate-msg');
       const verifyBtn = document.getElementById('ee-hf-auth-gate-verify');
       const setMsg = (txt, ok) => {
@@ -240,19 +248,26 @@
       async function runVerify() {
         if (!verifyBtn || !emailEl) return;
         const email = String(emailEl.value || '').trim().toLowerCase();
+        const pin = String(pinEl && pinEl.value ? pinEl.value : '').replace(/\D/g, '').slice(0, 4);
         if (!email) return setMsg('Please enter an email.', false);
+        if (!/^\d{4}$/.test(pin)) return setMsg('Enter your 4-digit PIN from ecomefficiency.com/subscription.', false);
         verifyBtn.disabled = true;
         setMsg('Verifying subscription\u2026', false);
         try {
           const r = await fetch(ECOM_VERIFY_URL, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ email })
+            body: JSON.stringify({ email, pin })
           });
           const data = await r.json().catch(() => null);
           if (data && data.status === 'higgsfield_requires_pro') {
             verifyBtn.disabled = false;
             setMsg('Pro plan required ($29.99 / \u20ac29.99), not Starter. Upgrade: ecomefficiency.com/price', false);
+            return;
+          }
+          if (data && (data.status === 'invalid_pin' || data.status === 'pin_required')) {
+            verifyBtn.disabled = false;
+            setMsg('Incorrect PIN. Check ecomefficiency.com/subscription.', false);
             return;
           }
           const allowed = !!(data && data.ok === true && data.active === true);
@@ -265,6 +280,9 @@
             const lim = data && data.daily_credit_limit;
             if (typeof lim === 'number' && lim > 0) {
               sessionStorage.setItem('ee_hf_ecom_daily_limit', String(lim));
+            }
+            if (data && data.hf_access_token) {
+              sessionStorage.setItem('ee_hf_ecom_hf_access_token', String(data.hf_access_token));
             }
           } catch (_) {}
           setVerifiedEmail(email);

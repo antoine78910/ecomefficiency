@@ -12,6 +12,8 @@ import {
   resolveStripeAccessForAuthEmail,
   syncSupabaseUserStripeAccess,
 } from "@/lib/syncSupabaseUserStripeAccess";
+import { verifyAccessPin } from "@/lib/higgsfieldAccessPin";
+import { issueHiggsfieldAccessToken } from "@/lib/higgsfieldAccessSession";
 
 function parseMaybeJson<T = any>(value: any): T | null {
   if (value === null || value === undefined) return null;
@@ -131,6 +133,33 @@ function applyHiggsfieldProOnlyGate(
   };
 }
 
+async function finalizeHiggsfieldExtensionResponse(
+  req: NextRequest,
+  payload: Record<string, unknown>,
+  ctx: { email?: string | null; pin?: unknown }
+): Promise<Record<string, unknown>> {
+  const gated = applyHiggsfieldProOnlyGate(req, payload);
+  if (!isHiggsfieldExtensionRequest(req)) return gated;
+  if (gated.ok !== true || gated.active !== true) return gated;
+  const em = String(ctx.email || "").trim().toLowerCase();
+  if (!em) {
+    return { ...gated, active: false, status: "missing_email", pin_required: true };
+  }
+  const pin = ctx.pin;
+  if (pin === undefined || pin === null || String(pin).trim() === "") {
+    return { ...gated, active: false, status: "pin_required", pin_required: true };
+  }
+  const pinOk = await verifyAccessPin(em, pin);
+  if (!pinOk) {
+    return { ok: true, active: false, status: "invalid_pin", pin_required: true };
+  }
+  return {
+    ...gated,
+    pin_required: false,
+    hf_access_token: issueHiggsfieldAccessToken(em),
+  };
+}
+
 function withCors(res: NextResponse, req?: NextRequest | Request) {
   try {
     const origin = req?.headers?.get("origin") || "";
@@ -140,7 +169,7 @@ function withCors(res: NextResponse, req?: NextRequest | Request) {
     res.headers.set("Access-Control-Allow-Origin", allow);
     res.headers.set("Vary", "Origin");
     res.headers.set("Access-Control-Allow-Methods", "POST,OPTIONS");
-    res.headers.set("Access-Control-Allow-Headers", "Content-Type");
+    res.headers.set("Access-Control-Allow-Headers", "Content-Type, X-User-Email, X-Stripe-Customer-Id");
   } catch {}
   return res;
 }
@@ -158,12 +187,17 @@ export async function POST(req: NextRequest) {
     }
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-08-27.basil" });
 
-    const body = await req.json().catch(() => ({})) as { email?: string; session_id?: string };
+    const body = await req.json().catch(() => ({})) as {
+      email?: string;
+      session_id?: string;
+      pin?: string;
+    };
     const emailHeader = req.headers.get("x-user-email") || undefined;
     const customerHeader = req.headers.get("x-stripe-customer-id") || undefined;
     const partnerSlugHeader = cleanSlug(req.headers.get("x-partner-slug") || "");
     const email = body.email || emailHeader;
     const sessionId = String(body.session_id || "").trim();
+    const higgsfieldPin = body.pin;
 
     // White-label / partner: subscription may live on the partner Stripe Connect account.
     // If there is no active Connect subscription, fall through to **platform** Stripe — the same user may
@@ -212,7 +246,7 @@ export async function POST(req: NextRequest) {
 
           return withCors(
             NextResponse.json(
-              applyHiggsfieldProOnlyGate(req, {
+              await finalizeHiggsfieldExtensionResponse(req, {
                 ok: true,
                 active: true,
                 status: partnerLatest.status,
@@ -230,7 +264,7 @@ export async function POST(req: NextRequest) {
                   : null,
                 cancel_at_period_end: Boolean(partnerLatest.cancel_at_period_end),
                 verify_source: "partner_connect",
-              })
+              }, { email, pin: higgsfieldPin })
             )
           , req);
         }
@@ -379,7 +413,7 @@ export async function POST(req: NextRequest) {
 
         return withCors(
           NextResponse.json(
-            applyHiggsfieldProOnlyGate(req, {
+            await finalizeHiggsfieldExtensionResponse(req, {
               ok: true,
               active,
               status,
@@ -399,7 +433,7 @@ export async function POST(req: NextRequest) {
               verify_source: "session_id",
               invoice_status: invoiceStatus || null,
               daily_credit_limit: DEFAULT_DAILY_CREDIT_LIMIT,
-            })
+            }, { email, pin: higgsfieldPin })
           )
         , req);
       } catch (e: any) {
@@ -437,7 +471,7 @@ export async function POST(req: NextRequest) {
           console.log("[VERIFY] Found legacy subscriber:", { email, legacyCustomerId: legacy.customerId });
           return withCors(
             NextResponse.json(
-              applyHiggsfieldProOnlyGate(req, {
+              await finalizeHiggsfieldExtensionResponse(req, {
                 ok: true,
                 active: true,
                 status: legacy.status,
@@ -448,7 +482,7 @@ export async function POST(req: NextRequest) {
                 subscription_current_period_start_at: legacy.periodStartAt,
                 daily_credit_limit: LEGACY_DAILY_CREDIT_LIMIT,
                 source: "legacy",
-              })
+              }, { email, pin: higgsfieldPin })
             )
           , req);
         }
@@ -555,7 +589,7 @@ export async function POST(req: NextRequest) {
           console.log("[VERIFY] Found legacy subscriber (no active main sub):", { email, legacyCustomerId: legacy.customerId });
           return withCors(
             NextResponse.json(
-              applyHiggsfieldProOnlyGate(req, {
+              await finalizeHiggsfieldExtensionResponse(req, {
                 ok: true,
                 active: true,
                 status: legacy.status,
@@ -566,7 +600,7 @@ export async function POST(req: NextRequest) {
                 subscription_current_period_start_at: legacy.periodStartAt,
                 daily_credit_limit: LEGACY_DAILY_CREDIT_LIMIT,
                 source: "legacy",
-              })
+              }, { email, pin: higgsfieldPin })
             )
           , req);
         }
@@ -790,7 +824,12 @@ export async function POST(req: NextRequest) {
     }
 
     return withCors(
-      NextResponse.json(applyHiggsfieldProOnlyGate(req, { ...result }) as Record<string, unknown>)
+      NextResponse.json(
+        await finalizeHiggsfieldExtensionResponse(req, { ...result } as Record<string, unknown>, {
+          email,
+          pin: higgsfieldPin,
+        })
+      )
     , req);
   } catch (e: any) {
     return withCors(

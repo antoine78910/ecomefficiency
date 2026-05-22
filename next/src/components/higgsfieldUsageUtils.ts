@@ -90,11 +90,207 @@ export function summarizeHiggsfieldUsageRows(rows: HiggsfieldUsageEvent[]) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Anomaly / discrepancy detection
+// Unified generation history (network-first)
+// ─────────────────────────────────────────────────────────────────────────────
+
+export type UnifiedGenerationRow = {
+  id?: number;
+  email: string | null;
+  delta: number;
+  at: string;
+  feature: string;
+  action: "Spent" | "Tracked";
+  tracking: "network" | "overlay" | "wallet_inferred";
+  model: string | null;
+  source: string | null;
+};
+
+const OVERLAY_CHARGE_SOURCES = new Set([
+  "standard_generate",
+  "unlimited_generate",
+  "intercepted_generate",
+]);
+
+const NOISE_OVERLAY_SOURCES = new Set([
+  "document_capture",
+  "document_submit",
+  "form_submit",
+  "enter_key",
+  "network_leak",
+  "direct_click",
+  "direct_pointerdown",
+  "direct_touchstart",
+]);
+
+function eventTime(row: HiggsfieldUsageEvent): number {
+  return new Date(row.created_at || row.at || 0).getTime();
+}
+
+function featureLabel(row: HiggsfieldUsageEvent, tracking: UnifiedGenerationRow["tracking"]): string {
+  if (row.model) return row.model;
+  const src = String(row.source || "").trim();
+  if (tracking === "network") return "Réseau /jobs API";
+  if (src === "unlimited_generate") return "Unlimited Generate";
+  if (src === "standard_generate") return "Standard Generate";
+  if (src === "wallet_inferred") return "Wallet HF (débit détecté)";
+  return src || "Generate";
+}
+
+function overlayMatchesNetwork(
+  overlay: HiggsfieldUsageEvent,
+  network: HiggsfieldUsageEvent
+): boolean {
+  const dt = Math.abs(eventTime(overlay) - eventTime(network));
+  if (dt > 45000) return false;
+  const oEmail = (overlay.email || "").toLowerCase();
+  const nEmail = (network.email || "").toLowerCase();
+  if (oEmail && nEmail && oEmail !== nEmail) return false;
+  const oDelta = Number(overlay.delta) || 0;
+  const nDelta = Number(network.delta) || 0;
+  return Math.abs(oDelta - nDelta) <= 2;
+}
+
+export function buildUnifiedGenerationHistory(
+  rows: HiggsfieldUsageEvent[]
+): UnifiedGenerationRow[] {
+  const networkRows = rows.filter(
+    (r) => r.source === "network_jobs_api" && (Number(r.delta) || 0) > 0
+  );
+  const overlayRows = rows.filter(
+    (r) =>
+      r.source &&
+      OVERLAY_CHARGE_SOURCES.has(r.source) &&
+      (Number(r.delta) || 0) > 0
+  );
+
+  const matchedOverlayIds = new Set<number>();
+  const unified: UnifiedGenerationRow[] = [];
+
+  for (const net of networkRows) {
+    for (const ov of overlayRows) {
+      if (ov.id != null && overlayMatchesNetwork(ov, net)) {
+        matchedOverlayIds.add(ov.id);
+      }
+    }
+    unified.push({
+      id: net.id,
+      email: net.email,
+      delta: Number(net.delta) || 0,
+      at: net.created_at || net.at || "",
+      feature: featureLabel(net, "network"),
+      action: "Spent",
+      tracking: "network",
+      model: net.model || null,
+      source: net.source || null,
+    });
+  }
+
+  for (const ov of overlayRows) {
+    if (ov.id != null && matchedOverlayIds.has(ov.id)) continue;
+    unified.push({
+      id: ov.id,
+      email: ov.email,
+      delta: Number(ov.delta) || 0,
+      at: ov.created_at || ov.at || "",
+      feature: featureLabel(ov, "overlay"),
+      action: "Spent",
+      tracking: "overlay",
+      model: ov.model || null,
+      source: ov.source || null,
+    });
+  }
+
+  // Wallet balance drops without a nearby network row → inferred generation
+  const walletSnaps = rows
+    .filter((r) => r.source === "wallet_snapshot")
+    .sort((a, b) => eventTime(b) - eventTime(a));
+
+  for (let i = 0; i < walletSnaps.length - 1; i++) {
+    const newer = walletSnaps[i];
+    const older = walletSnaps[i + 1];
+    const keyNew = (newer.email || "").toLowerCase() || "__anon__";
+    const keyOld = (older.email || "").toLowerCase() || "__anon__";
+    if (keyNew !== keyOld) continue;
+    const balNew = Number(newer.used_today);
+    const balOld = Number(older.used_today);
+    if (!Number.isFinite(balNew) || !Number.isFinite(balOld)) continue;
+    const drop = balOld - balNew;
+    if (drop < 0.5) continue;
+    const tNew = eventTime(newer);
+    const hasNetwork = networkRows.some(
+      (n) =>
+        Math.abs(eventTime(n) - tNew) < 90000 &&
+        ((n.email || "").toLowerCase() || "__anon__") === keyNew
+    );
+    if (hasNetwork) continue;
+    unified.push({
+      email: newer.email,
+      delta: Math.round(drop * 100) / 100,
+      at: newer.created_at || newer.at || "",
+      feature: "Wallet HF (débit détecté)",
+      action: "Spent",
+      tracking: "wallet_inferred",
+      model: null,
+      source: "wallet_inferred",
+    });
+  }
+
+  return unified.sort((a, b) => eventTime(b) - eventTime(a));
+}
+
+export type LatestWalletBalance = {
+  email: string | null;
+  display: number | null;
+  raw: number | null;
+  total: number | null;
+  workspaceId: string | null;
+  at: string;
+};
+
+export function getLatestWalletBalances(
+  rows: HiggsfieldUsageEvent[]
+): LatestWalletBalance[] {
+  const snaps = rows
+    .filter((r) => r.source === "wallet_snapshot")
+    .sort((a, b) => eventTime(b) - eventTime(a));
+  const byKey = new Map<string, LatestWalletBalance>();
+  for (const s of snaps) {
+    const key = (s.email || "").toLowerCase() || "__latest__";
+    if (byKey.has(key)) continue;
+    byKey.set(key, {
+      email: s.email,
+      display:
+        s.used_today != null && !Number.isNaN(Number(s.used_today))
+          ? Number(s.used_today)
+          : null,
+      raw:
+        s.hf_cost_raw != null && !Number.isNaN(Number(s.hf_cost_raw))
+          ? Number(s.hf_cost_raw)
+          : null,
+      total:
+        s.comparison_delta != null && !Number.isNaN(Number(s.comparison_delta))
+          ? Number(s.comparison_delta)
+          : null,
+      workspaceId: s.comparison_source || null,
+      at: s.created_at || s.at || "",
+    });
+  }
+  return Array.from(byKey.values());
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Anomaly / discrepancy detection (Signaux)
 // ─────────────────────────────────────────────────────────────────────────────
 
 export type HiggsfieldAnomaly = {
-  type: 'not_tracked_by_overlay' | 'cost_mismatch' | 'unlim_but_charged' | 'abuse_detected' | 'rapid_fire';
+  type:
+    | "not_tracked_by_overlay"
+    | "cost_mismatch"
+    | "unlim_but_charged"
+    | "abuse_detected"
+    | "rapid_fire"
+    | "wallet_drop_untracked"
+    | "noise_overlay_spam";
   severity: 'high' | 'medium' | 'low';
   email: string | null;
   hfUserId: string | null;
@@ -125,6 +321,10 @@ function anomalyDescription(type: HiggsfieldAnomaly['type'], row: HiggsfieldUsag
       return `Comportement suspect détecté avant génération ${model} : ${row.abuse_flags || 'flags inconnus'}.`;
     case 'rapid_fire':
       return `Rapid-fire détecté : plusieurs générations en < 60s pour ${model}.`;
+    case 'wallet_drop_untracked':
+      return `Le wallet HF a baissé de ${row.delta} cr sans événement réseau /jobs ni overlay fiable — génération probable non trackée.`;
+    case 'noise_overlay_spam':
+      return `Événements overlay bruités (${row.source}) : clics multiples / listeners en double, à ignorer dans l'historique.`;
   }
 }
 
@@ -140,12 +340,75 @@ function anomalySuggestedFix(type: HiggsfieldAnomaly['type']): string {
       return 'Bloquer automatiquement cet utilisateur (data-ee-block-generations=1) et examiner son historique. Ajouter une vérification captcha si le pattern persiste.';
     case 'rapid_fire':
       return 'Ajouter un cooldown de 5–10s entre les générations dans runPaidGenerationPrecheck().';
+    case 'wallet_drop_untracked':
+      return 'Vérifier que higgsfield_http_logger.js intercepte bien POST /jobs/* et que higgsfield_safety.js envoie network_jobs_api à l\'API.';
+    case 'noise_overlay_spam':
+      return 'Les débits document_capture / network_leak sont des faux positifs — l\'historique unifié les ignore déjà.';
   }
 }
 
 export function detectHiggsfieldAnomalies(rows: HiggsfieldUsageEvent[]): HiggsfieldAnomaly[] {
   const anomalies: HiggsfieldAnomaly[] = [];
-  const networkRows = rows.filter(r => r.source === 'network_jobs_api' || r.source === 'abuse_detected');
+  const networkRows = rows.filter(
+    (r) => r.source === "network_jobs_api" || r.source === "abuse_detected"
+  );
+
+  // Wallet drop without network tracking
+  const unified = buildUnifiedGenerationHistory(rows);
+  for (const u of unified) {
+    if (u.tracking !== "wallet_inferred") continue;
+    anomalies.push({
+      type: "wallet_drop_untracked",
+      severity: "high",
+      email: u.email,
+      hfUserId: null,
+      model: null,
+      at: u.at,
+      networkDelta: u.delta,
+      ecomDelta: null,
+      diff: null,
+      abuseFlags: [],
+      comparisonSource: "wallet_snapshot",
+      description: anomalyDescription("wallet_drop_untracked", {
+        email: u.email,
+        delta: u.delta,
+        at: u.at,
+        source: "wallet_inferred",
+      } as HiggsfieldUsageEvent),
+      suggestedFix: anomalySuggestedFix("wallet_drop_untracked"),
+    });
+  }
+
+  // Noise overlay spam (document_capture clusters)
+  const noiseCounts = new Map<string, number>();
+  for (const r of rows) {
+    const src = String(r.source || "");
+    if (!NOISE_OVERLAY_SOURCES.has(src)) continue;
+    const key = `${(r.email || "").toLowerCase()}|${src}`;
+    noiseCounts.set(key, (noiseCounts.get(key) || 0) + 1);
+  }
+  for (const [key, count] of noiseCounts) {
+    if (count < 5) continue;
+    const [emailPart, src] = key.split("|");
+    anomalies.push({
+      type: "noise_overlay_spam",
+      severity: "medium",
+      email: emailPart || null,
+      hfUserId: null,
+      model: null,
+      at: new Date().toISOString(),
+      networkDelta: null,
+      ecomDelta: null,
+      diff: null,
+      abuseFlags: [],
+      comparisonSource: src,
+      description: anomalyDescription("noise_overlay_spam", {
+        source: src,
+        delta: count,
+      } as HiggsfieldUsageEvent),
+      suggestedFix: anomalySuggestedFix("noise_overlay_spam"),
+    });
+  }
 
   for (const row of networkRows) {
     const flags = (row.abuse_flags || '').split(',').filter(Boolean);

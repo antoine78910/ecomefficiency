@@ -26,17 +26,71 @@
   const SESSION_VERIFIED_EMAIL = STORAGE_PREFIX + 'verified_email';
   const SESSION_VERIFIED_AT = STORAGE_PREFIX + 'verified_at';
   const SESSION_DAILY_LIMIT = STORAGE_PREFIX + 'daily_limit';
+  const SESSION_HF_ACCESS_TOKEN = STORAGE_PREFIX + 'hf_access_token';
   const LS_DAILY_USAGE = STORAGE_PREFIX + 'daily_usage';
+
+  // Verified email is stored in-memory ONLY (cleared on every page reload).
+  // This is intentional: the browser is shared — each person must identify
+  // themselves every time the page loads. SPA navigation within the same
+  // page session keeps the value alive without re-prompting.
+  var __eeVerifiedEmailMem = null;
+  // Purge any stale email left in storage by a previous user.
+  try { localStorage.removeItem(SESSION_VERIFIED_EMAIL); } catch (_) {}
+  try { localStorage.removeItem(SESSION_VERIFIED_AT); } catch (_) {}
+  try { sessionStorage.removeItem(SESSION_VERIFIED_EMAIL); } catch (_) {}
+  // Also purge the auth-gate key so a previous login session can't bleed through.
+  try { sessionStorage.removeItem('EE_HF_AUTH_VERIFIED_EMAIL'); } catch (_) {}
+  try { sessionStorage.removeItem(SESSION_HF_ACCESS_TOKEN); } catch (_) {}
 
   const HIDE_ECOM_WIDGET = false;
 
   const DEBUG = true;
+  var eePrecheckInFlight = false;
+  var eeLastChargeAt = 0;
+  var eeLastChargeCost = 0;
+  var EE_CHARGE_COOLDOWN_MS = 10000;
   const _console = (typeof console !== 'undefined' && console.__ee_original__) ? console.__ee_original__ : (typeof console !== 'undefined' ? console : { log: function () {} });
   function log(...a) { if (DEBUG) try { _console.log.apply(_console, ['[EE-HF-Ecom]'].concat(Array.prototype.slice.call(a))); } catch (_) {} }
 
   // --- Storage ---
-  function getVerifiedEmail() { try { return sessionStorage.getItem(SESSION_VERIFIED_EMAIL); } catch (_) { return null; } }
-  function setVerifiedEmail(email) { try { sessionStorage.setItem(SESSION_VERIFIED_EMAIL, email || ''); sessionStorage.setItem(SESSION_VERIFIED_AT, String(Date.now())); } catch (_) {} }
+  // Email lives only in memory for this page session. Written to sessionStorage
+  // so injected page-context scripts (safety.js, http_logger.js) can also read it.
+  function getVerifiedEmail() { return __eeVerifiedEmailMem || null; }
+  function setVerifiedEmail(email) {
+    try {
+      if (email) {
+        __eeVerifiedEmailMem = email.toLowerCase();
+        sessionStorage.setItem(SESSION_VERIFIED_EMAIL, __eeVerifiedEmailMem);
+      } else {
+        __eeVerifiedEmailMem = null;
+        sessionStorage.removeItem(SESSION_VERIFIED_EMAIL);
+        setHfAccessToken(null);
+      }
+    } catch (_) {}
+  }
+  function getHfAccessToken() {
+    try { return sessionStorage.getItem(SESSION_HF_ACCESS_TOKEN) || null; } catch (_) { return null; }
+  }
+  function setHfAccessToken(token) {
+    try {
+      if (token) sessionStorage.setItem(SESSION_HF_ACCESS_TOKEN, String(token));
+      else sessionStorage.removeItem(SESSION_HF_ACCESS_TOKEN);
+    } catch (_) {}
+  }
+  function recordChargeMarker(cost) {
+    eeLastChargeAt = Date.now();
+    eeLastChargeCost = cost;
+    try {
+      sessionStorage.setItem('ee_hf_last_charge_at', String(eeLastChargeAt));
+      sessionStorage.setItem('ee_hf_last_charge_cost', String(cost || 12));
+    } catch (_) {}
+  }
+  function shouldSkipDuplicateCharge(cost) {
+    if (eePrecheckInFlight) return true;
+    return Date.now() - eeLastChargeAt < EE_CHARGE_COOLDOWN_MS && eeLastChargeCost === cost;
+  }
+  // No-op kept for call-site compatibility; storage is already purged at module load.
+  function clearStaleAdminEmail() {}
 
   /** Same key as higgsfield-email-login.js — copy into ecom session so / and SPA after /auth get widget + credits without a second popup. */
   const AUTH_GATE_VERIFIED_EMAIL_KEY = 'EE_HF_AUTH_VERIFIED_EMAIL';
@@ -44,24 +98,35 @@
     try {
       if (getVerifiedEmail()) return;
       var raw = sessionStorage.getItem(AUTH_GATE_VERIFIED_EMAIL_KEY);
-      var ea = raw && String(raw).trim();
-      if (ea) {
-        setVerifiedEmail(ea.toLowerCase());
-        log('synced verified email from pre-login auth gate');
+      var ea = raw && String(raw).trim().toLowerCase();
+      // Never accept the shared Higgsfield account email as the user's EE subscription email.
+      var blockedEmails = ['admin@ecomefficiency.com'];
+      if (ea && blockedEmails.indexOf(ea) === -1) {
+        setVerifiedEmail(ea);
+        try {
+          var tok = sessionStorage.getItem(SESSION_HF_ACCESS_TOKEN);
+          if (!tok) {
+            var gateTok = sessionStorage.getItem('ee_hf_ecom_hf_access_token');
+            if (gateTok) setHfAccessToken(gateTok);
+          }
+        } catch (_) {}
+        log('synced verified email from pre-login auth gate:', ea);
+      } else if (ea) {
+        log('ignored blocked email from auth gate (shared account):', ea);
       }
     } catch (_) {}
   }
   function applyDynamicCreditLimit(limit) {
     if (typeof limit === 'number' && limit > 0) {
       CONFIG.DAILY_CREDIT_LIMIT = limit;
-      try { sessionStorage.setItem(SESSION_DAILY_LIMIT, String(limit)); } catch (_) {}
+      try { localStorage.setItem(SESSION_DAILY_LIMIT, String(limit)); } catch (_) {}
       log('daily credit limit set to', limit);
     }
   }
   function restoreDynamicCreditLimit() {
     try {
-      var stored = sessionStorage.getItem(SESSION_DAILY_LIMIT);
-      if (stored) { var n = parseInt(stored, 10); if (n > 0) { CONFIG.DAILY_CREDIT_LIMIT = n; log('restored daily credit limit from session:', n); } }
+      var stored = localStorage.getItem(SESSION_DAILY_LIMIT);
+      if (stored) { var n = parseInt(stored, 10); if (n > 0) { CONFIG.DAILY_CREDIT_LIMIT = n; log('restored daily credit limit from storage:', n); } }
     } catch (_) {}
   }
   function getUserStorageKey() {
@@ -120,29 +185,134 @@
 
   function isUnlimitedMode() {
     try {
-      var switches = document.querySelectorAll('button[role="switch"], [aria-checked]');
+      // Only the real Unlimited toggle (role=switch). Do NOT use [aria-checked] globally —
+      // quality/model chips on /ai/image were falsely enabling unlimited mode.
+      var switches = document.querySelectorAll('button[role="switch"]');
       for (var i = 0; i < switches.length; i++) {
         var sw = switches[i];
-        var parent = sw.closest ? sw.closest('div') : sw.parentElement;
-        if (!parent) continue;
-        var txt = (parent.textContent || '').toLowerCase();
-        if (txt.indexOf('unlimited') !== -1 || txt.indexOf('unlim') !== -1) {
-          var isOn = (sw.getAttribute('aria-checked') || '').toLowerCase() === 'true';
-          log('isUnlimitedMode: toggle found, aria-checked=' + sw.getAttribute('aria-checked') + ' \u2192 ' + (isOn ? 'UNLIMITED' : 'STANDARD'));
-          return isOn;
-        }
+        var row = sw.closest ? sw.closest('div, label, li') : sw.parentElement;
+        var rowTxt = (row && row.textContent ? row.textContent : '').toLowerCase().replace(/\s+/g, ' ').trim();
+        if (!rowTxt || rowTxt.length > 180) continue;
+        if (rowTxt.indexOf('unlimited') === -1 && rowTxt.indexOf('unlim') === -1) continue;
+        var isOn = (sw.getAttribute('aria-checked') || '').toLowerCase() === 'true';
+        log('isUnlimitedMode: unlimited switch', 'aria-checked=' + sw.getAttribute('aria-checked'), 'row=', rowTxt.slice(0, 80));
+        return isOn;
       }
-      var btn = document.querySelector('button[data-tour-anchor="tour-image-generate"]');
-      if (!btn) try { btn = document.getElementById('hf:image-form-submit'); } catch (_) {}
-      if (btn && (btn.textContent || '').toLowerCase().indexOf('unlimited') !== -1) {
-        log('isUnlimitedMode: true (button text)');
-        return true;
-      }
-      log('isUnlimitedMode: false (no unlimited toggle/button found)');
+      log('isUnlimitedMode: false');
       return false;
     } catch (_) {
       return false;
     }
+  }
+
+  function syncEcomBlockFlag() {
+    try {
+      var used = getUsedToday();
+      var limit = CONFIG.DAILY_CREDIT_LIMIT;
+      document.documentElement.dataset.eeBlockGenerations = used >= limit ? '1' : '';
+    } catch (_) {}
+  }
+
+  function markGenerationAuthorized(cost) {
+    try {
+      sessionStorage.setItem('ee_hf_last_gen_authorized_at', String(Date.now()));
+      sessionStorage.setItem('ee_hf_last_gen_authorized_cost', String(cost || 12));
+    } catch (_) {}
+    syncEcomBlockFlag();
+  }
+
+  function installEcomNetworkBridge() {
+    if (window.__eeHfEcomNetworkBridge) return;
+    window.__eeHfEcomNetworkBridge = true;
+    window.addEventListener('message', function (e) {
+      if (!e || !e.data || e.data.source !== 'ee-logger') return;
+      if (e.data.type === 'EE_HIGGSFIELD_DAILY_LIMIT_BLOCKED') {
+        var used = getUsedToday();
+        var limit = CONFIG.DAILY_CREDIT_LIMIT;
+        showCreditsBlockedPopup('daily', {
+          used:  used,
+          limit: limit,
+          hours: getHoursUntilReset(),
+        });
+        syncEcomBlockFlag();
+        return;
+      }
+      if (e.data.type === 'EE_HIGGSFIELD_ECOM_CHARGE') {
+        var recentAt = 0;
+        try { recentAt = Number(sessionStorage.getItem('ee_hf_last_charge_at') || 0); } catch (_) {}
+        if (recentAt && Date.now() - recentAt < 12000) {
+          log('network charge skipped (recent UI charge)');
+          return;
+        }
+        var p = e.data.payload || {};
+        var cost = typeof p.cost === 'number' ? p.cost : 12;
+        addUsedToday(cost);
+        syncEcomBlockFlag();
+        var usedToday = getUsedToday();
+        var email = getVerifiedEmail();
+        logUsage(email, cost, usedToday, p.source || 'network_leak');
+        updateWidget(usedToday, CONFIG.DAILY_CREDIT_LIMIT, usedToday >= CONFIG.DAILY_CREDIT_LIMIT, cost);
+        trackHiggsfieldActivity('higgsfield_generate_network', {
+          cost: cost,
+          reason: p.reason || 'leak',
+          path: location.pathname,
+          model: p.model || null,
+        });
+        log('network leak charged', cost, 'usedToday=' + usedToday);
+      }
+    });
+  }
+
+  function getHiggsfieldTrackerIdentity() {
+    var email = getVerifiedEmail();
+    if (email) return { user_id: 'higgsfield:' + email, email: email };
+    try {
+      var key = STORAGE_PREFIX + 'anon_track_id';
+      var anon = sessionStorage.getItem(key);
+      if (!anon) {
+        anon = 'anon_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 10);
+        sessionStorage.setItem(key, anon);
+      }
+      return { user_id: 'higgsfield:' + anon, email: null };
+    } catch (_) {
+      return { user_id: 'higgsfield:anon', email: null };
+    }
+  }
+
+  function trackHiggsfieldActivity(action, meta) {
+    try {
+      var ident = getHiggsfieldTrackerIdentity();
+      var url = 'https://www.ecomefficiency.com/api/activity/track-event';
+      var body = {
+        user_id: ident.user_id,
+        email: ident.email,
+        action: action,
+        tool_name: 'higgsfield',
+        meta: Object.assign({ path: location.pathname || '', href: location.href || '' }, meta || {}),
+      };
+      log('trackActivity', action, meta);
+      fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'omit',
+        body: JSON.stringify(body),
+      })
+        .then(function (r) {
+          if (DEBUG && !r.ok) log('trackActivity failed', action, r.status);
+        })
+        .catch(function (err) {
+          if (DEBUG) log('trackActivity error', action, err && err.message ? err.message : err);
+        });
+    } catch (_) {}
+  }
+
+  function requestWalletRefresh() {
+    try {
+      chrome.runtime.sendMessage({ type: 'INJECT_HIGGSFIELD_LOGGER' });
+    } catch (_) {}
+    try {
+      window.postMessage({ type: 'EE_HIGGSFIELD_FETCH_WALLET_NOW' }, '*');
+    } catch (_) {}
   }
 
   function logUsage(email, delta, usedToday, source) {
@@ -157,10 +327,17 @@
         at: at,
         source: source || null
       };
+      var headers = { 'Content-Type': 'application/json' };
+      var token = getHfAccessToken();
+      if (token) headers['X-EE-HF-Access-Token'] = token;
+      if (!token && delta > 0) {
+        if (DEBUG) log('logUsage skipped (no access token)', source, email, delta);
+        return;
+      }
       log('logUsage POST', source, email, delta);
       fetch(url, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: headers,
         credentials: 'omit',
         body: JSON.stringify(payload)
       }).then(function (r) { if (DEBUG) log('logUsage response', r.status, source); }).catch(function (err) { if (DEBUG) log('logUsage error', err && err.message, source); });
@@ -435,75 +612,171 @@
 
   // Detects a Higgsfield "strike line" decoration: an absolutely-positioned, rotated
   // child element used to draw a diagonal bar over the original (pre-discount) price.
-  // Example: <span class="... opacity-70"><span>48</span><span class="absolute ... rotate-[30deg] bg-white/80"></span></span>
+  // Example: <span class="... opacity-50"><span>120</span><span class="absolute ... rotate-[30deg]"></span></span>90
   function eeContainsStrikeDecoration(el) {
     if (!el || !el.querySelector) return false;
     try {
       if (el.querySelector('[class*="absolute"][class*="rotate-"]')) return true;
+      if (el.querySelector('[class*="border-t-"][class*="rotate-"]')) return true;
     } catch (_) {}
     return false;
   }
+
+  /**
+   * Wrapper around the dimmed, struck-through original price (skip entire subtree).
+   * Must be a close wrapper (has opacity in its own class) so we don't accidentally
+   * skip the whole price row div just because it contains a rotate-line somewhere.
+   * e.g. <span class="relative opacity-50">120 <span class="absolute rotate-[30deg]"/></span>
+   */
+  function eeIsStrikePriceWrapper(el) {
+    if (!el || el.nodeType !== 1) return false;
+    var cls = String(el.className || '');
+    // Only treat as a strike wrapper if the element itself carries an opacity class
+    if (!/opacity/.test(cls)) return false;
+    return eeContainsStrikeDecoration(el);
+  }
+
   function eeIsInsideStrikeWrapper(el, root) {
     var p = el && el.parentElement;
     while (p && p !== root && p !== document.body) {
-      var cls = (p && p.className && typeof p.className === 'string') ? p.className : '';
-      if (cls && /\bopacity-70\b/.test(cls) && eeContainsStrikeDecoration(p)) return true;
-      // Generic fallback: parent contains a strike-line directly as a sibling of `el`.
-      try {
-        var sibs = p.children || [];
-        for (var i = 0; i < sibs.length; i++) {
-          var sCls = (sibs[i] && sibs[i].className && typeof sibs[i].className === 'string') ? sibs[i].className : '';
-          if (sCls && /\babsolute\b/.test(sCls) && /\brotate-/.test(sCls)) return true;
-        }
-      } catch (_) {}
+      if (eeIsStrikePriceWrapper(p)) return true;
       p = p.parentElement;
     }
     return false;
   }
 
+  /** Higgsfield per-click costs are small integers (e.g. 12–120). Ignore SVG garbage (e.g. 10881). */
+  var EE_MAX_BUTTON_CREDIT_COST = 500;
+
+  function eeIsSvgElement(el) {
+    if (!el || el.nodeType !== 1) return false;
+    var tag = String(el.tagName || '').toLowerCase();
+    if (tag === 'svg' || tag === 'path' || tag === 'circle' || tag === 'g' || tag === 'rect' || tag === 'line') return true;
+    try {
+      return !!(el.closest && el.closest('svg'));
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function eePushPriceCandidate(candidates, n) {
+    if (typeof n !== 'number' || !isFinite(n) || n <= 0 || n > EE_MAX_BUTTON_CREDIT_COST) return;
+    candidates.push(n);
+  }
+
+  /** Only walk the price row next to the sparkle icon — never the whole Generate button (SVG paths). */
+  function eeWalkPriceRowNodes(node, btn, candidates) {
+    if (!node) return;
+    if (node.nodeType === 3) {
+      if (eeIsInsideStrikeWrapper(node.parentElement, btn)) return;
+      var rawText = (node.textContent || '').trim();
+      if (/^\d{1,3}$/.test(rawText)) eePushPriceCandidate(candidates, parseInt(rawText, 10));
+      return;
+    }
+    if (node.nodeType !== 1) return;
+    var el = node;
+    if (eeIsSvgElement(el)) return;
+    if (eeIsStrikePriceWrapper(el) || eeIsInsideStrikeWrapper(el, btn)) return;
+    if (el.querySelector && el.querySelector('svg')) {
+      for (var c = 0; c < el.childNodes.length; c++) eeWalkPriceRowNodes(el.childNodes[c], btn, candidates);
+      return;
+    }
+    if (!el.childNodes || el.childNodes.length === 0) {
+      var rawLeaf = (el.textContent || '').trim();
+      if (/^\d{1,3}$/.test(rawLeaf)) eePushPriceCandidate(candidates, parseInt(rawLeaf, 10));
+      return;
+    }
+    for (var i = 0; i < el.childNodes.length; i++) eeWalkPriceRowNodes(el.childNodes[i], btn, candidates);
+  }
+
+  function eeButtonHasStrikePrice(btn) {
+    if (!btn || !btn.querySelector) return false;
+    try {
+      return !!btn.querySelector('[class*="rotate-"][class*="border-t"], [class*="absolute"][class*="rotate-"]');
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function readCostFromPriceFlex(btn) {
+    if (!btn || !btn.querySelector) return null;
+    var candidates = [];
+    try {
+      var flexRows = btn.querySelectorAll('div.flex.items-center, div[class*="flex"][class*="items-center"]');
+      for (var f = 0; f < flexRows.length; f++) {
+        eeWalkPriceRowNodes(flexRows[f], btn, candidates);
+      }
+    } catch (_) {}
+    if (!candidates.length) {
+      try {
+        var spans = btn.querySelectorAll('span');
+        for (var s = spans.length - 1; s >= 0; s--) {
+          var sp = spans[s];
+          if (eeIsInsideStrikeWrapper(sp, btn) || eeIsSvgElement(sp)) continue;
+          var raw = (sp.textContent || '').trim();
+          if (/^\d{1,3}$/.test(raw)) eePushPriceCandidate(candidates, parseInt(raw, 10));
+        }
+      } catch (_) {}
+    }
+    if (!candidates.length) return null;
+    var cost = candidates[candidates.length - 1];
+    log('cost from price flex row:', JSON.stringify(candidates), '-> picked:', cost);
+    return cost;
+  }
+
+  function eeFindPrimaryImageSubmitButton() {
+    var btn = null;
+    try {
+      btn = document.querySelector('[id="hf:image-form-submit"]');
+    } catch (_) {}
+    if (!btn) {
+      try {
+        btn = document.querySelector('button[data-tour-anchor="tour-image-generate"]');
+      } catch (_) {}
+    }
+    if (!btn || !eeIsButtonVisibleAndEnabled(btn) || isUnlimitedGenerateButton(btn)) return null;
+    return btn;
+  }
+
   function readCostFromButton(btn) {
     if (!btn) return null;
-    var children = btn.querySelectorAll('span, div');
-    var candidates = [];
-    for (var i = 0; i < children.length; i++) {
-      var el = children[i];
-      // Skip elements that contain a strike-line decoration (their textContent merges
-      // the original + discounted prices, e.g. "4840" which would be misread).
-      if (eeContainsStrikeDecoration(el)) continue;
-      // Skip the inner number span that lives inside a strike-through wrapper (the dimmed original price).
-      if (eeIsInsideStrikeWrapper(el, btn)) continue;
-
-      var raw;
-      if (el.querySelector && el.querySelector('svg')) {
-        var clone = el.cloneNode(true);
-        var svgs = clone.querySelectorAll('svg');
-        for (var s = 0; s < svgs.length; s++) svgs[s].remove();
-        raw = (clone.textContent || '').trim();
-      } else {
-        raw = (el.textContent || '').trim();
-      }
-      if (/^\d+(\.\d+)?$/.test(raw)) {
-        var n = parseFloat(raw);
-        if (n > 0) candidates.push(n);
-      }
-    }
-    if (candidates.length > 0) {
-      // Prefer the LAST visible numeric token so the discounted price (which always
-      // renders after the strike-through original) wins over earlier matches.
-      var cost = candidates[candidates.length - 1];
-      log('cost from button (visible numbers):', JSON.stringify(candidates), '-> picked:', cost);
-      return cost;
-    }
-    var allText = (btn.textContent || '').replace(/generate/gi, '').replace(/unlimited/gi, '').trim();
-    var m = allText.match(/(\d+(?:\.\d+)?)/);
-    if (m) { var n3 = parseFloat(m[1]); if (n3 > 0) { log('cost from button fulltext:', n3); return n3; } }
+    var flexCost = readCostFromPriceFlex(btn);
+    if (flexCost !== null) return flexCost;
+    // Do not scan the whole button: SVG <path> coordinates become fake costs (e.g. 10881).
     return null;
+  }
+
+  function eeBuildCreditDebugLines(costInfo, used, limit, walletCredits) {
+    var cost = costInfo && typeof costInfo.cost === 'number' ? costInfo.cost : null;
+    var qual = costInfo && costInfo.quality ? String(costInfo.quality) : '?';
+    var rem = Math.max(0, limit - used);
+    var after = used + (cost || 0);
+    var lines = [
+      'Besoin pour ce clic: ' + (cost != null ? cost : '?') + ' cr',
+      'Quota Ecom aujourd\u2019hui: ' + used + ' / ' + limit + ' cr (reste ' + rem + ' cr)',
+      'Apr\u00e8s ce clic: ' + after + ' / ' + limit + ' cr',
+      'Source du co\u00fbt: ' + qual
+    ];
+    if (walletCredits === null || walletCredits === undefined) {
+      lines.push('Wallet Higgsfield: inconnu — recharge la page ou attends 3 s apr\u00e8s login');
+    } else if (!isFinite(walletCredits)) {
+      lines.push('Wallet Higgsfield: non v\u00e9rifi\u00e9 (quota Ecom seul)');
+    } else {
+      lines.push('Wallet Higgsfield: ' + walletCredits + ' cr');
+    }
+    lines.push('Tracker admin: /admin/ip-tracker (filtre higgsfield_generate_*)');
+    return lines;
+  }
+
+  function eeFormatCreditBlockMessage(title, costInfo, used, limit, walletCredits) {
+    return [title].concat(eeBuildCreditDebugLines(costInfo, used, limit, walletCredits)).join('\n');
   }
 
   function getGenerationCostInfo(targetBtn) {
     var btn = targetBtn || null;
     if (!btn) {
-      btn = document.querySelector('button[data-tour-anchor="tour-image-generate"]');
+      btn = document.querySelector('button[data-tour-anchor="tour-generate-button"]');
+      if (!btn) btn = document.querySelector('button[data-tour-anchor="tour-image-generate"]');
       if (!btn) try { btn = document.getElementById('hf:image-form-submit'); } catch (_) {}
       if (!btn) {
         var allBtns = document.querySelectorAll('button[type="submit"]');
@@ -524,13 +797,13 @@
   }
 
   // --- Backend: verify subscription ---
-  function verifySubscription(email) {
+  function verifySubscription(email, pin) {
     const url = 'https://www.ecomefficiency.com/api/stripe/verify';
     return fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'omit',
-      body: JSON.stringify({ email: email })
+      body: JSON.stringify({ email: email, pin: pin || '' })
     })
       .then(function (r) {
         if (!r.ok) return { ok: false };
@@ -543,8 +816,18 @@
         if (data.status === 'higgsfield_requires_pro') {
           return { allowed: false, reason: 'requires_pro', plan: data.plan || null, status: data.status, daily_credit_limit: null };
         }
+        if (data.status === 'invalid_pin' || data.status === 'pin_required') {
+          return { allowed: false, reason: 'invalid_pin', plan: data.plan || null, status: data.status, daily_credit_limit: null };
+        }
         if (data.active === true) {
-          return { allowed: true, plan: data.plan || null, status: data.status || 'active', daily_credit_limit: data.daily_credit_limit || null, source: data.source || null };
+          return {
+            allowed: true,
+            plan: data.plan || null,
+            status: data.status || 'active',
+            daily_credit_limit: data.daily_credit_limit || null,
+            source: data.source || null,
+            hf_access_token: data.hf_access_token || null
+          };
         }
         return { allowed: false, reason: 'no_active_subscription', plan: data.plan || null, status: data.status || 'no_active_subscription', daily_credit_limit: null };
       })
@@ -564,7 +847,7 @@
     root.style.cssText = 'position:fixed;inset:0;z-index:2147483646;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.3);animation:eePopIn 0.2s ease;';
     var popupStyle = document.createElement('style');
     popupStyle.textContent = '@keyframes eePopIn{from{opacity:0;transform:scale(0.95)}to{opacity:1;transform:scale(1)}}' +
-      '#ee-hf-ecom-email:focus{border-color:rgba(149,65,224,0.5)!important;box-shadow:0 0 0 2px rgba(149,65,224,0.15)!important;}' +
+      '#ee-hf-ecom-email:focus,#ee-hf-ecom-pin:focus{border-color:rgba(149,65,224,0.5)!important;box-shadow:0 0 0 2px rgba(149,65,224,0.15)!important;}' +
       '#ee-hf-ecom-submit:hover:not(:disabled){filter:brightness(1.15)}#ee-hf-ecom-submit:disabled{opacity:0.6;cursor:wait}';
     root.appendChild(popupStyle);
     var box = document.createElement('div');
@@ -573,14 +856,16 @@
       '<div style="position:absolute;top:-1px;left:50%;transform:translateX(-50%);width:60%;height:3px;background:linear-gradient(90deg,transparent,#9541e0,#b54af3,#9541e0,transparent);border-radius:0 0 4px 4px;"></div>' +
       '<div style="font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#b54af3;margin-bottom:12px;">Ecom Efficiency</div>' +
       '<div style="font-size:20px;font-weight:700;margin-bottom:8px;">Verify Your Subscription</div>' +
-      '<div style="font-size:14px;color:rgba(255,255,255,0.7);margin-bottom:20px;line-height:1.5;">Enter the email you used for your<br>Ecom Efficiency subscription.</div>' +
+      '<div style="font-size:14px;color:rgba(255,255,255,0.7);margin-bottom:20px;line-height:1.5;">Enter your subscription email and your<br>4-digit Higgsfield PIN (see ecomefficiency.com/subscription).</div>' +
       '<input type="email" id="ee-hf-ecom-email" placeholder="your@email.com" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid rgba(255,255,255,0.1);border-radius:12px;background:rgba(255,255,255,0.06);color:#fff;margin-bottom:14px;font-size:14px;outline:none;transition:border-color 0.2s,box-shadow 0.2s;" />' +
+      '<input type="password" id="ee-hf-ecom-pin" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="4-digit PIN" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid rgba(255,255,255,0.1);border-radius:12px;background:rgba(255,255,255,0.06);color:#fff;margin-bottom:14px;font-size:14px;outline:none;letter-spacing:0.35em;text-align:center;transition:border-color 0.2s,box-shadow 0.2s;" />' +
       '<div id="ee-hf-ecom-msg" style="min-height:20px;font-size:13px;margin-bottom:14px;"></div>' +
       '<button type="button" id="ee-hf-ecom-submit" style="width:100%;padding:12px;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;background:linear-gradient(to bottom,#9541e0,#7c30c7);color:#fff;box-shadow:0 8px 40px rgba(149,65,224,0.35);transition:filter 0.15s;">Verify</button>';
     root.appendChild(box);
     document.body.appendChild(root);
 
     var emailEl = document.getElementById('ee-hf-ecom-email');
+    var pinEl = document.getElementById('ee-hf-ecom-pin');
     var msgEl = document.getElementById('ee-hf-ecom-msg');
     var submitBtn = document.getElementById('ee-hf-ecom-submit');
 
@@ -591,13 +876,16 @@
 
     function doVerify() {
       var email = (emailEl.value || '').trim().toLowerCase();
+      var pin = (pinEl && pinEl.value ? pinEl.value : '').replace(/\D/g, '').slice(0, 4);
       if (!email) { setMsg('Please enter an email.', true); return; }
+      if (!/^\d{4}$/.test(pin)) { setMsg('Please enter your 4-digit PIN from ecomefficiency.com/subscription.', true); return; }
       setMsg('Verifying subscription\u2026');
       submitBtn.disabled = true;
-      verifySubscription(email).then(function (res) {
+      verifySubscription(email, pin).then(function (res) {
         submitBtn.disabled = false;
         if (res && res.allowed) {
           setVerifiedEmail(email);
+          if (res.hf_access_token) setHfAccessToken(res.hf_access_token);
           if (res.daily_credit_limit) applyDynamicCreditLimit(res.daily_credit_limit);
           var sourceLabel = res.source === 'legacy' ? ' (legacy)' : '';
           var planLabel = res.plan ? (' (plan: ' + res.plan + sourceLabel + ')') : '';
@@ -611,7 +899,9 @@
             setTimeout(function () { root.remove(); removeShield(); ensureWidget(); updateWidget(used, limit, used >= limit, 0); startTracking(); scheduleBlockingObserver(); eeFullyInitialized = true; }, 600);
           });
         } else {
-          if (res && res.reason === 'requires_pro') {
+          if (res && res.reason === 'invalid_pin') {
+            setMsg('Incorrect PIN. Check your 4-digit code on ecomefficiency.com/subscription.', true);
+          } else if (res && res.reason === 'requires_pro') {
             setMsg('Higgsfield tools require the Pro plan ($29.99 / \u20ac29.99), not Starter. Upgrade at ecomefficiency.com/price', true);
           } else if (res && res.reason === 'no_active_subscription') {
             setMsg('No active subscription for this email. Please subscribe on ecomefficiency.com.', true);
@@ -1003,14 +1293,29 @@
   // button), where word-boundary regexes (\bgenerate\b) fail because the word is
   // glued to the cost number with no whitespace between spans.
   function eeButtonLooksLikeGenerate(btn) {
-    if (!btn) return false;
-    var t = (btn.textContent || btn.value || (btn.getAttribute ? (btn.getAttribute('aria-label') || '') : '') || '').toLowerCase();
-    if (!t) return false;
+    if (!btn || !btn.getAttribute) return false;
+    var anchor = String(btn.getAttribute('data-tour-anchor') || '');
+    if (anchor === 'tour-generate-button' || anchor === 'tour-image-generate') {
+      if (!isUnlimitedGenerateButton(btn)) return true;
+    }
+    var t = (btn.textContent || btn.value || btn.getAttribute('aria-label') || btn.getAttribute('title') || '').toLowerCase();
     if (t.indexOf('unlimited') !== -1) return false;
-    return (
+    if (
       t.indexOf('generate') !== -1 ||
-      t.indexOf('g\u00e9n\u00e9rer') !== -1
-    );
+      t.indexOf('g\u00e9n\u00e9rer') !== -1 ||
+      t.indexOf('create') !== -1 ||
+      t.indexOf('cr\u00e9er') !== -1
+    ) {
+      return true;
+    }
+    try {
+      if (btn.querySelector && btn.querySelector('div.flex.items-center.gap-1, div.flex.items-center')) return true;
+    } catch (_) {}
+    if ((btn.type === 'submit' || btn.getAttribute('role') === 'button') && btn.closest && btn.closest('form')) {
+      var formTxt = (btn.closest('form').textContent || '').toLowerCase();
+      if (/generate|g\u00e9n\u00e9rer|create|cr\u00e9er/.test(formTxt)) return true;
+    }
+    return false;
   }
 
   function eeIsButtonVisibleAndEnabled(btn) {
@@ -1061,72 +1366,223 @@
     return best;
   }
 
+  var lastGenerateScanPath = '';
+  var lastGenerateScanAt = 0;
+  var generatePresentTrackedPaths = {};
+
+  function eeArmGenerateButtonDirect(btn, reason) {
+    if (!btn || btn.getAttribute('data-ee-direct-armed') === '1') return;
+    try {
+      btn.setAttribute('data-ee-direct-armed', '1');
+      btn.setAttribute('data-ee-generate-armed', '1');
+    } catch (_) {}
+    var directHandler = function (e) {
+      if (syntheticGenerateButtons && syntheticGenerateButtons.has(btn)) return;
+      eeInterceptGenerateButton(btn, e, 'direct_' + (e && e.type ? e.type : reason || 'event'));
+    };
+    ['pointerdown', 'click', 'touchstart'].forEach(function (type) {
+      try {
+        btn.addEventListener(type, directHandler, true);
+      } catch (_) {}
+    });
+    try {
+      var form = btn.closest ? btn.closest('form') : null;
+      if (form && form.getAttribute('data-ee-submit-armed') !== '1') {
+        form.setAttribute('data-ee-submit-armed', '1');
+        form.addEventListener(
+          'submit',
+          function (e) {
+            if (syntheticGenerateButtons && syntheticGenerateButtons.has(btn)) return;
+            eeInterceptGenerateButton(btn, e, 'form_submit');
+          },
+          true
+        );
+      }
+    } catch (_) {}
+    log('direct listener armed on generate button', reason, btn.id || btn.getAttribute('data-tour-anchor') || '');
+  }
+
+  function eeInterceptGenerateButton(btn, e, source) {
+    if (!btn) return;
+    if (source === 'document_capture' || source === 'document_submit') {
+      if (getVerifiedEmail() && (document.getElementById('ee-hf-ecom-overlay-standard') || document.getElementById('ee-hf-ecom-overlay-unlimited'))) {
+        return;
+      }
+    }
+    if (eePrecheckInFlight) {
+      try {
+        if (e && e.preventDefault) e.preventDefault();
+        if (e && e.stopPropagation) e.stopPropagation();
+        if (e && e.stopImmediatePropagation) e.stopImmediatePropagation();
+      } catch (_) {}
+      return;
+    }
+    if (isUnlimitedMode()) {
+      log('generate ignored: unlimited switch ON', source);
+      return;
+    }
+    if (syntheticGenerateButtons && syntheticGenerateButtons.has(btn)) return;
+
+    if (!getVerifiedEmail() && shouldShowPopup()) {
+      try {
+        if (e && e.preventDefault) e.preventDefault();
+        if (e && e.stopPropagation) e.stopPropagation();
+        if (e && e.stopImmediatePropagation) e.stopImmediatePropagation();
+      } catch (_) {}
+      trackHiggsfieldActivity('higgsfield_generate_click', {
+        source: source,
+        blocked: 'need_verify',
+        button_id: btn.id || null,
+        tour_anchor: btn.getAttribute ? btn.getAttribute('data-tour-anchor') : null,
+      });
+      createPopup();
+      showGenerateStatus('Verify your Ecom Efficiency subscription (enter email) to use Generate.', 8000);
+      return;
+    }
+
+    try {
+      if (e && e.preventDefault) e.preventDefault();
+      if (e && e.stopPropagation) e.stopPropagation();
+      if (e && e.stopImmediatePropagation) e.stopImmediatePropagation();
+    } catch (_) {}
+
+    var used = getUsedToday();
+    var limit = CONFIG.DAILY_CREDIT_LIMIT;
+    if (used >= limit) {
+      var costPreview = getGenerationCostInfo(btn);
+      showCreditsBlockedPopup('daily', {
+        cost:  costPreview.cost,
+        used:  used,
+        limit: limit,
+        hours: getHoursUntilReset(),
+      });
+      trackHiggsfieldActivity('higgsfield_generate_blocked', {
+        reason: 'daily_limit_already',
+        cost: costPreview.cost,
+        used_today: used,
+        daily_limit: limit,
+        source: source,
+      });
+      return;
+    }
+
+    runPaidGenerationPrecheck(source || 'intercepted_generate', function () {
+      if (btn && btn.isConnected && eeIsButtonVisibleAndEnabled(btn)) return btn;
+      var fallback = eeFindPrimaryImageSubmitButton() || findStandardGenerateButton();
+      if (fallback) return fallback;
+      return btn || null;
+    });
+  }
+
+  function eeScanAndArmGenerateButtons(reason) {
+    var path = location.pathname || '';
+    var now = Date.now();
+    if (path === lastGenerateScanPath && now - lastGenerateScanAt < 800) return;
+    lastGenerateScanPath = path;
+    lastGenerateScanAt = now;
+    var found = 0;
+    var primary = eeFindPrimaryImageSubmitButton();
+    if (primary) {
+      eeArmGenerateButtonDirect(primary, reason + '_primary');
+      found += 1;
+    }
+    try {
+      var nodes = document.querySelectorAll('button,[role="button"],input[type="submit"],input[type="button"]');
+      for (var i = 0; i < nodes.length; i++) {
+        var b = nodes[i];
+        if (!b || !eeButtonLooksLikeGenerate(b) || isUnlimitedGenerateButton(b)) continue;
+        if (!eeIsButtonVisibleAndEnabled(b)) continue;
+        eeArmGenerateButtonDirect(b, reason);
+        found += 1;
+      }
+    } catch (_) {}
+    log('generate scan', reason, 'path=' + path, 'armed=' + found);
+    if (found > 0 && !generatePresentTrackedPaths[path]) {
+      generatePresentTrackedPaths[path] = true;
+      trackHiggsfieldActivity('higgsfield_generate_present', {
+        reason: reason,
+        armed_count: found,
+        primary: !!(findStandardGenerateButton()),
+      });
+    }
+  }
+
+  function eeOnAppRouteChange(prevPath, nextPath) {
+    log('app route', prevPath, '->', nextPath);
+    requestWalletRefresh();
+    trackHiggsfieldActivity('higgsfield_page_view', { prev_path: prevPath || '', next_path: nextPath || '' });
+    try { installUnlimitedButtonOverlay(); } catch (_) {}
+    try { installStandardGenerateButtonOverlay(); } catch (_) {}
+    eeScanAndArmGenerateButtons('route_change');
+  }
+
   function installGenerateClickBlocker() {
     if (generateClickBlockerInstalled) return;
     generateClickBlockerInstalled = true;
     function handleGenerateIntent(e) {
-      if (isUnlimitedMode()) return;
       var el = e.target;
       if (!el) return;
       if (el.closest && (el.closest('#ee-hf-ecom-popup-root') || el.closest('#ee-hf-ecom-widget') || el.closest('#ee-hf-ecom-overlay-root'))) return;
-      var btn = el.closest ? el.closest('button,[role="button"],input[type="submit"],input[type="button"]') : null;
+      var btn =
+        (el.closest && el.closest('[id="hf:image-form-submit"]')) ||
+        (el.closest && el.closest('button[data-tour-anchor="tour-image-generate"]')) ||
+        (el.closest && el.closest('button,[role="button"],input[type="submit"],input[type="button"]'));
       if (!btn) return;
       if (btn.getAttribute && btn.getAttribute('data-ee-our-button') === '1') return;
-      if (syntheticGenerateButtons && syntheticGenerateButtons.has(btn)) return;
       if (isUnlimitedGenerateButton(btn)) return;
       if (!eeButtonLooksLikeGenerate(btn)) return;
-
-      // The blocker is the safety net for any "Generate" button that does NOT have one of
-      // our overlays installed on top (e.g. Marketing Studio's pink GENERATE button, which
-      // has a custom layout and isn't always picked up by findStandardGenerateButton()).
-      // Without this, those clicks reach Higgsfield directly and never increment our daily
-      // counter, allowing unlimited paid generations to be spammed past the daily limit.
-      e.preventDefault();
-      e.stopPropagation();
-
-      var used = getUsedToday();
-      var limit = CONFIG.DAILY_CREDIT_LIMIT;
-      if (used >= limit) {
-        showGenerateStatus('Daily credit limit reached.', 4500);
-        log('blocker rejected click: limit already reached', 'used=' + used, 'limit=' + limit);
-        return;
-      }
-
-      // Route through the standard precheck so we read the cost, validate the wallet,
-      // increment the daily counter, log usage, then dispatch a synthetic click that the
-      // blocker will let through (via syntheticGenerateButtons).
-      // The finder must tolerate React re-renders that happen during waitForWalletCredits
-      // (up to ~3s): if the original button ref becomes detached, fall back to the closest
-      // visible "Generate"-like button so getBoundingClientRect() yields valid coords.
-      runPaidGenerationPrecheck('intercepted_generate', function () {
-        if (btn && btn.isConnected && eeIsButtonVisibleAndEnabled(btn)) return btn;
-        try {
-          var nodes = document.querySelectorAll('button,[role="button"],input[type="submit"],input[type="button"]');
-          var best = eePickBestGenerateButton(nodes, btn);
-          if (best) return best;
-        } catch (_) {}
-        return btn || null;
-      });
+      eeInterceptGenerateButton(btn, e, 'document_capture');
     }
-    // Pointerdown fires before click: this closes the race where users click before checker.
-    document.addEventListener('pointerdown', handleGenerateIntent, true);
+    function handleSubmitIntent(e) {
+      var form = e.target;
+      if (!form || !form.querySelector) return;
+      var btn =
+        eeFindPrimaryImageSubmitButton() ||
+        form.querySelector('button[data-tour-anchor="tour-generate-button"]') ||
+        form.querySelector('button[type="submit"]');
+      if (!btn || !eeButtonLooksLikeGenerate(btn) || isUnlimitedGenerateButton(btn)) return;
+      eeInterceptGenerateButton(btn, e, 'document_submit');
+    }
+
     document.addEventListener('click', handleGenerateIntent, true);
+    document.addEventListener('submit', handleSubmitIntent, true);
+    document.addEventListener('keydown', function (e) {
+      if (!e || e.key !== 'Enter' || e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) return;
+      var active = document.activeElement;
+      var btn =
+        eeFindPrimaryImageSubmitButton() ||
+        (active && active.closest ? active.closest('button,[role="button"]') : null);
+      if (!btn || !eeButtonLooksLikeGenerate(btn)) return;
+      eeInterceptGenerateButton(btn, e, 'enter_key');
+    }, true);
+    log('generate click blocker installed (capture + direct arm)');
   }
 
   function isUnlimitedGenerateButton(el) {
     if (!el || !el.getAttribute) return false;
-    if (el.getAttribute('data-tour-anchor') === 'tour-image-generate') return true;
+    var text = (el.textContent || '').trim().toLowerCase();
+    var inAside = !!(el.closest && el.closest('aside'));
+    // /ai/image main CTA also uses tour-image-generate — only skip true Unlimited sidebar CTAs.
+    if (el.getAttribute('data-tour-anchor') === 'tour-image-generate') {
+      if (inAside || text.indexOf('unlimited') !== -1) return true;
+      return false;
+    }
     var id = el.getAttribute('id') || '';
-    if (id.indexOf('hf:image-form-submit') !== -1 || id === 'hf:image-form-submit') return true;
-    var text = (el.textContent || '').trim();
-    if (text.indexOf('Unlimited') !== -1 && (el.closest && el.closest('aside'))) return true;
+    if (id.indexOf('hf:image-form-submit') !== -1 || id === 'hf:image-form-submit') {
+      if (inAside || text.indexOf('unlimited') !== -1) return true;
+      return false;
+    }
+    if (text.indexOf('unlimited') !== -1 && inAside) return true;
     return false;
   }
 
   function findUnlimitedGenerateButton() {
     var sel = document.querySelector('button[data-tour-anchor="tour-image-generate"]');
-    if (sel) return sel;
-    try { sel = document.getElementById('hf:image-form-submit'); if (sel) return sel; } catch (_) {}
+    if (sel && isUnlimitedGenerateButton(sel)) return sel;
+    try {
+      sel = document.getElementById('hf:image-form-submit');
+      if (sel && isUnlimitedGenerateButton(sel)) return sel;
+    } catch (_) {}
     var btns = document.querySelectorAll('aside button');
     for (var i = 0; i < btns.length; i++) {
       if ((btns[i].textContent || '').indexOf('Unlimited') !== -1) return btns[i];
@@ -1135,6 +1591,22 @@
   }
 
   function findStandardGenerateButton() {
+    var primaryImage = eeFindPrimaryImageSubmitButton();
+    if (primaryImage) return primaryImage;
+    var prioritized = [
+      '[id="hf:image-form-submit"]',
+      'button[data-tour-anchor="tour-generate-button"]',
+      'button[data-tour-anchor="tour-image-generate"]',
+      'button[type="submit"]',
+    ];
+    for (var p = 0; p < prioritized.length; p++) {
+      try {
+        var picked = document.querySelector(prioritized[p]);
+        if (picked && eeButtonLooksLikeGenerate(picked) && !isUnlimitedGenerateButton(picked) && eeIsButtonVisibleAndEnabled(picked)) {
+          return picked;
+        }
+      } catch (_) {}
+    }
     var unlimited = findUnlimitedGenerateButton();
     var candidates = document.querySelectorAll('button[type="submit"], aside button, button, [role="button"], input[type="submit"], input[type="button"]');
     var filtered = [];
@@ -1177,11 +1649,48 @@
       overlay = document.createElement('div');
       overlay.id = overlayId;
       overlay.setAttribute('data-ee-our-button', '1');
-      overlay.style.cssText = 'position:fixed;z-index:2147483646;cursor:pointer;pointer-events:auto;background:rgba(0,0,0,0.2);border-radius:6px;';
+      // pointer-events:auto so the overlay intercepts clicks (credit check / popup).
+      // rgba(0,0,0,0.2) gives a subtle visible tint so users can see the button is guarded.
+      // Alt key + CSS html[data-ee-hf-inspect] rule makes it passthrough for DevTools.
+      overlay.style.cssText =
+        'position:fixed;z-index:2147483646;cursor:pointer;pointer-events:auto;background:rgba(0,0,0,0.2);border-radius:6px;';
       overlay.addEventListener('click', function (e) {
-        e.preventDefault();
-        e.stopPropagation();
+        if (e && e.altKey) return; // Alt = inspect mode, let click pass through
+        if (e) { try { e.preventDefault(); e.stopPropagation(); } catch (_) {} }
         if (onOurButtonClick) onOurButtonClick();
+      }, true);
+      root.appendChild(overlay);
+    }
+    var r = btn.getBoundingClientRect();
+    overlay.style.left = r.left + 'px';
+    overlay.style.top = r.top + 'px';
+    overlay.style.width = Math.max(0, r.width) + 'px';
+    overlay.style.height = Math.max(0, r.height) + 'px';
+  }
+
+  function placeVerifyOverlayOver(btn, onClick) {
+    if (!btn || !btn.getBoundingClientRect) return;
+    var root = ensureOverlayRoot();
+    var overlayId = 'ee-hf-ecom-overlay-verify';
+    var overlay = document.getElementById(overlayId);
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = overlayId;
+      overlay.setAttribute('data-ee-our-button', '1');
+      overlay.style.cssText =
+        'position:fixed;z-index:2147483646;cursor:pointer;pointer-events:auto;' +
+        'background:rgba(149,65,224,0.50);border-radius:6px;' +
+        'backdrop-filter:blur(2px);-webkit-backdrop-filter:blur(2px);' +
+        'display:flex;align-items:center;justify-content:center;' +
+        'color:#fff;font-weight:700;font-size:12px;text-align:center;line-height:1.3;' +
+        'font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;' +
+        'letter-spacing:0.4px;text-shadow:0 1px 3px rgba(0,0,0,0.4);' +
+        'box-shadow:inset 0 0 0 1.5px rgba(181,74,243,0.7);';
+      overlay.innerHTML = '<span>🔒 Verify<br>Subscription</span>';
+      overlay.addEventListener('click', function (e) {
+        if (e && e.altKey) return;
+        if (e) { try { e.preventDefault(); e.stopPropagation(); } catch (_) {} }
+        if (onClick) onClick();
       }, true);
       root.appendChild(overlay);
     }
@@ -1201,7 +1710,11 @@
     if (!el) {
       el = document.createElement('div');
       el.id = id;
-      el.style.cssText = 'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:2147483647;background:rgba(0,0,0,0.85);color:#fff;padding:10px 16px;border-radius:8px;font-size:13px;pointer-events:none;max-width:90%;';
+      el.style.cssText =
+        'position:fixed;bottom:24px;left:50%;transform:translateX(-50%);z-index:2147483647;' +
+        'background:rgba(0,0,0,0.92);color:#fff;padding:12px 16px;border-radius:10px;font-size:12px;' +
+        'pointer-events:none;max-width:min(440px,92vw);line-height:1.45;white-space:pre-line;' +
+        'border:1px solid rgba(255,255,255,0.12);box-shadow:0 8px 32px rgba(0,0,0,0.45);';
       document.body.appendChild(el);
     }
     if (!msg) {
@@ -1264,46 +1777,121 @@
   }
 
   // opts: { creditsBalance: number|null, costNeeded: number|null }
-  function showLowCreditsResetPopup(opts) {
+  // Generic credits-blocked popup builder.
+  // type: 'daily' | 'wallet'
+  function showCreditsBlockedPopup(type, opts) {
     try {
-      var existing = document.getElementById('ee-hf-low-credits-popup-root');
-      if (existing) return;
-      var creditsBalance = opts && typeof opts.creditsBalance === 'number' ? opts.creditsBalance : null;
-      var costNeeded = opts && typeof opts.costNeeded === 'number' ? opts.costNeeded : null;
-      var nextReset = getNextHiggsfieldResetDate();
-      var resetCountdown = formatResetCountdown(nextReset);
-      var balanceStr = creditsBalance !== null ? creditsBalance.toFixed(2) + ' cr' : '< 1 credit';
-      var costStr = costNeeded !== null ? costNeeded + ' cr needed' : '';
+      var popId = 'ee-hf-credits-blocked-popup';
+      var existing = document.getElementById(popId);
+      if (existing) existing.remove();
+
+      var cost     = opts && typeof opts.cost === 'number'      ? opts.cost      : null;
+      var used     = opts && typeof opts.used === 'number'       ? opts.used      : null;
+      var limit    = opts && typeof opts.limit === 'number'      ? opts.limit     : null;
+      var wallet   = opts && typeof opts.wallet === 'number'     ? opts.wallet    : null;
+      var hours    = opts && typeof opts.hours === 'number'      ? opts.hours     : null;
+
+      var remaining = (typeof used === 'number' && typeof limit === 'number') ? Math.max(0, limit - used) : null;
+
+      var isDaily = type === 'daily';
+      var accentTop   = isDaily ? '#f97316,#ef4444' : '#ef4444,#f97316';
+      var titleColor  = isDaily ? '#fdba74'         : '#fca5a5';
+      var borderColor = isDaily ? 'rgba(249,115,22,0.4)' : 'rgba(239,68,68,0.4)';
+      var labelColor  = isDaily ? '#fb923c'         : '#fb7185';
+
+      var title = isDaily ? '🚫 Daily quota reached' : '🚫 No Higgsfield credits';
+      var subtitle = isDaily
+        ? 'You have reached your Ecom Efficiency daily credit limit.'
+        : 'The connected Higgsfield account has no credits left.';
+
+      // Build the two key metric rows
+      var rows = '';
+      if (cost !== null) {
+        rows +=
+          '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-radius:10px;background:rgba(255,255,255,0.04);margin-bottom:6px;">' +
+            '<span style="font-size:12px;color:rgba(255,255,255,0.6);">Credits needed for this generation</span>' +
+            '<span style="font-size:15px;font-weight:700;color:#fca5a5;">−' + cost + ' cr</span>' +
+          '</div>';
+      }
+      if (isDaily && remaining !== null) {
+        rows +=
+          '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-radius:10px;background:rgba(255,255,255,0.04);margin-bottom:6px;">' +
+            '<span style="font-size:12px;color:rgba(255,255,255,0.6);">Your remaining credits today</span>' +
+            '<span style="font-size:15px;font-weight:700;color:' + (remaining === 0 ? '#ef4444' : '#86efac') + ';">' + remaining + ' / ' + limit + ' cr</span>' +
+          '</div>';
+      }
+      if (!isDaily && wallet !== null) {
+        rows +=
+          '<div style="display:flex;align-items:center;justify-content:space-between;padding:9px 12px;border-radius:10px;background:rgba(255,255,255,0.04);margin-bottom:6px;">' +
+            '<span style="font-size:12px;color:rgba(255,255,255,0.6);">Higgsfield wallet balance</span>' +
+            '<span style="font-size:15px;font-weight:700;color:#ef4444;">' + Number(wallet).toFixed(2) + ' cr</span>' +
+          '</div>';
+      }
+
+      var resetLine = '';
+      if (isDaily && hours !== null) {
+        resetLine =
+          '<div style="margin-top:10px;font-size:11px;color:rgba(255,255,255,0.45);text-align:center;">' +
+            'Quota resets in <b style="color:rgba(255,255,255,0.7);">~' + hours + 'h</b> at 00:00 UTC' +
+          '</div>';
+      } else if (!isDaily) {
+        var nextReset = getNextHiggsfieldResetDate();
+        var countdown = formatResetCountdown(nextReset);
+        resetLine =
+          '<div style="margin-top:10px;font-size:11px;color:rgba(255,255,255,0.45);text-align:center;">' +
+            'Higgsfield credits reset every 3 days — estimated in <b style="color:rgba(255,255,255,0.7);">' + countdown + '</b>' +
+          '</div>';
+      }
+
       var root = document.createElement('div');
-      root.id = 'ee-hf-low-credits-popup-root';
-      root.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(3,6,17,0.58);backdrop-filter:blur(2px);animation:eeLowCreditsFadeIn .18s ease;';
-      var style = document.createElement('style');
-      style.textContent = '@keyframes eeLowCreditsFadeIn{from{opacity:0}to{opacity:1}}';
-      root.appendChild(style);
+      root.id = popId;
+      root.style.cssText =
+        'position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;' +
+        'background:rgba(3,6,17,0.62);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);' +
+        'animation:eeCBFadeIn .18s ease;';
+      var styleEl = document.createElement('style');
+      styleEl.textContent = '@keyframes eeCBFadeIn{from{opacity:0;transform:scale(0.97)}to{opacity:1;transform:scale(1)}}';
+      root.appendChild(styleEl);
+
       var box = document.createElement('div');
-      box.style.cssText = 'max-width:460px;width:92%;background:linear-gradient(165deg,#101424 0%,#181027 54%,#101424 100%);border:1px solid rgba(239,68,68,0.35);border-radius:18px;padding:22px 20px;color:#fff;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;box-shadow:0 30px 90px rgba(0,0,0,0.55);position:relative;';
+      box.style.cssText =
+        'max-width:400px;width:92%;' +
+        'background:linear-gradient(165deg,#101424 0%,#181027 54%,#101424 100%);' +
+        'border:1px solid ' + borderColor + ';border-radius:18px;padding:24px 20px 18px;' +
+        'color:#fff;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;' +
+        'box-shadow:0 30px 90px rgba(0,0,0,0.6);position:relative;';
       box.innerHTML =
-        '<div style="position:absolute;top:-1px;left:50%;transform:translateX(-50%);width:68%;height:3px;background:linear-gradient(90deg,transparent,#ef4444,#f97316,#ef4444,transparent);border-radius:0 0 4px 4px;"></div>' +
-        '<div style="font-size:11px;font-weight:700;letter-spacing:1.25px;text-transform:uppercase;color:#fb7185;margin-bottom:10px;">Higgsfield Credits</div>' +
-        '<div style="font-size:20px;font-weight:700;color:#fecaca;line-height:1.25;margin-bottom:8px;">No Higgsfield credits available</div>' +
-        '<div style="font-size:13px;line-height:1.55;color:#e5e7eb;">The connected <b style="color:#fbcfe8;">Higgsfield account</b> has insufficient credits. ' +
-          'Current balance: <b style="color:#fda4af;">' + balanceStr + '</b>' + (costStr ? ' — <b style="color:#fda4af;">' + costStr + '</b>' : '') + '.</div>' +
-        '<div style="margin-top:8px;font-size:12px;line-height:1.55;color:#cbd5e1;">This is related to Higgsfield credits, not your Ecom Efficiency balance.</div>' +
-        '<div style="margin-top:12px;padding:10px 12px;border-radius:12px;background:rgba(30,41,59,0.45);border:1px solid rgba(148,163,184,0.25);">' +
-          '<div style="font-size:12px;line-height:1.55;color:#cbd5e1;">Higgsfield credits reset every 3 days.</div>' +
-          '<div style="font-size:13px;line-height:1.6;color:#e2e8f0;margin-top:4px;">Estimated reset in: <b style="color:#bfdbfe;">' + resetCountdown + '</b></div>' +
-        '</div>' +
+        '<div style="position:absolute;top:-1px;left:50%;transform:translateX(-50%);width:60%;height:3px;' +
+          'background:linear-gradient(90deg,transparent,' + accentTop + ',transparent);border-radius:0 0 4px 4px;"></div>' +
+        '<div style="font-size:10px;font-weight:700;letter-spacing:1.4px;text-transform:uppercase;color:' + labelColor + ';margin-bottom:8px;">Ecom Efficiency</div>' +
+        '<div style="font-size:19px;font-weight:700;color:' + titleColor + ';line-height:1.25;margin-bottom:6px;">' + title + '</div>' +
+        '<div style="font-size:12px;color:rgba(255,255,255,0.55);margin-bottom:14px;">' + subtitle + '</div>' +
+        rows +
+        resetLine +
         '<div style="margin-top:16px;text-align:right;">' +
-          '<button id="ee-hf-low-credits-close" type="button" style="padding:9px 13px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:linear-gradient(to bottom,#1f2937,#111827);color:#fff;cursor:pointer;font-size:12px;font-weight:600;">OK</button>' +
+          '<button id="ee-hf-credits-blocked-close" type="button" ' +
+            'style="padding:9px 20px;border-radius:10px;border:1px solid rgba(255,255,255,0.18);' +
+            'background:linear-gradient(to bottom,#1f2937,#111827);color:#fff;cursor:pointer;' +
+            'font-size:12px;font-weight:600;letter-spacing:0.3px;">OK</button>' +
         '</div>';
+
       root.appendChild(box);
       document.body.appendChild(root);
-      var closeBtn = document.getElementById('ee-hf-low-credits-close');
+
+      var closeBtn = document.getElementById('ee-hf-credits-blocked-close');
       if (closeBtn) closeBtn.addEventListener('click', function () { try { root.remove(); } catch (_) {} });
       root.addEventListener('click', function (e) {
         if (e && e.target === root) { try { root.remove(); } catch (_) {} }
       });
     } catch (_) {}
+  }
+
+  // Legacy alias kept for any remaining callers
+  function showLowCreditsResetPopup(opts) {
+    showCreditsBlockedPopup('wallet', {
+      cost:   opts && opts.costNeeded,
+      wallet: opts && opts.creditsBalance
+    });
   }
 
   function triggerGenerateButtonClick(btn) {
@@ -1410,15 +1998,37 @@
   function runPaidGenerationPrecheck(source, buttonFinder) {
     log('verifying generation cost...', source);
     showGenerateStatus('Checking credits...', 0);
+    requestWalletRefresh();
     var actualBtn = buttonFinder ? buttonFinder() : null;
     const costInfo = getGenerationCostInfo(actualBtn);
+    if (shouldSkipDuplicateCharge(costInfo.cost)) {
+      log('duplicate charge skipped', source, 'cost=' + costInfo.cost);
+      markGenerationAuthorized(costInfo.cost);
+      setTimeout(function () {
+        try {
+          var btn = buttonFinder ? buttonFinder() : null;
+          if (btn) triggerGenerateButtonClick(btn);
+        } catch (_) {}
+      }, 80);
+      return;
+    }
+    eePrecheckInFlight = true;
     const limit = CONFIG.DAILY_CREDIT_LIMIT;
     const used = getUsedToday();
     const remaining = getDailyRemaining();
     const email = getVerifiedEmail();
     log('generation cost resolved', source, 'cost=' + costInfo.cost, 'used=' + used, 'remaining=' + remaining, 'limit=' + limit);
+    trackHiggsfieldActivity('higgsfield_generate_click', {
+      source: source,
+      cost: costInfo.cost,
+      cost_quality: costInfo.quality,
+      used_today: used,
+      daily_limit: limit,
+      used_fallback_cost: !!costInfo.usedFallback,
+    });
 
-    waitForWalletCredits(800, function (walletCredits) {
+    waitForWalletCredits(2800, function (walletCredits) {
+      eePrecheckInFlight = false;
       // If wallet credits are not readable yet, do NOT hard-block.
       // In production this can happen transiently even with valid credits.
       if (walletCredits === null) {
@@ -1427,11 +2037,22 @@
       }
 
       // Block if Higgsfield wallet itself is empty — compare actual wallet balance
-      // to the cost of this generation. Use the real credits_balance (via /workspaces/wallet)
-      // instead of the unreliable header ring SVG percentage.
+      // to the cost of this generation.
       if (isFinite(walletCredits) && walletCredits < costInfo.cost) {
-        showGenerateStatus('No more Higgsfield credits available.', 6000);
-        showLowCreditsResetPopup({ creditsBalance: walletCredits, costNeeded: costInfo.cost });
+        showCreditsBlockedPopup('wallet', {
+          cost:   costInfo.cost,
+          wallet: walletCredits,
+          used:   used,
+          limit:  limit,
+        });
+        trackHiggsfieldActivity('higgsfield_generate_blocked', {
+          reason: 'wallet_insufficient',
+          source: source,
+          cost: costInfo.cost,
+          wallet: walletCredits,
+          used_today: used,
+          daily_limit: limit,
+        });
         log('generation blocked: wallet credits insufficient', source, 'wallet=' + walletCredits, 'cost=' + costInfo.cost);
         return;
       }
@@ -1439,15 +2060,48 @@
       // Also enforce our daily limit.
       if ((used + costInfo.cost) > limit) {
         var hours = getHoursUntilReset();
-        showGenerateStatus('No more credits for the day.', 6000);
-        log('generation blocked: daily limit reached', source, 'used=' + used, 'cost=' + costInfo.cost, 'limit=' + limit, 'resetIn=' + hours + 'h');
+        showCreditsBlockedPopup('daily', {
+          cost:  costInfo.cost,
+          used:  used,
+          limit: limit,
+          hours: hours,
+        });
+        trackHiggsfieldActivity('higgsfield_generate_blocked', {
+          reason: 'daily_limit',
+          source: source,
+          cost: costInfo.cost,
+          used_today: used,
+          daily_limit: limit,
+          after_click: used + costInfo.cost,
+          wallet: isFinite(walletCredits) ? walletCredits : null,
+        });
+        log(
+          'generation blocked: daily limit reached',
+          source,
+          'used=' + used,
+          'cost=' + costInfo.cost,
+          'after=' + (used + costInfo.cost),
+          'limit=' + limit,
+          'wallet=' + (isFinite(walletCredits) ? walletCredits : 'unknown'),
+          'resetIn=' + hours + 'h'
+        );
         return;
       }
 
+      trackHiggsfieldActivity('higgsfield_generate_ok', {
+        source: source,
+        cost: costInfo.cost,
+        used_today: used,
+        daily_limit: limit,
+        wallet: isFinite(walletCredits) ? walletCredits : null,
+      });
       log('authorizing generation...', source);
       showGenerateStatus('Authorizing...', 0);
+      markGenerationAuthorized(costInfo.cost);
       addUsedToday(costInfo.cost);
+      recordChargeMarker(costInfo.cost);
       lastDelta = costInfo.cost;
+      syncEcomBlockFlag();
       const usedToday = getUsedToday();
       logUsage(email, costInfo.cost, usedToday, source);
       log('generation authorized', source, 'cost=' + costInfo.cost, 'usedToday=' + usedToday, 'remaining=' + getDailyRemaining(), 'wallet=' + (isFinite(walletCredits) ? walletCredits : 'unknown'));
@@ -1473,10 +2127,27 @@
       if (lastStandardBtn) { restoreButton(lastStandardBtn); lastStandardBtn = null; }
       var el = document.getElementById('ee-hf-ecom-overlay-standard');
       if (el) el.remove();
+      var ve = document.getElementById('ee-hf-ecom-overlay-verify');
+      if (ve) ve.remove();
       return;
     }
     if (lastStandardBtn && lastStandardBtn !== btn) restoreButton(lastStandardBtn);
     lastStandardBtn = btn;
+
+    if (!getVerifiedEmail() && shouldShowPopup()) {
+      // Remove the transparent overlay and show the "Verify Subscription" one
+      var el = document.getElementById('ee-hf-ecom-overlay-standard');
+      if (el) el.remove();
+      placeVerifyOverlayOver(btn, function () {
+        log('verify overlay clicked – opening popup');
+        createPopup();
+      });
+      return;
+    }
+
+    // Verified: remove the verify overlay if present and show the normal transparent overlay
+    var ve = document.getElementById('ee-hf-ecom-overlay-verify');
+    if (ve) ve.remove();
     function onOurButtonClick() {
       log('overlay click', 'standard_generate');
       if (!getVerifiedEmail() && shouldShowPopup()) {
@@ -1499,6 +2170,17 @@
     }
     if (lastUnlimitedBtn && lastUnlimitedBtn !== btn) restoreButton(lastUnlimitedBtn);
     lastUnlimitedBtn = btn;
+
+    if (!getVerifiedEmail() && shouldShowPopup()) {
+      var el = document.getElementById('ee-hf-ecom-overlay-unlimited');
+      if (el) el.remove();
+      placeVerifyOverlayOver(btn, function () {
+        log('verify overlay clicked (unlimited btn) – opening popup');
+        createPopup();
+      });
+      return;
+    }
+
     function onOurButtonClick() {
       log('overlay click', 'unlimited_generate');
       if (!getVerifiedEmail() && shouldShowPopup()) {
@@ -1550,6 +2232,7 @@
           t = null;
           try { installUnlimitedButtonOverlay(); } catch (_) {}
           try { installStandardGenerateButtonOverlay(); } catch (_) {}
+          eeScanAndArmGenerateButtons('dom_mutation');
         }, 500);
       };
       var mo = new MutationObserver(function () { kick(); });
@@ -1569,13 +2252,42 @@
 
   function scheduleBlockingObserver() {
     installGenerateClickBlocker();
-    setTimeout(setupBlockingObserver, 400);
+    setTimeout(function () {
+      setupBlockingObserver();
+      eeScanAndArmGenerateButtons('blocking_observer_start');
+    }, 400);
+    setInterval(function () {
+      if (isAuthPage(location.pathname)) return;
+      eeScanAndArmGenerateButtons('interval_safety');
+    }, 4000);
   }
 
   // --- Shield ---
   var shieldInstalled = false;
+  var shieldClickGateInstalled = false;
   var SHIELD_STYLE_ID = 'ee-hf-ecom-shield-style';
   var SHIELD_ID = 'ee-hf-ecom-shield';
+
+  /** Shield backdrop is pointer-events:none (inspect OK); block page clicks via capture while shield visible. */
+  function installShieldClickGate() {
+    if (shieldClickGateInstalled) return;
+    shieldClickGateInstalled = true;
+    function blockIfShield(e) {
+      try {
+        if (!document.getElementById(SHIELD_ID)) return;
+        // Always allow right-click / context menu (DevTools inspect)
+        if (e.type === 'contextmenu') return;
+        var t = e.target;
+        if (t && t.closest && t.closest('#ee-hf-ecom-popup-root')) return;
+        if (t && t.closest && t.closest('#ee-hf-ecom-overlay-verify')) return;
+        e.preventDefault();
+        e.stopPropagation();
+      } catch (_) {}
+    }
+    document.addEventListener('pointerdown', blockIfShield, true);
+    document.addEventListener('click', blockIfShield, true);
+    document.addEventListener('contextmenu', blockIfShield, true); // no-op by design (returns early)
+  }
 
   function installShield() {
     if (shieldInstalled) return;
@@ -1587,9 +2299,12 @@
       var style = document.createElement('style');
       style.id = SHIELD_STYLE_ID;
       style.textContent =
-        '#ee-hf-ecom-shield{position:fixed;inset:0;z-index:2147483644;pointer-events:auto;cursor:not-allowed;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);background:rgba(0,0,0,0.45);transition:opacity 0.4s ease;}' +
+        '#ee-hf-ecom-shield{position:fixed;inset:0;z-index:2147483644;pointer-events:none;cursor:default;backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);background:rgba(0,0,0,0.45);transition:opacity 0.4s ease;}' +
         '#ee-hf-ecom-shield.ee-removing{opacity:0;pointer-events:none;}' +
-        '#ee-hf-ecom-shield .ee-shield-label{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#fff;pointer-events:none;}';
+        '#ee-hf-ecom-shield .ee-shield-label{position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);text-align:center;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#fff;pointer-events:none;}' +
+        '#ee-hf-ecom-popup-root{pointer-events:auto!important;}' +
+        'html[data-ee-hf-inspect="1"] #ee-hf-ecom-shield,' +
+        'html[data-ee-hf-inspect="1"] [id^="ee-hf-ecom-overlay-"]{pointer-events:none!important;opacity:0.12!important;}';
       (document.head || document.documentElement).appendChild(style);
     }
 
@@ -1673,6 +2388,9 @@
       if (isAuthPage(prev) && !isAuthPage(current)) {
         onSpaNavigateToApp();
       }
+      if (!isAuthPage(current)) {
+        eeOnAppRouteChange(prev, current);
+      }
     }
   }
 
@@ -1681,6 +2399,18 @@
     syncVerifiedEmailFromAuthGate();
     if (eeFullyInitialized) return;
     if (isAuthPage(location.pathname)) return;
+
+    // Email is in-memory only: set = same page session (SPA navigation), skip popup.
+    // On every actual page reload __eeVerifiedEmailMem is null → popup will show.
+    if (getVerifiedEmail()) {
+      log('email already verified in memory (SPA nav):', getVerifiedEmail(), '— skipping popup');
+      removeShield();
+      ensureWidget();
+      startTracking();
+      scheduleBlockingObserver();
+      eeFullyInitialized = true;
+      return;
+    }
 
     if (shouldShowPopup()) {
       installShield();
@@ -1718,17 +2448,50 @@
     }
   }
 
+  function installInspectModeHelpers() {
+    if (window.__eeHfInspectModeInstalled) return;
+    window.__eeHfInspectModeInstalled = true;
+    function setInspectMode(on) {
+      try {
+        if (on) document.documentElement.setAttribute('data-ee-hf-inspect', '1');
+        else document.documentElement.removeAttribute('data-ee-hf-inspect');
+      } catch (_) {}
+    }
+    document.addEventListener('keydown', function (e) {
+      if (e && e.key === 'Alt') setInspectMode(true);
+    }, true);
+    document.addEventListener('keyup', function (e) {
+      if (e && e.key === 'Alt') setInspectMode(false);
+    }, true);
+    window.addEventListener('blur', function () { setInspectMode(false); });
+    log('inspect mode: hold Alt to click through overlays and use Inspect Element');
+  }
+
   // --- Init ---
   function init() {
     installFetchInterceptor();
+    clearStaleAdminEmail();
     restoreDynamicCreditLimit();
     syncVerifiedEmailFromAuthGate();
+    installInspectModeHelpers();
+    installEcomNetworkBridge();
+    syncEcomBlockFlag();
     log('init', location.href, 'SIMULATE_CONNECTED=', SIMULATE_CONNECTED, 'DAILY_CREDIT_LIMIT=', CONFIG.DAILY_CREDIT_LIMIT);
+
+    try {
+      chrome.runtime.sendMessage({ type: 'INJECT_HIGGSFIELD_LOGGER' });
+    } catch (_) {}
 
     installSpaWatcher();
     // Arm generate click interception immediately so users cannot click through
     // before popup/tracking initialization has finished.
     installGenerateClickBlocker();
+    installShieldClickGate();
+    if (!isAuthPage(location.pathname)) {
+      setTimeout(function () {
+        eeOnAppRouteChange('', location.pathname || '');
+      }, 1500);
+    }
 
     if (isAuthPage(location.pathname)) {
       log('on /auth page, waiting for SPA navigation to app...');

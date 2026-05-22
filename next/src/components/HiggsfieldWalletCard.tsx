@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import { Zap, RefreshCw, Wifi, WifiOff } from 'lucide-react'
+import type { LatestWalletBalance } from './higgsfieldUsageUtils'
 
 // Wallet snapshots are stored in the existing higgsfield_usage_events table
 // with source = 'wallet_snapshot' to avoid requiring a migration.
@@ -45,9 +46,41 @@ function CreditBar({ value, max }: { value: number; max: number }) {
   )
 }
 
-export function HiggsfieldWalletCard() {
-  const [snapshots, setSnapshots] = useState<WalletSnapshot[]>([])
-  const [loading, setLoading] = useState(true)
+function toWalletSnapshot(row: {
+  id?: number
+  email: string | null
+  used_today: number | null
+  hf_cost_raw?: number | null
+  comparison_source?: string | null
+  comparison_delta?: number | null
+  at: string
+  created_at?: string
+  source: string
+}): WalletSnapshot {
+  return {
+    id: row.id,
+    email: row.email,
+    used_today: row.used_today,
+    hf_cost_raw: row.hf_cost_raw,
+    comparison_source: row.comparison_source,
+    comparison_delta: row.comparison_delta,
+    at: row.at,
+    created_at: row.created_at,
+    source: row.source || 'wallet_snapshot',
+  }
+}
+
+export function HiggsfieldWalletCard({
+  initialSnapshots = [],
+  walletBalances = [],
+}: {
+  initialSnapshots?: WalletSnapshot[]
+  walletBalances?: LatestWalletBalance[]
+}) {
+  const [snapshots, setSnapshots] = useState<WalletSnapshot[]>(() =>
+    (initialSnapshots || []).map((s) => toWalletSnapshot(s))
+  )
+  const [loading, setLoading] = useState(!initialSnapshots?.length)
   const [error, setError] = useState<string | null>(null)
   const [lastRefresh, setLastRefresh] = useState<Date | null>(null)
   const [tick, setTick] = useState(0)
@@ -133,9 +166,23 @@ export function HiggsfieldWalletCard() {
       ) : loading ? (
         <div className="h-20 flex items-center justify-center text-gray-500 text-sm">Chargement…</div>
       ) : latest === null ? (
-        <div className="rounded-lg bg-gray-800/50 p-4 text-sm text-gray-400 text-center">
-          Aucun snapshot reçu.<br />
-          <span className="text-xs">L&apos;extension enverra la balance après chaque génération.</span>
+        <div className="rounded-lg bg-gray-800/50 p-4 text-sm text-gray-400 text-center space-y-2">
+          <p>Aucun snapshot wallet en base.</p>
+          <p className="text-xs">
+            L&apos;extension envoie la balance via <code className="bg-black/40 px-1 rounded">workspaces/wallet</code>{' '}
+            (source <code className="bg-black/40 px-1 rounded">wallet_snapshot</code>). Ouvrez higgsfield.ai avec l&apos;extension active.
+          </p>
+          {walletBalances.length > 0 ? (
+            <div className="text-left mt-3 space-y-2">
+              <p className="text-xs text-gray-500">Dernières balances agrégées depuis les événements :</p>
+              {walletBalances.map((w, i) => (
+                <div key={i} className="text-xs bg-black/30 rounded p-2">
+                  <div className="text-white">{w.email || '(sans email EE)'}</div>
+                  <div>{w.display != null ? `${w.display.toFixed(2)} cr` : '—'}</div>
+                </div>
+              ))}
+            </div>
+          ) : null}
         </div>
       ) : (
         <>
@@ -187,6 +234,20 @@ export function HiggsfieldWalletCard() {
               <span>Rafraîchi {timeSince(lastRefresh.toISOString())}</span>
             )}
           </div>
+
+          {walletBalances.length > 1 && (
+            <div className="text-xs border-t border-white/5 pt-3">
+              <div className="text-gray-500 mb-2">Balances par email (dernier snapshot connu)</div>
+              <div className="space-y-1 max-h-32 overflow-auto">
+                {walletBalances.map((w, i) => (
+                  <div key={i} className="flex justify-between text-gray-400">
+                    <span className="truncate max-w-[55%]">{w.email || '—'}</span>
+                    <span className="text-white">{w.display != null ? `${w.display.toFixed(2)} cr` : '—'}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
 
           {/* History mini-table */}
           {snapshots.length > 1 && (

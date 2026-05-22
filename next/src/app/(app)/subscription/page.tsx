@@ -6,6 +6,7 @@ import {
   SubscriptionCancelFlow,
   openStripeBillingPortal,
 } from "@/components/subscription/SubscriptionCancelFlow";
+import { HiggsfieldAccessPinCard } from "@/components/subscription/HiggsfieldAccessPinCard";
 
 function detectCheckoutCurrency(): "EUR" | "USD" {
   try {
@@ -330,6 +331,8 @@ export default function SubscriptionPage() {
           </button>
         )}
       </div>
+
+      <HiggsfieldAccessPinCard plan={plan} />
     </div>
   );
 }

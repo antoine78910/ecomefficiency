@@ -136,6 +136,137 @@
     return url && url.indexOf('fnf.higgsfield.ai') !== -1 && url.indexOf('/jobs/') !== -1;
   }
   function isBlockGenerations() { try { return document.documentElement.dataset.eeBlockGenerations === '1'; } catch (_) { return false; } }
+
+  function eePad2(n) { return (n < 10 ? '0' : '') + n; }
+  function getEcomDayKey() {
+    var d = new Date();
+    if (d.getUTCHours() < 0) d.setUTCDate(d.getUTCDate() - 1);
+    return d.getUTCFullYear() + '-' + eePad2(d.getUTCMonth() + 1) + '-' + eePad2(d.getUTCDate());
+  }
+  var _LOGGER_BLOCKED_EMAILS = ['admin@ecomefficiency.com'];
+  function getEcomVerifiedEmail() {
+    try {
+      // Shared browser: read from sessionStorage only (set by the content script
+      // when the user verifies their email; cleared on every page reload).
+      var e = String(
+        sessionStorage.getItem('ee_hf_ecom_verified_email') ||
+          ''
+      ).trim().toLowerCase();
+      return (_LOGGER_BLOCKED_EMAILS.indexOf(e) !== -1) ? '' : e;
+    } catch (_) {
+      return '';
+    }
+  }
+  function getEcomUsageStorageKey() {
+    var email = getEcomVerifiedEmail();
+    var base = 'ee_hf_ecom_daily_usage';
+    return email ? base + '_' + email.replace(/[^a-z0-9@._-]/g, '') : base;
+  }
+  function getEcomDailyLimit() {
+    try {
+      var s = sessionStorage.getItem('ee_hf_ecom_daily_limit');
+      if (s) {
+        var n = parseInt(s, 10);
+        if (n > 0) return n;
+      }
+    } catch (_) {}
+    return MAX_DAILY_CREDITS;
+  }
+  function getEcomUsedToday() {
+    try {
+      var raw = localStorage.getItem(getEcomUsageStorageKey());
+      var o = raw ? JSON.parse(raw) : {};
+      var k = getEcomDayKey();
+      return typeof o[k] === 'number' ? o[k] : 0;
+    } catch (_) {
+      return 0;
+    }
+  }
+  function parseUseUnlim(reqBodyStr) {
+    try {
+      var rb = JSON.parse(reqBodyStr || '{}');
+      return !!rb.use_unlim;
+    } catch (_) {
+      return false;
+    }
+  }
+  function peekEcomAuthorization() {
+    try {
+      var at = Number(sessionStorage.getItem('ee_hf_last_gen_authorized_at') || 0);
+      var cost = Number(sessionStorage.getItem('ee_hf_last_gen_authorized_cost') || 0) || 12;
+      if (!at || Date.now() - at > 45000) return null;
+      return cost;
+    } catch (_) {
+      return null;
+    }
+  }
+  function peekRecentEcomCharge() {
+    try {
+      var at = Number(sessionStorage.getItem('ee_hf_last_charge_at') || 0);
+      var cost = Number(sessionStorage.getItem('ee_hf_last_charge_cost') || 0) || 12;
+      if (!at || Date.now() - at > 45000) return null;
+      return cost;
+    } catch (_) {
+      return null;
+    }
+  }
+  function consumeEcomAuthorization() {
+    var cost = peekEcomAuthorization();
+    if (cost === null) return null;
+    try {
+      sessionStorage.removeItem('ee_hf_last_gen_authorized_at');
+      sessionStorage.removeItem('ee_hf_last_gen_authorized_cost');
+    } catch (_) {}
+    return cost;
+  }
+  function evaluateGenerationPost(reqBodyStr) {
+    if (parseUseUnlim(reqBodyStr)) {
+      return { allow: true, reason: 'hf_use_unlim', charge: 0 };
+    }
+    if (isBlockGenerations()) {
+      return { allow: false, reason: 'dataset_block' };
+    }
+    var used = getEcomUsedToday();
+    var limit = getEcomDailyLimit();
+    var authorized = peekEcomAuthorization();
+    if (authorized !== null) {
+      // UI precheck already ran addUsedToday() — this POST is the matching generation.
+      return { allow: true, reason: 'ui_authorized', charge: 0, consumeAuth: true };
+    }
+    if (peekRecentEcomCharge() !== null) {
+      return { allow: true, reason: 'recent_ui_charge', charge: 0, consumeAuth: false };
+    }
+    var leakCost = 12;
+    if (used + leakCost > limit) {
+      return { allow: false, reason: 'ecom_quota_leak', used: used, limit: limit, cost: leakCost };
+    }
+    return { allow: true, reason: 'network_leak', charge: leakCost, consumeAuth: false };
+  }
+  function applyGenerationGate(reqBodyStr, url) {
+    var gate = evaluateGenerationPost(reqBodyStr);
+    if (!gate.allow) {
+      console.log('[EE][HIGGSFIELD] Blocked generation:', gate.reason, 'used=' + gate.used, 'limit=' + gate.limit);
+      try {
+        document.documentElement.dataset.eeBlockGenerations = '1';
+        window.postMessage(
+          { type: 'EE_HIGGSFIELD_DAILY_LIMIT_BLOCKED', source: 'ee-logger', payload: { maxDaily: gate.limit || getEcomDailyLimit() } },
+          '*'
+        );
+      } catch (_) {}
+      return false;
+    }
+    if (gate.consumeAuth) consumeEcomAuthorization();
+    else if (gate.charge > 0) {
+      try {
+        window.postMessage({
+          type: 'EE_HIGGSFIELD_ECOM_CHARGE',
+          source: 'ee-logger',
+          payload: { cost: gate.charge, reason: gate.reason, url: url, path: location.pathname },
+        }, '*');
+      } catch (_) {}
+    }
+    return true;
+  }
   function isHiggsfieldApi(url) {
     return (url && (url.indexOf('fnf.higgsfield.ai') !== -1 || url.indexOf('clerk.higgsfield.ai') !== -1)) || false;
   }
@@ -260,10 +391,10 @@
       if (auth2) console.log('[EE][HIGGSFIELD][TOKEN]', auth2.substring(0, 50) + (auth2.length > 50 ? '...' : ''));
     }
     if (method === 'POST' && isGenerationEndpoint(url)) {
-      if (isBlockGenerations()) {
-        console.log('[EE][HIGGSFIELD] Blocked generation: daily limit reached');
-        try { window.postMessage({ type: 'EE_HIGGSFIELD_DAILY_LIMIT_BLOCKED', source: 'ee-logger', payload: { maxDaily: MAX_DAILY_CREDITS } }, '*'); } catch (_) {}
-        return Promise.reject(new Error('Daily credit limit reached (' + MAX_DAILY_CREDITS + ' credits).'));
+      var reqBodyStrGate = null;
+      try { if (init && typeof init.body === 'string') reqBodyStrGate = init.body; } catch (_) {}
+      if (!applyGenerationGate(reqBodyStrGate, url)) {
+        return Promise.reject(new Error('Daily credit limit reached (' + getEcomDailyLimit() + ' credits).'));
       }
       var beforeGen = lastKnownCredits;
       var trail = getTrailSnapshot();
@@ -379,9 +510,9 @@
     var _xhrReqBody = null;
     xhr.send = function (body) {
       if (_method === 'POST' && isGenerationEndpoint(_url)) {
-        if (isBlockGenerations()) {
-          console.log('[EE][HIGGSFIELD] Blocked generation (XHR): daily limit reached');
-          try { window.postMessage({ type: 'EE_HIGGSFIELD_DAILY_LIMIT_BLOCKED', source: 'ee-logger', payload: { maxDaily: MAX_DAILY_CREDITS } }, '*'); } catch (_) {}
+        var xhrBodyStr = null;
+        try { xhrBodyStr = typeof body === 'string' ? body : null; } catch (_) {}
+        if (!applyGenerationGate(xhrBodyStr, _url)) {
           xhr.dispatchEvent(new Event('error'));
           return;
         }
@@ -487,6 +618,13 @@
   setTimeout(fetchWalletNow, 3000);
   // Also refresh every 5 minutes passively
   setInterval(fetchWalletNow, 5 * 60 * 1000);
+
+  window.addEventListener('message', function (ev) {
+    try {
+      if (!ev || !ev.data || ev.data.type !== 'EE_HIGGSFIELD_FETCH_WALLET_NOW') return;
+      fetchWalletNow();
+    } catch (_) {}
+  });
 
   console.log('[EE][HIGGSFIELD] Network logger injected in PAGE context');
 })();

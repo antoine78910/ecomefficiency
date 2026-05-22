@@ -2,13 +2,30 @@ import AdminNavigation from '@/components/AdminNavigation'
 import { Zap, AlertTriangle } from 'lucide-react'
 import { supabaseAdmin } from '@/integrations/supabase/server'
 import { HiggsfieldEmailTable, HiggsfieldEventsTable, HiggsfieldCreditHistory, HiggsfieldAnomalyTable } from '@/components/HiggsfieldTables'
-import { summarizeHiggsfieldUsageRows, type HiggsfieldUsageEvent } from '@/components/higgsfieldUsageUtils'
+import {
+  summarizeHiggsfieldUsageRows,
+  buildUnifiedGenerationHistory,
+  getLatestWalletBalances,
+  type HiggsfieldUsageEvent,
+} from '@/components/higgsfieldUsageUtils'
 import { HiggsfieldWalletCard } from '@/components/HiggsfieldWalletCard'
 
 export const dynamic = 'force-dynamic'
 
 async function fetchHiggsfieldUsage() {
-  if (!supabaseAdmin) return { events: [], totalCredits: 0, byEmail: [], unlimitedClicks: 0, unlimitedCredits: 0, standardClicks: 0, standardCredits: 0 }
+  if (!supabaseAdmin)
+    return {
+      events: [],
+      totalCredits: 0,
+      byEmail: [],
+      unlimitedClicks: 0,
+      unlimitedCredits: 0,
+      standardClicks: 0,
+      standardCredits: 0,
+      unifiedCount: 0,
+      networkGenCount: 0,
+      walletBalances: [],
+    }
 
   // Try to fetch with extended network-tracking columns first, fall back gracefully
   const FULL_COLS = 'id, email, delta, used_today, at, created_at, user_agent, source, hf_user_id, model, hf_cost_raw, use_unlim, abuse_flags, comparison_source, comparison_delta'
@@ -23,7 +40,7 @@ async function fetchHiggsfieldUsage() {
     .from('higgsfield_usage_events')
     .select(FULL_COLS)
     .order('at', { ascending: false })
-    .limit(2000)
+    .limit(5000)
 
   if (!full.error) {
     events = full.data as HiggsfieldUsageEvent[]
@@ -33,7 +50,7 @@ async function fetchHiggsfieldUsage() {
       .from('higgsfield_usage_events')
       .select(BASE_COLS)
       .order('at', { ascending: false })
-      .limit(2000)
+      .limit(5000)
     if (!base.error) {
       events = base.data as HiggsfieldUsageEvent[]
     } else {
@@ -42,7 +59,7 @@ async function fetchHiggsfieldUsage() {
         .from('higgsfield_usage_events')
         .select(COMPAT_COLS)
         .order('at', { ascending: false })
-        .limit(2000)
+        .limit(5000)
       events = compat.data as HiggsfieldUsageEvent[]
       error = compat.error
     }
@@ -50,10 +67,24 @@ async function fetchHiggsfieldUsage() {
 
   if (error) {
     console.error('[admin/higgsfield]', error.message)
-    return { events: [], totalCredits: 0, byEmail: [], unlimitedClicks: 0, unlimitedCredits: 0, standardClicks: 0, standardCredits: 0 }
+    return {
+      events: [],
+      totalCredits: 0,
+      byEmail: [],
+      unlimitedClicks: 0,
+      unlimitedCredits: 0,
+      standardClicks: 0,
+      standardCredits: 0,
+      unifiedCount: 0,
+      networkGenCount: 0,
+      walletBalances: [],
+    }
   }
   const rows = (events || []) as HiggsfieldUsageEvent[]
   const summary = summarizeHiggsfieldUsageRows(rows)
+  const unified = buildUnifiedGenerationHistory(rows)
+  const networkGenCount = rows.filter((r) => r.source === 'network_jobs_api').length
+  const walletBalances = getLatestWalletBalances(rows)
   return {
     events: rows,
     totalCredits: summary.totalCredits,
@@ -62,11 +93,51 @@ async function fetchHiggsfieldUsage() {
     unlimitedCredits: summary.unlimitedCredits,
     standardClicks: summary.standardClicks,
     standardCredits: summary.standardCredits,
+    unifiedCount: unified.length,
+    networkGenCount,
+    walletBalances,
   }
 }
 
+async function fetchWalletSnapshotsForAdmin() {
+  if (!supabaseAdmin) return []
+  const COLS =
+    'id, email, delta, used_today, at, created_at, source, hf_cost_raw, comparison_source, comparison_delta'
+  const { data, error } = await supabaseAdmin
+    .from('higgsfield_usage_events')
+    .select(COLS)
+    .eq('source', 'wallet_snapshot')
+    .order('at', { ascending: false })
+    .limit(40)
+  if (error) {
+    const fallback = await supabaseAdmin
+      .from('higgsfield_usage_events')
+      .select('id, email, delta, used_today, at, created_at, source')
+      .eq('source', 'wallet_snapshot')
+      .order('at', { ascending: false })
+      .limit(40)
+    return (fallback.data || []) as HiggsfieldUsageEvent[]
+  }
+  return (data || []) as HiggsfieldUsageEvent[]
+}
+
 export default async function AdminHiggsfieldPage() {
-  const { events, totalCredits, byEmail, unlimitedClicks, unlimitedCredits, standardClicks, standardCredits } = await fetchHiggsfieldUsage()
+  const [usage, walletSnapshots] = await Promise.all([
+    fetchHiggsfieldUsage(),
+    fetchWalletSnapshotsForAdmin(),
+  ])
+  const {
+    events,
+    totalCredits,
+    byEmail,
+    unlimitedClicks,
+    unlimitedCredits,
+    standardClicks,
+    standardCredits,
+    unifiedCount,
+    networkGenCount,
+    walletBalances,
+  } = usage
 
   return (
     <div className="min-h-screen bg-black text-white px-6 py-10">
@@ -84,7 +155,10 @@ export default async function AdminHiggsfieldPage() {
 
         {/* Live Wallet Balance — client component, auto-refreshes every 30s */}
         <div className="mb-8">
-          <HiggsfieldWalletCard />
+          <HiggsfieldWalletCard
+            initialSnapshots={walletSnapshots}
+            walletBalances={walletBalances}
+          />
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
@@ -99,8 +173,15 @@ export default async function AdminHiggsfieldPage() {
           </div>
           <div className="bg-gray-900/80 border border-white/10 rounded-xl p-4">
             <div>
-              <p className="text-gray-400 text-sm">Événements enregistrés</p>
-              <p className="text-2xl font-bold">{events.length}</p>
+              <p className="text-gray-400 text-sm">Générations (historique unifié)</p>
+              <p className="text-2xl font-bold">{unifiedCount}</p>
+              <p className="text-gray-500 text-xs">{networkGenCount} via réseau /jobs</p>
+            </div>
+          </div>
+          <div className="bg-gray-900/80 border border-white/10 rounded-xl p-4">
+            <div>
+              <p className="text-gray-400 text-sm">Snapshots wallet reçus</p>
+              <p className="text-2xl font-bold">{walletSnapshots.length}</p>
             </div>
           </div>
           <div className="bg-gray-900/80 border border-white/10 rounded-xl p-4">
@@ -131,8 +212,8 @@ export default async function AdminHiggsfieldPage() {
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-4">
             <AlertTriangle className="h-6 w-6 text-amber-500" />
-            <h2 className="text-2xl font-bold">Anomalies &amp; Écarts de tracking</h2>
-            <span className="text-sm text-gray-500">(tracking réseau vs overlay)</span>
+            <h2 className="text-2xl font-bold">Signaux</h2>
+            <span className="text-sm text-gray-500">(réseau /jobs, wallet, overlay, écarts)</span>
           </div>
           <HiggsfieldAnomalyTable data={events} />
         </div>

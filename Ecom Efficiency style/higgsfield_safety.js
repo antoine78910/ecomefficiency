@@ -76,24 +76,34 @@
           limitLine;
       } catch (_) {}
     }
-    var _lastWalletSnapshotAt = 0; // throttle: max 1/min for non-afterGen updates
+    var _lastWalletSnapshotAt = 0;
+    var _walletSnapshotEver = false;
+    function _usageApiHeaders() {
+      var h = { 'Content-Type': 'application/json' };
+      try {
+        var tok = sessionStorage.getItem('ee_hf_ecom_hf_access_token') || null;
+        if (tok) h['X-EE-HF-Access-Token'] = tok;
+      } catch (_) {}
+      return h;
+    }
     function postWalletSnapshotToAdmin(p) {
       try {
         var now = Date.now();
         var isAfterGen = !!p.afterGen;
-        // afterGen always passes; other updates throttled to 1/min
-        if (!isAfterGen && now - _lastWalletSnapshotAt < 60000) return;
-        _lastWalletSnapshotAt = now;
+        if (!isAfterGen && _walletSnapshotEver && now - _lastWalletSnapshotAt < 30000) return;
         var email = null;
         try { email = sessionStorage.getItem('ee_hf_ecom_verified_email') || sessionStorage.getItem('EE_HF_AUTH_VERIFIED_EMAIL') || null; } catch (_) {}
         var display = typeof p.creditsRemaining === 'number' ? p.creditsRemaining : (typeof p.credits === 'number' ? p.credits : null);
         var raw = typeof p.creditsBalanceRaw === 'number' ? p.creditsBalanceRaw : null;
+        if (display === null && raw === null) return;
+        _lastWalletSnapshotAt = now;
+        _walletSnapshotEver = true;
         // Store in existing higgsfield_usage_events table — no extra migration needed.
         // source = 'wallet_snapshot', delta = 0, used_today = display credits balance,
         // hf_cost_raw = raw balance units so admin can show exact data.
         fetch('https://www.ecomefficiency.com/api/usage/higgsfield', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: _usageApiHeaders(),
           credentials: 'omit',
           body: JSON.stringify({
             email: email,
@@ -139,12 +149,21 @@
     // Last ecom-tracked generation info (to compare against network tracking)
     var _lastEcomGen = null; // { delta, at, source }
 
+    var _BLOCKED_EMAILS = ['admin@ecomefficiency.com'];
     function _getEEEmail() {
-      try { return sessionStorage.getItem('ee_hf_ecom_verified_email') || sessionStorage.getItem('EE_HF_AUTH_VERIFIED_EMAIL') || null; } catch (_) { return null; }
+      try {
+        // Shared browser: read from sessionStorage only (localStorage is not used for
+        // email identity — see higgsfield_ecom_subscription.js for details).
+        var e = sessionStorage.getItem('ee_hf_ecom_verified_email') ||
+                null;
+        if (e && _BLOCKED_EMAILS.indexOf(e.trim().toLowerCase()) !== -1) return null;
+        return e;
+      } catch (_) { return null; }
     }
 
     function _postNetworkGenToApi(payload) {
-      var email = _getEEEmail() || payload.hfEmail || null;
+      // Never fall back to the shared Higgsfield JWT email for billing attribution.
+      var email = _getEEEmail() || null;
       var body = {
         email: email,
         delta: typeof payload.creditCost === 'number' ? payload.creditCost : 0,
@@ -178,7 +197,7 @@
       try {
         fetch('https://www.ecomefficiency.com/api/usage/higgsfield', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: _usageApiHeaders(),
           credentials: 'omit',
           body: JSON.stringify(body)
         }).catch(function () {});
@@ -197,10 +216,10 @@
         try {
           fetch('https://www.ecomefficiency.com/api/usage/higgsfield', {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: _usageApiHeaders(),
             credentials: 'omit',
             body: JSON.stringify({
-              email: _getEEEmail() || payload.hfEmail || null,
+              email: _getEEEmail() || null,
               delta: 0,
               at: payload.at || new Date().toISOString(),
               source: 'abuse_detected',
@@ -256,7 +275,11 @@
           usedFromDeltas += (lastKnownBalance - credits);
         }
         if (credits !== undefined && credits !== null) lastKnownBalance = credits;
-        if (p.source === 'workspaces/wallet' && credits !== undefined && credits !== null) {
+        if (
+          (p.source === 'workspaces/wallet' || typeof p.creditsBalanceRaw === 'number') &&
+          credits !== undefined &&
+          credits !== null
+        ) {
           // Store raw balance too, for accurate popup display
           var storeExtra = {};
           if (typeof p.creditsBalanceRaw === 'number') storeExtra.creditsBalanceRaw = p.creditsBalanceRaw;
