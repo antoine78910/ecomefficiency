@@ -816,10 +816,13 @@
         if (data.status === 'higgsfield_requires_pro') {
           return { allowed: false, reason: 'requires_pro', plan: data.plan || null, status: data.status, daily_credit_limit: null };
         }
-        if (data.status === 'invalid_pin' || data.status === 'pin_required') {
-          return { allowed: false, reason: 'invalid_pin', plan: data.plan || null, status: data.status, daily_credit_limit: null };
+        if (data.status === 'invalid_pin') {
+          return { allowed: false, reason: 'invalid_pin', plan: data.plan || null, status: data.status, daily_credit_limit: null, subscription_active: true };
         }
-        if (data.active === true) {
+        if (data.status === 'pin_required' || (data.active === true && data.pin_required && !data.hf_access_token)) {
+          return { allowed: false, reason: 'pin_required', plan: data.plan || null, status: data.status, daily_credit_limit: null, subscription_active: true };
+        }
+        if (data.active === true && data.hf_access_token) {
           return {
             allowed: true,
             plan: data.plan || null,
@@ -828,6 +831,9 @@
             source: data.source || null,
             hf_access_token: data.hf_access_token || null
           };
+        }
+        if (data.active === true) {
+          return { allowed: false, reason: 'pin_required', plan: data.plan || null, status: 'pin_required', daily_credit_limit: null, subscription_active: true };
         }
         return { allowed: false, reason: 'no_active_subscription', plan: data.plan || null, status: data.status || 'no_active_subscription', daily_credit_limit: null };
       })
@@ -856,9 +862,12 @@
       '<div style="position:absolute;top:-1px;left:50%;transform:translateX(-50%);width:60%;height:3px;background:linear-gradient(90deg,transparent,#9541e0,#b54af3,#9541e0,transparent);border-radius:0 0 4px 4px;"></div>' +
       '<div style="font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#b54af3;margin-bottom:12px;">Ecom Efficiency</div>' +
       '<div style="font-size:20px;font-weight:700;margin-bottom:8px;">Verify Your Subscription</div>' +
-      '<div style="font-size:14px;color:rgba(255,255,255,0.7);margin-bottom:20px;line-height:1.5;">Enter your subscription email and your<br>4-digit Higgsfield PIN (see ecomefficiency.com/subscription).</div>' +
+      '<div style="font-size:14px;color:rgba(255,255,255,0.7);margin-bottom:16px;line-height:1.5;">Enter your Ecom Efficiency subscription email and 4-digit access code.</div>' +
+      '<label for="ee-hf-ecom-email" style="display:block;text-align:left;font-size:12px;color:rgba(255,255,255,0.55);margin-bottom:6px;">Subscription email</label>' +
       '<input type="email" id="ee-hf-ecom-email" placeholder="your@email.com" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid rgba(255,255,255,0.1);border-radius:12px;background:rgba(255,255,255,0.06);color:#fff;margin-bottom:14px;font-size:14px;outline:none;transition:border-color 0.2s,box-shadow 0.2s;" />' +
-      '<input type="password" id="ee-hf-ecom-pin" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="4-digit PIN" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid rgba(255,255,255,0.1);border-radius:12px;background:rgba(255,255,255,0.06);color:#fff;margin-bottom:14px;font-size:14px;outline:none;letter-spacing:0.35em;text-align:center;transition:border-color 0.2s,box-shadow 0.2s;" />' +
+      '<label for="ee-hf-ecom-pin" style="display:block;text-align:left;font-size:12px;color:rgba(255,255,255,0.55);margin-bottom:6px;">4-digit access code</label>' +
+      '<input type="tel" id="ee-hf-ecom-pin" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="one-time-code" placeholder="e.g. 4821" style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid rgba(149,65,224,0.35);border-radius:12px;background:rgba(149,65,224,0.12);color:#fff;margin-bottom:8px;font-size:18px;font-weight:600;outline:none;letter-spacing:0.4em;text-align:center;transition:border-color 0.2s,box-shadow 0.2s;" />' +
+      '<div style="font-size:11px;color:rgba(255,255,255,0.45);margin-bottom:14px;text-align:left;">Default code: <strong style="color:#d8b4fe;">4821</strong> — change anytime on <a href="https://www.ecomefficiency.com/subscription" target="_blank" rel="noopener" style="color:#b54af3;">ecomefficiency.com/subscription</a></div>' +
       '<div id="ee-hf-ecom-msg" style="min-height:20px;font-size:13px;margin-bottom:14px;"></div>' +
       '<button type="button" id="ee-hf-ecom-submit" style="width:100%;padding:12px;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;background:linear-gradient(to bottom,#9541e0,#7c30c7);color:#fff;box-shadow:0 8px 40px rgba(149,65,224,0.35);transition:filter 0.15s;">Verify</button>';
     root.appendChild(box);
@@ -878,7 +887,7 @@
       var email = (emailEl.value || '').trim().toLowerCase();
       var pin = (pinEl && pinEl.value ? pinEl.value : '').replace(/\D/g, '').slice(0, 4);
       if (!email) { setMsg('Please enter an email.', true); return; }
-      if (!/^\d{4}$/.test(pin)) { setMsg('Please enter your 4-digit PIN from ecomefficiency.com/subscription.', true); return; }
+      if (!/^\d{4}$/.test(pin)) { setMsg('Enter the 4-digit access code (default 4821, or your custom code on ecomefficiency.com/subscription).', true); return; }
       setMsg('Verifying subscription\u2026');
       submitBtn.disabled = true;
       verifySubscription(email, pin).then(function (res) {
@@ -899,8 +908,10 @@
             setTimeout(function () { root.remove(); removeShield(); ensureWidget(); updateWidget(used, limit, used >= limit, 0); startTracking(); scheduleBlockingObserver(); eeFullyInitialized = true; }, 600);
           });
         } else {
-          if (res && res.reason === 'invalid_pin') {
-            setMsg('Incorrect PIN. Check your 4-digit code on ecomefficiency.com/subscription.', true);
+          if (res && res.reason === 'pin_required') {
+            setMsg('Subscription found. Enter your 4-digit access code (default 4821 on ecomefficiency.com/subscription).', true);
+          } else if (res && res.reason === 'invalid_pin') {
+            setMsg('Incorrect access code. Use 4821 by default or your custom code on ecomefficiency.com/subscription.', true);
           } else if (res && res.reason === 'requires_pro') {
             setMsg('Higgsfield tools require the Pro plan ($29.99 / \u20ac29.99), not Starter. Upgrade at ecomefficiency.com/price', true);
           } else if (res && res.reason === 'no_active_subscription') {

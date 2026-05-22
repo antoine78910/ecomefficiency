@@ -124,7 +124,11 @@ function applyHiggsfieldProOnlyGate(
   if (payload.ok !== true || payload.active !== true) return payload;
   const plan = String(payload.plan ?? "").toLowerCase();
   const source = String(payload.source ?? "").toLowerCase();
-  const allowed = plan === "pro" || plan === "legacy" || source === "legacy";
+  const allowed =
+    plan === "pro" ||
+    plan === "growth" ||
+    plan === "legacy" ||
+    source === "legacy";
   if (allowed) return payload;
   return {
     ...payload,
@@ -146,16 +150,34 @@ async function finalizeHiggsfieldExtensionResponse(
     return { ...gated, active: false, status: "missing_email", pin_required: true };
   }
   const pin = ctx.pin;
-  if (pin === undefined || pin === null || String(pin).trim() === "") {
-    return { ...gated, active: false, status: "pin_required", pin_required: true };
+  const pinEmpty =
+    pin === undefined || pin === null || String(pin).trim() === "";
+  if (pinEmpty) {
+    // Subscription is valid — do not report active:false (old extensions showed "no subscription").
+    return {
+      ...gated,
+      active: true,
+      pin_required: true,
+      pin_verified: false,
+      status: "pin_required",
+    };
   }
   const pinOk = await verifyAccessPin(em, pin);
   if (!pinOk) {
-    return { ok: true, active: false, status: "invalid_pin", pin_required: true };
+    return {
+      ...gated,
+      active: true,
+      pin_required: true,
+      pin_verified: false,
+      status: "invalid_pin",
+    };
   }
   return {
     ...gated,
+    active: true,
     pin_required: false,
+    pin_verified: true,
+    status: "active",
     hf_access_token: issueHiggsfieldAccessToken(em),
   };
 }

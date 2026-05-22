@@ -224,11 +224,14 @@
         '<div style="position:absolute;top:-1px;left:50%;transform:translateX(-50%);width:60%;height:3px;background:linear-gradient(90deg,transparent,#9541e0,#b54af3,#9541e0,transparent);border-radius:0 0 4px 4px;"></div>' +
         '<div style="font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#b54af3;margin-bottom:12px;">Ecom Efficiency</div>' +
         '<div style="font-size:20px;font-weight:700;margin-bottom:8px;">Verify Your Subscription</div>' +
-        '<div style="font-size:14px;color:rgba(255,255,255,0.7);margin-bottom:20px;line-height:1.5;">Enter your subscription email and your<br>4-digit Higgsfield PIN (ecomefficiency.com/subscription).</div>' +
+        '<div style="font-size:14px;color:rgba(255,255,255,0.7);margin-bottom:16px;line-height:1.5;">Enter your Ecom Efficiency subscription email and 4-digit access code.</div>' +
+        '<label for="ee-hf-auth-gate-email" style="display:block;text-align:left;font-size:12px;color:rgba(255,255,255,0.55);margin-bottom:6px;">Subscription email</label>' +
         '<input type="email" id="ee-hf-auth-gate-email" placeholder="your@email.com" ' +
         'style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid rgba(255,255,255,0.1);border-radius:12px;background:rgba(255,255,255,0.06);color:#fff;margin-bottom:14px;font-size:14px;outline:none;transition:border-color 0.2s,box-shadow 0.2s;" />' +
-        '<input type="password" id="ee-hf-auth-gate-pin" inputmode="numeric" maxlength="4" autocomplete="off" placeholder="4-digit PIN" ' +
-        'style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid rgba(255,255,255,0.1);border-radius:12px;background:rgba(255,255,255,0.06);color:#fff;margin-bottom:14px;font-size:14px;outline:none;letter-spacing:0.35em;text-align:center;transition:border-color 0.2s,box-shadow 0.2s;" />' +
+        '<label for="ee-hf-auth-gate-pin" style="display:block;text-align:left;font-size:12px;color:rgba(255,255,255,0.55);margin-bottom:6px;">4-digit access code</label>' +
+        '<input type="tel" id="ee-hf-auth-gate-pin" inputmode="numeric" pattern="[0-9]*" maxlength="4" autocomplete="one-time-code" placeholder="e.g. 4821" ' +
+        'style="width:100%;box-sizing:border-box;padding:12px 14px;border:1px solid rgba(149,65,224,0.35);border-radius:12px;background:rgba(149,65,224,0.12);color:#fff;margin-bottom:8px;font-size:18px;font-weight:600;outline:none;letter-spacing:0.4em;text-align:center;transition:border-color 0.2s,box-shadow 0.2s;" />' +
+        '<div style="font-size:11px;color:rgba(255,255,255,0.45);margin-bottom:14px;text-align:left;">Default code: <strong style="color:#d8b4fe;">4821</strong> — change on ecomefficiency.com/subscription</div>' +
         '<div id="ee-hf-auth-gate-msg" style="min-height:20px;font-size:13px;margin-bottom:14px;"></div>' +
         '<button type="button" id="ee-hf-auth-gate-verify" ' +
         'style="width:100%;padding:12px;border:none;border-radius:12px;font-size:14px;font-weight:600;cursor:pointer;background:linear-gradient(to bottom,#9541e0,#7c30c7);color:#fff;box-shadow:0 8px 40px rgba(149,65,224,0.35);transition:filter 0.15s;">Verify</button>';
@@ -250,7 +253,7 @@
         const email = String(emailEl.value || '').trim().toLowerCase();
         const pin = String(pinEl && pinEl.value ? pinEl.value : '').replace(/\D/g, '').slice(0, 4);
         if (!email) return setMsg('Please enter an email.', false);
-        if (!/^\d{4}$/.test(pin)) return setMsg('Enter your 4-digit PIN from ecomefficiency.com/subscription.', false);
+        if (!/^\d{4}$/.test(pin)) return setMsg('Enter the 4-digit access code (default 4821).', false);
         verifyBtn.disabled = true;
         setMsg('Verifying subscription\u2026', false);
         try {
@@ -265,14 +268,23 @@
             setMsg('Pro plan required ($29.99 / \u20ac29.99), not Starter. Upgrade: ecomefficiency.com/price', false);
             return;
           }
-          if (data && (data.status === 'invalid_pin' || data.status === 'pin_required')) {
+          if (data && data.status === 'invalid_pin') {
             verifyBtn.disabled = false;
-            setMsg('Incorrect PIN. Check ecomefficiency.com/subscription.', false);
+            setMsg('Incorrect access code. Default is 4821 — or use your custom code on ecomefficiency.com/subscription.', false);
             return;
           }
-          const allowed = !!(data && data.ok === true && data.active === true);
+          if (data && (data.status === 'pin_required' || (data.active === true && data.pin_required && !data.hf_access_token))) {
+            verifyBtn.disabled = false;
+            setMsg('Subscription found. Enter your 4-digit access code (default 4821).', false);
+            return;
+          }
+          const allowed = !!(data && data.ok === true && data.active === true && data.hf_access_token);
           if (!allowed) {
             verifyBtn.disabled = false;
+            if (data && data.status === 'higgsfield_requires_pro') {
+              setMsg('Pro plan required ($29.99 / \u20ac29.99), not Starter. Upgrade: ecomefficiency.com/price', false);
+              return;
+            }
             setMsg('No active subscription for this email. Please subscribe on ecomefficiency.com.', false);
             return;
           }
