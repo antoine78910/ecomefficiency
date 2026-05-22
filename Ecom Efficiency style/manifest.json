@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Ecom Efficiency",
-  "version": "1.0.1",
+  "version": "1.0.2",
   "description": "Injecte des scripts personnalis\u00e9s sur des pages sp\u00e9cifiques.",
   "permissions": [
     "storage",

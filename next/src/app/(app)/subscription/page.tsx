@@ -287,6 +287,8 @@ export default function SubscriptionPage() {
         If you upgraded just now, it may take a few seconds after payment for your account to reflect the new plan.
       </p>
 
+      <HiggsfieldAccessPinCard plan={plan} />
+
       <div className="mt-6 flex flex-wrap items-center gap-3">
         <button
           type="button"
@@ -331,8 +333,6 @@ export default function SubscriptionPage() {
           </button>
         )}
       </div>
-
-      <HiggsfieldAccessPinCard plan={plan} />
     </div>
   );
 }
