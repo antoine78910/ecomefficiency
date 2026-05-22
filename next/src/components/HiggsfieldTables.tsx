@@ -385,7 +385,7 @@ export function HiggsfieldCreditHistory({ data }: { data: UsageRow[] }) {
                     <td className="p-4">
                       <span className="flex items-center gap-1.5 font-semibold text-white">
                         {e.delta} credit{e.delta !== 1 ? 's' : ''}
-                        <Info className="h-3.5 w-3.5 text-gray-500" title={e.source || ''} />
+                        <span title={e.source || ''}><Info className="h-3.5 w-3.5 text-gray-500" /></span>
                       </span>
                     </td>
                     <td className="p-4 text-white">{e.feature}</td>
