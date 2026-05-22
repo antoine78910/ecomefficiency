@@ -1337,7 +1337,6 @@ function CredentialsPanel({
   const [adspowerOtpBusy, setAdspowerOtpBusy] = React.useState(false)
   const [adspowerOtpCode, setAdspowerOtpCode] = React.useState<string | null>(null)
   const [adspowerOtpErr, setAdspowerOtpErr] = React.useState<string | null>(null)
-  const [adspowerOtpConfirmOpen, setAdspowerOtpConfirmOpen] = React.useState(false)
   const [adspowerOtpTotpValidUntilUnix, setAdspowerOtpTotpValidUntilUnix] = React.useState<number | null>(null)
   const [adspowerOtpTotpTick, setAdspowerOtpTotpTick] = React.useState(0)
 
@@ -1373,11 +1372,6 @@ function CredentialsPanel({
 
   const fetchAdsPowerOtpCode = React.useCallback(async () => {
     void trackAdsPowerOtpEvent("adspower_get_code_click", { plan })
-    setAdspowerOtpConfirmOpen(true)
-  }, [plan, trackAdsPowerOtpEvent])
-
-  const confirmFetchAdsPowerOtpCode = React.useCallback(async () => {
-    setAdspowerOtpConfirmOpen(false)
     setAdspowerOtpErr(null)
     setAdspowerOtpCode(null)
     setAdspowerOtpTotpValidUntilUnix(null)
@@ -2419,50 +2413,8 @@ function CredentialsPanel({
         </div>
       </div>
     )}
-    <AdsPowerOtpConfirmModal
-      open={adspowerOtpConfirmOpen}
-      onCancel={() => setAdspowerOtpConfirmOpen(false)}
-      onConfirm={() => { void confirmFetchAdsPowerOtpCode() }}
-    />
     </>
   );
-}
-
-function AdsPowerOtpConfirmModal({
-  open,
-  onConfirm,
-  onCancel,
-}: {
-  open: boolean
-  onConfirm: () => void
-  onCancel: () => void
-}) {
-  if (!open) return null
-  return (
-    <div className="fixed inset-0 z-[80] bg-black/70 flex items-center justify-center px-4">
-      <div className="w-full max-w-md rounded-xl border border-white/15 bg-gray-900 p-4 shadow-2xl">
-        <p className="text-sm text-white leading-relaxed">
-          Fetch the current 6-digit Authenticator code for this AdsPower login? You can do this anytime you need it.
-        </p>
-        <div className="mt-4 flex items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={onCancel}
-            className="px-3 py-1.5 rounded-md border border-white/20 text-white/90 hover:bg-white/10 text-sm"
-          >
-            Cancel
-          </button>
-          <button
-            type="button"
-            onClick={onConfirm}
-            className="px-3 py-1.5 rounded-md text-sm font-semibold bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] border border-[#9541e0] text-white"
-          >
-            Confirm
-          </button>
-        </div>
-      </div>
-    </div>
-  )
 }
 
 function PlanPicker({ onChoose }: { onChoose: (tier: 'starter'|'pro', billing: 'monthly'|'yearly') => void }) {

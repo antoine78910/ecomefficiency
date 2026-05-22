@@ -72,8 +72,8 @@ const DISCORD_ADSPOWER_AUTHENTICATOR_SECRET = String(
   process.env.DISCORD_ADSPOWER_AUTHENTICATOR_SECRET || ''
 ).trim();
 const DISCORD_ADSPOWER_TOTP_MIN_VALID_SEC = Math.max(
-  1,
-  Math.min(29, Number(process.env.DISCORD_ADSPOWER_TOTP_MIN_VALID_SEC || 20) || 20)
+  0,
+  Math.min(29, Number(process.env.DISCORD_ADSPOWER_TOTP_MIN_VALID_SEC || 0) || 0)
 );
 const ADSPOWER_TOTP_BUTTON_ID = 'ee_adspower_get_totp';
 const ACTIVITY_TRACK_URL = String(process.env.ACTIVITY_TRACK_URL || '').trim();

@@ -39,6 +39,12 @@ function actionLabel(action: string): { text: string; color: string } {
     case 'adspower_discord_link_click': return { text: '💬 AdsPower: Discord click', color: 'bg-sky-500/20 text-sky-300' }
     case 'adspower_get_code_delivered': return { text: '✅ AdsPower: code livré (app)', color: 'bg-emerald-500/20 text-emerald-200' }
     case 'adspower_discord_totp_request': return { text: '💠 AdsPower: code Discord', color: 'bg-sky-500/20 text-sky-200' }
+    case 'higgsfield_generate_click': return { text: '⚡ Higgsfield: clic Generate', color: 'bg-fuchsia-500/20 text-fuchsia-200' }
+    case 'higgsfield_generate_blocked': return { text: '⛔ Higgsfield: génération bloquée', color: 'bg-rose-500/20 text-rose-200' }
+    case 'higgsfield_generate_ok': return { text: '✅ Higgsfield: génération OK', color: 'bg-emerald-500/20 text-emerald-200' }
+    case 'higgsfield_page_view': return { text: '📄 Higgsfield: page vue', color: 'bg-fuchsia-500/20 text-fuchsia-300' }
+    case 'higgsfield_generate_present': return { text: '👁️ Higgsfield: bouton Generate détecté', color: 'bg-violet-500/20 text-violet-200' }
+    case 'higgsfield_generate_network': return { text: '🌐 Higgsfield: gen API (sans clic UI)', color: 'bg-orange-500/20 text-orange-200' }
     case 'admin_panel_visit': return { text: '🛡️ Admin panel visit', color: 'bg-violet-500/20 text-violet-200' }
     default: return { text: action, color: 'bg-gray-500/20 text-gray-300' }
   }

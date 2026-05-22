@@ -27,6 +27,12 @@ const VALID_ACTIONS = [
   'adspower_get_code_result_error',
   'adspower_get_code_delivered',
   'adspower_discord_totp_request',
+  'higgsfield_generate_click',
+  'higgsfield_generate_blocked',
+  'higgsfield_generate_ok',
+  'higgsfield_page_view',
+  'higgsfield_generate_present',
+  'higgsfield_generate_network',
   'admin_panel_visit'
 ] as const
 

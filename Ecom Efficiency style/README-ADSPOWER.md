@@ -52,8 +52,9 @@ J'ai créé un script PowerShell qui fait tout automatiquement :
 - ✅ Crée le fichier `Ecom-Efficiency-AdsPower.zip`
 
 **Résultat :**
-- Fichier créé : `Ecom-Efficiency-AdsPower.zip` (0.24 MB)
-- 110 fichiers inclus
+- Fichier créé : `Ecom-Efficiency-AdsPower.zip`
+- Dossier décompressé : `Ecom-Efficiency-AdsPower/` (sans espaces — à utiliser dans le profil)
+- `manifest.json` à la racine, sans `key`, chemins `nox-tools` aplatis
 - Prêt pour AdsPower !
 
 ---
@@ -106,12 +107,15 @@ Compress-Archive -Path * -DestinationPath "Extension-AdsPower.zip" -Force
 ## 📥 Installation dans AdsPower
 
 1. **Ouvrir AdsPower**
-2. **Aller dans Extensions/Add-ons**
+2. **Aller dans Extensions/Add-ons** (global, pas dans un profil)
 3. **Activer le "Mode développeur"** (Developer mode)
-4. **Importer l'extension** :
-   - Soit : "Charger l'extension décompressée" puis sélectionner le DOSSIER
-   - Soit : Importer le ZIP directement (si AdsPower le supporte)
-5. Utiliser le fichier : `Ecom-Efficiency-AdsPower.zip`
+4. **Supprimer l'ancienne** importation Ecom Efficiency si vous avez changé l'extension
+5. **Importer** :
+   - **ZIP** : `Ecom-Efficiency-AdsPower.zip`, ou
+   - **Dossier** : `Ecom-Efficiency-AdsPower` (généré par le script — **pas** `Ecom Efficiency style`)
+6. **Pour chaque profil** : Modifier le profil → onglet **Extensions** → cocher **Ecom Efficiency**
+
+> Après une mise à jour de l'extension, refaire les étapes 4–6. Le dossier dev `Ecom Efficiency style` contient la clé Chrome Web Store et ne doit pas être utilisé dans AdsPower.
 
 ---
 

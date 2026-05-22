@@ -73,7 +73,7 @@
 
     card.appendChild(styled('div', 'font-size:11px;font-weight:600;letter-spacing:1.5px;text-transform:uppercase;color:#b54af3;margin-bottom:12px;', 'Ecom Efficiency'));
     card.appendChild(styled('div', 'font-size:20px;font-weight:700;margin-bottom:8px;', 'Verify Your Subscription'));
-    card.appendChild(styled('div', 'font-size:14px;color:rgba(255,255,255,0.7);margin-bottom:16px;line-height:1.5;', 'Enter your subscription email first. We will tell you which Stripe account applies.'));
+    card.appendChild(styled('div', 'font-size:14px;color:rgba(255,255,255,0.7);margin-bottom:16px;line-height:1.5;', 'Enter your Ecom Efficiency subscription email and 4-digit access code.'));
 
     var emailLabel = styled('label', 'display:block;text-align:left;font-size:12px;color:rgba(255,255,255,0.55);margin-bottom:6px;', 'Subscription email');
     emailLabel.htmlFor = prefix + '-email';

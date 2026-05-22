@@ -6,8 +6,8 @@ import { getAdspowerTotpPayloadForEmail, parseAdspowerTotpSecretsFromEnv } from 
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
-/** TOTP path may sleep up to ~11s before the next 30s window. */
-export const maxDuration = 60;
+/** TOTP returns immediately (no min-valid wait). */
+export const maxDuration = 30;
 
 function cleanDomain(input: string) {
   return String(input || "")

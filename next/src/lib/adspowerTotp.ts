@@ -3,8 +3,8 @@ import { generateSync } from "otplib";
 /** Standard Google Authenticator / AdsPower step (seconds). */
 export const ADSPOWER_TOTP_PERIOD_SEC = 30;
 
-/** Do not return a code until at least this many seconds remain in the current step (copy/paste buffer). */
-export const ADSPOWER_TOTP_MIN_VALID_SEC = 20;
+/** Min seconds left in the 30s window before returning (0 = return immediately). */
+export const ADSPOWER_TOTP_MIN_VALID_SEC = 0;
 
 function sleep(ms: number): Promise<void> {
   return new Promise((r) => setTimeout(r, ms));
@@ -43,8 +43,8 @@ export function parseAdspowerTotpSecretsFromEnv(raw: string | undefined): Map<st
 }
 
 /**
- * If fewer than `minValidSec` remain in the current 30s window, waits until the next window
- * so the client always gets a code with at least ~minValidSec before rotation.
+ * If fewer than `minValidSec` remain in the current 30s window, waits until the next window.
+ * With `minValidSec` 0, returns the current code immediately.
  */
 export async function getAdspowerTotpPayloadForEmail(
   email: string,
