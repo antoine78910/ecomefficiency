@@ -1,4 +1,10 @@
-import { createHmac, timingSafeEqual } from "crypto";
+import {
+  createCipheriv,
+  createDecipheriv,
+  createHmac,
+  randomBytes,
+  timingSafeEqual,
+} from "crypto";
 import { supabaseAdmin } from "@/integrations/supabase/server";
 
 const PIN_KEY_PREFIX = "ee_hf_access_pin:";
@@ -6,6 +12,7 @@ const PIN_KEY_PREFIX = "ee_hf_access_pin:";
 type StoredPinValue = {
   hash?: string;
   custom?: boolean;
+  enc?: string;
   updated_at?: string;
 };
 
@@ -15,6 +22,39 @@ function pinSecret(): string {
     process.env.SUPABASE_SERVICE_ROLE_KEY ||
     "ee-hf-pin-fallback"
   );
+}
+
+function encryptionKey(email: string): Buffer {
+  return createHmac("sha256", pinSecret())
+    .update(`ee-hf-pin-enc:v1|${email.toLowerCase().trim()}`)
+    .digest();
+}
+
+function encryptPinForStorage(email: string, pin: string): string {
+  const key = encryptionKey(email);
+  const iv = randomBytes(12);
+  const cipher = createCipheriv("aes-256-gcm", key, iv);
+  const encrypted = Buffer.concat([cipher.update(pin, "utf8"), cipher.final()]);
+  const tag = cipher.getAuthTag();
+  return Buffer.concat([iv, tag, encrypted]).toString("base64");
+}
+
+function decryptPinFromStorage(email: string, enc: string): string | null {
+  try {
+    const buf = Buffer.from(enc, "base64");
+    if (buf.length < 29) return null;
+    const iv = buf.subarray(0, 12);
+    const tag = buf.subarray(12, 28);
+    const ciphertext = buf.subarray(28);
+    const decipher = createDecipheriv("aes-256-gcm", encryptionKey(email), iv);
+    decipher.setAuthTag(tag);
+    const plain = Buffer.concat([decipher.update(ciphertext), decipher.final()]).toString(
+      "utf8"
+    );
+    return normalizeAccessPin(plain);
+  } catch {
+    return null;
+  }
 }
 
 /** Stable unique 4-digit code per email (not shared across users). */
@@ -68,10 +108,16 @@ export async function hasCustomAccessPin(email: string): Promise<boolean> {
 
 export async function getAccessPinForDisplay(
   email: string
-): Promise<{ pin: string; has_custom_pin: boolean }> {
-  const custom = await hasCustomAccessPin(email);
-  if (custom) {
-    return { pin: "", has_custom_pin: true };
+): Promise<{ pin: string; has_custom_pin: boolean; needs_resave?: boolean }> {
+  const rec = await getStoredPinRecord(email);
+  if (rec?.hash) {
+    const decrypted =
+      typeof rec.enc === "string" ? decryptPinFromStorage(email, rec.enc) : null;
+    return {
+      pin: decrypted || "",
+      has_custom_pin: true,
+      needs_resave: !decrypted,
+    };
   }
   return {
     pin: deriveDefaultAccessPin(email),
@@ -82,17 +128,19 @@ export async function getAccessPinForDisplay(
 export async function setCustomAccessPin(
   email: string,
   pin: string
-): Promise<{ ok: true } | { ok: false; error: string }> {
+): Promise<{ ok: true; pin: string } | { ok: false; error: string }> {
   if (!supabaseAdmin) return { ok: false, error: "not_configured" };
   const normalized = normalizeAccessPin(pin);
   if (!normalized) return { ok: false, error: "invalid_pin" };
   const hash = hashAccessPin(email, normalized);
+  const enc = encryptPinForStorage(email, normalized);
   const key = portalKey(email);
   await supabaseAdmin.from("portal_state").upsert(
     {
       key,
       value: {
         hash,
+        enc,
         custom: true,
         updated_at: new Date().toISOString(),
       },
@@ -100,7 +148,7 @@ export async function setCustomAccessPin(
     },
     { onConflict: "key" as "key" }
   );
-  return { ok: true };
+  return { ok: true, pin: normalized };
 }
 
 export async function verifyAccessPin(

@@ -7,6 +7,7 @@ import { supabase } from "@/integrations/supabase/client";
 type PinInfo = {
   default_pin: string;
   has_custom_pin: boolean;
+  needs_resave: boolean;
 };
 
 export function HiggsfieldAccessPinCard({
@@ -17,6 +18,7 @@ export function HiggsfieldAccessPinCard({
   const [info, setInfo] = React.useState<PinInfo>({
     default_pin: "",
     has_custom_pin: false,
+    needs_resave: false,
   });
   const [pin, setPin] = React.useState("");
   const [confirm, setConfirm] = React.useState("");
@@ -28,7 +30,9 @@ export function HiggsfieldAccessPinCard({
 
   const isPaid = plan === "starter" || plan === "pro";
   const showCard = plan !== "checking" && plan !== "free";
-  const codeToCopy = !info.has_custom_pin ? info.default_pin : "";
+  const displayCode =
+    !loading && /^\d{4}$/.test(info.default_pin) ? info.default_pin : "";
+  const codeToCopy = displayCode;
 
   const handleCopyCode = async () => {
     if (!codeToCopy || !/^\d{4}$/.test(codeToCopy)) return;
@@ -67,6 +71,7 @@ export function HiggsfieldAccessPinCard({
       setInfo({
         default_pin: String(json.default_pin || ""),
         has_custom_pin: !!json.has_custom_pin,
+        needs_resave: !!json.needs_resave,
       });
     } catch {
       setError("Could not load your access code. Refresh the page or try again.");
@@ -111,10 +116,15 @@ export function HiggsfieldAccessPinCard({
         setError("Could not save code. Try again.");
         return;
       }
+      const savedPin = String(json.default_pin || pin);
       setPin("");
       setConfirm("");
+      setInfo({
+        default_pin: savedPin,
+        has_custom_pin: true,
+        needs_resave: false,
+      });
       setMessage("Access code saved. Use it in the Higgsfield extension popup on higgsfield.ai.");
-      await loadInfo();
     } catch {
       setError("Could not save code. Try again.");
     } finally {
@@ -151,7 +161,7 @@ export function HiggsfieldAccessPinCard({
         </p>
         <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
           <p className="text-3xl font-mono font-bold text-white tracking-[0.35em] tabular-nums">
-            {loading ? "····" : info.has_custom_pin ? "••••" : info.default_pin}
+            {loading ? "····" : displayCode || "····"}
           </p>
           {!loading && codeToCopy ? (
             <button
@@ -178,9 +188,12 @@ export function HiggsfieldAccessPinCard({
             Your personal code — change it below anytime
           </p>
         ) : null}
-        {!loading && info.has_custom_pin ? (
-          <p className="text-xs text-emerald-300 mt-3 text-center">
-            Custom code active (use the code you saved, or set a new one below)
+        {!loading && info.has_custom_pin && displayCode ? (
+          <p className="text-xs text-emerald-300 mt-3 text-center">Custom code active</p>
+        ) : null}
+        {!loading && info.needs_resave ? (
+          <p className="text-xs text-amber-300 mt-3 text-center">
+            Save your code again below to display and copy it on this page.
           </p>
         ) : null}
       </div>

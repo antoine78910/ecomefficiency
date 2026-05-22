@@ -27,11 +27,12 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "unauthorized" }, { status: 401 });
     }
     const email = data.user.email.toLowerCase().trim();
-    const { pin, has_custom_pin } = await getAccessPinForDisplay(email);
+    const { pin, has_custom_pin, needs_resave } = await getAccessPinForDisplay(email);
     return NextResponse.json({
       ok: true,
       default_pin: pin,
       has_custom_pin,
+      needs_resave: !!needs_resave,
     });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "error";
@@ -59,7 +60,11 @@ export async function PUT(req: NextRequest) {
     if (!result.ok) {
       return NextResponse.json(result, { status: 500 });
     }
-    return NextResponse.json({ ok: true, has_custom_pin: true });
+    return NextResponse.json({
+      ok: true,
+      has_custom_pin: true,
+      default_pin: result.ok ? result.pin : pin,
+    });
   } catch (e: unknown) {
     const message = e instanceof Error ? e.message : "error";
     return NextResponse.json({ ok: false, error: message }, { status: 500 });
