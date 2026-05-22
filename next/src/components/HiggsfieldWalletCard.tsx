@@ -22,7 +22,7 @@ type WalletSnapshot = {
   comparison_delta?: number | null  // total_credits
   at: string
   created_at?: string
-  source: string
+  source: string | null | undefined
 }
 
 function timeSince(isoStr: string): string {
