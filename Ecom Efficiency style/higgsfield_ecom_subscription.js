@@ -1770,7 +1770,14 @@
     if (!el || !el.getAttribute) return false;
     var text = (el.textContent || '').trim().toLowerCase();
     var inAside = !!(el.closest && el.closest('aside'));
-    // /ai/image main CTA also uses tour-image-generate — only skip true Unlimited sidebar CTAs.
+    var path = location.pathname || '';
+    var onImagePage = path.indexOf('/ai/image') !== -1;
+
+    // On /ai/image the main CTA has id="hf:image-form-submit" and
+    // data-tour-anchor="tour-image-generate" AND sits inside <aside>.
+    // It is the STANDARD generate button — never the unlimited tier.
+    if (onImagePage) return false;
+
     if (el.getAttribute('data-tour-anchor') === 'tour-image-generate') {
       if (inAside || text.indexOf('unlimited') !== -1) return true;
       return false;
