@@ -260,6 +260,22 @@
         });
         log('network leak charged', cost, 'usedToday=' + usedToday);
       }
+      // Network generation without overlay authorization: log discrepancy for admin, do NOT charge credits.
+      if (e.data.type === 'EE_HIGGSFIELD_NETWORK_OBSERVE') {
+        var po = e.data.payload || {};
+        var usedNow = getUsedToday();
+        var emailNow = getVerifiedEmail();
+        log('network generation observed without overlay authorization — discrepancy logged, no credit debit');
+        trackHiggsfieldActivity('higgsfield_generate_network', {
+          reason: po.reason || 'no_overlay_auth',
+          discrepancy: true,
+          path: location.pathname,
+          used_today: usedNow,
+          daily_limit: CONFIG.DAILY_CREDIT_LIMIT,
+          email: emailNow || null,
+        });
+        return;
+      }
     });
   }
 
@@ -1915,16 +1931,40 @@
     if (!btn) return;
     if (syntheticGenerateButtons) syntheticGenerateButtons.add(btn);
 
+    // React Aria's usePress calls document.elementFromPoint(clientX, clientY) to
+    // check isOverTarget on pointerdown and pointerup. If our overlay sits on top
+    // of the real button with pointer-events:auto, elementFromPoint returns the
+    // overlay and React Aria silently discards the press — generation never starts
+    // even though credits were already debited.
+    // Fix: temporarily set pointer-events:none on all EE overlays so
+    // elementFromPoint sees the real button during synthetic dispatch.
+    var _overlaysDisabled = [];
+    try {
+      ['ee-hf-ecom-overlay-standard', 'ee-hf-ecom-overlay-unlimited',
+       'ee-hf-ecom-overlay-verify', 'ee-hf-ecom-overlay-root'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el && el.style.pointerEvents !== 'none') {
+          el._eePrevPE = el.style.pointerEvents;
+          el.style.pointerEvents = 'none';
+          _overlaysDisabled.push(el);
+        }
+      });
+    } catch (_) {}
+
+    function _restoreOverlays() {
+      try {
+        _overlaysDisabled.forEach(function(el) {
+          el.style.pointerEvents = el._eePrevPE !== undefined ? el._eePrevPE : '';
+          delete el._eePrevPE;
+        });
+      } catch (_) {}
+    }
+
     function safeDispatch(target, EventCtor, type, init) {
       try { target.dispatchEvent(new EventCtor(type, init)); } catch (_) {}
     }
 
     try {
-      // React Aria buttons (data-rac) require valid clientX/clientY because their
-      // usePress hook calls isOverTarget(e, target) on both pointerdown (gating
-      // state.isPressed) and pointerup (gating onPress firing). Without coordinates
-      // inside the button's bounding rect, the press is silently discarded and the
-      // generation never starts. Use the button's geometric center.
       var rect = (btn.getBoundingClientRect && btn.getBoundingClientRect()) || null;
       var cx = rect ? Math.round(rect.left + rect.width / 2) : 0;
       var cy = rect ? Math.round(rect.top + rect.height / 2) : 0;
@@ -1941,33 +1981,28 @@
 
       try { btn.focus({ preventScroll: true }); } catch (_) {}
 
-      // Hover sequence first so React Aria's hover/press bookkeeping is consistent
-      // (some versions of usePress also gate on isOverTarget for pointerover).
       safeDispatch(btn, PointerEvent, 'pointerover',  pointerHover);
       safeDispatch(btn, PointerEvent, 'pointerenter', Object.assign({}, pointerHover, { bubbles: false }));
       safeDispatch(btn, MouseEvent,   'mouseover',    mouseHover);
       safeDispatch(btn, MouseEvent,   'mouseenter',   Object.assign({}, mouseHover, { bubbles: false }));
 
-      // Press start.
       safeDispatch(btn, PointerEvent, 'pointerdown', pointerDown);
       safeDispatch(btn, MouseEvent,   'mousedown',   mouseDown);
 
-      // Press end (still over the target — this is what fires React Aria's onPress).
       safeDispatch(btn, PointerEvent, 'pointerup', pointerUp);
       safeDispatch(btn, MouseEvent,   'mouseup',   mouseUp);
 
       // Synthetic click for plain onClick handlers (non-React-Aria buttons).
-      // React Aria itself ignores non-virtual clicks (detail !== 0), so this does
-      // not double-trigger onPress when pointer events have already fired it.
       safeDispatch(btn, MouseEvent, 'click', mouseUp);
     } finally {
       setTimeout(function () {
         try { if (syntheticGenerateButtons) syntheticGenerateButtons.delete(btn); } catch (_) {}
+        _restoreOverlays();
       }, 800);
     }
   }
 
-  function readWalletCreditsOnce(cb) {
+    function readWalletCreditsOnce(cb) {
     try {
       if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local || !chrome.storage.local.get) {
         cb(null);

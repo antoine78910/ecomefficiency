@@ -236,11 +236,13 @@
     if (peekRecentEcomCharge() !== null) {
       return { allow: true, reason: 'recent_ui_charge', charge: 0, consumeAuth: false };
     }
-    var leakCost = 12;
-    if (used + leakCost > limit) {
-      return { allow: false, reason: 'ecom_quota_leak', used: used, limit: limit, cost: leakCost };
+    // Network-level generation without prior overlay authorization.
+    // Credits are ONLY debited via the overlay (ui_authorized / recent_ui_charge paths).
+    // Here we only block if the quota is already exceeded, and otherwise just observe.
+    if (used >= limit) {
+      return { allow: false, reason: 'ecom_quota_leak', used: used, limit: limit, cost: 0 };
     }
-    return { allow: true, reason: 'network_leak', charge: leakCost, consumeAuth: false };
+    return { allow: true, reason: 'network_observe', charge: 0, consumeAuth: false };
   }
   function applyGenerationGate(reqBodyStr, url) {
     var gate = evaluateGenerationPost(reqBodyStr);
@@ -262,6 +264,16 @@
           type: 'EE_HIGGSFIELD_ECOM_CHARGE',
           source: 'ee-logger',
           payload: { cost: gate.charge, reason: gate.reason, url: url, path: location.pathname },
+        }, '*');
+      } catch (_) {}
+    } else if (gate.reason === 'network_observe') {
+      // Generation reached the network without an overlay click — log for admin discrepancy
+      // but do NOT charge credits (credits are only debited through the overlay).
+      try {
+        window.postMessage({
+          type: 'EE_HIGGSFIELD_NETWORK_OBSERVE',
+          source: 'ee-logger',
+          payload: { url: url, path: location.pathname, reason: 'no_overlay_auth' },
         }, '*');
       } catch (_) {}
     }
