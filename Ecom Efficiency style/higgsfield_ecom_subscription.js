@@ -49,6 +49,10 @@
   var eeLastChargeAt = 0;
   var eeLastChargeCost = 0;
   var EE_CHARGE_COOLDOWN_MS = 10000;
+  // In-page wallet balance cache populated by EE_HIGGSFIELD_WALLET messages from the
+  // network logger. This avoids the chrome.storage.local round-trip latency on first
+  // Generate click and survives the wallet 401 timing window.
+  var __eeWalletCreditsCache = null;
   const _console = (typeof console !== 'undefined' && console.__ee_original__) ? console.__ee_original__ : (typeof console !== 'undefined' ? console : { log: function () {} });
   function log(...a) { if (DEBUG) try { _console.log.apply(_console, ['[EE-HF-Ecom]'].concat(Array.prototype.slice.call(a))); } catch (_) {} }
 
@@ -226,6 +230,18 @@
     window.__eeHfEcomNetworkBridge = true;
     window.addEventListener('message', function (e) {
       if (!e || !e.data || e.data.source !== 'ee-logger') return;
+      // Cache wallet balance locally so readWalletCreditsOnce doesn't have to wait for
+      // chrome.storage.local (avoids 2800ms timeout on first Generate click after page load).
+      if (e.data.type === 'EE_HIGGSFIELD_WALLET') {
+        var wp = e.data.payload || {};
+        var wc = typeof wp.creditsRemaining === 'number' ? wp.creditsRemaining :
+                 (typeof wp.credits === 'number' ? wp.credits : null);
+        if (typeof wc === 'number' && isFinite(wc)) {
+          __eeWalletCreditsCache = wc;
+          log('wallet cache updated from message:', wc);
+        }
+        return;
+      }
       if (e.data.type === 'EE_HIGGSFIELD_DAILY_LIMIT_BLOCKED') {
         var used = getUsedToday();
         var limit = CONFIG.DAILY_CREDIT_LIMIT;
@@ -718,19 +734,29 @@
     if (!btn || !btn.querySelector) return null;
     var candidates = [];
     try {
-      var flexRows = btn.querySelectorAll('div.flex.items-center, div[class*="flex"][class*="items-center"]');
+      // Include both div AND span — Higgsfield uses span.flex.items-center on /ai/image
+      var flexRows = btn.querySelectorAll(
+        'div.flex.items-center, div[class*="flex"][class*="items-center"], ' +
+        'span.flex.items-center, span[class*="flex"][class*="items-center"]'
+      );
       for (var f = 0; f < flexRows.length; f++) {
         eeWalkPriceRowNodes(flexRows[f], btn, candidates);
       }
     } catch (_) {}
     if (!candidates.length) {
+      // Fallback: walk ALL text nodes in the button (excluding SVG and strike wrappers).
+      // This avoids the sp.textContent trap where parent spans include SVG title text.
       try {
-        var spans = btn.querySelectorAll('span');
-        for (var s = spans.length - 1; s >= 0; s--) {
-          var sp = spans[s];
-          if (eeIsInsideStrikeWrapper(sp, btn) || eeIsSvgElement(sp)) continue;
-          var raw = (sp.textContent || '').trim();
-          if (/^\d{1,3}$/.test(raw)) eePushPriceCandidate(candidates, parseInt(raw, 10));
+        var walker = document.createTreeWalker(btn, NodeFilter.SHOW_TEXT, null);
+        var tn;
+        while ((tn = walker.nextNode())) {
+          var rawTn = (tn.textContent || '').trim();
+          if (!/^\d{1,3}$/.test(rawTn)) continue;
+          var par = tn.parentElement;
+          if (!par) continue;
+          if (eeIsSvgElement(par)) continue;
+          if (eeIsInsideStrikeWrapper(par, btn)) continue;
+          eePushPriceCandidate(candidates, parseInt(rawTn, 10));
         }
       } catch (_) {}
     }
@@ -1994,6 +2020,25 @@
 
       // Synthetic click for plain onClick handlers (non-React-Aria buttons).
       safeDispatch(btn, MouseEvent, 'click', mouseUp);
+
+      // Form submission fallback: React's onSubmit handler fires when the browser
+      // dispatches a native submit event, bypassing React Aria's usePress check.
+      // We fire it after a short delay so React Aria's pointer flow runs first.
+      setTimeout(function () {
+        try {
+          if (btn.type === 'submit' && btn.form) {
+            log('triggerGenerate: requestSubmit fallback fired');
+            try {
+              btn.form.requestSubmit(btn);
+            } catch (_) {
+              try { btn.click(); } catch (_) {}
+            }
+          } else {
+            // No form — try a direct .click() as last resort
+            try { btn.click(); } catch (_) {}
+          }
+        } catch (_) {}
+      }, 80);
     } finally {
       setTimeout(function () {
         try { if (syntheticGenerateButtons) syntheticGenerateButtons.delete(btn); } catch (_) {}
@@ -2002,7 +2047,12 @@
     }
   }
 
-    function readWalletCreditsOnce(cb) {
+  function readWalletCreditsOnce(cb) {
+    // Fastest path: use the in-page cache set by EE_HIGGSFIELD_WALLET message listener.
+    if (typeof __eeWalletCreditsCache === 'number' && isFinite(__eeWalletCreditsCache)) {
+      cb(__eeWalletCreditsCache);
+      return;
+    }
     try {
       if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local || !chrome.storage.local.get) {
         cb(null);
@@ -2010,6 +2060,10 @@
       }
       chrome.storage.local.get(['ee_hf_wallet'], function (data) {
         try {
+          // Double-check in-page cache (may have been updated while storage was loading)
+          if (typeof __eeWalletCreditsCache === 'number' && isFinite(__eeWalletCreditsCache)) {
+            return cb(__eeWalletCreditsCache);
+          }
           var w = data && data.ee_hf_wallet;
           var credits = w && (w.creditsRemaining !== undefined ? w.creditsRemaining : (w.credits !== undefined ? w.credits : null));
           if (typeof credits === 'number' && isFinite(credits)) return cb(credits);
@@ -2079,7 +2133,8 @@
       used_fallback_cost: !!costInfo.usedFallback,
     });
 
-    waitForWalletCredits(2800, function (walletCredits) {
+    // 1000ms is enough: in-page wallet cache fills on first authenticated network call.
+    waitForWalletCredits(1000, function (walletCredits) {
       eePrecheckInFlight = false;
       // If wallet credits are not readable yet, do NOT hard-block.
       // In production this can happen transiently even with valid credits.

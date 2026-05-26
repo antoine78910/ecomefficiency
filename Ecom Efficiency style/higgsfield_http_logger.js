@@ -5,6 +5,9 @@
   'use strict';
   var lastKnownCredits = null; // from GET workspaces/wallet
   var MAX_DAILY_CREDITS = (window.EE_HIGGSFIELD_ECOM_CONFIG && window.EE_HIGGSFIELD_ECOM_CONFIG.DAILY_CREDIT_LIMIT) || 100;
+  // Bearer token captured from intercepted Higgsfield requests — used to authenticate
+  // proactive wallet fetches (credentials:'include' alone gives 401 on fnf.higgsfield.ai).
+  var _capturedBearerToken = null;
 
   // ── Behavior trail ─────────────────────────────────────────────────────────
   // Ring buffer of the last 10 seconds of mouse/key/scroll events, captured
@@ -397,10 +400,16 @@
     if (isFnf(url)) {
       console.log('[EE][HIGGSFIELD][WALLET]', method, url);
       var auth = getAuthHeader(init) || (input && getAuthHeader(input));
-      if (auth) console.log('[EE][HIGGSFIELD][TOKEN]', auth.substring(0, 50) + (auth.length > 50 ? '...' : ''));
+      if (auth) {
+        console.log('[EE][HIGGSFIELD][TOKEN]', auth.substring(0, 50) + (auth.length > 50 ? '...' : ''));
+        _capturedBearerToken = auth;
+      }
     } else if (isHiggsfieldApi(url)) {
       var auth2 = getAuthHeader(init) || (input && getAuthHeader(input));
-      if (auth2) console.log('[EE][HIGGSFIELD][TOKEN]', auth2.substring(0, 50) + (auth2.length > 50 ? '...' : ''));
+      if (auth2) {
+        console.log('[EE][HIGGSFIELD][TOKEN]', auth2.substring(0, 50) + (auth2.length > 50 ? '...' : ''));
+        _capturedBearerToken = auth2;
+      }
     }
     if (method === 'POST' && isGenerationEndpoint(url)) {
       var reqBodyStrGate = null;
@@ -514,6 +523,7 @@
     xhr.setRequestHeader = function (name, value) {
       if (name && (name.toLowerCase() === 'authorization') && value) {
         console.log('[EE][HIGGSFIELD][TOKEN]', value.substring(0, 50) + (value.length > 50 ? '...' : ''));
+        _capturedBearerToken = value;
       }
       return setReq.apply(this, arguments);
     };
@@ -599,7 +609,11 @@
   // without waiting for the user to navigate to Settings > Billing.
   function fetchWalletNow() {
     try {
-      origFetch.call(window, 'https://fnf.higgsfield.ai/workspaces/wallet', { credentials: 'include' })
+      // Include captured Bearer token — fnf.higgsfield.ai requires Authorization header
+      // and returns 401 when credentials:'include' is used without it.
+      var walletFetchHeaders = {};
+      if (_capturedBearerToken) walletFetchHeaders['Authorization'] = _capturedBearerToken;
+      origFetch.call(window, 'https://fnf.higgsfield.ai/workspaces/wallet', { credentials: 'include', headers: walletFetchHeaders })
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (data) {
           if (!data) return;
@@ -630,6 +644,19 @@
   setTimeout(fetchWalletNow, 3000);
   // Also refresh every 5 minutes passively
   setInterval(fetchWalletNow, 5 * 60 * 1000);
+  // When we capture a Bearer token for the first time, immediately retry the wallet
+  // fetch — the proactive 3-second fetch above may have run before auth was ready.
+  var _walletFetchedWithToken = false;
+  var _origCaptureToken = Object.getOwnPropertyDescriptor ? null : null;
+  // Poll until token is available, then do one authenticated fetch
+  (function _awaitToken() {
+    if (_capturedBearerToken && !_walletFetchedWithToken) {
+      _walletFetchedWithToken = true;
+      setTimeout(fetchWalletNow, 200);
+      return;
+    }
+    if (!_capturedBearerToken) setTimeout(_awaitToken, 800);
+  })();
 
   window.addEventListener('message', function (ev) {
     try {
