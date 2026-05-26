@@ -832,6 +832,14 @@
       log('cost read from Generate button: ' + btnCost);
       return { quality: 'BUTTON', cost: btnCost, usedFallback: false };
     }
+    // Image generation page (/ai/image): Higgsfield costs 2 credits per image.
+    // The button on this page contains no visible credit-cost text node, so we
+    // default here rather than falling back to the video-gen quality table.
+    if ((location.pathname || '').indexOf('/ai/image') !== -1) {
+      var imageCost = (window.EE_HIGGSFIELD_ECOM_CONFIG && window.EE_HIGGSFIELD_ECOM_CONFIG.IMAGE_GENERATION_COST) || 2;
+      log('cost from /ai/image default: ' + imageCost);
+      return { quality: 'IMAGE', cost: imageCost, usedFallback: false };
+    }
     var quality = getSelectedGenerationQuality();
     var cost = GENERATION_COSTS_BY_QUALITY[quality] || GENERATION_COSTS_BY_QUALITY.AUTO || 12;
     log('cost from quality mapping: ' + quality + ' \u2192 ' + cost);
@@ -1437,6 +1445,14 @@
     } catch (_) {}
     var directHandler = function (e) {
       if (syntheticGenerateButtons && syntheticGenerateButtons.has(btn)) return;
+      // If the document-level capture handler already ran a synchronous credit
+      // check and authorised this generation (recordChargeMarker was called),
+      // skip re-interception so the real trusted click can reach React / the form.
+      var directCostInfo = getGenerationCostInfo(btn);
+      if (shouldSkipDuplicateCharge(directCostInfo.cost)) {
+        log('direct handler: already authorized, passing through', e && e.type);
+        return;
+      }
       eeInterceptGenerateButton(btn, e, 'direct_' + (e && e.type ? e.type : reason || 'event'));
     };
     ['pointerdown', 'click', 'touchstart'].forEach(function (type) {
@@ -1452,6 +1468,11 @@
           'submit',
           function (e) {
             if (syntheticGenerateButtons && syntheticGenerateButtons.has(btn)) return;
+            var fsCostInfo = getGenerationCostInfo(btn);
+            if (shouldSkipDuplicateCharge(fsCostInfo.cost)) {
+              log('form_submit: already authorized, letting form through');
+              return;
+            }
             eeInterceptGenerateButton(btn, e, 'form_submit');
           },
           true
@@ -1463,11 +1484,138 @@
 
   function eeInterceptGenerateButton(btn, e, source) {
     if (!btn) return;
-    if (source === 'document_capture' || source === 'document_submit') {
+
+    // ── DOCUMENT CAPTURE ─────────────────────────────────────────────────────
+    // This is a REAL, trusted user click on the generate button (the overlay
+    // is pointer-events:none so clicks land on the real button). We do a
+    // SYNCHRONOUS credit check and either block the event (credits exhausted)
+    // or let it proceed naturally to React / React Aria (generation fires).
+    if (source === 'document_capture') {
+      if (isUnlimitedMode()) {
+        log('document_capture: unlimited mode, letting through');
+        return;
+      }
+      if (!getVerifiedEmail() && shouldShowPopup()) {
+        try { if (e && e.preventDefault) e.preventDefault(); } catch (_) {}
+        try { if (e && e.stopPropagation) e.stopPropagation(); } catch (_) {}
+        try { if (e && e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch (_) {}
+        trackHiggsfieldActivity('higgsfield_generate_click', {
+          source: source,
+          blocked: 'need_verify',
+          button_id: btn.id || null,
+          tour_anchor: btn.getAttribute ? btn.getAttribute('data-tour-anchor') : null,
+        });
+        createPopup();
+        showGenerateStatus('Verify your Ecom Efficiency subscription (enter email) to use Generate.', 8000);
+        return;
+      }
+      if (eePrecheckInFlight) {
+        try { if (e && e.preventDefault) e.preventDefault(); } catch (_) {}
+        try { if (e && e.stopPropagation) e.stopPropagation(); } catch (_) {}
+        try { if (e && e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch (_) {}
+        return;
+      }
+
+      var syncCostInfo = getGenerationCostInfo(btn);
+
+      // Already charged recently for same cost (e.g. double-fire) → let through
+      if (shouldSkipDuplicateCharge(syncCostInfo.cost)) {
+        log('document_capture: duplicate charge skipped, letting through');
+        markGenerationAuthorized(syncCostInfo.cost);
+        showGenerateStatus('Generating...', 0);
+        return; // no preventDefault → real click proceeds ✓
+      }
+
+      var syncUsed  = getUsedToday();
+      var syncLimit = CONFIG.DAILY_CREDIT_LIMIT;
+      var syncWallet = (typeof __eeWalletCreditsCache === 'number' && isFinite(__eeWalletCreditsCache))
+        ? __eeWalletCreditsCache : null;
+
+      // Block: Higgsfield wallet insufficient
+      if (syncWallet !== null && syncWallet < syncCostInfo.cost) {
+        try { if (e && e.preventDefault) e.preventDefault(); } catch (_) {}
+        try { if (e && e.stopPropagation) e.stopPropagation(); } catch (_) {}
+        try { if (e && e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch (_) {}
+        showCreditsBlockedPopup('wallet', { cost: syncCostInfo.cost, wallet: syncWallet });
+        trackHiggsfieldActivity('higgsfield_generate_blocked', {
+          reason: 'wallet_insufficient',
+          source: source,
+          cost: syncCostInfo.cost,
+          wallet: syncWallet,
+          used_today: syncUsed,
+          daily_limit: syncLimit,
+        });
+        return;
+      }
+
+      // Block: Ecom daily limit exceeded
+      if ((syncUsed + syncCostInfo.cost) > syncLimit) {
+        try { if (e && e.preventDefault) e.preventDefault(); } catch (_) {}
+        try { if (e && e.stopPropagation) e.stopPropagation(); } catch (_) {}
+        try { if (e && e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch (_) {}
+        showCreditsBlockedPopup('daily', {
+          cost:  syncCostInfo.cost,
+          used:  syncUsed,
+          limit: syncLimit,
+          hours: getHoursUntilReset(),
+        });
+        trackHiggsfieldActivity('higgsfield_generate_blocked', {
+          reason: 'daily_limit',
+          source: source,
+          cost: syncCostInfo.cost,
+          used_today: syncUsed,
+          daily_limit: syncLimit,
+        });
+        return;
+      }
+
+      // ✅ Credits OK — deduct and let the real click proceed to React
+      markGenerationAuthorized(syncCostInfo.cost);
+      addUsedToday(syncCostInfo.cost);
+      recordChargeMarker(syncCostInfo.cost);
+      lastDelta = syncCostInfo.cost;
+      syncEcomBlockFlag();
+      var syncEmail   = getVerifiedEmail();
+      var syncUsedNow = getUsedToday();
+      logUsage(syncEmail, syncCostInfo.cost, syncUsedNow, source);
+      log('sync generation authorized', source,
+          'cost=' + syncCostInfo.cost,
+          'usedToday=' + syncUsedNow,
+          'remaining=' + getDailyRemaining(),
+          'wallet=' + (syncWallet !== null ? syncWallet : 'unknown'));
+      trackHiggsfieldActivity('higgsfield_generate_ok', {
+        source: source,
+        cost: syncCostInfo.cost,
+        used_today: syncUsedNow,
+        daily_limit: syncLimit,
+        wallet: syncWallet,
+      });
+      updateWidget(syncUsedNow, syncLimit, syncUsedNow >= syncLimit, syncCostInfo.cost);
+      showGenerateStatus('Generating...', 0);
+      requestWalletRefresh();
+      // DO NOT call preventDefault — the real trusted click flows to React/React Aria ✓
+      return;
+    }
+
+    // ── DOCUMENT SUBMIT ───────────────────────────────────────────────────────
+    // The form's submit event fires naturally after a real click that was
+    // already gated by document_capture above. Just let it through.
+    if (source === 'document_submit') {
+      if (isUnlimitedMode()) return;
+      var submitCostInfo = getGenerationCostInfo(btn);
+      // If document_capture already charged, skip double-charge and let submit go
+      if (shouldSkipDuplicateCharge(submitCostInfo.cost)) {
+        log('document_submit: already charged, letting form submit through');
+        return;
+      }
+      // If verified and the overlay is still managing clicks, let the overlay handle it
       if (getVerifiedEmail() && (document.getElementById('ee-hf-ecom-overlay-standard') || document.getElementById('ee-hf-ecom-overlay-unlimited'))) {
         return;
       }
+      // Fall through to common logic below
     }
+
+    // ── COMMON: eePrecheckInFlight / syntheticButtons guards ─────────────────
     if (eePrecheckInFlight) {
       try {
         if (e && e.preventDefault) e.preventDefault();
@@ -1712,7 +1860,7 @@
       // rgba(0,0,0,0.2) gives a subtle visible tint so users can see the button is guarded.
       // Alt key + CSS html[data-ee-hf-inspect] rule makes it passthrough for DevTools.
       overlay.style.cssText =
-        'position:fixed;z-index:2147483646;cursor:pointer;pointer-events:auto;background:rgba(0,0,0,0.2);border-radius:6px;';
+        'position:fixed;z-index:2147483646;cursor:pointer;pointer-events:none;background:rgba(0,0,0,0.15);border-radius:6px;';
       overlay.addEventListener('click', function (e) {
         if (e && e.altKey) return; // Alt = inspect mode, let click pass through
         if (e) { try { e.preventDefault(); e.stopPropagation(); } catch (_) {} }
@@ -2108,14 +2256,11 @@
     var actualBtn = buttonFinder ? buttonFinder() : null;
     const costInfo = getGenerationCostInfo(actualBtn);
     if (shouldSkipDuplicateCharge(costInfo.cost)) {
-      log('duplicate charge skipped', source, 'cost=' + costInfo.cost);
+      log('duplicate charge skipped — generation already in flight', source, 'cost=' + costInfo.cost);
       markGenerationAuthorized(costInfo.cost);
-      setTimeout(function () {
-        try {
-          var btn = buttonFinder ? buttonFinder() : null;
-          if (btn) triggerGenerateButtonClick(btn);
-        } catch (_) {}
-      }, 80);
+      showGenerateStatus('', 1);
+      // Generation was already triggered by the user's real trusted click (sync gate).
+      // Do NOT call triggerGenerateButtonClick here; that would create a duplicate.
       return;
     }
     eePrecheckInFlight = true;
