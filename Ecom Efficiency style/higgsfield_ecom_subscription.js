@@ -1509,21 +1509,22 @@
         showGenerateStatus('Verify your Ecom Efficiency subscription (enter email) to use Generate.', 8000);
         return;
       }
-      if (eePrecheckInFlight) {
-        try { if (e && e.preventDefault) e.preventDefault(); } catch (_) {}
-        try { if (e && e.stopPropagation) e.stopPropagation(); } catch (_) {}
-        try { if (e && e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch (_) {}
-        return;
-      }
+      // NOTE: do NOT block here when eePrecheckInFlight is true.
+      // eePrecheckInFlight is set by the pointerdown→directHandler async path.
+      // shouldSkipDuplicateCharge() already returns true in that case, so we
+      // will fall into the "let through" branch below without double-charging.
 
       var syncCostInfo = getGenerationCostInfo(btn);
 
-      // Already charged recently for same cost (e.g. double-fire) → let through
+      // shouldSkipDuplicateCharge returns true when eePrecheckInFlight is set
+      // (pointerdown async path already started) OR when recently charged.
+      // Either way: let the real click through to React — no synthetic events needed.
       if (shouldSkipDuplicateCharge(syncCostInfo.cost)) {
-        log('document_capture: duplicate charge skipped, letting through');
+        log('document_capture: precheck in flight or already charged, letting click through');
         markGenerationAuthorized(syncCostInfo.cost);
+        recordChargeMarker(syncCostInfo.cost); // arm 10s cooldown against rapid double-clicks
         showGenerateStatus('Generating...', 0);
-        return; // no preventDefault → real click proceeds ✓
+        return; // no preventDefault → real click flows to React / form submit ✓
       }
 
       var syncUsed  = getUsedToday();
@@ -2363,6 +2364,15 @@
       showGenerateStatus('Generating...', 0);
       setTimeout(function () {
         try {
+          // Guard: if the user's real trusted click already fired the generation
+          // (sync gate in document_capture), recordChargeMarker was already called
+          // and shouldSkipDuplicateCharge returns true here. Skip synthetic trigger
+          // to avoid a duplicate generation request.
+          if (shouldSkipDuplicateCharge(costInfo.cost)) {
+            log('trigger skipped — generation already in flight from sync gate', source);
+            showGenerateStatus('', 1);
+            return;
+          }
           var btn = buttonFinder();
           if (btn) triggerGenerateButtonClick(btn);
           setTimeout(function () { showGenerateStatus('', 1); }, 800);
