@@ -69,7 +69,9 @@ export async function GET(req: Request) {
       .from("elevenlabs_usage_events")
       .select("delta")
       .gte("at", since)
-      .gt("delta", 0);
+      // Include negative deltas (refunds/admin refills) so "used today" is accurate.
+      // The client/UI can clamp to 0 if needed.
+      ;
 
     // Prefer the strongest identity first, then fallback.
     if (userScope) query = query.eq("user_scope", userScope);
@@ -101,10 +103,11 @@ export async function GET(req: Request) {
       );
     }
 
-    const usedThisPeriod = (data || []).reduce(
+    const usedThisPeriodRaw = (data || []).reduce(
       (sum: number, row: any) => sum + (Number(row.delta) || 0),
       0
     );
+    const usedThisPeriod = Math.max(0, usedThisPeriodRaw);
 
     return withCors(
       NextResponse.json({

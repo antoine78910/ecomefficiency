@@ -68,7 +68,8 @@ export async function GET(req: Request) {
       .select("delta")
       .eq("email", email)
       .gte("at", since)
-      .gt("delta", 0);
+      // Include negative deltas (refunds/admin refills) so "used today" is accurate.
+      ;
 
     if (error) {
       console.warn("[API] higgsfield usage GET error", error.message);
@@ -78,7 +79,8 @@ export async function GET(req: Request) {
       );
     }
 
-    const usedToday = (data || []).reduce((sum: number, row: any) => sum + (Number(row.delta) || 0), 0);
+    const usedTodayRaw = (data || []).reduce((sum: number, row: any) => sum + (Number(row.delta) || 0), 0);
+    const usedToday = Math.max(0, usedTodayRaw);
 
     return withCors(
       NextResponse.json({ ok: true, email, used_today: usedToday, since }),

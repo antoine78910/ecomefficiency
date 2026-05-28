@@ -6,6 +6,12 @@ import { Shield, Users, Activity, BarChart3, LayoutTemplate, ClipboardList, Star
 
 const adminRoutes = [
   {
+    href: '/admin/quotas',
+    label: 'Quotas',
+    icon: Zap,
+    description: 'Refill quota par jour (test)'
+  },
+  {
     href: '/admin/cancel',
     label: 'Cancel',
     icon: CircleSlash,
