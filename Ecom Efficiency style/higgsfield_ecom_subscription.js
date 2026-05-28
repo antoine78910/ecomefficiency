@@ -381,6 +381,201 @@
     } catch (_) {}
   }
 
+  // --- Problem reporting (popup add-on) ---
+  var eeProblemReporterInstalled = false;
+  function eeGetLastAuthorizedCost() {
+    try { return Number(sessionStorage.getItem('ee_hf_last_gen_authorized_cost') || 0) || 0; } catch (_) { return 0; }
+  }
+  function eeReadLastWalletCache() {
+    try {
+      if (typeof __eeWalletCreditsCache === 'number' && isFinite(__eeWalletCreditsCache)) return __eeWalletCreditsCache;
+    } catch (_) {}
+    return null;
+  }
+  function eeEnsureProblemReporterInPopup() {
+    try {
+      var root = document.getElementById('ee-hf-ecom-popup-root');
+      if (!root) return false;
+      if (root.getAttribute('data-ee-problem-reporter') === '1') return true;
+
+      // Find an inner container to append to; fallback: root itself.
+      var mount = root.querySelector('[data-ee-popup-body]') || root.querySelector('div') || root;
+
+      var wrap = document.createElement('div');
+      wrap.setAttribute('data-ee-problem-reporter', '1');
+      wrap.style.cssText = 'margin-top:12px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.10);';
+
+      var btn = document.createElement('button');
+      btn.type = 'button';
+      btn.textContent = 'Report a problem';
+      btn.style.cssText =
+        'width:100%;padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.14);' +
+        'background:rgba(255,255,255,0.06);color:#fff;font-weight:700;cursor:pointer;font-size:12px;' +
+        'letter-spacing:0.2px;';
+
+      var panel = document.createElement('div');
+      panel.style.cssText = 'display:none;margin-top:10px;';
+
+      var hint = document.createElement('div');
+      hint.textContent = 'Describe the issue and optionally attach a screenshot (image only).';
+      hint.style.cssText = 'font-size:11px;color:rgba(255,255,255,0.65);margin-bottom:8px;line-height:1.35;';
+
+      var ta = document.createElement('textarea');
+      ta.placeholder = 'What happened? Steps to reproduce, expected vs actual…';
+      ta.rows = 4;
+      ta.style.cssText =
+        'width:100%;resize:vertical;min-height:90px;max-height:240px;padding:10px 10px;border-radius:10px;' +
+        'border:1px solid rgba(255,255,255,0.14);background:rgba(0,0,0,0.35);color:#fff;font-size:12px;outline:none;';
+
+      var file = document.createElement('input');
+      file.type = 'file';
+      file.accept = 'image/*';
+      file.style.cssText = 'display:block;margin-top:8px;color:rgba(255,255,255,0.8);font-size:11px;';
+
+      var row = document.createElement('div');
+      row.style.cssText = 'display:flex;gap:8px;align-items:center;margin-top:10px;';
+
+      var send = document.createElement('button');
+      send.type = 'button';
+      send.textContent = 'Send report';
+      send.style.cssText =
+        'flex:1;padding:10px 12px;border-radius:10px;border:1px solid rgba(149,65,224,0.50);' +
+        'background:rgba(149,65,224,0.28);color:#fff;font-weight:800;cursor:pointer;font-size:12px;';
+
+      var cancel = document.createElement('button');
+      cancel.type = 'button';
+      cancel.textContent = 'Cancel';
+      cancel.style.cssText =
+        'padding:10px 12px;border-radius:10px;border:1px solid rgba(255,255,255,0.14);' +
+        'background:rgba(255,255,255,0.06);color:#fff;font-weight:700;cursor:pointer;font-size:12px;';
+
+      var status = document.createElement('div');
+      status.style.cssText = 'margin-top:8px;font-size:11px;color:rgba(255,255,255,0.7);min-height:14px;';
+
+      function setStatus(msg, isError) {
+        status.textContent = msg || '';
+        status.style.color = isError ? '#fca5a5' : 'rgba(255,255,255,0.75)';
+      }
+
+      function readScreenshotDataUrl(fileObj, cb) {
+        try {
+          if (!fileObj) return cb(null);
+          // Hard cap to avoid huge payloads to admin tracker.
+          if (fileObj.size && fileObj.size > 700 * 1024) {
+            setStatus('Screenshot too large (max 700KB). Please crop/compress.', true);
+            return cb(null);
+          }
+          var fr = new FileReader();
+          fr.onload = function () {
+            try {
+              var s = typeof fr.result === 'string' ? fr.result : null;
+              // Extra safety cap for base64 length.
+              if (s && s.length > 900000) s = s.slice(0, 900000) + '...(truncated)';
+              cb(s);
+            } catch (_) { cb(null); }
+          };
+          fr.onerror = function () { cb(null); };
+          fr.readAsDataURL(fileObj);
+        } catch (_) { cb(null); }
+      }
+
+      function buildMeta(message, screenshotDataUrl) {
+        var used = 0;
+        var limit = CONFIG.DAILY_CREDIT_LIMIT;
+        try { used = getUsedToday(); } catch (_) {}
+        var wallet = eeReadLastWalletCache();
+        return {
+          message: String(message || '').slice(0, 4000),
+          screenshot: screenshotDataUrl || null,
+          path: location.pathname,
+          href: location.href,
+          used_today: used,
+          daily_limit: limit,
+          wallet: wallet,
+          last_cost: eeGetLastAuthorizedCost(),
+        };
+      }
+
+      btn.addEventListener('click', function () {
+        panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        btn.textContent = panel.style.display === 'none' ? 'Report a problem' : 'Hide report form';
+        if (panel.style.display !== 'none') setStatus('', false);
+      });
+
+      cancel.addEventListener('click', function () {
+        panel.style.display = 'none';
+        btn.textContent = 'Report a problem';
+        try { ta.value = ''; } catch (_) {}
+        try { file.value = ''; } catch (_) {}
+        setStatus('', false);
+      });
+
+      send.addEventListener('click', function () {
+        try {
+          var msg = String(ta.value || '').trim();
+          if (!msg) {
+            setStatus('Please describe the issue.', true);
+            return;
+          }
+          send.disabled = true;
+          send.style.opacity = '0.7';
+          setStatus('Sending…', false);
+          var f = file && file.files && file.files[0] ? file.files[0] : null;
+          readScreenshotDataUrl(f, function (dataUrl) {
+            try {
+              trackHiggsfieldActivity('higgsfield_problem_report', buildMeta(msg, dataUrl));
+              setStatus('Sent. Thank you — support will review it.', false);
+              // Keep the form open so user can see status, but avoid double send
+              setTimeout(function () {
+                try {
+                  panel.style.display = 'none';
+                  btn.textContent = 'Report a problem';
+                  ta.value = '';
+                  file.value = '';
+                  setStatus('', false);
+                } catch (_) {}
+              }, 900);
+            } finally {
+              send.disabled = false;
+              send.style.opacity = '1';
+            }
+          });
+        } catch (_) {
+          try { setStatus('Failed to send. Please retry.', true); } catch (_) {}
+          try { send.disabled = false; send.style.opacity = '1'; } catch (_) {}
+        }
+      });
+
+      row.appendChild(send);
+      row.appendChild(cancel);
+      panel.appendChild(hint);
+      panel.appendChild(ta);
+      panel.appendChild(file);
+      panel.appendChild(row);
+      panel.appendChild(status);
+
+      wrap.appendChild(btn);
+      wrap.appendChild(panel);
+      mount.appendChild(wrap);
+      root.setAttribute('data-ee-problem-reporter', '1');
+      return true;
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function scheduleProblemReporter() {
+    if (eeProblemReporterInstalled) return;
+    eeProblemReporterInstalled = true;
+    var tries = 0;
+    var max = 30;
+    var timer = setInterval(function () {
+      tries++;
+      if (eeEnsureProblemReporterInPopup()) { clearInterval(timer); return; }
+      if (tries >= max) clearInterval(timer);
+    }, 250);
+  }
+
   function requestWalletRefresh() {
     try {
       chrome.runtime.sendMessage({ type: 'INJECT_HIGGSFIELD_LOGGER' });
@@ -1057,6 +1252,8 @@
         }
       }
     });
+    // Add "Report a problem" panel under the popup UI.
+    scheduleProblemReporter();
   }
 
   // --- Widget ---
