@@ -91,7 +91,50 @@
   }
   function shouldSkipDuplicateCharge(cost) {
     if (eePrecheckInFlight) return true;
+    // Same physical click must never debit twice (even if cost parsing differs).
+    if (Date.now() - eeLastChargeAt < 2500) return true;
     return Date.now() - eeLastChargeAt < EE_CHARGE_COOLDOWN_MS && eeLastChargeCost === cost;
+  }
+
+  /** Only normal left-click / Enter / form submit should trigger credit checks. */
+  function eeIsPrimaryClick(e, source) {
+    if (source === 'enter_key' || source === 'document_submit' || source === 'form_submit') {
+      if (!e) return true;
+      if (e.type === 'contextmenu' || e.type === 'auxclick') return false;
+      return true;
+    }
+    if (!e) return false;
+    if (e.type === 'contextmenu' || e.type === 'auxclick') return false;
+    if (typeof e.button === 'number' && e.button !== 0) return false;
+    return true;
+  }
+
+  function eeLogCostDebug(phase, btn, costInfo) {
+    try {
+      var cells = null;
+      if (btn) {
+        var row = btn.querySelector(
+          'div.flex.items-center.gap-1, div.flex.items-center, span.flex.items-center, [class*="flex"][class*="items-center"]'
+        );
+        if (row) {
+          cells = [];
+          for (var cn = row.childNodes, i = 0; i < cn.length; i++) {
+            var n = cn[i];
+            if (n.nodeType === 3) cells.push('"' + String(n.textContent || '').trim() + '"');
+            else if (n.nodeType === 1) cells.push('<' + n.tagName + '>' + String(n.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 40) + '>');
+          }
+        }
+      }
+      console.log('[EE-HF-Ecom][cost]', phase, {
+        pathname: location.pathname,
+        tourAnchor: btn && btn.getAttribute ? btn.getAttribute('data-tour-anchor') : null,
+        cost: costInfo && costInfo.cost,
+        quality: costInfo && costInfo.quality,
+        usedFallback: !!(costInfo && costInfo.usedFallback),
+        priceRow: cells,
+        buttonSnippet: btn ? String(btn.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 100) : null
+      });
+    } catch (_) {}
   }
   // No-op kept for call-site compatibility; storage is already purged at module load.
   function clearStaleAdminEmail() {}
@@ -761,9 +804,31 @@
       } catch (_) {}
     }
     if (!candidates.length) return null;
-    var cost = candidates[candidates.length - 1];
-    log('cost from price flex row:', JSON.stringify(candidates), '-> picked:', cost);
+    var cost;
+    if (eeButtonHasStrikePrice(btn) && candidates.length > 1) {
+      cost = Math.min.apply(null, candidates);
+    } else {
+      cost = candidates[candidates.length - 1];
+    }
+    log('cost from price flex row:', JSON.stringify(candidates), 'strike=' + eeButtonHasStrikePrice(btn), '-> picked:', cost);
     return cost;
+  }
+
+  function readCostFromDedicatedPriceRow(btn) {
+    if (!btn || !btn.querySelector) return null;
+    try {
+      var row = btn.querySelector(
+        'div.flex.items-center.gap-1, div.flex.items-center, span.flex.items-center, [class*="flex"][class*="items-center"]'
+      );
+      if (!row) return null;
+      var candidates = [];
+      eeWalkPriceRowNodes(row, btn, candidates);
+      if (!candidates.length) return null;
+      if (eeButtonHasStrikePrice(btn) && candidates.length > 1) return Math.min.apply(null, candidates);
+      return candidates[candidates.length - 1];
+    } catch (_) {
+      return null;
+    }
   }
 
   function eeFindPrimaryImageSubmitButton() {
@@ -784,6 +849,8 @@
     if (!btn) return null;
     var flexCost = readCostFromPriceFlex(btn);
     if (flexCost !== null) return flexCost;
+    var rowCost = readCostFromDedicatedPriceRow(btn);
+    if (rowCost !== null) return rowCost;
     // Do not scan the whole button: SVG <path> coordinates become fake costs (e.g. 10881).
     return null;
   }
@@ -830,7 +897,9 @@
     var btnCost = readCostFromButton(btn);
     if (btnCost !== null) {
       log('cost read from Generate button: ' + btnCost);
-      return { quality: 'BUTTON', cost: btnCost, usedFallback: false };
+      var fromBtn = { quality: 'BUTTON', cost: btnCost, usedFallback: false };
+      eeLogCostDebug('button', btn, fromBtn);
+      return fromBtn;
     }
     // Image generation page (/ai/image): Higgsfield costs 2 credits per image.
     // The button on this page contains no visible credit-cost text node, so we
@@ -843,7 +912,9 @@
     var quality = getSelectedGenerationQuality();
     var cost = GENERATION_COSTS_BY_QUALITY[quality] || GENERATION_COSTS_BY_QUALITY.AUTO || 12;
     log('cost from quality mapping: ' + quality + ' \u2192 ' + cost);
-    return { quality: quality, cost: cost, usedFallback: !GENERATION_COSTS_BY_QUALITY[quality] };
+    var fromQuality = { quality: quality, cost: cost, usedFallback: !GENERATION_COSTS_BY_QUALITY[quality] };
+    eeLogCostDebug('quality_fallback', btn, fromQuality);
+    return fromQuality;
   }
 
   // --- Backend: verify subscription ---
@@ -1443,23 +1514,8 @@
       btn.setAttribute('data-ee-direct-armed', '1');
       btn.setAttribute('data-ee-generate-armed', '1');
     } catch (_) {}
-    var directHandler = function (e) {
-      if (syntheticGenerateButtons && syntheticGenerateButtons.has(btn)) return;
-      // If the document-level capture handler already ran a synchronous credit
-      // check and authorised this generation (recordChargeMarker was called),
-      // skip re-interception so the real trusted click can reach React / the form.
-      var directCostInfo = getGenerationCostInfo(btn);
-      if (shouldSkipDuplicateCharge(directCostInfo.cost)) {
-        log('direct handler: already authorized, passing through', e && e.type);
-        return;
-      }
-      eeInterceptGenerateButton(btn, e, 'direct_' + (e && e.type ? e.type : reason || 'event'));
-    };
-    ['pointerdown', 'click', 'touchstart'].forEach(function (type) {
-      try {
-        btn.addEventListener(type, directHandler, true);
-      } catch (_) {}
-    });
+    // Do NOT attach pointerdown/click on the button — preventDefault there breaks React Aria
+    // and debits credits without starting generation. document_capture on click handles credits.
     try {
       var form = btn.closest ? btn.closest('form') : null;
       if (form && form.getAttribute('data-ee-submit-armed') !== '1') {
@@ -1468,29 +1524,32 @@
           'submit',
           function (e) {
             if (syntheticGenerateButtons && syntheticGenerateButtons.has(btn)) return;
-            var fsCostInfo = getGenerationCostInfo(btn);
-            if (shouldSkipDuplicateCharge(fsCostInfo.cost)) {
-              log('form_submit: already authorized, letting form through');
-              return;
-            }
+            if (!eeIsPrimaryClick(e, 'form_submit')) return;
             eeInterceptGenerateButton(btn, e, 'form_submit');
           },
           true
         );
       }
     } catch (_) {}
-    log('direct listener armed on generate button', reason, btn.id || btn.getAttribute('data-tour-anchor') || '');
+    log('generate button marked (form submit hook only)', reason, btn.id || btn.getAttribute('data-tour-anchor') || '');
   }
 
   function eeInterceptGenerateButton(btn, e, source) {
     if (!btn) return;
+    if (!eeIsPrimaryClick(e, source)) {
+      log('ignored non-primary click', source, e && e.type, 'button=' + (e && e.button));
+      return;
+    }
+
+    // Legacy direct_* hooks must never block React — document_capture owns debits.
+    if (source && String(source).indexOf('direct_') === 0) return;
 
     // ── DOCUMENT CAPTURE ─────────────────────────────────────────────────────
     // This is a REAL, trusted user click on the generate button (the overlay
     // is pointer-events:none so clicks land on the real button). We do a
     // SYNCHRONOUS credit check and either block the event (credits exhausted)
     // or let it proceed naturally to React / React Aria (generation fires).
-    if (source === 'document_capture') {
+    if (source === 'document_capture' || source === 'enter_key') {
       if (isUnlimitedMode()) {
         log('document_capture: unlimited mode, letting through');
         return;
@@ -1515,6 +1574,12 @@
       // will fall into the "let through" branch below without double-charging.
 
       var syncCostInfo = getGenerationCostInfo(btn);
+      eeLogCostDebug('autologin_sync_' + source, btn, syncCostInfo);
+      console.log('[EE-HF-Ecom][generate] debiting cost:', {
+        cost: syncCostInfo.cost,
+        quality: syncCostInfo.quality,
+        usedFallback: syncCostInfo.usedFallback
+      });
 
       // shouldSkipDuplicateCharge returns true when eePrecheckInFlight is set
       // (pointerdown async path already started) OR when recently charged.
@@ -1598,22 +1663,19 @@
       return;
     }
 
-    // ── DOCUMENT SUBMIT ───────────────────────────────────────────────────────
-    // The form's submit event fires naturally after a real click that was
-    // already gated by document_capture above. Just let it through.
-    if (source === 'document_submit') {
+    // ── FORM SUBMIT (after click, or keyboard-only) ─────────────────────────────
+    if (source === 'document_submit' || source === 'form_submit') {
       if (isUnlimitedMode()) return;
       var submitCostInfo = getGenerationCostInfo(btn);
-      // If document_capture already charged, skip double-charge and let submit go
       if (shouldSkipDuplicateCharge(submitCostInfo.cost)) {
-        log('document_submit: already charged, letting form submit through');
+        log(source + ': already charged, letting form submit through');
         return;
       }
-      // If verified and the overlay is still managing clicks, let the overlay handle it
-      if (getVerifiedEmail() && (document.getElementById('ee-hf-ecom-overlay-standard') || document.getElementById('ee-hf-ecom-overlay-unlimited'))) {
-        return;
+      // Keyboard-only submit: run the same synchronous gate as click.
+      if (source === 'form_submit') {
+        return eeInterceptGenerateButton(btn, e, 'document_capture');
       }
-      // Fall through to common logic below
+      return;
     }
 
     // ── COMMON: eePrecheckInFlight / syntheticButtons guards ─────────────────
@@ -1728,6 +1790,7 @@
     if (generateClickBlockerInstalled) return;
     generateClickBlockerInstalled = true;
     function handleGenerateIntent(e) {
+      if (!eeIsPrimaryClick(e, 'document_capture')) return;
       var el = e.target;
       if (!el) return;
       if (el.closest && (el.closest('#ee-hf-ecom-popup-root') || el.closest('#ee-hf-ecom-widget') || el.closest('#ee-hf-ecom-overlay-root'))) return;
@@ -1870,6 +1933,7 @@
       overlay.style.cssText =
         'position:fixed;z-index:2147483646;cursor:pointer;pointer-events:none;background:rgba(0,0,0,0.15);border-radius:6px;';
       overlay.addEventListener('click', function (e) {
+        if (!eeIsPrimaryClick(e, 'overlay')) return;
         if (e && e.altKey) return; // Alt = inspect mode, let click pass through
         if (e) { try { e.preventDefault(); e.stopPropagation(); } catch (_) {} }
         if (onOurButtonClick) onOurButtonClick();
@@ -1903,6 +1967,7 @@
         'box-shadow:inset 0 0 0 1.5px rgba(181,74,243,0.7);';
       overlay.innerHTML = '<span>🔒 Verify<br>Subscription</span>';
       overlay.addEventListener('click', function (e) {
+        if (!eeIsPrimaryClick(e, 'overlay_verify')) return;
         if (e && e.altKey) return;
         if (e) { try { e.preventDefault(); e.stopPropagation(); } catch (_) {} }
         if (onClick) onClick();

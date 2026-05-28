@@ -160,7 +160,13 @@ function scheduleAccountVerification() {
     verifyCurrentAccountEmail();
 }
 
-async function getCredentialsCached() {
+function invalidateCredentialsCache() {
+    cachedCredentials = null;
+    credentialsPromise = null;
+}
+
+async function getCredentialsCached(forceRefresh = false) {
+    if (forceRefresh) invalidateCredentialsCache();
     if (cachedCredentials) return cachedCredentials;
     if (!credentialsPromise) {
         credentialsPromise = fetchCredentials()
@@ -270,24 +276,55 @@ async function captureEmailFromProfileMenu() {
 
 async function verifyCurrentAccountEmail() {
     try {
-        // IMPORTANT (change requested):
-        // Ne plus faire de logout automatique sur /dashboard ou /discovery.
-        // Le logout automatique Foreplay doit dépendre uniquement de la modale "Free trial expired"
-        // (géré dans foreplay_auto_logout.js).
-        //
-        // On garde éventuellement la lecture d’email uniquement pour debug, sans action destructive.
-        const credentials = await getCredentialsCached().catch(() => null);
+        invalidateCredentialsCache();
+        const credentials = await fetchCredentials().catch(() => null);
         const expectedEmail = credentials && credentials.email ? credentials.email.toLowerCase().trim() : '';
+        if (!expectedEmail) return;
 
-        // Évite absolument les faux positifs sur /discovery (il y a souvent des emails dans le contenu).
-        // On ne scanne plus toute la page; uniquement le menu profil si possible.
+        // Only read email from the profile menu (avoid false positives on /discovery content).
         const currentEmail = await captureEmailFromProfileMenu();
 
-        fpDebug('[Foreplay] 📧 (debug) Expected email:', expectedEmail || '(unknown)');
-        fpDebug('[Foreplay] 📧 (debug) Current account email:', currentEmail || '(unavailable)');
+        fpLogOnce(
+            'email_check',
+            '[Foreplay] Account check — expected:',
+            expectedEmail,
+            'current:',
+            currentEmail || '(unavailable)'
+        );
 
-        if (currentEmail && expectedEmail && currentEmail === expectedEmail) {
+        if (currentEmail && currentEmail === expectedEmail) {
             sessionStorage.setItem('foreplay_autologin_success', 'true');
+            await setEmailMismatchState(null);
+            return;
+        }
+
+        if (currentEmail && currentEmail !== expectedEmail) {
+            const state = await getEmailMismatchState();
+            if (state && state.email === currentEmail && state.expected === expectedEmail && state.attempts >= 2) {
+                console.warn('[Foreplay] Wrong account still detected after reset attempts — stopping loop');
+                return;
+            }
+
+            console.warn(
+                '[Foreplay] Wrong account detected:',
+                currentEmail,
+                '— expected:',
+                expectedEmail,
+                '— resetting session'
+            );
+            await setEmailMismatchState({
+                email: currentEmail,
+                expected: expectedEmail,
+                attempts: (state && state.email === currentEmail ? state.attempts : 0) + 1,
+                ts: Date.now()
+            });
+
+            sessionStorage.setItem('foreplay_just_logged_out', 'true');
+            sessionStorage.removeItem('foreplay_email_checked');
+            sessionStorage.removeItem('foreplay_prelogin_reset_done_tag_v2');
+            sessionStorage.removeItem('foreplay_prelogin_reset_reload_done_v2');
+            invalidateCredentialsCache();
+            triggerReset();
         }
     } catch (err) {
         console.error('[Foreplay] ❌ Erreur durant la vérification du compte:', err);
@@ -482,12 +519,14 @@ async function startForeplayAutoLogin() {
         if (!FOREPLAY_DISABLE_LOADING_OVERLAY) {
             showLoadingBar();
         } else {
-            fpLogOnce('loading_overlay_disabled', '[FOREPLAY-LOGIN] ℹ️ Loading overlay désactivé (mode debug)');
+            removeBlackScreen();
+            fpLogOnce('loading_overlay_disabled', '[FOREPLAY-LOGIN] Loading overlay disabled (debug mode)');
         }
         
-        // Récupérer les credentials
+        // Always fetch fresh credentials (avoid stale Google Sheet cache)
+        invalidateCredentialsCache();
         const credentials = await fetchCredentials();
-        fpDebug('[FOREPLAY-LOGIN] ✅ Credentials récupérés:', credentials.email);
+        fpLogOnce('credentials_ready', '[FOREPLAY-LOGIN] ✅ Credentials ready — email:', credentials.email);
         
         // Remplir les champs et soumettre
         await autoLogin(credentials);
@@ -725,87 +764,121 @@ function parseCSVLine(line) {
     return result;
 }
 
-// Parser les données CSV pour trouver "foreplay"
-function parseCSVForForeplay(csvData) {
-    fpDebug('[FOREPLAY-LOGIN] 📊 Début du parsing CSV pour Foreplay');
-    fpDebug('[FOREPLAY-LOGIN] 📈 Données CSV reçues, longueur:', csvData.length);
-    
-    const lines = csvData.split('\n').filter(line => line.trim());
-    fpDebug('[FOREPLAY-LOGIN] 📋 Nombre de lignes trouvées:', lines.length);
-    
-    // Afficher un aperçu des premières lignes pour debug
-    fpDebug('[FOREPLAY-LOGIN] 🔍 Aperçu des premières lignes:');
-    lines.slice(0, 5).forEach((line, index) => {
-        fpDebug(`[FOREPLAY-LOGIN] Ligne ${index + 1}:`, line.substring(0, 100) + (line.length > 100 ? '...' : ''));
-    });
-    
-    for (let i = 0; i < lines.length; i++) {
-        const line = lines[i];
-        const cells = parseCSVLine(line);
-        
-        if (cells.length >= 3) {
-            const firstCell = cells[0]?.toString().trim().toLowerCase();
-            fpDebug(`[FOREPLAY-LOGIN] 🔍 Ligne ${i + 1} - Première cellule:`, `"${firstCell}"`);
-            
-            // Recherche "foreplay" (différentes variantes)
-            if (firstCell === 'foreplay' || firstCell.includes('foreplay')) {
-                const email = cells[1]?.toString().trim() || '';
-                const password = cells[2]?.toString().trim() || '';
-                
-                fpDebug('[FOREPLAY-LOGIN] 🎯 Ligne Foreplay trouvée !');
-                fpDebug('[FOREPLAY-LOGIN] 📧 Email:', email);
-                fpDebug('[FOREPLAY-LOGIN] 🔐 Password longueur:', password.length);
-                
-                if (email && password) {
-                    return { email, password };
-                } else {
-                    fpDebug('[FOREPLAY-LOGIN] ⚠️ Email ou password vide');
-                }
-            }
-        }
+const FOREPLAY_TARGET_LABEL = 'Foreplay';
+
+function looksLikeEmail(value) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(String(value || '').trim());
+}
+
+function cacheBust(url) {
+    return url + (url.includes('?') ? '&' : '?') + '_ts=' + Date.now();
+}
+
+function extractForeplayCredentialsFromCells(cells) {
+    if (!cells || cells.length < 3) return null;
+
+    const labelNorm = FOREPLAY_TARGET_LABEL.toLowerCase().replace(/[^a-z0-9]/g, '');
+    const labelIndex = cells.findIndex((cell) =>
+        String(cell || '').toLowerCase().replace(/[^a-z0-9]/g, '').includes(labelNorm)
+    );
+
+    if (labelIndex >= 0) {
+        const email = String(cells[labelIndex + 1] || '').trim();
+        const password = String(cells[labelIndex + 2] || '').trim();
+        if (looksLikeEmail(email) && password) return { email, password };
+        return null;
     }
-    
-    fpDebug('[FOREPLAY-LOGIN] ❌ Aucune ligne "foreplay" trouvée dans le CSV');
+
+    const firstCell = String(cells[0] || '').trim().toLowerCase();
+    if (firstCell === 'foreplay' || firstCell.includes('foreplay')) {
+        const email = String(cells[1] || '').trim();
+        const password = String(cells[2] || '').trim();
+        if (looksLikeEmail(email) && password) return { email, password };
+    }
+
     return null;
 }
 
-// Parser les données HTML pour trouver "foreplay" (fallback)
+// Parser les données CSV pour trouver "foreplay" (dernière ligne valide gagne)
+function parseCSVForForeplay(csvData) {
+    fpDebug('[FOREPLAY-LOGIN] 📊 Début du parsing CSV pour Foreplay');
+    fpDebug('[FOREPLAY-LOGIN] 📈 Données CSV reçues, longueur:', csvData.length);
+
+    const lines = String(csvData || '').replace(/^\uFEFF/, '').split(/\r?\n/).filter((line) => line.trim());
+    fpDebug('[FOREPLAY-LOGIN] 📋 Nombre de lignes trouvées:', lines.length);
+
+    let lastMatch = null;
+    let lastMatchMeta = null;
+    for (let i = 0; i < lines.length; i++) {
+        const line = lines[i];
+        if (!line.toLowerCase().includes(FOREPLAY_TARGET_LABEL.toLowerCase())) continue;
+
+        const cells = parseCSVLine(line);
+        const bEmailRaw = String(cells[1] || '').trim();
+        fpLogOnce(
+            'csv_foreplay_row_' + i,
+            '[FOREPLAY-LOGIN] Sheet row matched (raw):',
+            line
+        );
+        fpLogOnce(
+            'csv_foreplay_colB_' + i,
+            '[FOREPLAY-LOGIN] Sheet col B (email raw):',
+            bEmailRaw
+        );
+        const creds = extractForeplayCredentialsFromCells(cells);
+        if (creds) {
+            fpLogOnce(
+                'csv_foreplay_creds_' + i,
+                '[FOREPLAY-LOGIN] Parsed Foreplay credentials:',
+                `email=${creds.email} passwordLen=${String(creds.password || '').length}`
+            );
+            lastMatch = creds;
+            lastMatchMeta = { index: i, emailRaw: bEmailRaw };
+        }
+    }
+
+    if (!lastMatch) {
+        fpDebug('[FOREPLAY-LOGIN] ❌ Aucune ligne "foreplay" trouvée dans le CSV');
+    } else {
+        fpLogOnce(
+            'csv_foreplay_lastmatch',
+            '[FOREPLAY-LOGIN] CSV lastMatch selected:',
+            `row=${lastMatchMeta ? lastMatchMeta.index : '?'}`,
+            `colBraw=${lastMatchMeta ? JSON.stringify(lastMatchMeta.emailRaw) : '?'}`,
+            `usedEmail=${lastMatch.email}`
+        );
+    }
+    return lastMatch;
+}
+
+// Parser les données HTML pour trouver "foreplay" (fallback, dernière ligne valide gagne)
 function parseHTMLForForeplay(htmlData) {
     fpDebug('[FOREPLAY-LOGIN] 🌐 Début du parsing HTML pour Foreplay');
-    
+
     const doc = new DOMParser().parseFromString(htmlData, 'text/html');
     const rows = doc.querySelectorAll('tr');
     fpDebug('[FOREPLAY-LOGIN] 📋 Nombre de lignes HTML trouvées:', rows.length);
-    
+
+    let lastMatch = null;
     for (let i = 0; i < rows.length; i++) {
         const row = rows[i];
         const cells = row.querySelectorAll('td, th');
-        
-        if (cells.length >= 3) {
-            const firstCellText = cells[0]?.textContent?.trim().toLowerCase() || '';
-            fpDebug(`[FOREPLAY-LOGIN] 🔍 Ligne HTML ${i + 1} - Première cellule:`, `"${firstCellText}"`);
-            
-            if (firstCellText === 'foreplay' || firstCellText.includes('foreplay')) {
-                // Extraire email et password des cellules suivantes
-                const emailCell = cells[1];
-                const passCell = cells[2];
-                
-                const email = (emailCell.querySelector('.softmerge-inner')?.textContent || emailCell.textContent || '').trim();
-                const password = (passCell.querySelector('.softmerge-inner')?.textContent || passCell.textContent || '').trim();
-                
-                fpDebug('[FOREPLAY-LOGIN] 🎯 Ligne Foreplay trouvée en HTML !');
-                fpDebug('[FOREPLAY-LOGIN] 📧 Email:', email);
-                fpDebug('[FOREPLAY-LOGIN] 🔐 Password longueur:', password.length);
-                
-                if (email && password) {
-                    return { email, password };
-                }
-            }
+        if (cells.length < 3) continue;
+
+        const cellValues = Array.from(cells).map((cell) =>
+            (cell.querySelector('.softmerge-inner')?.textContent || cell.textContent || '').trim()
+        );
+        const creds = extractForeplayCredentialsFromCells(cellValues);
+        if (creds) {
+            fpDebug('[FOREPLAY-LOGIN] 🎯 Ligne Foreplay trouvée en HTML:', creds.email);
+            lastMatch = creds;
         }
     }
-    
-    fpDebug('[FOREPLAY-LOGIN] ❌ Aucune ligne "foreplay" trouvée dans le HTML');
-    return null;
+
+    if (!lastMatch) {
+        fpDebug('[FOREPLAY-LOGIN] ❌ Aucune ligne "foreplay" trouvée dans le HTML');
+    }
+    return lastMatch;
 }
 
 // Fetch helper (direct fetch, then background fallback)
@@ -829,11 +902,17 @@ function fetchTextViaBackground(url, timeoutMs = 20000) {
 }
 
 async function fetchTextSmart(url, timeoutMs = 15000) {
+    const freshUrl = cacheBust(url);
     // 1) Direct fetch (fast path)
     try {
         const controller = new AbortController();
         const t = setTimeout(() => controller.abort(), timeoutMs);
-        const res = await fetch(url, { cache: 'no-store', credentials: 'omit', signal: controller.signal });
+        const res = await fetch(freshUrl, {
+            cache: 'no-store',
+            credentials: 'omit',
+            signal: controller.signal,
+            headers: { 'Cache-Control': 'no-cache', Pragma: 'no-cache' }
+        });
         clearTimeout(t);
         if (!res.ok) throw new Error(`HTTP ${res.status} ${res.statusText}`);
         return await res.text();
@@ -841,7 +920,7 @@ async function fetchTextSmart(url, timeoutMs = 15000) {
         fpDebug('[FOREPLAY-LOGIN] ⚠️ Direct fetch failed, fallback to background fetch:', e && e.message ? e.message : e);
     }
     // 2) Background fetch
-    return await fetchTextViaBackground(url, Math.max(20000, timeoutMs));
+    return await fetchTextViaBackground(freshUrl, Math.max(20000, timeoutMs));
 }
 
 // Fonction principale de récupération des credentials (robuste)
@@ -931,6 +1010,7 @@ async function autoLogin(credentials) {
     try {
         const { email, password } = credentials;
         fpDebug('[FOREPLAY-LOGIN] ▶ Credentials à utiliser:', email, '(password:', password.length, 'chars)');
+        fpLogOnce('autologin_will_use_email', '[FOREPLAY-LOGIN] Auto-login will use email:', email);
 
         function humanClick(el) {
             if (!el) return false;
@@ -939,6 +1019,18 @@ async function autoLogin(credentials) {
             try { el.click(); } catch (_) {}
             try { el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })); } catch (_) {}
             return true;
+        }
+
+        function setReactValue(input, value) {
+            try {
+                const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+                if (desc && desc.set) desc.set.call(input, value);
+                else input.value = value;
+            } catch (_) {
+                input.value = value;
+            }
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
         }
 
         function ensureEmailFormVisible() {
@@ -983,9 +1075,13 @@ async function autoLogin(credentials) {
             if (emailInput) break;
         }
         if (!emailInput) throw new Error('Email input not found');
-        emailInput.value = email;
-        emailInput.dispatchEvent(new Event('input', { bubbles: true }));
-        fpDebug('[FOREPLAY-LOGIN] ✅ Email saisi:', emailInput.value);
+        emailInput.focus();
+        setReactValue(emailInput, email);
+        fpLogOnce(
+            'autologin_email_filled',
+            '[FOREPLAY-LOGIN] Email filled into input:',
+            emailInput.value
+        );
         
         // Attendre et remplir le mot de passe
         let passInput = null;
@@ -995,9 +1091,9 @@ async function autoLogin(credentials) {
             if (passInput) break;
         }
         if (!passInput) throw new Error('Password input not found');
-        passInput.value = password;
-        passInput.dispatchEvent(new Event('input', { bubbles: true }));
-        fpDebug('[FOREPLAY-LOGIN] ✅ Password saisi, longueur:', passInput.value.length);
+        passInput.focus();
+        setReactValue(passInput, password);
+        fpLogOnce('autologin_password_filled', '[FOREPLAY-LOGIN] Password filled length:', passInput.value.length);
 
         // Attendre le bouton "Sign In"
         let btn = null;

@@ -1938,6 +1938,10 @@ function InfoToolCard({ img, title, description, link, note, cover, disabled, sm
 
 function BrainCredsCard({ disabled }: { disabled?: boolean }) {
   const [open, setOpen] = React.useState(false)
+  const BRAINFM_EMAIL = 'admin@ecomefficiency.com'
+  // Do NOT hardcode passwords in the client bundle. Brain.fm auto-login is handled
+  // server-side in `src/app/proxy/brainfm/[...path]/route.ts` via env vars.
+  const BRAINFM_PASSWORD_MASK = '••••••••••••••••'
   const wl = React.useMemo(() => {
     try {
       if (typeof window === 'undefined') return null
@@ -1952,7 +1956,17 @@ function BrainCredsCard({ disabled }: { disabled?: boolean }) {
     }
   }, [])
   return (
-    <div onClick={() => { if (!disabled) setOpen(true) }} className={`relative bg-gray-900 border border-white/10 rounded-2xl p-2 md:p-3 flex flex-col ${disabled ? 'opacity-60' : 'cursor-pointer hover:border-white/20'}`}>
+    <div
+      onClick={() => {
+        if (disabled) return
+        try {
+          // Never log raw passwords. This is only a click trace for debugging.
+          console.log('[Brain.fm] card click', { email: BRAINFM_EMAIL, password: '(configured server-side)' })
+        } catch {}
+        setOpen(true)
+      }}
+      className={`relative bg-gray-900 border border-white/10 rounded-2xl p-2 md:p-3 flex flex-col ${disabled ? 'opacity-60' : 'cursor-pointer hover:border-white/20'}`}
+    >
       <div className="w-full rounded-xl bg-[#000000] border border-white/10 overflow-hidden relative" style={{ aspectRatio: '16 / 9' }}>
         {/* Keep default logo (same as ecomefficiency.com); no auto tinting */}
         <Image src="/tools-logos/brain.png" alt="Brain.fm logo" fill className="object-contain p-2" sizes="(max-width: 768px) 100vw, 50vw" />
@@ -1976,16 +1990,18 @@ function BrainCredsCard({ disabled }: { disabled?: boolean }) {
               <div>
                 <p className="text-xs text-gray-400 mb-1">Email</p>
                 <div className="flex items-center gap-2">
-                  <span className="text-white text-sm select-all">1spytools1@gmail.com</span>
-                  <CopyButton value={'1spytools1@gmail.com'} label="Copy email" />
+                  <span className="text-white text-sm select-all">{BRAINFM_EMAIL}</span>
+                  <CopyButton value={BRAINFM_EMAIL} label="Copy email" />
                 </div>
               </div>
               <div>
                 <p className="text-xs text-gray-400 mb-1">Password</p>
                 <div className="flex items-center gap-2">
-                  <span className="text-white text-sm select-all">wdawdawdiajd08w@298</span>
-                  <CopyButton value={'wdawdawdiajd08w@298'} label="Copy password" />
+                  <span className="text-white text-sm select-all">{BRAINFM_PASSWORD_MASK}</span>
                 </div>
+                <p className="mt-1 text-[11px] text-gray-500">
+                  Password is configured server-side for auto-login. It is not exposed in the app UI.
+                </p>
               </div>
                   <div className="pt-1 text-[11px] text-gray-500">Use these on your own browser to sign in to Brain.fm</div>
                   <div className="pt-1">
