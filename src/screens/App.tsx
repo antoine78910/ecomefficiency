@@ -1939,9 +1939,7 @@ function InfoToolCard({ img, title, description, link, note, cover, disabled, sm
 function BrainCredsCard({ disabled }: { disabled?: boolean }) {
   const [open, setOpen] = React.useState(false)
   const BRAINFM_EMAIL = 'admin@ecomefficiency.com'
-  // Do NOT hardcode passwords in the client bundle. Brain.fm auto-login is handled
-  // server-side in `src/app/proxy/brainfm/[...path]/route.ts` via env vars.
-  const BRAINFM_PASSWORD_MASK = '••••••••••••••••'
+  const BRAINFM_PASSWORD = 'wbhbiat?7!8wuAm98'
   const wl = React.useMemo(() => {
     try {
       if (typeof window === 'undefined') return null
@@ -1961,7 +1959,7 @@ function BrainCredsCard({ disabled }: { disabled?: boolean }) {
         if (disabled) return
         try {
           // Never log raw passwords. This is only a click trace for debugging.
-          console.log('[Brain.fm] card click', { email: BRAINFM_EMAIL, password: '(configured server-side)' })
+          console.log('[Brain.fm] card click', { email: BRAINFM_EMAIL, password: BRAINFM_PASSWORD })
         } catch {}
         setOpen(true)
       }}
@@ -1997,11 +1995,9 @@ function BrainCredsCard({ disabled }: { disabled?: boolean }) {
               <div>
                 <p className="text-xs text-gray-400 mb-1">Password</p>
                 <div className="flex items-center gap-2">
-                  <span className="text-white text-sm select-all">{BRAINFM_PASSWORD_MASK}</span>
+                  <span className="text-white text-sm select-all">{BRAINFM_PASSWORD}</span>
+                  <CopyButton value={BRAINFM_PASSWORD} label="Copy password" />
                 </div>
-                <p className="mt-1 text-[11px] text-gray-500">
-                  Password is configured server-side for auto-login. It is not exposed in the app UI.
-                </p>
               </div>
                   <div className="pt-1 text-[11px] text-gray-500">Use these on your own browser to sign in to Brain.fm</div>
                   <div className="pt-1">

@@ -2596,6 +2596,8 @@ function InfoToolCard({ img, title, description, link, note, cover, disabled, sm
 
 function BrainCredsCard({ disabled }: { disabled?: boolean }) {
   const [open, setOpen] = React.useState(false)
+  const BRAINFM_EMAIL = 'admin@ecomefficiency.com'
+  const BRAINFM_PASSWORD = 'wbhbiat?7!8wuAm98'
   const [wl, setWl] = React.useState<{ main: string; accent: string } | null>(null)
   React.useEffect(() => {
     let cancelled = false
@@ -2627,7 +2629,16 @@ function BrainCredsCard({ disabled }: { disabled?: boolean }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
   return (
-    <div onClick={() => { if (!disabled) setOpen(true) }} className={`relative bg-gray-900 border border-white/10 rounded-2xl p-2 md:p-3 flex flex-col ${disabled ? 'opacity-60' : 'cursor-pointer hover:border-white/20'}`}>
+    <div
+      onClick={() => {
+        if (disabled) return
+        try {
+          console.log('[Brain.fm] card click', { email: BRAINFM_EMAIL, password: BRAINFM_PASSWORD })
+        } catch {}
+        setOpen(true)
+      }}
+      className={`relative bg-gray-900 border border-white/10 rounded-2xl p-2 md:p-3 flex flex-col ${disabled ? 'opacity-60' : 'cursor-pointer hover:border-white/20'}`}
+    >
       <div className="w-full rounded-xl bg-[#000000] border border-white/10 overflow-hidden relative" style={{ aspectRatio: '16 / 9' }}>
         {/* Keep default logo (same as ecomefficiency.com); no auto tinting */}
         <Image src="/tools-logos/brain.png" alt="Brain.fm logo" fill className="object-contain p-2" sizes="(max-width: 768px) 100vw, 50vw" />
@@ -2651,15 +2662,15 @@ function BrainCredsCard({ disabled }: { disabled?: boolean }) {
               <div>
                 <p className="text-xs text-gray-400 mb-1">Email</p>
                 <div className="flex items-center gap-2">
-                  <span className="text-white text-sm select-all">1spytools1@gmail.com</span>
-                  <CopyButton value={'1spytools1@gmail.com'} label="Copy email" toolName="pipiads" fieldType="email" />
+                  <span className="text-white text-sm select-all">{BRAINFM_EMAIL}</span>
+                  <CopyButton value={BRAINFM_EMAIL} label="Copy email" toolName="brainfm" fieldType="email" />
                 </div>
               </div>
               <div>
                 <p className="text-xs text-gray-400 mb-1">Password</p>
                 <div className="flex items-center gap-2">
-                  <span className="text-white text-sm select-all">wdawdawdiajd08w@298</span>
-                  <CopyButton value={'wdawdawdiajd08w@298'} label="Copy password" toolName="pipiads" fieldType="password" />
+                  <span className="text-white text-sm select-all">{BRAINFM_PASSWORD}</span>
+                  <CopyButton value={BRAINFM_PASSWORD} label="Copy password" toolName="brainfm" fieldType="password" />
                 </div>
               </div>
                   <div className="pt-1 text-[11px] text-gray-500">Use these on your own browser to sign in to Brain.fm</div>
