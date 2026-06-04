@@ -306,7 +306,9 @@ async function sourceToSearchableText(source) {
 
 app.get('/otp', async (req, res) => {
   console.log('[imap] OTP request received at', new Date().toISOString());
-  const sinceTs = Number(req && req.query && req.query.since ? req.query.since : 0);
+  const sinceTsRaw = Number(req && req.query && req.query.since ? req.query.since : 0);
+  // Accept emails sent slightly before the client timestamp (OpenAI can deliver before /email-verification loads).
+  const sinceTs = sinceTsRaw > 45000 ? sinceTsRaw - 45000 : 0;
   const now = Date.now();
   const inflightKey = `gpt:${sinceTs || 0}`;
   const inflight = gptInflight.get(inflightKey);
@@ -325,25 +327,32 @@ app.get('/otp', async (req, res) => {
       });
     }
   }
-  const imapHost = process.env.IMAP_HOST; // e.g., "imap.neospace.email"
-  const imapPort = Number(process.env.IMAP_PORT || 993);
-  // Allow dedicated creds for GPT (/otp) while keeping IMAP_USER as fallback
-  const imapUser = process.env.IMAP_GPT_USER || process.env.IMAP_USER; // full email address
-  const imapPass = process.env.IMAP_GPT_PASS || process.env.IMAP_PASS; // app password
-  const imapTLS  = String(process.env.IMAP_TLS || 'true') === 'true';
-  const imapMethod = (process.env.IMAP_METHOD || 'LOGIN').toUpperCase(); // LOGIN or PLAIN
+  const imapHost = process.env.IMAP_GPT_HOST || process.env.IMAP_HOST;
+  const imapPort = Number(process.env.IMAP_GPT_PORT || process.env.IMAP_PORT || 993);
+  // GPT (/otp): support@ inbox only — never fall back to admin@ (IMAP_USER).
+  const imapUser = process.env.IMAP_GPT_USER || process.env.IMAP_USER1;
+  const imapPass = process.env.IMAP_GPT_PASS || process.env.IMAP_PASS1;
+  const imapTLS  = String(process.env.IMAP_GPT_TLS || process.env.IMAP_TLS || 'true') === 'true';
+  const imapMethod = (process.env.IMAP_GPT_METHOD || process.env.IMAP_METHOD || 'LOGIN').toUpperCase();
 
   console.log('[imap] Config:', { 
     host: imapHost, 
     port: imapPort, 
     user: imapUser ? imapUser.substring(0, 3) + '***' : 'missing',
     tls: imapTLS,
-    method: imapMethod 
+    method: imapMethod,
+    sinceTsRaw: sinceTsRaw || 0,
+    sinceTsBuffered: sinceTs || 0,
   });
 
   if (!imapHost || !imapUser || !imapPass) {
-    console.error('[imap] Missing env vars', { host: !!imapHost, user: !!imapUser, pass: !!imapPass });
-    return res.status(500).json({ error: 'Missing IMAP env vars' });
+    console.error('[imap] Missing GPT IMAP env vars', {
+      host: !!imapHost,
+      user: !!imapUser,
+      pass: !!imapPass,
+      hint: 'Set IMAP_GPT_USER/IMAP_GPT_PASS (support@ecomefficiency.com) on the server',
+    });
+    return res.status(500).json({ error: 'Missing IMAP_GPT_USER/IMAP_GPT_PASS env vars' });
   }
 
   const client = new ImapFlow({
@@ -369,7 +378,7 @@ app.get('/otp', async (req, res) => {
 
           const unseen = await client.search({ seen: false }, { uid: true });
           const all = await client.search({}, { uid: true });
-          const seq = Array.from(new Set(unseen.slice(-30).concat(all.slice(-30))))
+          const seq = Array.from(new Set(unseen.slice(-50).concat(all.slice(-50))))
             .sort((a, b) => Number(b) - Number(a));
 
           for (const uid of seq) {
@@ -410,7 +419,7 @@ app.get('/otp', async (req, res) => {
       picked = pickBestOpenAiOtpEmail(candidates, {
         nowMs: now,
         sinceTs: sinceTs || 0,
-        maxAgeMs: 60 * 1000,
+        maxAgeMs: 5 * 60 * 1000,
       });
       code = picked && picked.code ? picked.code : '';
     } finally {
@@ -430,7 +439,15 @@ app.get('/otp', async (req, res) => {
         code,
       });
     } else {
-      console.log('[imap] No matching OpenAI OTP email found', { sinceTs: sinceTs || 0, freshnessMs: 60 * 1000 });
+      const openAiCandidates = candidates.filter((c) => /openai|chatgpt|tm\.openai/i.test(`${c.from} ${c.subject} ${c.raw.slice(0, 500)}`));
+      console.log('[imap] No matching OpenAI OTP email found', {
+        sinceTs: sinceTs || 0,
+        sinceTsRaw: sinceTsRaw || 0,
+        freshnessMs: 5 * 60 * 1000,
+        scanned: candidates.length,
+        openAiLike: openAiCandidates.length,
+        sampleFrom: openAiCandidates.slice(0, 3).map((c) => ({ from: c.from, subject: c.subject, date: c.date })),
+      });
     }
 
     return {

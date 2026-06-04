@@ -270,16 +270,15 @@
           return;
         }
         if (type !== 'EE_HIGGSFIELD_WALLET') return;
-        var credits = p.creditsRemaining !== undefined ? p.creditsRemaining : p.credits;
+        if (p.source !== 'workspaces/wallet' && typeof p.creditsBalanceRaw !== 'number') return;
+        var credits = typeof p.creditsBalanceRaw === 'number'
+          ? (p.creditsBalanceRaw / 100)
+          : (p.creditsRemaining !== undefined ? p.creditsRemaining : p.credits);
         if (credits !== undefined && credits !== null && lastKnownBalance !== null && lastKnownBalance > credits && !p.source) {
           usedFromDeltas += (lastKnownBalance - credits);
         }
         if (credits !== undefined && credits !== null) lastKnownBalance = credits;
-        if (
-          (p.source === 'workspaces/wallet' || typeof p.creditsBalanceRaw === 'number') &&
-          credits !== undefined &&
-          credits !== null
-        ) {
+        if (credits !== undefined && credits !== null) {
           // Store raw balance too, for accurate popup display
           var storeExtra = {};
           if (typeof p.creditsBalanceRaw === 'number') storeExtra.creditsBalanceRaw = p.creditsBalanceRaw;

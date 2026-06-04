@@ -170,21 +170,7 @@ try {
     } catch (_) {}
     setInterval(removeShowPasswordButtons, 750);
 
-    // 1b) Block access to /email-verification (anti "forgot password" OTP abuse)
-    const blockEmailVerificationPage = () => {
-      try {
-        const path = String(location.pathname || '');
-        if (!path.startsWith('/email-verification')) return false;
-        console.warn('[EE][OpenAI] Blocking /email-verification → redirecting to /log-in');
-        try { window.stop && window.stop(); } catch (_) {}
-        try { location.replace('https://auth.openai.com/log-in?t=' + Date.now()); } catch (_) {}
-        return true;
-      } catch (_) {
-        return false;
-      }
-    };
-
-    // 1c) Remove/disable "Forgot password?" links on login pages
+    // Remove/disable "Forgot password?" links on login pages
     const ensureForgotPasswordCss = () => {
       try {
         if (document.getElementById('ee-openai-forgotpw-css')) return;
@@ -250,11 +236,9 @@ try {
     // Apply immediately + keep enforcing (light), but respect pause
     ensureForgotPasswordCss();
     removeForgotPasswordLinks();
-    blockEmailVerificationPage();
     setInterval(() => {
       if (__eeIsPaused()) return;
       removeForgotPasswordLinks();
-      blockEmailVerificationPage();
     }, 800);
 
     // 2) Custom recovery for auth.openai.com/error

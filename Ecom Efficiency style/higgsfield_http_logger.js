@@ -339,13 +339,43 @@
   }
   function extractCreditsRemaining(j) {
     if (j == null) return undefined;
-    // Explicit HF wallet field: credits_balance is the raw balance (e.g., 10057 = 100.57 credits)
-    // Divide by 100 to get the display value matching Higgsfield UI.
+    // Explicit HF wallet field: credits_balance is raw units (e.g. 600002 = 6000.02 credits in UI).
     if (typeof j.credits_balance === 'number' && !isNaN(j.credits_balance)) return j.credits_balance / 100;
+    if (typeof j.total_credits === 'number' && !isNaN(j.total_credits)) return j.total_credits / 100;
+    // subscription_balance is a small add-on bucket — never use it as the main wallet.
     var v = j.creditsRemaining ?? j.credits_remaining ?? j.remainingCredits ?? j.credit ?? j.credits ?? j.balance;
-    if (typeof v === 'number' && !isNaN(v)) return v;
+    if (typeof v === 'number' && !isNaN(v)) {
+      // Ignore subscription_balance-only payloads (e.g. 2 → false 0.02 cr blocks).
+      if (typeof j.credits_balance !== 'number' && typeof j.subscription_balance === 'number' && v === j.subscription_balance) {
+        return undefined;
+      }
+      return v;
+    }
     if (j.wallet && typeof j.wallet.creditsRemaining === 'number') return j.wallet.creditsRemaining;
-    return findCreditLike(j, new WeakSet());
+    return undefined;
+  }
+  function buildTrustedWalletPayload(j, sourceTag) {
+    var creditsBalanceRaw = typeof j.credits_balance === 'number' ? j.credits_balance : null;
+    var totalCredits = typeof j.total_credits === 'number' ? j.total_credits : null;
+    if (creditsBalanceRaw === null && totalCredits === null) return null;
+    if (creditsBalanceRaw !== null && typeof j.subscription_balance === 'number' &&
+        creditsBalanceRaw === j.subscription_balance && creditsBalanceRaw < 10000) {
+      return null;
+    }
+    var display = creditsBalanceRaw !== null
+      ? creditsBalanceRaw / 100
+      : (totalCredits !== null ? totalCredits / 100 : extractCreditsRemaining(j));
+    if (display === undefined || display === null || !isFinite(display)) return null;
+    if (display > 0 && display < 5 && creditsBalanceRaw === null) return null;
+    return {
+      creditsRemaining: display,
+      credits: display,
+      creditsBalanceRaw: creditsBalanceRaw,
+      subscriptionBalance: typeof j.subscription_balance === 'number' ? j.subscription_balance : null,
+      totalCredits: totalCredits,
+      workspaceId: j.workspace_id || null,
+      source: sourceTag || 'workspaces/wallet'
+    };
   }
   function logWalletResponse(url, response) {
     if (!url || url.indexOf('fnf.higgsfield.ai') === -1) return;
@@ -354,39 +384,17 @@
         var j = JSON.parse(text);
         var creditsRemaining = extractCreditsRemaining(j);
         if (isWorkspacesWallet(url)) {
-          // Explicit wallet fields from fnf.higgsfield.ai/workspaces/wallet
-          var creditsBalanceRaw = typeof j.credits_balance === 'number' ? j.credits_balance : null;
-          var subscriptionBalance = typeof j.subscription_balance === 'number' ? j.subscription_balance : null;
-          var totalCredits = typeof j.total_credits === 'number' ? j.total_credits : null;
-          var workspaceId = j.workspace_id || null;
-          var display = creditsBalanceRaw !== null ? creditsBalanceRaw / 100 : creditsRemaining;
-          if (display !== undefined && display !== null) lastKnownCredits = display;
-          console.log('[EE][HIGGSFIELD][WALLET] workspaces/wallet credits_balance_raw=' + creditsBalanceRaw + ' display=' + display);
-          try {
-            window.postMessage({
-              type: 'EE_HIGGSFIELD_WALLET',
-              source: 'ee-logger',
-              payload: {
-                creditsRemaining: display,
-                credits: display,
-                creditsBalanceRaw: creditsBalanceRaw,
-                subscriptionBalance: subscriptionBalance,
-                totalCredits: totalCredits,
-                workspaceId: workspaceId,
-                source: 'workspaces/wallet'
-              }
-            }, '*');
-          } catch (_) {}
+          var walletPayload = buildTrustedWalletPayload(j, 'workspaces/wallet');
+          if (walletPayload) {
+            lastKnownCredits = walletPayload.creditsRemaining;
+            console.log('[EE][HIGGSFIELD][WALLET] workspaces/wallet credits_balance_raw=' + walletPayload.creditsBalanceRaw + ' display=' + walletPayload.creditsRemaining);
+            try {
+              window.postMessage({ type: 'EE_HIGGSFIELD_WALLET', source: 'ee-logger', payload: walletPayload }, '*');
+            } catch (_) {}
+          }
           return;
         }
-        var credits = j.credits ?? j.credit ?? j.balance ?? (j.wallet && j.wallet.credits) ?? (j.wallet && j.wallet.balance) ?? (j.user && j.user.credits) ?? (j.data && j.data.credits) ?? findCreditLike(j, new WeakSet());
-        var used = j.usedToday ?? j.used ?? j.consumed ?? (j.data && j.data.used) ?? (j.user && j.user.used) ?? findUsedLike(j, new WeakSet());
-        if (credits !== undefined && typeof credits === 'number') lastKnownCredits = credits;
-        var rawSnippet = undefined;
-        try { rawSnippet = JSON.stringify(j).slice(0, 400); } catch (_) {}
-        try {
-          window.postMessage({ type: 'EE_HIGGSFIELD_WALLET', source: 'ee-logger', payload: { credits: credits, used: used, rawSnippet: rawSnippet } }, '*');
-        } catch (_) {}
+        // Do NOT broadcast job/generation JSON as wallet balance (caused false 0.02 / 2 cr blocks).
       } catch (_) {}
     }).catch(function () {});
   }
@@ -473,23 +481,14 @@
                   origFetch.call(window, 'https://fnf.higgsfield.ai/workspaces/wallet', { credentials: 'include' })
                     .then(function (r) { return r.json(); })
                     .then(function (data) {
-                      var raw = typeof data.credits_balance === 'number' ? data.credits_balance : null;
-                      var display = raw !== null ? raw / 100 : null;
-                      if (display === null) return;
-                      lastKnownCredits = display;
+                      var walletPayloadAfter = buildTrustedWalletPayload(data, 'workspaces/wallet');
+                      if (!walletPayloadAfter) return;
+                      walletPayloadAfter.afterGen = true;
+                      lastKnownCredits = walletPayloadAfter.creditsRemaining;
                       window.postMessage({
                         type: 'EE_HIGGSFIELD_WALLET',
                         source: 'ee-logger',
-                        payload: {
-                          creditsRemaining: display,
-                          credits: display,
-                          creditsBalanceRaw: raw,
-                          subscriptionBalance: typeof data.subscription_balance === 'number' ? data.subscription_balance : null,
-                          totalCredits: typeof data.total_credits === 'number' ? data.total_credits : null,
-                          workspaceId: data.workspace_id || null,
-                          source: 'workspaces/wallet',
-                          afterGen: true
-                        }
+                        payload: walletPayloadAfter
                       }, '*');
                     }).catch(function () {});
                 } catch (_) {}
@@ -583,23 +582,17 @@
         try {
           var j = JSON.parse(xhr.responseText);
           var creditsRemaining = extractCreditsRemaining(j);
-          if (isWorkspacesWallet(xhr.responseURL) && creditsRemaining !== undefined) {
-            lastKnownCredits = creditsRemaining;
-            console.log('[EE][HIGGSFIELD][WALLET] workspaces/wallet creditsRemaining=', creditsRemaining);
-            try {
-              window.postMessage({ type: 'EE_HIGGSFIELD_WALLET', source: 'ee-logger', payload: { creditsRemaining: creditsRemaining, credits: creditsRemaining, source: 'workspaces/wallet' } }, '*');
-            } catch (_) {}
+          if (isWorkspacesWallet(xhr.responseURL)) {
+            var walletPayloadXhr = buildTrustedWalletPayload(j, 'workspaces/wallet');
+            if (walletPayloadXhr) {
+              lastKnownCredits = walletPayloadXhr.creditsRemaining;
+              console.log('[EE][HIGGSFIELD][WALLET] workspaces/wallet creditsRemaining=', walletPayloadXhr.creditsRemaining);
+              try {
+                window.postMessage({ type: 'EE_HIGGSFIELD_WALLET', source: 'ee-logger', payload: walletPayloadXhr }, '*');
+              } catch (_) {}
+            }
             return;
           }
-          var credits = j.credits ?? j.credit ?? j.balance ?? j.wallet?.credits ?? j.wallet?.balance ?? j.user?.credits ?? j.data?.credits ?? j.result?.credits ?? j.meta?.credits ?? findCreditLike(j, new WeakSet());
-          var used = j.usedToday ?? j.used ?? j.consumed ?? j.data?.used ?? j.user?.used ?? findUsedLike(j, new WeakSet());
-          if (credits !== undefined && typeof credits === 'number') lastKnownCredits = credits;
-          var rawSnippet = undefined;
-          try { rawSnippet = JSON.stringify(j).slice(0, 400); } catch (_) {}
-          console.log('[EE][HIGGSFIELD][WALLET] response', xhr.responseURL, { credits: credits, used: used, rawSnippet: rawSnippet });
-          try {
-            window.postMessage({ type: 'EE_HIGGSFIELD_WALLET', source: 'ee-logger', payload: { credits: credits, used: used, rawSnippet: rawSnippet } }, '*');
-          } catch (_) {}
         } catch (_) {}
       }
     });
@@ -617,25 +610,12 @@
         .then(function (r) { return r.ok ? r.json() : null; })
         .then(function (data) {
           if (!data) return;
-          var raw = typeof data.credits_balance === 'number' ? data.credits_balance : null;
-          var display = raw !== null ? raw / 100 : null;
-          if (display === null) return;
-          lastKnownCredits = display;
+          var walletPayloadFetch = buildTrustedWalletPayload(data, 'workspaces/wallet');
+          if (!walletPayloadFetch) return;
+          walletPayloadFetch.afterGen = false;
+          lastKnownCredits = walletPayloadFetch.creditsRemaining;
           try {
-            window.postMessage({
-              type: 'EE_HIGGSFIELD_WALLET',
-              source: 'ee-logger',
-              payload: {
-                creditsRemaining: display,
-                credits: display,
-                creditsBalanceRaw: raw,
-                subscriptionBalance: typeof data.subscription_balance === 'number' ? data.subscription_balance : null,
-                totalCredits: typeof data.total_credits === 'number' ? data.total_credits : null,
-                workspaceId: data.workspace_id || null,
-                source: 'workspaces/wallet',
-                afterGen: false
-              }
-            }, '*');
+            window.postMessage({ type: 'EE_HIGGSFIELD_WALLET', source: 'ee-logger', payload: walletPayloadFetch }, '*');
           } catch (_) {}
         }).catch(function () {});
     } catch (_) {}

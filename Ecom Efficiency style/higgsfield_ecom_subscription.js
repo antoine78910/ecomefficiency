@@ -53,6 +53,108 @@
   // network logger. This avoids the chrome.storage.local round-trip latency on first
   // Generate click and survives the wallet 401 timing window.
   var __eeWalletCreditsCache = null;
+  var __eeWalletCreditsCacheAt = 0;
+
+  function normalizeWalletCreditsFromPayload(wp) {
+    try {
+      if (!wp) return null;
+      if (typeof wp.creditsBalanceRaw === 'number' && isFinite(wp.creditsBalanceRaw)) {
+        var raw = wp.creditsBalanceRaw;
+        // subscription_balance alone is often 2 → 0.02 cr when mistaken for credits_balance.
+        if (typeof wp.subscriptionBalance === 'number' && raw === wp.subscriptionBalance && raw < 10000) {
+          return null;
+        }
+        return raw / 100;
+      }
+      if (typeof wp.totalCredits === 'number' && isFinite(wp.totalCredits)) {
+        return wp.totalCredits / 100;
+      }
+      var c = wp.creditsRemaining !== undefined ? wp.creditsRemaining : wp.credits;
+      if (typeof c === 'number' && isFinite(c)) {
+        if (c > 0 && c < 5) return null;
+        return c;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  function isTrustedWalletPayload(wp) {
+    if (!wp || wp.source !== 'workspaces/wallet') return false;
+    if (typeof wp.creditsBalanceRaw === 'number' && isFinite(wp.creditsBalanceRaw)) return true;
+    if (typeof wp.totalCredits === 'number' && isFinite(wp.totalCredits)) return true;
+    return false;
+  }
+
+  function setWalletCreditsCache(value, reason) {
+    if (typeof value !== 'number' || !isFinite(value)) return;
+    if (value < 0) return;
+    if (value > 0 && value < 5) return;
+    var prev = __eeWalletCreditsCache;
+    if (typeof prev === 'number' && isFinite(prev) && value < prev - 0.5 && value < 5 && prev > 50) {
+      log('wallet cache ignored (suspicious drop)', prev, '->', value, reason || '');
+      return;
+    }
+    __eeWalletCreditsCache = value;
+    __eeWalletCreditsCacheAt = Date.now();
+    log('wallet cache updated:', value, reason || '');
+  }
+
+  function parseLargestCreditNumberFromText(text) {
+    if (!text) return null;
+    var t = String(text).replace(/\s+/g, ' ');
+    var matches = t.match(/\d{1,3}(?:[,\s]\d{3})*(?:\.\d{1,2})?|\d+(?:\.\d{1,2})?/g);
+    if (!matches || !matches.length) return null;
+    var best = null;
+    for (var i = 0; i < matches.length; i++) {
+      var n = parseFloat(String(matches[i]).replace(/,/g, '').replace(/\s/g, ''));
+      if (!isFinite(n) || n < 0) continue;
+      if (best === null || n > best) best = n;
+    }
+    return best;
+  }
+
+  function readWalletCreditsFromProfileDom() {
+    try {
+      var roots = [];
+      var profile = document.querySelector('[data-header-menu="profile-menu"]');
+      var header = document.querySelector('header');
+      if (profile) roots.push(profile);
+      if (header) roots.push(header);
+      for (var ri = 0; ri < roots.length; ri++) {
+        var text = String(roots[ri].textContent || '');
+        if (!/credit|cr\b|wallet/i.test(text)) continue;
+        var best = parseLargestCreditNumberFromText(text);
+        if (best !== null && best >= 1) return best;
+      }
+    } catch (_) {}
+    return null;
+  }
+
+  /** Sync wallet for document_capture — never block on poisoned 0.02 cache alone. */
+  function getBestKnownWalletCreditsSync() {
+    var dom = readWalletCreditsFromProfileDom();
+    if (dom !== null && isFinite(dom) && dom >= 1) {
+      setWalletCreditsCache(dom, 'sync-header-dom');
+      return dom;
+    }
+    if (headerRingIndicatesFullCredits()) {
+      if (typeof __eeWalletCreditsCache === 'number' && __eeWalletCreditsCache < 5) {
+        __eeWalletCreditsCache = null;
+      }
+      return Number.POSITIVE_INFINITY;
+    }
+    var cached = __eeWalletCreditsCache;
+    if (typeof cached === 'number' && isFinite(cached) && cached >= 5) return cached;
+    return null;
+  }
+
+  function purgeStaleWalletCache() {
+    if (typeof __eeWalletCreditsCache === 'number' && __eeWalletCreditsCache < 5) {
+      __eeWalletCreditsCache = null;
+      log('cleared in-memory stale wallet cache');
+    }
+  }
+
   const _console = (typeof console !== 'undefined' && console.__ee_original__) ? console.__ee_original__ : (typeof console !== 'undefined' ? console : { log: function () {} });
   function log(...a) { if (DEBUG) try { _console.log.apply(_console, ['[EE-HF-Ecom]'].concat(Array.prototype.slice.call(a))); } catch (_) {} }
 
@@ -218,12 +320,15 @@
           var u = getDailyUsage();
           var k = getTodayKey();
           var localUsed = u[k] || 0;
-          if (data.used_today > localUsed) {
-            u[k] = data.used_today;
+          var backendUsed = Math.max(0, data.used_today);
+          if (backendUsed !== localUsed) {
+            u[k] = backendUsed;
             setDailyUsage(u);
-            log('synced usage from backend: local=' + localUsed + ' -> backend=' + data.used_today);
+            syncEcomBlockFlag();
+            try { ensureWidget(); } catch (_) {}
+            log('synced usage from backend: local=' + localUsed + ' -> backend=' + backendUsed);
           } else {
-            log('local usage up to date: local=' + localUsed + ', backend=' + data.used_today);
+            log('local usage matches backend: ' + localUsed);
           }
         }
       })
@@ -277,12 +382,9 @@
       // chrome.storage.local (avoids 2800ms timeout on first Generate click after page load).
       if (e.data.type === 'EE_HIGGSFIELD_WALLET') {
         var wp = e.data.payload || {};
-        var wc = typeof wp.creditsRemaining === 'number' ? wp.creditsRemaining :
-                 (typeof wp.credits === 'number' ? wp.credits : null);
-        if (typeof wc === 'number' && isFinite(wc)) {
-          __eeWalletCreditsCache = wc;
-          log('wallet cache updated from message:', wc);
-        }
+        if (!isTrustedWalletPayload(wp)) return;
+        var wc = normalizeWalletCreditsFromPayload(wp);
+        if (wc !== null) setWalletCreditsCache(wc, 'EE_HIGGSFIELD_WALLET');
         return;
       }
       if (e.data.type === 'EE_HIGGSFIELD_DAILY_LIMIT_BLOCKED') {
@@ -1791,11 +1893,10 @@
 
       var syncUsed  = getUsedToday();
       var syncLimit = CONFIG.DAILY_CREDIT_LIMIT;
-      var syncWallet = (typeof __eeWalletCreditsCache === 'number' && isFinite(__eeWalletCreditsCache))
-        ? __eeWalletCreditsCache : null;
+      var syncWallet = getBestKnownWalletCreditsSync();
 
-      // Block: Higgsfield wallet insufficient
-      if (syncWallet !== null && syncWallet < syncCostInfo.cost) {
+      // Block: Higgsfield wallet insufficient (only when balance is confidently known)
+      if (syncWallet !== null && isFinite(syncWallet) && syncWallet < syncCostInfo.cost) {
         try { if (e && e.preventDefault) e.preventDefault(); } catch (_) {}
         try { if (e && e.stopPropagation) e.stopPropagation(); } catch (_) {}
         try { if (e && e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch (_) {}
@@ -2207,21 +2308,39 @@
     }
   }
 
+  function ringPercentFromCircle(progress) {
+    if (!progress) return null;
+    var arr = Number(progress.getAttribute('stroke-dasharray') || '');
+    var off = Number(progress.getAttribute('stroke-dashoffset') || '');
+    if (!isFinite(arr) || arr <= 0 || !isFinite(off)) return null;
+    var pct = (1 - (off / arr)) * 100;
+    if (!isFinite(pct)) return null;
+    if (pct < 0) pct = 0;
+    if (pct > 100) pct = 100;
+    return Math.round(pct * 10) / 10;
+  }
+
   function getHiggsfieldHeaderCreditsPercent() {
     try {
-      var root = document.querySelector('[data-header-menu="profile-menu"]');
-      if (!root) return null;
-      var circles = root.querySelectorAll('circle[stroke-dasharray][stroke-dashoffset]');
-      if (!circles || !circles.length) return null;
-      var c = circles[circles.length - 1];
-      var arr = Number(c.getAttribute('stroke-dasharray') || '');
-      var off = Number(c.getAttribute('stroke-dashoffset') || '');
-      if (!isFinite(arr) || arr <= 0 || !isFinite(off)) return null;
-      var pct = (1 - (off / arr)) * 100;
-      if (!isFinite(pct)) return null;
-      if (pct < 0) pct = 0;
-      if (pct > 100) pct = 100;
-      return Math.round(pct * 10) / 10;
+      var roots = [];
+      var profile = document.querySelector('[data-header-menu="profile-menu"]');
+      var header = document.querySelector('header');
+      if (profile) roots.push(profile);
+      if (header) roots.push(header);
+      var bestPct = null;
+      for (var ri = 0; ri < roots.length; ri++) {
+        var circles = Array.from(roots[ri].querySelectorAll('circle[stroke-dasharray][stroke-dashoffset]'));
+        if (!circles.length) continue;
+        var progress = circles.find(function (c) {
+          try {
+            var cls = String(c.getAttribute('class') || '');
+            return cls.indexOf('stroke-surface-brand') !== -1 || cls.indexOf('brand') !== -1;
+          } catch (_) { return false; }
+        }) || circles[circles.length - 1];
+        var pct = ringPercentFromCircle(progress);
+        if (pct !== null && (bestPct === null || pct > bestPct)) bestPct = pct;
+      }
+      return bestPct;
     } catch (_) {
       return null;
     }
@@ -2465,33 +2584,87 @@
     }
   }
 
+  function resolveStoredWalletCredits(w) {
+    if (!w) return null;
+    if (typeof w.creditsBalanceRaw === 'number' && isFinite(w.creditsBalanceRaw)) {
+      return w.creditsBalanceRaw / 100;
+    }
+    if (typeof w.totalCredits === 'number' && isFinite(w.totalCredits)) {
+      return w.totalCredits / 100;
+    }
+    var credits = w.creditsRemaining !== undefined ? w.creditsRemaining : w.credits;
+    if (typeof credits === 'number' && isFinite(credits)) {
+      // Legacy poisoned entries stored subscription_balance/100 (e.g. 0.02) without raw balance.
+      if (credits < 5 && typeof w.creditsBalanceRaw !== 'number' && w.source !== 'workspaces/wallet') {
+        return null;
+      }
+      return credits;
+    }
+    return null;
+  }
+
+  function headerRingIndicatesFullCredits() {
+    var pct = getHiggsfieldHeaderCreditsPercent();
+    if (pct !== null && pct >= 95) return true;
+    try {
+      var header = document.querySelector('header');
+      if (!header) return false;
+      var brandCircles = header.querySelectorAll(
+        'circle.stroke-surface-brand[stroke-dasharray][stroke-dashoffset],' +
+        'circle[class*="stroke-surface-brand"][stroke-dasharray][stroke-dashoffset]'
+      );
+      for (var i = 0; i < brandCircles.length; i++) {
+        var off = Number(brandCircles[i].getAttribute('stroke-dashoffset') || '');
+        var arr = Number(brandCircles[i].getAttribute('stroke-dasharray') || '');
+        if (!isFinite(off) || !isFinite(arr) || arr <= 0) continue;
+        if (off <= 0.5 || off / arr <= 0.02) return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
   function readWalletCreditsOnce(cb) {
-    // Fastest path: use the in-page cache set by EE_HIGGSFIELD_WALLET message listener.
+    var domCredits = readWalletCreditsFromProfileDom();
+    var ringFull = headerRingIndicatesFullCredits();
+
+    if (domCredits !== null && domCredits >= 1) {
+      if (__eeWalletCreditsCache === null || domCredits >= __eeWalletCreditsCache - 0.5) {
+        setWalletCreditsCache(domCredits, 'profile-dom');
+      }
+    }
+
     if (typeof __eeWalletCreditsCache === 'number' && isFinite(__eeWalletCreditsCache)) {
-      cb(__eeWalletCreditsCache);
-      return;
+      if (__eeWalletCreditsCache < 5 && (ringFull || (domCredits !== null && domCredits > __eeWalletCreditsCache + 1))) {
+        log('wallet cache skipped (stale low vs dom/ring)', __eeWalletCreditsCache, domCredits, ringFull);
+      } else {
+        return cb(__eeWalletCreditsCache);
+      }
     }
     try {
       if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local || !chrome.storage.local.get) {
-        cb(null);
+        cb(domCredits);
         return;
       }
       chrome.storage.local.get(['ee_hf_wallet'], function (data) {
         try {
-          // Double-check in-page cache (may have been updated while storage was loading)
-          if (typeof __eeWalletCreditsCache === 'number' && isFinite(__eeWalletCreditsCache)) {
+          if (typeof __eeWalletCreditsCache === 'number' && isFinite(__eeWalletCreditsCache) && __eeWalletCreditsCache >= 5) {
             return cb(__eeWalletCreditsCache);
           }
-          var w = data && data.ee_hf_wallet;
-          var credits = w && (w.creditsRemaining !== undefined ? w.creditsRemaining : (w.credits !== undefined ? w.credits : null));
-          if (typeof credits === 'number' && isFinite(credits)) return cb(credits);
-          cb(null);
+          var stored = resolveStoredWalletCredits(data && data.ee_hf_wallet);
+          if (stored !== null && stored >= 5) {
+            setWalletCreditsCache(stored, 'storage');
+            return cb(stored);
+          }
+          if (ringFull || headerRingIndicatesFullCredits()) {
+            return cb(Number.POSITIVE_INFINITY);
+          }
+          cb(domCredits);
         } catch (_) {
-          cb(null);
+          cb(domCredits);
         }
       });
     } catch (_) {
-      cb(null);
+      cb(domCredits);
     }
   }
 
@@ -2548,9 +2721,23 @@
       used_fallback_cost: !!costInfo.usedFallback,
     });
 
-    // 1000ms is enough: in-page wallet cache fills on first authenticated network call.
-    waitForWalletCredits(1000, function (walletCredits) {
+    // Allow wallet API + DOM to settle; stale storage could still show 0.02 cr.
+    waitForWalletCredits(1800, function (walletCredits) {
       eePrecheckInFlight = false;
+      var domCredits = readWalletCreditsFromProfileDom();
+      var ringFull = headerRingIndicatesFullCredits();
+
+      if (typeof domCredits === 'number' && isFinite(domCredits) && domCredits > (walletCredits || 0)) {
+        walletCredits = domCredits;
+        setWalletCreditsCache(domCredits, 'precheck-dom');
+      }
+
+      // Full HF header ring (stroke-dashoffset=0) means credits are not depleted.
+      if (ringFull && (walletCredits === null || walletCredits < costInfo.cost)) {
+        log('wallet precheck: full header ring — not blocking on stale balance', walletCredits, 'cost=' + costInfo.cost);
+        walletCredits = Number.POSITIVE_INFINITY;
+      }
+
       // If wallet credits are not readable yet, do NOT hard-block.
       // In production this can happen transiently even with valid credits.
       if (walletCredits === null) {
@@ -2999,6 +3186,25 @@
   }
 
   // --- Init ---
+  function purgeStaleWalletStorage() {
+    try {
+      if (typeof chrome === 'undefined' || !chrome.storage || !chrome.storage.local) return;
+      chrome.storage.local.get(['ee_hf_wallet'], function (data) {
+        try {
+          var w = data && data.ee_hf_wallet;
+          if (!w) return;
+          if (resolveStoredWalletCredits(w) !== null) return;
+          var legacy = w.creditsRemaining !== undefined ? w.creditsRemaining : w.credits;
+          if (typeof legacy === 'number' && legacy < 5 && typeof w.creditsBalanceRaw !== 'number') {
+            chrome.storage.local.remove('ee_hf_wallet');
+            __eeWalletCreditsCache = null;
+            log('purged stale ee_hf_wallet (legacy low balance)', legacy);
+          }
+        } catch (_) {}
+      });
+    } catch (_) {}
+  }
+
   function init() {
     installFetchInterceptor();
     clearStaleAdminEmail();
@@ -3006,6 +3212,8 @@
     syncVerifiedEmailFromAuthGate();
     installInspectModeHelpers();
     installEcomNetworkBridge();
+    purgeStaleWalletCache();
+    purgeStaleWalletStorage();
     syncEcomBlockFlag();
     log('init', location.href, 'SIMULATE_CONNECTED=', SIMULATE_CONNECTED, 'DAILY_CREDIT_LIMIT=', CONFIG.DAILY_CREDIT_LIMIT);
 

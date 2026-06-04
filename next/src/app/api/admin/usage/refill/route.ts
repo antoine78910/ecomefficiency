@@ -1,15 +1,15 @@
 import { NextResponse } from "next/server";
 import { requireAdminSession } from "@/lib/adminAuth";
 import { supabaseAdmin } from "@/integrations/supabase/server";
+import {
+  computeHiggsfieldUsedToday,
+  HIGGSFIELD_DAILY_LIMIT,
+  utcDayStartIso,
+} from "@/lib/higgsfieldDailyUsage";
 
 export const dynamic = "force-dynamic";
 
 type ToolKey = "elevenlabs" | "higgsfield";
-
-function utcDayStartIso(now = new Date()) {
-  const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(), 0, 0, 0, 0));
-  return d.toISOString();
-}
 
 function normalizeEmail(v: unknown) {
   return String(v || "").trim().toLowerCase();
@@ -40,9 +40,12 @@ export async function POST(req: Request) {
   const since = utcDayStartIso();
 
   const table = tool === "elevenlabs" ? "elevenlabs_usage_events" : "higgsfield_usage_events";
+  const selectCols =
+    tool === "higgsfield" ? "delta, used_today, source" : "delta, source";
+
   const { data, error } = await supabaseAdmin
     .from(table)
-    .select("delta")
+    .select(selectCols)
     .eq("email", email)
     .gte("at", since);
 
@@ -50,11 +53,32 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
   }
 
-  const usedRaw = (data || []).reduce((sum: number, row: any) => sum + (Number(row?.delta) || 0), 0);
-  const used = Math.max(0, usedRaw);
+  const used =
+    tool === "higgsfield"
+      ? computeHiggsfieldUsedToday((data || []) as any[])
+      : Math.max(
+          0,
+          (data || []).reduce((sum: number, row: any) => {
+            const src = String(row?.source || "").toLowerCase();
+            if (src === "admin_refill") return sum;
+            return sum + (Number(row?.delta) || 0);
+          }, 0)
+        );
+
+  const dailyLimit = tool === "higgsfield" ? HIGGSFIELD_DAILY_LIMIT : 100;
 
   if (used <= 0) {
-    return NextResponse.json({ ok: true, tool, email, since, refilled: 0, used_before: used, used_after: 0 });
+    return NextResponse.json({
+      ok: true,
+      tool,
+      email,
+      since,
+      refilled: 0,
+      used_before: 0,
+      used_after: 0,
+      remaining_after: dailyLimit,
+      daily_limit: dailyLimit,
+    });
   }
 
   const at = new Date().toISOString();
@@ -92,6 +116,8 @@ export async function POST(req: Request) {
     refilled: used,
     used_before: used,
     used_after: 0,
+    remaining_after: dailyLimit,
+    daily_limit: dailyLimit,
   });
 }
 

@@ -1,18 +1,22 @@
-// contentScript.js
+// contentScript.js — ElevenLabs auto-login
 
-// Silence all console output for this auto-login (prevents credential leakage).
-try {
-    const noop = function () {};
-    console.log = noop;
-    console.info = noop;
-    console.warn = noop;
-    console.error = noop;
-    console.debug = noop;
-    console.trace = noop;
-    console.group = noop;
-    console.groupCollapsed = noop;
-    console.groupEnd = noop;
-} catch (_) {}
+const __DISABLE_ELEVENLABS_LOADING_OVERLAY = false;
+const __ELEVENLABS_DEBUG = false;
+
+if (!__ELEVENLABS_DEBUG) {
+    try {
+        const noop = function () {};
+        console.log = noop;
+        console.info = noop;
+        console.warn = noop;
+        console.error = noop;
+        console.debug = noop;
+        console.trace = noop;
+        console.group = noop;
+        console.groupCollapsed = noop;
+        console.groupEnd = noop;
+    } catch (_) {}
+}
 
 // Redirection automatique si sur la page manage-subscription
 if (window.location.href.startsWith('https://app.foreplay.co/manage-subscription')) {
@@ -47,6 +51,7 @@ if (window.location.href.startsWith('https://app.foreplay.co/manage-subscription
     }
 
     function showLoadingBar(attempt = 1) {
+        if (__DISABLE_ELEVENLABS_LOADING_OVERLAY) return;
         if (document.getElementById('login-overlay')) return;
         if (!document.body) {
             if (attempt < 50) return setTimeout(() => showLoadingBar(attempt + 1), 50);
@@ -110,6 +115,14 @@ if (window.location.href.startsWith('https://app.foreplay.co/manage-subscription
     }
 
     function hideLoadingBar() {
+        if (__DISABLE_ELEVENLABS_LOADING_OVERLAY) {
+            const overlay = document.getElementById('login-overlay');
+            if (overlay) {
+                try { overlay.remove(); } catch (_) {}
+            }
+            try { if (document.body) document.body.style.overflow = ''; } catch (_) {}
+            return;
+        }
         // IMPORTANT: keep overlay on /app/sign-in even if blocked/errors
         if (isOnElevenSignIn()) return;
         const overlay = document.getElementById('login-overlay');
@@ -125,7 +138,7 @@ if (window.location.href.startsWith('https://app.foreplay.co/manage-subscription
     function startFinalAnimation() {}
 
     // Keep overlay present while on /app/sign-in (hide UI/logs)
-    if (isOnElevenSignIn()) {
+    if (isOnElevenSignIn() && !__DISABLE_ELEVENLABS_LOADING_OVERLAY) {
         showLoadingBar();
         setInterval(() => {
             if (isOnElevenSignIn()) {
@@ -135,6 +148,9 @@ if (window.location.href.startsWith('https://app.foreplay.co/manage-subscription
                 hideLoadingBar();
             }
         }, 500);
+    } else if (isOnElevenSignIn()) {
+        // Debug mode: ensure no leftover overlay blocks the sign-in page.
+        hideLoadingBar();
     }
 
     // === Fonctions Utilitaires ===
@@ -148,41 +164,102 @@ if (window.location.href.startsWith('https://app.foreplay.co/manage-subscription
     function typeInFieldWithKeyboard(field, text, callback) {
         console.log(`🎯 Saisie dans champ ${field.type || 'text'}: "${text}"`);
         
-        // Effacer le champ d'abord
-        field.focus();
-        field.value = '';
-        
-        // Attendre un petit moment pour s'assurer que le focus est bien pris
-        setTimeout(() => {
-            // Saisir le texte
+        // React-controlled inputs need the native setter
+        try {
+            const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+            if (desc && desc.set) desc.set.call(field, text);
+            else field.value = text;
+        } catch (_) {
             field.value = text;
-            
-            // Déclencher tous les événements nécessaires
+        }
+        
+        field.focus();
+        
+        setTimeout(() => {
             field.dispatchEvent(new Event('focus', { bubbles: true }));
             field.dispatchEvent(new Event('input', { bubbles: true }));
             field.dispatchEvent(new Event('change', { bubbles: true }));
             
-            // Pour les champs password, essayer aussi des événements clavier
             if (field.type === 'password') {
                 field.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true }));
                 field.dispatchEvent(new KeyboardEvent('keyup', { bubbles: true }));
             }
             
-            // Vérifier que la valeur a bien été définie
             if (field.value !== text) {
                 console.warn(`⚠️ Valeur incorrecte après saisie. Attendu: "${text}", Obtenu: "${field.value}"`);
-                // Tentative de force brute
-                field.value = text;
+                try {
+                    const desc = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+                    if (desc && desc.set) desc.set.call(field, text);
+                    else field.value = text;
+                } catch (_) {
+                    field.value = text;
+                }
+                field.dispatchEvent(new Event('input', { bubbles: true }));
+                field.dispatchEvent(new Event('change', { bubbles: true }));
             }
             
             field.dispatchEvent(new Event('blur', { bubbles: true }));
-            
             console.log(`✅ Saisie terminée. Valeur finale: "${field.value}"`);
             
-            if (callback) {
-                setTimeout(callback, 300);
-            }
+            if (callback) setTimeout(callback, 300);
         }, 50);
+    }
+
+    function wipeLocalSession() {
+        try {
+            for (let i = localStorage.length - 1; i >= 0; i--) {
+                const k = localStorage.key(i);
+                if (k) localStorage.removeItem(k);
+            }
+            console.log('[EL-AUTOLOGIN] localStorage wiped');
+        } catch (e) {
+            console.warn('[EL-AUTOLOGIN] localStorage wipe error:', e && e.message);
+        }
+    }
+
+    function resetCookiesBg() {
+        return new Promise((resolve) => {
+            try {
+                if (!chrome || !chrome.runtime || !chrome.runtime.sendMessage) return resolve({ ok: false });
+                chrome.runtime.sendMessage({ action: 'RESET_ELEVENLABS_COOKIES' }, (resp) => {
+                    resolve(resp || { ok: false });
+                });
+            } catch (_) {
+                resolve({ ok: false });
+            }
+        });
+    }
+
+    const WIPED_KEY = 'ee_el_just_wiped';
+    const RELOAD_KEY = 'ee_el_login_reload';
+
+    async function ensureCleanSession() {
+        let alreadyWiped = false;
+        try { alreadyWiped = sessionStorage.getItem(WIPED_KEY) === '1'; } catch (_) {}
+
+        if (!alreadyWiped) {
+            let alreadyReloaded = false;
+            try { alreadyReloaded = sessionStorage.getItem(RELOAD_KEY) === '1'; } catch (_) {}
+            if (!alreadyReloaded) {
+                console.log('[EL-AUTOLOGIN] Session not wiped — clearing storage and reloading…');
+                wipeLocalSession();
+                const cr = await resetCookiesBg();
+                console.log('[EL-AUTOLOGIN] Cookie reset:', cr);
+                try { sessionStorage.setItem(RELOAD_KEY, '1'); } catch (_) {}
+                location.reload();
+                return false;
+            }
+            console.log('[EL-AUTOLOGIN] Post-reload: session should be clean');
+        } else {
+            console.log('[EL-AUTOLOGIN] Session wiped by auto_logout — proceeding to login');
+        }
+
+        try {
+            sessionStorage.removeItem(WIPED_KEY);
+            sessionStorage.removeItem(RELOAD_KEY);
+        } catch (_) {}
+
+        return true;
     }
 
     /**
@@ -651,7 +728,7 @@ if (window.location.href.startsWith('https://app.foreplay.co/manage-subscription
     async function autoLogin() {
         try {
             console.log("Début de l'auto-login.");
-            showLoadingBar();
+            if (!__DISABLE_ELEVENLABS_LOADING_OVERLAY) showLoadingBar();
             updateLoadingBar(10);
 
             // Récupérer les identifiants depuis Google Sheets (CSV/HTML)
@@ -665,7 +742,7 @@ if (window.location.href.startsWith('https://app.foreplay.co/manage-subscription
             // IMPORTANT: do NOT remove overlay even if stuck (we must keep it on /app/sign-in)
 
             // 1. Attendre le champ d'e-mail
-            const emailInput = await waitForElement('input[data-testid="sign-in-email-input"], input[name="email"], input[type="email"]');
+            const emailInput = await waitForElement('input[data-testid="sign-in-email-input"], input[name="email"], input[type="email"]', 20000);
             console.log("Champ d'e-mail trouvé.");
             updateLoadingBar(40);
 
@@ -678,7 +755,7 @@ if (window.location.href.startsWith('https://app.foreplay.co/manage-subscription
             updateLoadingBar(60);
 
             // 3. Attendre le champ de mot de passe
-            const passwordInput = await waitForElement('input[data-testid="sign-in-password-input"], input[name="password"], input[type="password"]');
+            const passwordInput = await waitForElement('input[data-testid="sign-in-password-input"], input[name="password"], input[type="password"]', 20000);
             console.log("Champ de mot de passe trouvé.");
             updateLoadingBar(70);
 
@@ -747,8 +824,10 @@ if (window.location.href.startsWith('https://app.foreplay.co/manage-subscription
             }
         }
 
-        showLoadingBar();
+        if (!__DISABLE_ELEVENLABS_LOADING_OVERLAY) showLoadingBar();
         try {
+            const ready = await ensureCleanSession();
+            if (!ready) return;
             await autoLogin();
         } catch (error) {
             console.error("Erreur lors de l'initialisation:", error);

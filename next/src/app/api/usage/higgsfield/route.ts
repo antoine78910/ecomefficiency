@@ -1,6 +1,11 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { verifyHiggsfieldAccessToken } from "@/lib/higgsfieldAccessSession";
+import {
+  computeHiggsfieldUsedToday,
+  HIGGSFIELD_DAILY_LIMIT,
+  utcDayStartIso,
+} from "@/lib/higgsfieldDailyUsage";
 
 type HiggsfieldUsageEvent = {
   email: string | null;
@@ -60,16 +65,13 @@ export async function GET(req: Request) {
     }
 
     const supabase = getSupabaseAdmin();
-    const now = new Date();
-    const since = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+    const since = utcDayStartIso();
 
     const { data, error } = await supabase
       .from("higgsfield_usage_events")
-      .select("delta")
+      .select("delta, used_today, source")
       .eq("email", email)
-      .gte("at", since)
-      // Include negative deltas (refunds/admin refills) so "used today" is accurate.
-      ;
+      .gte("at", since);
 
     if (error) {
       console.warn("[API] higgsfield usage GET error", error.message);
@@ -79,11 +81,17 @@ export async function GET(req: Request) {
       );
     }
 
-    const usedTodayRaw = (data || []).reduce((sum: number, row: any) => sum + (Number(row.delta) || 0), 0);
-    const usedToday = Math.max(0, usedTodayRaw);
+    const usedToday = computeHiggsfieldUsedToday(data || []);
 
     return withCors(
-      NextResponse.json({ ok: true, email, used_today: usedToday, since }),
+      NextResponse.json({
+        ok: true,
+        email,
+        used_today: usedToday,
+        remaining_today: Math.max(0, HIGGSFIELD_DAILY_LIMIT - usedToday),
+        daily_limit: HIGGSFIELD_DAILY_LIMIT,
+        since,
+      }),
       req
     );
   } catch (e: any) {

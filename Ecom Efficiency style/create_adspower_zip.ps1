@@ -1,16 +1,15 @@
 # Creates an AdsPower-ready ZIP:
 # - manifest.json at ZIP root, UTF-8 without BOM, original JSON preserved
 # - no Chrome Web Store "key", no webRequestBlocking
-# - nox-tools/ex1 + ex2 flattened to nox-tools/e1-* and e2-* (max 1 subfolder at root)
+# - nox-tools/ex1 + ex2 flattened to ZIP root as e1-* and e2-* (no nox-tools/ folder)
 param(
     [string]$OutName = "Ecom-Efficiency-AdsPower.zip",
-    [string]$OutFolderName = "Ecom-Efficiency-AdsPower"
+    [switch]$AlsoWriteFolder
 )
 
 $ErrorActionPreference = "Stop"
 $root = $PSScriptRoot
 $zipPath = Join-Path $root $OutName
-$outFolderPath = Join-Path $root $OutFolderName
 $tempFolder = Join-Path $root "temp_zip_folder"
 $manifestSrc = Join-Path $root "manifest.json"
 $utf8NoBom = New-Object System.Text.UTF8Encoding $false
@@ -64,8 +63,9 @@ function Get-ManifestFileRefs {
 
 function Get-AdsPowerRelativePath {
     param([string]$RelativePath)
-    if ($RelativePath -match '^nox-tools/ex1/(.+)$') { return "nox-tools/e1-$($matches[1])" }
-    if ($RelativePath -match '^nox-tools/ex2/(.+)$') { return "nox-tools/e2-$($matches[1])" }
+    if ($RelativePath -match '^nox-tools/ex1/(.+)$') { return "e1-$($matches[1])" }
+    if ($RelativePath -match '^nox-tools/ex2/(.+)$') { return "e2-$($matches[1])" }
+    if ($RelativePath -match '^nox-tools/(.+)$') { return $matches[1] }
     return $RelativePath
 }
 
@@ -85,31 +85,31 @@ function Copy-RelativeFile {
 
 function Install-FlattenedNoxTools {
     $noxSrc = Join-Path $root "nox-tools"
-    $noxDst = Join-Path $tempFolder "nox-tools"
     if (-not (Test-Path $noxSrc)) { return 0 }
 
-    if (Test-Path $noxDst) { Remove-Item $noxDst -Recurse -Force }
-    New-Item -ItemType Directory -Path $noxDst -Force | Out-Null
-
+    $count = 0
     Get-ChildItem $noxSrc -File -ErrorAction SilentlyContinue | ForEach-Object {
-        Copy-Item $_.FullName -Destination (Join-Path $noxDst $_.Name) -Force
+        Copy-Item $_.FullName -Destination (Join-Path $tempFolder $_.Name) -Force
+        $count++
     }
 
     $ex1 = Join-Path $noxSrc "ex1"
     if (Test-Path $ex1) {
         Get-ChildItem $ex1 -File | ForEach-Object {
-            Copy-Item $_.FullName -Destination (Join-Path $noxDst ("e1-" + $_.Name)) -Force
+            Copy-Item $_.FullName -Destination (Join-Path $tempFolder ("e1-" + $_.Name)) -Force
+            $count++
         }
     }
 
     $ex2 = Join-Path $noxSrc "ex2"
     if (Test-Path $ex2) {
         Get-ChildItem $ex2 -File | ForEach-Object {
-            Copy-Item $_.FullName -Destination (Join-Path $noxDst ("e2-" + $_.Name)) -Force
+            Copy-Item $_.FullName -Destination (Join-Path $tempFolder ("e2-" + $_.Name)) -Force
+            $count++
         }
     }
 
-    return (Get-ChildItem $noxDst -File).Count
+    return $count
 }
 
 function Write-AdsPowerManifest {
@@ -117,9 +117,10 @@ function Write-AdsPowerManifest {
     $content = [System.IO.File]::ReadAllText($manifestSrc, [System.Text.Encoding]::UTF8)
     $content = $content.TrimStart([char]0xFEFF)
 
-    # Flatten nox-tools paths (AdsPower: max 3 subfolders - ex1/ex2 nested too deep)
-    $content = $content.Replace('nox-tools/ex1/', 'nox-tools/e1-')
-    $content = $content.Replace('nox-tools/ex2/', 'nox-tools/e2-')
+    # Flatten nox-tools paths to ZIP root (no nox-tools/ folder in package)
+    $content = $content.Replace('nox-tools/ex1/', 'e1-')
+    $content = $content.Replace('nox-tools/ex2/', 'e2-')
+    $content = $content.Replace('nox-tools/', '')
 
     # Remove Chrome Web Store public key (last property before closing brace)
     $content = [regex]::Replace($content, ',\s*\r?\n\s*"key"\s*:\s*"(?:[^"\\]|\\.)*"', '')
@@ -133,14 +134,8 @@ function Write-AdsPowerManifest {
 
 function Test-AdsPowerFolderStructure {
     param([string]$BaseDir)
-    $dirs = Get-ChildItem $BaseDir -Recurse -Directory
-    $nestedUnderNox = $dirs | Where-Object {
-        $rel = $_.FullName.Substring($BaseDir.Length).TrimStart('\', '/')
-        $rel -match '^nox-tools[/\\][^/\\]+[/\\]'
-    }
-    if ($nestedUnderNox.Count -gt 0) {
-        Write-Host "Invalid: nested folders inside nox-tools:" -ForegroundColor Red
-        $nestedUnderNox | ForEach-Object { Write-Host "  $($_.FullName)" }
+    if (Test-Path (Join-Path $BaseDir "nox-tools")) {
+        Write-Host "Invalid: nox-tools/ folder must not exist in ZIP (files belong at root)" -ForegroundColor Red
         return $false
     }
 
@@ -175,7 +170,6 @@ Write-Host "Files referenced in manifest.json: $($fileRefs.Count)" -ForegroundCo
 $copied = 0
 $missing = @()
 foreach ($rel in ($fileRefs | Sort-Object)) {
-    if ($rel -match '^nox-tools/ex[12]/') { continue }
     if (Copy-RelativeFile -RelativePath $rel) {
         $copied++
     } else {
@@ -185,7 +179,7 @@ foreach ($rel in ($fileRefs | Sort-Object)) {
 }
 
 $noxCount = Install-FlattenedNoxTools
-Write-Host "$noxCount files in flattened nox-tools/ (no ex1/ex2 subfolders)" -ForegroundColor Green
+Write-Host "$noxCount nox-tools file(s) copied to ZIP root (e1-*, e2-*, no nox-tools/ folder)" -ForegroundColor Green
 
 foreach ($rel in ($fileRefs | Where-Object { $_ -match '^nox-tools/ex[12]/' })) {
     $adsPath = Get-AdsPowerRelativePath -RelativePath $rel
@@ -243,20 +237,27 @@ if (Test-Path $zipTemp) { Remove-Item $zipTemp -Force }
 if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
 Move-Item $zipTemp $zipPath -Force
 
-if (Test-Path $outFolderPath) { Remove-Item $outFolderPath -Recurse -Force }
-Copy-Item $tempFolder -Destination $outFolderPath -Recurse -Force
 Remove-Item $tempFolder -Recurse -Force
 
-$fileCount = (Get-ChildItem $outFolderPath -Recurse -File).Count
+$zipArchive = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
+try { $fileCount = $zipArchive.Entries.Count } finally { $zipArchive.Dispose() }
 $sizeMb = [Math]::Round((Get-Item $zipPath).Length / 1048576, 2)
 Write-Host "`nDone: $OutName - $sizeMb MB ($fileCount files)" -ForegroundColor Green
 Write-Host "ZIP:  $zipPath" -ForegroundColor Cyan
-Write-Host "Folder (use in AdsPower profile): $outFolderPath" -ForegroundColor Cyan
+
+if ($AlsoWriteFolder) {
+    $outFolderPath = Join-Path $root ([System.IO.Path]::GetFileNameWithoutExtension($OutName))
+    if (Test-Path $outFolderPath) { Remove-Item $outFolderPath -Recurse -Force }
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    [System.IO.Compression.ZipFile]::ExtractToDirectory($zipPath, $outFolderPath)
+    Write-Host "Folder: $outFolderPath" -ForegroundColor Cyan
+}
+
 Write-Host @"
 
 AdsPower setup (after changing the extension):
   1. Extensions (global) -> Developer mode -> remove old Ecom Efficiency import
-  2. Import ZIP: $OutName  (OR load unpacked folder: $OutFolderName)
+  2. Import ZIP: $OutName
   3. Edit each profile -> Extensions -> enable Ecom Efficiency
   4. Do NOT point the profile to 'Ecom Efficiency style' (spaces + manifest key break AdsPower)
 

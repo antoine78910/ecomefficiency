@@ -51,7 +51,14 @@ export default function AdminQuotasPage() {
         setStatus(json?.error || "Refill failed");
         return;
       }
-      setStatus(`OK: refill ${json.refilled} (used_before=${json.used_before} → used_after=${json.used_after})`);
+      const remaining =
+        typeof json.remaining_after === "number"
+          ? json.remaining_after
+          : Math.max(0, (json.daily_limit || 100) - (json.used_after || 0));
+      setStatus(
+        `OK: reset ${json.refilled} cr used (before=${json.used_before} → after=${json.used_after}). ` +
+          `Remaining today: ${remaining}/${json.daily_limit || 100}. Reload Higgsfield so the extension syncs.`
+      );
     } catch (e: any) {
       setStatus(e?.message || "Refill failed");
     } finally {

@@ -102,6 +102,39 @@ test('extractOpenAiOtpFromRaw extracts the code from a raw MIME OpenAI email', a
   assert.equal(code, '876208');
 });
 
+test('extractOpenAiOtpFromRaw extracts the temporary verification code from ChatGPT HTML', () => {
+  const raw = `
+    <p style="font-size:16px">Enter this temporary verification code to continue:</p>
+    <p style="font-family:Menlo;font-size:24px;background-color:#F3F3F3;padding:28px 24px">
+      699389
+    </p>
+    <p>Didn't request a verification code? You can ignore this email.</p>
+    <p>Best,<br>The ChatGPT team</p>
+    <img src="https://cdn.openai.com/API/logo-assets/openai-logo-email-header-2.png">
+  `;
+
+  assert.equal(extractOpenAiOtpFromRaw(raw), '699389');
+});
+
+test('pickBestOpenAiOtpEmail accepts noreply@tm.openai.com with temporary verification copy', () => {
+  const picked = pickBestOpenAiOtpEmail([
+    {
+      uid: 99,
+      date: '2026-05-30T05:27:00.000Z',
+      from: 'noreply@tm.openai.com',
+      subject: 'Your ChatGPT code',
+      seen: false,
+      raw: '<p>Enter this temporary verification code to continue:</p><p>699389</p><p>The ChatGPT team</p>',
+    },
+  ], {
+    nowMs: Date.parse('2026-05-30T05:28:00.000Z'),
+    maxAgeMs: 5 * 60 * 1000,
+  });
+
+  assert.ok(picked);
+  assert.equal(picked.code, '699389');
+});
+
 test('pickBestOpenAiOtpEmail ignores emails older than sinceTs and older than one minute', () => {
   const emails = [
     {

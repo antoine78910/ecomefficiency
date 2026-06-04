@@ -130,10 +130,11 @@
         const t = String(text);
 
         // Patterns les plus probables
+        const num = '(\\d{1,3}(?:[\\s,]\\d{3})*|\\d+)(?:\\.(\\d{1,2}))?';
         const patterns = [
-            { re: /credits?\s*[:\-]?\s*(\d{1,5})/i, pick: (m) => Number(m[1]), score: 6 },
-            { re: /cr[ée]dits?\s*[:\-]?\s*(\d{1,5})/i, pick: (m) => Number(m[1]), score: 6 },
-            { re: /(\d{1,5})\s*(credits?|cr[ée]dits?)\b/i, pick: (m) => Number(m[1]), score: 5 },
+            { re: new RegExp('credits?\\s*[:\\-]?\\s*' + num, 'i'), pick: (m) => parseFloat(String(m[1]).replace(/[\\s,]/g, '') + (m[2] ? '.' + m[2] : '')), score: 6 },
+            { re: new RegExp('cr[ée]dits?\\s*[:\\-]?\\s*' + num, 'i'), pick: (m) => parseFloat(String(m[1]).replace(/[\\s,]/g, '') + (m[2] ? '.' + m[2] : '')), score: 6 },
+            { re: new RegExp(num + '\\s*(credits?|cr[ée]dits?)\\b', 'i'), pick: (m) => parseFloat(String(m[1]).replace(/[\\s,]/g, '') + (m[2] ? '.' + m[2] : '')), score: 5 },
             // "95/100" (souvent remaining/total ou used/total -> on garde les 2 en candidates)
             { re: /(\d{1,5})\s*\/\s*(\d{1,5})/i, pick: (m) => ({ a: Number(m[1]), b: Number(m[2]) }), score: 3 }
         ];
@@ -149,10 +150,10 @@
                 const value = picked;
                 if (!isFinite(value) || value < 0 || value > 100000) continue;
 
-                let score = p.score;
-                if (/left|remaining|restant|restants|restante|reste|no more|insufficient/i.test(t)) score += 3;
-                if (value === 0) score += 4;
-                if (value <= 5000) score += 1;
+                let score = value;
+                if (/left|remaining|restant|restants|restante|reste/i.test(t)) score += 100000;
+                if (/\bcost\b|needed for this generation|−\s*\d/i.test(t)) score -= 100000;
+                if (value === 0 && /\b(no\s+credits|insufficient|empty)\b/i.test(t)) score = -1;
 
                 if (!best || score > best.score) best = { value, score, raw: t.slice(0, 250) };
             } else if (picked && typeof picked === 'object') {
@@ -207,10 +208,11 @@
                 const value = extractCreditsFromText(context);
                 if (value == null) continue;
 
-                // Score simple: on garde le plus petit (souvent remaining) avec bonus si 0.
-                let score = 1;
-                if (value === 0) score += 10;
-                score += Math.max(0, 5 - Math.floor(value / 10)); // favorise les petits nombres
+                // Prefer explicit "remaining/left" labels; otherwise keep the largest wallet-like value.
+                let score = value;
+                if (/\b(left|remaining|restant|reste)\b/i.test(context)) score += 100000;
+                if (/\bcost\b|needed for this generation|−\s*\d/i.test(context)) score -= 100000;
+                if (value === 0 && /\b(no\s+credits|insufficient|empty)\b/i.test(context)) score = -1;
 
                 if (!best || score > best.score) {
                     best = { remainingCredits: value, score, sample: context.trim().slice(0, 200) };
@@ -241,10 +243,10 @@
                     const value = extractCreditsFromText(t);
                     if (value == null) continue;
 
-                    let score2 = 2;
-                    if (/\b(left|remaining|restant|reste)\b/i.test(t)) score2 += 4;
-                    if (value === 0) score2 += 10;
-                    score2 += Math.max(0, 6 - Math.floor(value / 10));
+                    let score2 = value;
+                    if (/\b(left|remaining|restant|reste)\b/i.test(t)) score2 += 100000;
+                    if (/\bcost\b|needed for this generation|−\s*\d/i.test(t)) score2 -= 100000;
+                    if (value === 0 && /\b(no\s+credits|insufficient|empty)\b/i.test(t)) score2 = -1;
                     if (!best2 || score2 > best2.score) {
                         best2 = { remainingCredits: value, score: score2, sample: t.slice(0, 200) };
                     }
@@ -313,13 +315,20 @@
         }
         const pool = creditLike;
 
-        pool.sort((a, b) => b.dashArray - a.dashArray);
-        const { c: progressCircle, dashArray, dashOffset, containerText, inIgnoredUi } = pool[0];
+        const brandPool = pool.filter((p) => {
+            try {
+                const cls = String(p.c.c.getAttribute('class') || '');
+                return cls.includes('stroke-surface-brand') || cls.includes('brand');
+            } catch (_) { return false; }
+        });
+        const pickPool = brandPool.length ? brandPool : pool;
+        pickPool.sort((a, b) => b.dashArray - a.dashArray);
+        const { c: progressCircle, dashArray, dashOffset, containerText, inIgnoredUi } = pickPool[0];
 
-        // Sur la majorité des progress rings: dashOffset = partie "vide".
-        // Donc % restant = (1 - dashOffset/dashArray) * 100
+        // stroke-dashoffset=0 on the brand ring => full credits (user-confirmed).
         const ratio = dashOffset / dashArray;
         const percentageRemaining = clamp((1 - ratio) * 100, 0, 100);
+        const ringLooksFull = dashOffset <= 0.5 || ratio <= 0.02;
         console.log('[Higgsfield Credits] SVG values:', {
             dashArray,
             dashOffset,
@@ -359,9 +368,10 @@
         if (explicitFromContainer != null) {
             remainingCredits = explicitFromContainer;
             chosen = 'container_text';
+        } else if (ringLooksFull) {
+            // Full progress ring without a parseable number still means the wallet is NOT empty.
+            return null;
         } else {
-            // If we couldn't parse explicit credits from the same container, do NOT guess.
-            // Guessing is exactly what caused false positives on unrelated rings.
             return null;
         }
 

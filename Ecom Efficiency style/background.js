@@ -402,25 +402,39 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       try {
         const cookies = [];
 
-        const getAllByDomain = (domain) =>
+        const getAllByDomain = (domain, storeId) =>
           new Promise((resolve) => {
             try {
-              chrome.cookies.getAll({ domain }, (items) => resolve(items || []));
+              const query = storeId != null ? { domain, storeId } : { domain };
+              chrome.cookies.getAll(query, (items) => resolve(items || []));
             } catch (_) {
               resolve([]);
             }
           });
 
-        const getAllByUrl = (url) =>
+        const getAllByUrl = (url, storeId) =>
           new Promise((resolve) => {
             try {
-              chrome.cookies.getAll({ url: String(url) }, (items) => resolve(items || []));
+              const query = storeId != null ? { url: String(url), storeId } : { url: String(url) };
+              chrome.cookies.getAll(query, (items) => resolve(items || []));
             } catch (_) {
               resolve([]);
             }
           });
 
-        // Collect both host-only and domain cookies (include common subdomains used by auth/API/try/app).
+        const getCookieStores = () =>
+          new Promise((resolve) => {
+            try {
+              chrome.cookies.getAllCookieStores((stores) => resolve(stores || [{ id: '0' }]));
+            } catch (_) {
+              resolve([{ id: '0' }]);
+            }
+          });
+
+        const stores = await getCookieStores();
+        const storeIds = [...new Set(stores.map((s) => s.id).filter(Boolean))];
+        if (!storeIds.length) storeIds.push('0');
+
         const urls = [
           'https://elevenlabs.io/',
           'https://www.elevenlabs.io/',
@@ -429,12 +443,6 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           'https://auth.elevenlabs.io/',
           'https://api.elevenlabs.io/'
         ];
-        for (const u of urls) {
-          // eslint-disable-next-line no-await-in-loop
-          const list = await getAllByUrl(u);
-          for (const c of list) cookies.push(c);
-        }
-
         const domains = [
           'elevenlabs.io',
           '.elevenlabs.io',
@@ -444,10 +452,18 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           'auth.elevenlabs.io',
           'api.elevenlabs.io'
         ];
-        for (const d of domains) {
-          // eslint-disable-next-line no-await-in-loop
-          const list = await getAllByDomain(d);
-          for (const c of list) cookies.push(c);
+
+        for (const storeId of storeIds) {
+          for (const u of urls) {
+            // eslint-disable-next-line no-await-in-loop
+            const list = await getAllByUrl(u, storeId);
+            for (const c of list) cookies.push(c);
+          }
+          for (const d of domains) {
+            // eslint-disable-next-line no-await-in-loop
+            const list = await getAllByDomain(d, storeId);
+            for (const c of list) cookies.push(c);
+          }
         }
 
         // Dedupe by (name|domain|path|storeId)
@@ -586,7 +602,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
           console.log('[EE-BG] Trying URL:', url);
           try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5s timeout (polling mode)
+            const timeoutId = setTimeout(() => controller.abort(), 25000);
 
             const res = await fetch(url, {
               cache: 'no-store',
@@ -622,17 +638,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
             }
 
             const code = (json && json.code) ? String(json.code).trim() : '';
-            const echoedSinceTs = Number(json && json.sinceTs ? json.sinceTs : 0);
             const matchedEmailTs = Number(json && json.matchedEmailTs ? json.matchedEmailTs : 0);
-            if (sinceTs > 0) {
-              if (echoedSinceTs !== sinceTs) {
-                lastErr = new Error('Server did not confirm sinceTs filter');
-                continue;
-              }
-              if (matchedEmailTs > 0 && matchedEmailTs < sinceTs) {
-                lastErr = new Error('Server returned a stale email');
-                continue;
-              }
+            // Server may echo a buffered sinceTs (45s earlier). Only reject clearly stale emails.
+            if (sinceTs > 0 && matchedEmailTs > 0 && matchedEmailTs < sinceTs - 90000) {
+              lastErr = new Error('Server returned a stale email');
+              continue;
             }
             if (code && code.length >= 4) {
               const messageKey = pickMessageKey(json, rawText);

@@ -79,28 +79,23 @@
     } catch (_) {}
   }
 
-  function onTarget() {
+  function isEmailVerificationPage() {
     try {
       if (location.hostname !== 'auth.openai.com') return false;
-      const path = location.pathname || '';
-      // Security: do NOT operate on /email-verification (blocked to prevent reset-password OTP abuse)
-      return path.includes('mfa-challenge');
+      const path = String(location.pathname || '');
+      return path === '/email-verification' || path.startsWith('/email-verification/');
     } catch (_) {
       return false;
     }
   }
 
-  function isEmailOtpPage() {
-    try {
-      return location.pathname.includes('/mfa-challenge/email-otp');
-    } catch (_) { return false; }
+  function onTarget() {
+    return isEmailVerificationPage();
   }
 
   function maskEmailOnOtpPage() {
-    // Replace any visible email in "sent to ..." copy with dots (no blur).
-    if (!isEmailOtpPage()) return;
+    if (!onTarget()) return;
     try {
-      // IMPORTANT: only modify text nodes so we don't wipe out nested inputs/buttons.
       const walker = document.createTreeWalker(
         document.body || document.documentElement,
         NodeFilter.SHOW_TEXT,
@@ -109,7 +104,6 @@
             try {
               const v = String(node && node.nodeValue ? node.nodeValue : '');
               if (!v) return NodeFilter.FILTER_REJECT;
-              // Only mask OTP instruction copy
               if (!/sent\s+to/i.test(v) && !/we\s+just\s+sent\s+to/i.test(v)) return NodeFilter.FILTER_REJECT;
               if (!/[^\s@]+@[^\s@]+\.[^\s@]+/.test(v)) return NodeFilter.FILTER_REJECT;
               return NodeFilter.FILTER_ACCEPT;
@@ -145,7 +139,6 @@
       width: '220px', minHeight: '80px', background: 'rgba(0,0,0,0.7)', color: '#fff',
       borderRadius: '10px', padding: '12px', display: 'flex', flexDirection: 'column',
       alignItems: 'center', gap: '8px', boxShadow: '0 4px 16px rgba(0,0,0,0.25)',
-      // Match Pipiads loading screen font
       fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
     });
 
@@ -176,13 +169,13 @@
     retryBtn.id = 'ee-otp-retry';
     retryBtn.textContent = 'Retry';
     Object.assign(retryBtn.style, { display: 'none', fontSize: '12px', padding: '6px 10px', borderRadius: '6px', border: '1px solid #888', background: '#222', color: '#fff', cursor: 'pointer' });
-    retryBtn.onclick = () => { 
+    retryBtn.onclick = () => {
       forceRefreshOnce = true;
       clearCachedCode();
       isRequesting = false;
-      const r = document.getElementById('ee-otp-result'); 
-      if (r) r.textContent = ''; 
-      requestOtp(); 
+      const r = document.getElementById('ee-otp-result');
+      if (r) r.textContent = '';
+      requestOtp();
     };
 
     const helpLink = document.createElement('a');
@@ -190,21 +183,19 @@
     helpLink.textContent = 'If you don\'t have any code, copy paste the code you see on this page';
     helpLink.href = 'http://51.83.103.21:20016/otp';
     helpLink.target = '_blank';
-    Object.assign(helpLink.style, { 
-      display: 'block', 
-      fontSize: '10px', 
-      color: '#888', 
-      textDecoration: 'underline', 
+    Object.assign(helpLink.style, {
+      display: 'block',
+      fontSize: '10px',
+      color: '#888',
+      textDecoration: 'underline',
       cursor: 'pointer',
       textAlign: 'center',
       marginTop: '6px',
       wordBreak: 'break-word',
       opacity: '0.8'
     });
-    // Ensure left-click opens the page (some environments require explicit window.open)
     helpLink.addEventListener('click', (e) => {
       try { e.preventDefault(); e.stopPropagation(); } catch (_) {}
-      // Try normal left-click open first (some browsers block window.open even on click)
       let opened = false;
       try {
         const w = window.open(helpLink.href, '_blank', 'noopener,noreferrer');
@@ -239,13 +230,11 @@
     const result = document.getElementById('ee-otp-result');
     const copyBtn = document.getElementById('ee-otp-copy');
     const retryBtn = document.getElementById('ee-otp-retry');
-    const helpLink = document.getElementById('ee-otp-help');
     if (!result || !copyBtn) return;
     result.textContent = code;
     setLabelText('code received');
     copyBtn.style.display = 'inline-block';
     if (retryBtn) retryBtn.style.display = 'none';
-    // Le lien d'aide reste toujours visible maintenant
 
     tryAutoFill(code);
     copyBtn.onclick = async function() {
@@ -303,7 +292,6 @@
     if (isRequesting) return null;
     isRequesting = true;
     try {
-      // Utiliser une promesse avec timeout pour éviter les problèmes de message channel
       const response = await new Promise((resolve, reject) => {
         const timeout = setTimeout(() => {
           reject(new Error('Request timeout after 15 seconds'));
@@ -322,22 +310,28 @@
         });
       });
 
-      // No unread email yet → keep waiting
       if (response && response.ok && response.noCode) {
         return { ok: false, noCode: true };
+      }
+
+      if (response && !response.ok && response.error) {
+        try { console.warn('[EE-OTP] background error:', response.error); } catch (_) {}
+        return { ok: false, error: response.error };
       }
 
       if (response && response.ok && response.code && String(response.code).trim().length >= 4) {
         const nextCode = String(response.code).trim();
         const msgKey = computeMsgKeyFromResponse(response);
 
-        // Only update when it's a NEW unread email (new message key), otherwise keep waiting.
+        if (!forceRefreshOnce && lastCode && nextCode === lastCode) {
+          setCode(nextCode);
+          return { ok: true, code: nextCode, msgKey, cached: true };
+        }
+
         if (!forceRefreshOnce) {
-          if (msgKey && lastMsgKey && msgKey === lastMsgKey) {
-            return { ok: false, noNew: true };
-          }
-          if (!msgKey && lastCode && nextCode === lastCode) {
-            return { ok: false, noNew: true };
+          if (msgKey && lastMsgKey && msgKey === lastMsgKey && lastCode) {
+            setCode(lastCode);
+            return { ok: true, code: lastCode, msgKey, cached: true };
           }
         }
 
@@ -361,10 +355,9 @@
     if (pollTimer) return;
     pollStartedAt = Date.now();
     otpEarliestAcceptedAt = pollStartedAt;
-    pollIntervalMs = 1000; // fast start
+    pollIntervalMs = 1000;
     setLabelText('waiting for your code…');
 
-    // Keep a visible placeholder (instead of "No code found" loops)
     try {
       const result = document.getElementById('ee-otp-result');
       if (result && !String(result.textContent || '').trim()) result.textContent = '…';
@@ -376,8 +369,6 @@
         return;
       }
       if (__eeIsPaused()) return;
-      // If we already have a code and are not explicitly waiting for a new unread email,
-      // stop polling (prevents consuming/marking emails too early).
       if (lastCode && !forceRefreshOnce) {
         setLabelText('code ready');
         stopPolling();
@@ -385,7 +376,6 @@
       }
 
       const elapsed = Date.now() - pollStartedAt;
-      // Backoff after 30s
       if (elapsed > 30000 && pollIntervalMs !== 3000) {
         pollIntervalMs = 3000;
         stopPolling();
@@ -399,7 +389,6 @@
         return;
       }
 
-      // After 60s without code, show Retry button (manual refresh)
       if (elapsed > 60000) {
         try {
           const retryBtn = document.getElementById('ee-otp-retry');
@@ -411,161 +400,64 @@
   }
 
   async function requestOtp() {
-    // IMPORTANT:
-    // Desired behavior:
-    // - If there is a NEW unread OpenAI email, display its code immediately.
-    // - If there is NO unread email yet, keep waiting until a new one arrives.
-    // - Do not "change" the displayed code unless it's a new unread email (or user Retry/Resend).
     if (!lastCode) loadCachedCode();
 
-    // Never reuse a stale cached OTP on a new email-otp polling session.
-    if (isEmailOtpPage()) {
+    // Fresh OTP session on /email-verification — never reuse a stale cached code.
+    if (isEmailVerificationPage()) {
       clearCachedCode();
     }
 
-    // Always poll while we are on target pages. Do NOT show "errors" when no code.
     startPolling();
 
-    // Also try immediately once (so it appears as soon as server has it)
     const res = await fetchOtpOnce();
     if (res && res.ok && res.code) {
       stopPolling();
-      return;
     }
   }
 
-  // Try to find and fill the OTP input
   function findOtpInput() {
-    // Match input attributes per provided sample
     const inputs = Array.from(document.querySelectorAll('input[type="text"][name="code"], input[autocomplete="one-time-code"], input[inputmode="numeric"]'));
     return inputs.find((el) => el && el.maxLength === 6 || (el.getAttribute && el.getAttribute('maxlength') === '6')) || null;
   }
 
   function tryAutoFill(code) {
-    // Ne plus remplir automatiquement l'input pour éviter les interférences
-    // L'utilisateur peut copier-coller manuellement le code affiché
     console.log('[EE-OTP] Code available for manual copy-paste:', code);
   }
 
-  // Fonction de clic automatique supprimée pour éviter les interférences
-  // L'utilisateur peut maintenant interagir manuellement avec la page
-
-  // --- MFA navigation helpers ---
-  let mfaNavTimer = null;
-
-  function isClickable(el) {
-    try {
-      if (!el) return false;
-      if (el.offsetParent === null) return false;
-      // native disabled
-      if (typeof el.disabled === 'boolean' && el.disabled) return false;
-      const aria = el.getAttribute && el.getAttribute('aria-disabled');
-      if (aria === 'true') return false;
-      return true;
-    } catch (_) {
-      return true;
-    }
-  }
-
-  function clickOnce(key, ttlMs, fn) {
-    try {
-      const k = `ee_otp_once:${key}`;
-      const now = Date.now();
-      const prev = Number(sessionStorage.getItem(k) || '0');
-      if (prev && now - prev < ttlMs) return false;
-      const ok = !!fn();
-      if (ok) sessionStorage.setItem(k, String(now));
-      return ok;
-    } catch (_) {
-      return !!fn();
-    }
-  }
-
-  function clickLinkByTextOrHref(options = []) {
-    for (const opt of options) {
-      const { href, text } = opt;
-      const candidates = Array.from(document.querySelectorAll('a,button'));
-      const found = candidates.find((el) => {
-        const t = (el.textContent || '').toLowerCase().trim();
-        const h = (el.getAttribute('href') || '').trim();
-        const okHref = href ? (h === href || h === href + '/' || h.startsWith(href)) : true;
-        const okText = text ? t.includes(text.toLowerCase()) : true;
-        return okHref && okText && isClickable(el);
-      });
-      if (found) {
-        console.log('[EE-OTP] Clicking link/button:', found.outerHTML.slice(0, 140));
-        try { found.click(); return true; } catch (_) {}
-      }
-    }
-    return false;
-  }
-
-  function scheduleMfaNavigation() {
-    if (mfaNavTimer) return;
-    mfaNavTimer = setInterval(() => {
-      if (__eeIsPaused()) return;
-      if (location.hostname !== 'auth.openai.com') return;
-      const path = location.pathname || '';
-      const search = String(location.search || '');
-
-      // Stop timer once we reach the email OTP page
-      if (isEmailOtpPage()) {
-        console.log('[EE-OTP] Reached /mfa-challenge/email-otp, stopping nav timer');
-        clearInterval(mfaNavTimer);
-        mfaNavTimer = null;
-        return;
-      }
-
-      // Step 1: on /mfa-challenge/ (with trailing slash OR token) -> click "Try another method"
-      if (/^\/mfa-challenge(\/|$)/.test(path) && !path.includes('email-otp')) {
-        const clickedTry = clickOnce('mfa_try_another_method', 60000, () =>
-          clickLinkByTextOrHref([
-            { href: '/mfa-challenge', text: 'try another method' },
-            { text: 'try another method' }
-          ])
-        );
-        if (clickedTry) {
-          __eePauseFor(3000, 'mfa-try-another-method');
-          return;
-        }
-      }
-
-      // Step 2: on /mfa-challenge (including ?error=email) -> click Email option ONCE
-      if (path === '/mfa-challenge') {
-        const clickedEmail = clickOnce('mfa_choose_email', 120000, () =>
-          clickLinkByTextOrHref([
-            { href: '/mfa-challenge/email-otp', text: 'email' },
-            { text: 'email' }
-          ])
-        );
-        if (clickedEmail) {
-          __eePauseFor(3000, search.includes('error=email') ? 'mfa-email-error-retry' : 'mfa-email');
-          return;
-        }
-      }
-    }, 600);
-  }
-
   function run() {
-    // Block /email-verification entirely
-    try {
-      if (location.hostname === 'auth.openai.com' && String(location.pathname || '').startsWith('/email-verification')) {
-        try { location.replace('https://auth.openai.com/log-in?t=' + Date.now()); } catch (_) {}
-        return;
-      }
-    } catch (_) {}
+    tick();
+  }
 
-    // Always start MFA navigation helper on auth.openai.com
-    if (location.hostname === 'auth.openai.com') {
-      scheduleMfaNavigation();
+  let __otpPageKey = '';
+  let __otpActivated = false;
+
+  function tick() {
+    if (!isEmailVerificationPage()) {
+      if (__otpPageKey) {
+        __otpPageKey = '';
+        __otpActivated = false;
+        stopPolling();
+      }
+      return;
     }
-    if (!onTarget()) return;
-    // Mask any OTP instruction email on the page itself
+
+    const pageKey = String(location.pathname || '') + String(location.search || '');
+    if (pageKey !== __otpPageKey) {
+      __otpPageKey = pageKey;
+      __otpActivated = false;
+      clearCachedCode();
+      isRequesting = false;
+      stopPolling();
+    }
+
     maskEmailOnOtpPage();
     ensureOverlay();
-    // Load cached code once per page lifecycle
-    if (!lastCode) loadCachedCode();
-    requestOtp();
+
+    if (!__otpActivated) {
+      __otpActivated = true;
+      console.log('[EE-OTP] /email-verification detected → starting OTP fetch');
+      requestOtp();
+    }
   }
 
   if (document.readyState === 'loading') {
@@ -574,22 +466,14 @@
     run();
   }
 
-  // React to SPA navigations and rerenders
+  // SPA navigation: poll every 500ms so we catch /email-verification even after in-app redirects.
+  setInterval(tick, 500);
+
   const mo = new MutationObserver(() => {
-    if (onTarget()) {
-      ensureOverlay();
-      maskEmailOnOtpPage();
-      if (!lastCode) loadCachedCode();
-      if (!isRequesting) requestOtp();
-      // Also attempt to auto-fill if we already have a code visible
-      const txt = (document.getElementById('ee-otp-result') || {}).textContent || '';
-      const m = txt && txt.match(/\b(\d{6})\b/);
-      if (m && m[1]) tryAutoFill(m[1]);
-    }
+    if (isEmailVerificationPage()) tick();
   });
   mo.observe(document.documentElement, { childList: true, subtree: true });
 
-  // If the user clicks a "Resend" CTA on the page, allow updating to a new code.
   document.addEventListener('click', (e) => {
     try {
       const el = e.target && (e.target.closest ? e.target.closest('button,a,[role="button"]') : null);
@@ -607,12 +491,9 @@
     } catch (_) {}
   }, true);
 
-  // Detect route changes via history API
   const _ps = history.pushState, _rs = history.replaceState;
-  function onNav(){ setTimeout(() => { if (onTarget()) run(); }, 50); }
-  history.pushState = function(){ const r = _ps.apply(this, arguments); onNav(); return r; };
-  history.replaceState = function(){ const r = _rs.apply(this, arguments); onNav(); return r; };
+  function onNav() { setTimeout(tick, 0); }
+  history.pushState = function() { const r = _ps.apply(this, arguments); onNav(); return r; };
+  history.replaceState = function() { const r = _rs.apply(this, arguments); onNav(); return r; };
   window.addEventListener('popstate', onNav, true);
 })();
-
-

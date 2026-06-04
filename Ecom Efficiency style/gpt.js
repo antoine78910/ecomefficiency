@@ -1,4 +1,4 @@
-// gpt.js - Auto-login for OpenAI Auth (email + password)
+// gpt.js - Auto-login for OpenAI Auth (email → /email-verification OTP)
 (() => {
   'use strict';
 
@@ -140,6 +140,14 @@
     return false;
   }
 
+  function isEmailVerificationPage() {
+    try {
+      return host === 'auth.openai.com' && String(location.pathname || '').startsWith('/email-verification');
+    } catch (_) {
+      return false;
+    }
+  }
+
   function isMfaChallengePage() {
     try {
       return host === 'auth.openai.com' && String(location.pathname || '').includes('/mfa-challenge/');
@@ -209,9 +217,9 @@
 
   // On chatgpt.com: inject a non-clickable purple rectangle at bottom-right to prevent click-through
   if (host === 'chatgpt.com' || host.endsWith('.chatgpt.com')) {
-    const CHAT_EMAIL = 'admin@ecomefficiency.com';
+    const CHAT_EMAIL = 'support@ecomefficiency.com';
     const CHAT_PROFILE_NAME = 'EcomAgent';
-    const CHAT_PROFILE_EMAIL = 'admin@ecomefficiency.com';
+    const CHAT_PROFILE_EMAIL = 'support@ecomefficiency.com';
     // Lock the sidebar bottom profile button (must stay disabled across SPA redirects)
     const CHATGPT_PROFILE_BUTTON_SELECTOR =
       '[data-testid="accounts-profile-button"], [aria-label="Open profile menu"][role="button"], [aria-label="Open profile menu"]';
@@ -993,16 +1001,18 @@
   // Otherwise, only proceed for auth.openai.com
   if (host !== 'auth.openai.com') return;
 
-  const EMAIL = 'admin@ecomefficiency.com';
-  const PASSWORD = 'IOjH?8pl5UI?,!#ZAi:?jil';
+  const EMAIL = 'support@ecomefficiency.com';
+
+  const isLoginOrCreateAccountPage = () =>
+    /\/log-in-or-create-account(\b|\/|$)/.test(String(location.pathname || ''));
 
   const isEmailPage = () => {
     const p = String(location.pathname || '');
-    if (/\/log-in-or-create-account(\b|\/|$)/.test(p)) return true;
-    // IMPORTANT: "/log-in/password" must NOT be treated as email page.
+    if (/\/log-in\/password(\b|\/|$)/.test(p)) return false;
+    if (isLoginOrCreateAccountPage()) return false;
+    if (isEmailVerificationPage()) return false;
     return p === '/log-in' || p === '/log-in/';
   };
-  const isPasswordPage = () => /\/log-in\/password(\b|\/|$)/.test(location.pathname);
 
   function log(...args) {
     console.log('[GPT-LOGIN]', ...args);
@@ -1251,146 +1261,247 @@
     });
   }
 
-  async function handleEmailPage() {
+  async function tryClickAuthLogInCta() {
     try {
-      log('Email page detected');
-      const emailSelectors = [
-        'input[type="email"][name="email"]',
-        'input[type="email"][autocomplete="email"]',
-        // New OpenAI login uses generated ids like "_r_1_-email"
-        'input[type="email"][id$="-email"]',
-        'input[type="email"][id*="email"]',
-        'input[id$="-email"]',
-        'input[id*="email"][type="email"]',
-        'input[aria-label*="email" i]',
-        'input[aria-labelledby*="email" i]',
-        'input[type="email"]',
-        'input[placeholder*="adresse" i]'
-      ];
-      let emailInput = null;
-      for (const sel of emailSelectors) {
-        try { emailInput = await waitFor(sel, 20000, { visible: true }); if (emailInput) break; } catch {}
-      }
-      if (!emailInput) throw new Error('Email input not found');
+      if (!isLoginOrCreateAccountPage()) return false;
 
-      // Simulation d'un focus humain avec délai plus long
-      await new Promise(r => setTimeout(r, 500 + Math.random() * 1000));
-      emailInput.focus();
-      
-      // Attendre plus longtemps avant de commencer à taper (comme un humain qui lit)
-      await new Promise(r => setTimeout(r, 300 + Math.random() * 700));
-      
-      // Hide the email value from flashing on screen
-      maskEmailInputValueGpt(emailInput);
-      setNativeValue(emailInput, EMAIL);
-      fireTypingEvents(emailInput, EMAIL.slice(-1));
-      if (!emailInput.value) {
-        await typeCharByChar(emailInput, EMAIL);
-      }
-      
-      // Pause après la saisie comme un humain qui vérifie (plus longue)
-      await new Promise(r => setTimeout(r, 800 + Math.random() * 1200));
-      log('Email filled');
+      const doneKey = 'ee_openai_clicked_auth_login';
+      try {
+        if (sessionStorage.getItem(doneKey) === '1') return false;
+      } catch (_) {}
 
-      // Prefer the submit within the same form; exclude provider buttons (Google/Microsoft/Apple)
-      let continueBtn = null;
-      const form = emailInput.closest('form');
-      if (form) {
-        continueBtn = form.querySelector('button[name="intent"][value="email"]')
-          || Array.from(form.querySelectorAll('button[type="submit"], button'))
-            .find(b => !/google|microsoft|apple/i.test((b.getAttribute('value') || '') + ' ' + (b.dataset.provider || ''))
-              && /\bcontinue\b|\bcontinuer\b/i.test(b.textContent || ''))
-          || null;
-      }
-      if (!continueBtn) {
-        const pageButtons = Array.from(document.querySelectorAll('button[type="submit"], button'))
-          .filter(b => !/google|microsoft|apple/i.test((b.getAttribute('value') || '') + ' ' + (b.dataset.provider || '')));
-        continueBtn = pageButtons.find(b => b.matches('button[name="intent"][value="email"]'))
-          || pageButtons.find(b => /\bcontinue\b|\bcontinuer\b/i.test(b.textContent || ''))
-          || null;
-      }
-      if (!continueBtn) throw new Error('Continue button not found (email page)');
-      if (continueBtn.getAttribute('aria-disabled') === 'true') {
-        await new Promise(r => setTimeout(r, 300));
-      }
-      
-      // Utiliser la simulation de clic humain
-      await humanClick(continueBtn);
-      log('Continue clicked (email page)');
-      __eePauseFor(3000, 'openai-email-continue');
-    } catch (e) {
-      log('Email page error:', e.message);
+      const links = Array.from(document.querySelectorAll('a,button,[role="button"]'));
+      const target = links.find((el) => {
+        try {
+          if (!isVisible(el)) return false;
+          const t = String(el.textContent || '').trim().toLowerCase();
+          if (t !== 'log in' && t !== 'login') return false;
+          if (el.tagName && String(el.tagName).toLowerCase() === 'a') {
+            const href = String(el.getAttribute('href') || el.href || '').trim();
+            if (href && !/\/log-in(\b|\/|$|\?)/.test(href) && !href.includes('login')) return false;
+          }
+          return true;
+        } catch (_) {
+          return false;
+        }
+      }) || findVisibleButtonByText(/^\s*log\s*in\s*$/i);
+
+      if (!target) return false;
+      log('Log-in-or-create-account page → clicking Log in');
+      try { sessionStorage.setItem(doneKey, '1'); } catch (_) {}
+      try { target.scrollIntoView({ block: 'center', behavior: 'auto' }); } catch (_) {}
+      await humanClick(target);
+      __eePauseFor(2500, 'openai-log-in-cta');
+      return true;
+    } catch (_) {
+      return false;
     }
   }
 
-  async function handlePasswordPage() {
+  function findEmailInput() {
+    const selectors = [
+      'input[type="email"][name="email"]',
+      'input[type="email"][autocomplete="email"]',
+      'input[type="email"][id$="-email"]',
+      'input[type="email"][id*="email"]',
+      'input[id$="-email"]',
+      'input[type="email"]',
+    ];
+    for (const sel of selectors) {
+      const el = document.querySelector(sel);
+      if (el && isVisible(el)) return el;
+    }
+    return null;
+  }
+
+  function emailMatchesTarget(input) {
     try {
-      log('Password page detected');
-      const pwdSelectors = [
-        'input[type="password"][name="current-password"]',
-        'input#current-password',
-        // New OpenAI login uses generated ids like "_r_1_-current-password"
-        'input[type="password"][id$="-current-password"]',
-        'input[type="password"][id*="current-password"]',
-        'input[id$="-current-password"]',
-        'input[autocomplete="current-password"]',
-        'input[type="password"]'
-      ];
-      let pwdInput = null;
-      for (const sel of pwdSelectors) {
-        try { pwdInput = await waitFor(sel, 20000, { visible: true }); if (pwdInput) break; } catch {}
-      }
-      if (!pwdInput) throw new Error('Password input not found');
+      return String(input && input.value ? input.value : '').trim().toLowerCase() === EMAIL.toLowerCase();
+    } catch (_) {
+      return false;
+    }
+  }
 
-      // Simulation d'un focus humain avec délai plus long
-      await new Promise(r => setTimeout(r, 500 + Math.random() * 1000));
-      pwdInput.focus();
-      
-      // Attendre plus longtemps avant de commencer à taper (comme un humain qui lit)
-      await new Promise(r => setTimeout(r, 300 + Math.random() * 700));
-      
-      setNativeValue(pwdInput, PASSWORD);
-      fireTypingEvents(pwdInput, PASSWORD.slice(-1));
-      if (!pwdInput.value) {
-        await typeCharByChar(pwdInput, PASSWORD);
-      }
-      
-      // Pause après la saisie comme un humain qui vérifie (plus longue)
-      await new Promise(r => setTimeout(r, 800 + Math.random() * 1200));
-      log('Password filled');
+  async function fillEmailFast(input, text) {
+    if (!input || !text) return false;
+    input.focus();
+    maskEmailInputValueGpt(input);
+    setNativeValue(input, '');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
 
-      // Prefer the submit inside the password form; exclude provider buttons (Google/Microsoft/Apple)
-      let continueBtn = null;
-      const form = pwdInput.closest('form');
-      if (form) {
-        // OpenAI current: name="intent" value="validate"
-        continueBtn = form.querySelector('button[name="intent"][value="validate"]')
-          || form.querySelector('button[name="intent"][value="password"]')
-          || Array.from(form.querySelectorAll('button[type="submit"], button'))
-            .find(b => !/google|microsoft|apple/i.test((b.getAttribute('value') || '') + ' ' + (b.dataset.provider || ''))
-              && /\bcontinue\b|\bcontinuer\b/i.test(b.textContent || ''))
-          || null;
+    for (let i = 0; i < text.length; i++) {
+      const ch = text[i];
+      const next = (input.value || '') + ch;
+      setNativeValue(input, next);
+      try {
+        input.dispatchEvent(new InputEvent('input', {
+          bubbles: true,
+          cancelable: true,
+          inputType: 'insertText',
+          data: ch,
+        }));
+      } catch (_) {
+        input.dispatchEvent(new Event('input', { bubbles: true }));
       }
-      // Fallback search on page but explicitly exclude provider buttons
-      if (!continueBtn) {
-        const pageButtons = Array.from(document.querySelectorAll('button[type="submit"], button'))
-          .filter(b => !/google|microsoft|apple/i.test((b.getAttribute('value') || '') + ' ' + (b.dataset.provider || '')));
-        continueBtn = pageButtons.find(b => b.matches('button[name="intent"][value="validate"]'))
-          || pageButtons.find(b => b.matches('button[name="intent"][value="password"]'))
-          || pageButtons.find(b => /\bcontinue\b|\bcontinuer\b/i.test(b.textContent || ''))
-          || null;
+      input.dispatchEvent(new KeyboardEvent('keydown', { key: ch, bubbles: true }));
+      input.dispatchEvent(new KeyboardEvent('keyup', { key: ch, bubbles: true }));
+      // eslint-disable-next-line no-await-in-loop
+      await new Promise((r) => setTimeout(r, 35));
+    }
+
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    try {
+      input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertFromPaste', data: text }));
+    } catch (_) {}
+    return emailMatchesTarget(input);
+  }
+
+  function nudgeEmailValidation(input) {
+    if (!input) return;
+    try { input.focus(); } catch (_) {}
+    try {
+      input.dispatchEvent(new InputEvent('input', { bubbles: true, inputType: 'insertText', data: input.value || '' }));
+    } catch (_) {
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+    try { input.dispatchEvent(new FocusEvent('blur', { bubbles: true })); } catch (_) {
+      input.dispatchEvent(new Event('blur', { bubbles: true }));
+    }
+  }
+
+  function isContinueButtonEnabled(btn) {
+    if (!btn) return false;
+    if (btn.disabled) return false;
+    if (btn.getAttribute('aria-disabled') === 'true') return false;
+    return isVisible(btn);
+  }
+
+  async function findEmailContinueButton(form) {
+    const roots = [];
+    if (form) roots.push(form);
+    roots.push(document);
+
+    for (const root of roots) {
+      const exact =
+        root.querySelector('button.btn-primary.rounded-full[type="submit"]') ||
+        root.querySelector('button.btn-primary[type="submit"]') ||
+        root.querySelector('button[type="submit"].rounded-full');
+      if (exact && isVisible(exact)) return exact;
+    }
+
+    for (const root of roots) {
+      const btn = Array.from(root.querySelectorAll('button[type="submit"], button.btn-primary')).find((b) => {
+        if (!isVisible(b)) return false;
+        const t = String(b.textContent || '').replace(/\s+/g, ' ').trim();
+        return /\bcontinue\b/i.test(t);
+      });
+      if (btn) return btn;
+    }
+    return null;
+  }
+
+  async function waitForEnabledContinueButton(form, timeoutMs = 12000) {
+    const start = Date.now();
+    while (Date.now() - start < timeoutMs) {
+      const btn = await findEmailContinueButton(form);
+      if (btn && isContinueButtonEnabled(btn)) return btn;
+      await new Promise((r) => setTimeout(r, 100));
+    }
+    return null;
+  }
+
+  async function clickEmailContinueButton(continueBtn, form) {
+    if (!continueBtn) throw new Error('Continue button not found (email page)');
+    try { continueBtn.scrollIntoView({ block: 'center', behavior: 'auto' }); } catch (_) {}
+    await new Promise((r) => setTimeout(r, 100));
+
+    try { continueBtn.removeAttribute('disabled'); } catch (_) {}
+    try { continueBtn.setAttribute('aria-disabled', 'false'); } catch (_) {}
+
+    try {
+      if (form && typeof form.requestSubmit === 'function') {
+        form.requestSubmit(continueBtn);
+        log('Continue submitted via form.requestSubmit');
       }
-      if (!continueBtn) throw new Error('Continue submit not found (password page)');
-      if (continueBtn.getAttribute('aria-disabled') === 'true') {
-        await new Promise(r => setTimeout(r, 300));
+    } catch (_) {}
+
+    try { continueBtn.focus(); } catch (_) {}
+    try { continueBtn.click(); } catch (_) {}
+
+    const ev = { bubbles: true, cancelable: true, view: window };
+    try { continueBtn.dispatchEvent(new PointerEvent('pointerdown', { ...ev, pointerType: 'mouse' })); } catch (_) {}
+    try { continueBtn.dispatchEvent(new MouseEvent('mousedown', ev)); } catch (_) {}
+    try { continueBtn.dispatchEvent(new MouseEvent('mouseup', ev)); } catch (_) {}
+    try { continueBtn.dispatchEvent(new MouseEvent('click', ev)); } catch (_) {}
+
+    log('Continue clicked (email page)');
+  }
+
+  let __emailFillInProgress = false;
+  let __emailContinueClickedAt = 0;
+
+  async function tryEmailPageStep() {
+    try {
+      if (sessionStorage.getItem('ee_openai_auth_email_continue') === '1') return;
+    } catch (_) {}
+
+    const emailInput = findEmailInput();
+    if (!emailInput) return;
+
+    const form = emailInput.closest('form');
+
+    if (!emailMatchesTarget(emailInput)) {
+      if (__emailFillInProgress) return;
+      __emailFillInProgress = true;
+      try {
+        log('Email page → filling email');
+        await fillEmailFast(emailInput, EMAIL);
+        log('Email filled');
+      } finally {
+        __emailFillInProgress = false;
       }
-      
-      // Utiliser la simulation de clic humain
-      await humanClick(continueBtn);
-      log('Continue clicked (password page)');
-      __eePauseFor(3000, 'openai-password-continue');
+      return;
+    }
+
+    nudgeEmailValidation(emailInput);
+
+    const continueBtn = await findEmailContinueButton(form);
+    if (!continueBtn) {
+      log('Continue button not found yet');
+      return;
+    }
+
+    if (!isContinueButtonEnabled(continueBtn)) {
+      log('Continue button found but still disabled — nudging validation');
+      nudgeEmailValidation(emailInput);
+      return;
+    }
+
+    const now = Date.now();
+    if (__emailContinueClickedAt && now - __emailContinueClickedAt < 2500) return;
+
+    __emailContinueClickedAt = now;
+    log('Email ready → clicking Continue');
+    await clickEmailContinueButton(continueBtn, form);
+
+    await new Promise((r) => setTimeout(r, 1500));
+    if (!isEmailPage()) {
+      try { sessionStorage.setItem('ee_openai_auth_email_continue', '1'); } catch (_) {}
+      __eePauseFor(3000, 'openai-email-continue');
+    } else {
+      log('Still on /log-in after Continue — will retry');
+      __emailContinueClickedAt = 0;
+      try { sessionStorage.removeItem('ee_openai_auth_email_continue'); } catch (_) {}
+    }
+  }
+
+  async function handleEmailPage() {
+    try {
+      await tryEmailPageStep();
     } catch (e) {
-      log('Password page error:', e.message);
+      log('Email page error:', e && e.message ? e.message : e);
+      try { sessionStorage.removeItem('ee_openai_auth_email_continue'); } catch (_) {}
     }
   }
 
@@ -1685,19 +1796,15 @@
       setTimeout(() => { try { schedule(); } catch (_) {} }, waitMs);
       return;
     }
-    // Keep loading overlay during the whole auto-login flow; stop when user must type a code.
-    if (isMfaChallengePage() || isManualCodeStepVisible()) {
+    // Stop on OTP page — openai_email_verification.js shows the top-right popup.
+    if (isEmailVerificationPage() || isMfaChallengePage() || isManualCodeStepVisible()) {
       lockGptLoadingOff();
       return;
     }
     try { showGptLoading(); } catch (_) {}
 
-    // Dedicated recovery CTA on ?ee_recover=1 pages
     if (tryClickRecoverLoginCta()) return;
 
-    // Recover from OpenAI interstitials before attempting to locate inputs.
-    // IMPORTANT: If the "session ended" interstitial is visible, do NOT run the email/password fill,
-    // otherwise we keep matching hidden inputs and spam the flow.
     if (isSessionEndedScreenPresent()) {
       const acted = tryRecoverSessionEnded();
       if (acted) return;
@@ -1705,26 +1812,38 @@
       return;
     }
 
-    // IMPORTANT: evaluate password page first ("/log-in/password" used to match the email regex).
-    if (isPasswordPage()) {
-      handlePasswordPage();
-    } else if (isEmailPage()) {
+    if (isLoginOrCreateAccountPage()) {
+      tryClickAuthLogInCta();
+      return;
+    }
+
+    if (isEmailPage()) {
       handleEmailPage();
+      return;
     }
   }
 
   // Lightweight scheduler to avoid heavy observers that might interfere with page
   let scheduled = false;
   let tries = 0;
+  function shouldKeepScheduling() {
+    try {
+      if (isEmailPage() && sessionStorage.getItem('ee_openai_auth_email_continue') !== '1') return true;
+    } catch (_) {}
+    if (tries < 300) return true;
+    return false;
+  }
+
   function schedule() {
     if (scheduled) return;
     scheduled = true;
+    const delay = isEmailPage() ? 400 : 600;
     setTimeout(() => {
       scheduled = false;
       tries++;
       route();
-      if (tries < 20) schedule();
-    }, 600);
+      if (shouldKeepScheduling()) schedule();
+    }, delay);
   }
 
   // Re-run on URL changes (polling only)
@@ -1733,9 +1852,12 @@
     if (location.href !== last) {
       last = location.href;
       tries = 0;
+      try {
+        if (!isEmailPage()) sessionStorage.removeItem('ee_openai_auth_email_continue');
+      } catch (_) {}
       schedule();
     }
-  }, 700);
+  }, 500);
 
   // Initial kick
   schedule();

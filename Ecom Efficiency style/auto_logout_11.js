@@ -21,6 +21,13 @@
     }
     if (!onTarget()) return;
 
+    // Remove any leftover login overlay from auto_login_11.js so logout flow stays visible.
+    try {
+        const stuck = document.getElementById('login-overlay');
+        if (stuck) stuck.remove();
+        if (document.body) document.body.style.overflow = '';
+    } catch (_) {}
+
     function isSignInPage() {
         try { return String(location.pathname || '').startsWith('/app/sign-in'); } catch (_) { return false; }
     }
@@ -43,16 +50,14 @@
         return until && Date.now() < until;
     }
 
-    // UI logout on entry (user request):
-    // Click profile (account) menu then "Sign out".
-    // This still works even if the header is greyed, because we allow extension-only clicks
-    // via a private isolated-world flag (see elevenlabs_grey_header_zone.js).
-    function shouldUiLogoutOnEntry() {
+    const ENTRY_WIPE_DONE_KEY = 'ee_el_logout_done_v5';
+    const WIPED_FLAG_KEY = 'ee_el_just_wiped';
+
+    function shouldEntryWipeOnLoad() {
         try {
             const p = String(location.pathname || '');
             if (!p.startsWith('/app')) return false;
             if (p.startsWith('/app/sign-in')) return false;
-            // Don't sabotage onboarding/verify flows.
             if (p.startsWith('/app/sign-up') || p.startsWith('/app/verify')) return false;
             return true;
         } catch (_) {
@@ -60,15 +65,35 @@
         }
     }
 
-    function markUiLogoutOnce() {
+    function markEntryWipeOnce() {
         try {
-            const k = 'ee_el_ui_logout_done';
-            const v = sessionStorage.getItem(k);
-            if (v === '1') return false;
-            sessionStorage.setItem(k, '1');
+            if (sessionStorage.getItem(ENTRY_WIPE_DONE_KEY) === '1') return false;
+            sessionStorage.setItem(ENTRY_WIPE_DONE_KEY, '1');
             return true;
         } catch (_) {
             return true;
+        }
+    }
+
+    function clearElevenLabsClientStorage() {
+        try {
+            for (let i = localStorage.length - 1; i >= 0; i--) {
+                const k = localStorage.key(i);
+                if (k) localStorage.removeItem(k);
+            }
+        } catch (_) {}
+
+        try {
+            const keep = new Map([
+                [ENTRY_WIPE_DONE_KEY, sessionStorage.getItem(ENTRY_WIPE_DONE_KEY)],
+                [WIPED_FLAG_KEY, '1']
+            ]);
+            sessionStorage.clear();
+            keep.forEach((v, k) => {
+                if (v != null) sessionStorage.setItem(k, v);
+            });
+        } catch (_) {
+            try { sessionStorage.setItem(WIPED_FLAG_KEY, '1'); } catch (__) {}
         }
     }
 
@@ -255,6 +280,9 @@
             sessionStorage.setItem(k, String(now));
         } catch (_) {}
 
+        clearElevenLabsClientStorage();
+        try { sessionStorage.setItem(WIPED_FLAG_KEY, '1'); } catch (_) {}
+
         const resp = await resetElevenLabsCookies();
         try { log('Cookie reset response:', { reason, resp }); } catch (_) {}
         try {
@@ -266,94 +294,26 @@
         return !!(resp && resp.ok);
     }
 
-    function isVisible(el) {
-        try {
-            if (!el) return false;
-            const cs = getComputedStyle(el);
-            if (cs.visibility === 'hidden' || cs.display === 'none' || Number(cs.opacity) === 0) return false;
-            const r = el.getBoundingClientRect();
-            return r.width > 0 && r.height > 0;
-        } catch (_) {
-            return true;
-        }
-    }
-
-    function safeClick(el) {
-        if (!el) return false;
-        try { el.scrollIntoView({ block: 'center', behavior: 'auto' }); } catch (_) {}
-        try { el.focus && el.focus(); } catch (_) {}
-        const ev = { bubbles: true, cancelable: true, view: window };
-        // Also "poke" hover events first (ElevenLabs can lazy-mount the menu on hover).
-        try { el.dispatchEvent(new MouseEvent('mouseover', ev)); } catch (_) {}
-        try { el.dispatchEvent(new MouseEvent('mouseenter', ev)); } catch (_) {}
-        try { el.dispatchEvent(new PointerEvent('pointerover', { ...ev, pointerType: 'mouse' })); } catch (_) {}
-        try { el.dispatchEvent(new PointerEvent('pointerenter', { ...ev, pointerType: 'mouse' })); } catch (_) {}
-        try { el.dispatchEvent(new MouseEvent('pointerdown', ev)); } catch (_) {}
-        try { el.dispatchEvent(new MouseEvent('mousedown', ev)); } catch (_) {}
-        try { el.dispatchEvent(new MouseEvent('mouseup', ev)); } catch (_) {}
-        try { el.dispatchEvent(new MouseEvent('click', ev)); } catch (_) {}
-        try { el.click(); } catch (_) {}
-        return true;
-    }
-
-    function findProfileButton() {
-        return (
-            document.querySelector('button[data-testid="user-menu-button"]') ||
-            document.querySelector('button[aria-label="Your profile"]') ||
-            document.querySelector('button[aria-label="Votre profil"]') ||
-            null
-        );
-    }
-
-    function findSignOutAction() {
-        const candidates = Array.from(document.querySelectorAll('button,a,[role="menuitem"],[role="button"]')).slice(0, 600);
-        for (const el of candidates) {
-            try {
-                if (!isVisible(el)) continue;
-                const t = String(el.textContent || '').trim().toLowerCase();
-                if (!t) continue;
-                if (t === 'sign out' || t === 'log out' || t === 'logout' || t === 'se déconnecter' || t === 'déconnexion' || t === 'deconnexion') {
-                    return el;
-                }
-            } catch (_) {}
-        }
-        return null;
-    }
-
-    async function uiLogoutFlow() {
-        if (!onTarget()) return false;
-        if (!shouldUiLogoutOnEntry()) return false;
-
-        // Open user menu (extension-only)
-        const profileBtn = findProfileButton();
-        if (!profileBtn) {
-            log('UI logout: profile button not found');
+    async function entrySessionWipe() {
+        if (!shouldEntryWipeOnLoad()) return false;
+        if (!markEntryWipeOnce()) {
+            log('Entry wipe already done this tab, skipping');
             return false;
         }
 
-        // Ensure the button isn't blocked by leftover attributes.
-        try { if (profileBtn.getAttribute('aria-disabled') === 'true') profileBtn.removeAttribute('aria-disabled'); } catch (_) {}
-        try { if (profileBtn.disabled) profileBtn.disabled = false; } catch (_) {}
+        log('Entry session wipe: localStorage + cookies → /app/sign-in');
+        clearElevenLabsClientStorage();
+        try { sessionStorage.setItem(WIPED_FLAG_KEY, '1'); } catch (_) {}
 
-        // Allow synthetic click through the grey-zone blocker
-        try { globalThis.__ee_el_allow_user_menu_activation = true; } catch (_) {}
-        safeClick(profileBtn);
-        setTimeout(() => { try { globalThis.__ee_el_allow_user_menu_activation = false; } catch (_) {} }, 0);
+        const resp = await resetElevenLabsCookies();
+        log('Entry cookie reset:', resp);
 
-        // Wait for the menu to render
-        const start = Date.now();
-        while (Date.now() - start < 6000) {
-            const signOut = findSignOutAction();
-            if (signOut) {
-                log('UI logout: clicking sign out');
-                safeClick(signOut);
-                return true;
-            }
-            await new Promise((r) => setTimeout(r, 150));
+        try {
+            location.replace(`${location.origin}/app/sign-in`);
+        } catch (_) {
+            try { location.href = 'https://elevenlabs.io/app/sign-in'; } catch (__) {}
         }
-
-        log('UI logout: sign out action not found (timeout)');
-        return false;
+        return true;
     }
 
     // Decide whether to logout:
@@ -364,15 +324,8 @@
             if (!onTarget()) return;
             if (isPaywallCooldownActive()) return;
 
-            // Prefer UI logout on entry (user request). Fallback to cookie logout if UI fails.
-            if (shouldUiLogoutOnEntry() && markUiLogoutOnce()) {
-                log('UI logout on entry: starting…', location.href);
-                const okUi = await uiLogoutFlow();
-                if (okUi) return;
-                log('UI logout failed -> fallback to cookie logout');
-                await cookieLogout('ui_logout_failed');
-                return;
-            }
+            // Once per tab: wipe cookies + localStorage and land on /app/sign-in for auto-login.
+            if (await entrySessionWipe()) return;
 
             const allowed = await loadAllowedEmails();
             const currentEmail = findCurrentEmail();

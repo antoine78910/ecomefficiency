@@ -925,8 +925,7 @@
     },
     {
       "matches": [
-        "https://auth.openai.com/log-in-or-create-account*",
-        "https://auth.openai.com/log-in/password*"
+        "https://auth.openai.com/log-in-or-create-account*"
       ],
       "js": [
         "gpt.js"
