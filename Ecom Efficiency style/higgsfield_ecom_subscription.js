@@ -310,6 +310,24 @@
     setDailyUsage(u);
   }
 
+  function applyBackendUsedToday(backendUsed) {
+    var u = getDailyUsage();
+    var k = getTodayKey();
+    var localUsed = u[k] || 0;
+    var nextUsed = Math.max(0, backendUsed);
+    if (nextUsed !== localUsed) {
+      u[k] = nextUsed;
+      setDailyUsage(u);
+      syncEcomBlockFlag();
+      try {
+        var limit = CONFIG.DAILY_CREDIT_LIMIT;
+        updateWidget(nextUsed, limit, nextUsed >= limit, lastDelta);
+      } catch (_) {}
+      log('synced usage from backend: local=' + localUsed + ' -> backend=' + nextUsed);
+    }
+    return nextUsed;
+  }
+
   function syncUsageFromBackend(email) {
     if (!email) return Promise.resolve();
     var url = 'https://www.ecomefficiency.com/api/usage/higgsfield?email=' + encodeURIComponent(email);
@@ -317,22 +335,11 @@
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (data) {
         if (data && data.ok && typeof data.used_today === 'number') {
-          var u = getDailyUsage();
-          var k = getTodayKey();
-          var localUsed = u[k] || 0;
-          var backendUsed = Math.max(0, data.used_today);
-          if (backendUsed !== localUsed) {
-            u[k] = backendUsed;
-            setDailyUsage(u);
-            syncEcomBlockFlag();
-            try { ensureWidget(); } catch (_) {}
-            log('synced usage from backend: local=' + localUsed + ' -> backend=' + backendUsed);
-          } else {
-            log('local usage matches backend: ' + localUsed);
-          }
+          return applyBackendUsedToday(data.used_today);
         }
+        return null;
       })
-      .catch(function (e) { log('sync usage fetch error', e && e.message ? e.message : e); });
+      .catch(function (e) { log('sync usage fetch error', e && e.message ? e.message : e); return null; });
   }
 
   function isUnlimitedMode() {
@@ -1719,11 +1726,32 @@
     }
 
     refreshWidgetFromState();
-    // Was 2500ms — too aggressive for a widget that only reads local state.
-    // The widget gets an immediate refresh on every authorized generation via
-    // updateWidget() in runPaidGenerationPrecheck, so the interval only needs
-    // to cover the rare case of cross-tab updates.
-    widgetRefreshInterval = setInterval(refreshWidgetFromState, 5000);
+
+    var lastBackendSyncAt = 0;
+    widgetRefreshInterval = setInterval(function () {
+      var em = getVerifiedEmail();
+      var now = Date.now();
+      if (em && now - lastBackendSyncAt >= 10000) {
+        lastBackendSyncAt = now;
+        syncUsageFromBackend(em).then(function () {
+          refreshWidgetFromState();
+        });
+        return;
+      }
+      refreshWidgetFromState();
+    }, 5000);
+
+    if (!window.__eeHfUsageVisibilitySync) {
+      window.__eeHfUsageVisibilitySync = true;
+      document.addEventListener('visibilitychange', function () {
+        try {
+          if (document.visibilityState !== 'visible') return;
+          var em = getVerifiedEmail();
+          if (!em) return;
+          syncUsageFromBackend(em).then(function () { refreshWidgetFromState(); });
+        } catch (_) {}
+      });
+    }
   }
 
   // Loose match: handles concatenated text like "GENERATE4840" (Marketing Studio

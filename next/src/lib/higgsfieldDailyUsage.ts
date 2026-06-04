@@ -7,7 +7,8 @@ export function utcDayStartIso(now = new Date()) {
 
 export const HIGGSFIELD_DAILY_LIMIT = 100;
 
-const NON_USAGE_SOURCES = new Set(["wallet_snapshot", "admin_refill"]);
+/** Never counts toward Ecom daily quota */
+const NON_USAGE_SOURCES = new Set(["wallet_snapshot"]);
 
 export type UsageEventRow = {
   delta?: number | null;
@@ -16,31 +17,18 @@ export type UsageEventRow = {
 };
 
 /**
- * Ecom daily credits used today (0–limit).
- * - Sums positive charge deltas (excludes wallet_snapshot / admin_refill).
- * - Also considers used_today on charge rows (client-reported cumulative usage).
+ * Net Ecom credits used today = sum of deltas since UTC midnight.
+ * admin_refill rows have negative delta and reduce usage.
+ * Do NOT use max(used_today) — those snapshots stay at 98 after refill.
  */
-export function computeHiggsfieldUsedToday(
-  rows: UsageEventRow[],
-  dailyLimit = HIGGSFIELD_DAILY_LIMIT
-): number {
-  let chargeSum = 0;
-  let maxReportedUsed = 0;
+export function computeHiggsfieldUsedToday(rows: UsageEventRow[]): number {
+  let net = 0;
 
   for (const row of rows || []) {
     const src = String(row.source || "").trim().toLowerCase();
     if (NON_USAGE_SOURCES.has(src)) continue;
-
-    const d = Number(row.delta) || 0;
-    if (d > 0) chargeSum += d;
-
-    if (row.used_today != null && row.used_today !== undefined) {
-      const u = Number(row.used_today);
-      if (Number.isFinite(u) && u >= 0 && u <= dailyLimit * 2) {
-        maxReportedUsed = Math.max(maxReportedUsed, u);
-      }
-    }
+    net += Number(row.delta) || 0;
   }
 
-  return Math.max(0, Math.max(chargeSum, maxReportedUsed));
+  return Math.max(0, net);
 }

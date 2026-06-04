@@ -97,7 +97,7 @@ export async function POST(req: Request) {
       : {
           email,
           delta: refillDelta,
-          used_today: null,
+          used_today: 0,
           at,
           user_agent: "admin_refill",
           source: "admin_refill",
