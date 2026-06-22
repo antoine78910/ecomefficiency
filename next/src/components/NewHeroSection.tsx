@@ -1,6 +1,7 @@
 import { Check, ArrowRight } from "lucide-react";
 import Link from "next/link";
 import NewHeroAnimatedWord from "@/components/NewHeroAnimatedWord";
+import SeedancePromoBadge from "@/components/SeedancePromoBadge";
 
 const NewHeroSection = () => {
   return (
@@ -25,24 +26,7 @@ const NewHeroSection = () => {
       
       <div className="max-w-7xl mx-auto px-6 lg:px-8 pt-6 pb-6 sm:py-12 md:py-16 relative z-10">
         <div className="text-center">
-          {/* Announcement badge ? mobile scale aligned with /affiliate pill */}
-          <div className="relative inline-flex flex-col items-center gap-0.5 sm:gap-0.5 px-2.5 py-1.5 sm:px-4 sm:py-2 rounded-md sm:rounded-xl bg-[linear-gradient(to_bottom,rgba(149,65,224,0.18),rgba(124,48,199,0.12))] border border-[#9541e0]/40 shadow-[0_0_16px_rgba(149,65,224,0.18)] sm:shadow-[0_0_32px_rgba(149,65,224,0.25)] backdrop-blur-sm mb-2.5 sm:mb-5 overflow-visible max-w-[13rem] sm:max-w-none">
-            <span className="absolute -top-1.5 -left-1.5 sm:-top-2 sm:-left-2 z-10 text-[8px] sm:text-[9px] px-1 sm:px-1.5 py-0.5 rounded-full bg-[linear-gradient(135deg,#8b5cf6,#7c3aed)] text-white border border-[#a78bfa]/40">NEW !</span>
-            <span className="absolute -top-1.5 -right-1.5 sm:-top-2 sm:-right-2 z-10">
-              <span className="group relative inline-flex">
-                <span className="inline-flex items-center justify-center w-2.5 h-2.5 sm:w-3 sm:h-3 rounded-full bg-white/10 text-white/80 text-[8px] sm:text-[9px] border border-white/30 cursor-help">!</span>
-                <div className="absolute left-1/2 -translate-x-1/2 top-[calc(100%+4px)] sm:left-[calc(100%+6px)] sm:top-1/2 sm:translate-x-0 sm:-translate-y-1/2 hidden group-hover:flex bg-black/90 text-gray-200 text-[9px] sm:text-[10px] px-1.5 sm:px-2 py-0.5 sm:py-1 rounded border border-white/20 shadow-lg max-w-[10rem] sm:max-w-none sm:whitespace-nowrap text-center leading-snug z-20">
-                  $250 Higgsfield Creator Plan added by monthly vote in the discord community
-                </div>
-              </span>
-            </span>
-            <span className="text-white text-xs sm:text-sm font-semibold tracking-wide leading-tight">
-              Higgsfield added
-            </span>
-            <span className="text-[10px] sm:text-[11px] text-purple-200/90 leading-snug text-center max-w-[12rem] sm:max-w-none">
-              Unlimited Nanobanana Pro, & Seedream 5.0 generation
-            </span>
-          </div>
+          <SeedancePromoBadge />
 
           {/* Removed redundant ECOM EFFICIENCY TOOLS badge per request */}
 
