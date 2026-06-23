@@ -1,7 +1,7 @@
 "use client";
 
 import type { CSSProperties } from "react";
-import PlayButtonVideo from "@/components/PlayButtonVideo";
+import { useEffect, useRef } from "react";
 
 type LandingDemoVideoProps = {
   /** Place file at `next/public/landing/demo.mp4` (or set another public path). */
@@ -19,6 +19,79 @@ const shineStyle: CSSProperties = {
   WebkitMaskComposite: "xor",
   maskComposite: "exclude",
 };
+
+function AutoplayLandingVideo({
+  src,
+  poster,
+  title,
+}: {
+  src: string;
+  poster?: string;
+  title: string;
+}) {
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const wrapRef = useRef<HTMLDivElement | null>(null);
+
+  useEffect(() => {
+    const video = videoRef.current;
+    const wrap = wrapRef.current;
+    if (!video || !wrap) return;
+
+    const tryPlay = () => {
+      video.muted = true;
+      video.defaultMuted = true;
+      const p = video.play();
+      if (p && typeof p.catch === "function") p.catch(() => {});
+    };
+
+    const onCanPlay = () => tryPlay();
+    video.addEventListener("canplay", onCanPlay);
+    video.addEventListener("loadeddata", onCanPlay);
+
+    const io = new IntersectionObserver(
+      (entries) => {
+        const visible = Boolean(entries[0]?.isIntersecting);
+        if (visible) tryPlay();
+        else video.pause();
+      },
+      { threshold: 0.15, rootMargin: "120px 0px" }
+    );
+    io.observe(wrap);
+
+    tryPlay();
+    const retry = window.setInterval(() => {
+      if (video.paused && wrap.getBoundingClientRect().bottom > 0) tryPlay();
+    }, 800);
+    const stopRetry = window.setTimeout(() => window.clearInterval(retry), 6000);
+
+    return () => {
+      video.removeEventListener("canplay", onCanPlay);
+      video.removeEventListener("loadeddata", onCanPlay);
+      io.disconnect();
+      window.clearInterval(retry);
+      window.clearTimeout(stopRetry);
+    };
+  }, [src]);
+
+  return (
+    <div ref={wrapRef} className="absolute inset-0">
+      <video
+        ref={videoRef}
+        className="absolute inset-0 h-full w-full object-cover"
+        src={src}
+        poster={poster}
+        title={title}
+        muted
+        defaultMuted
+        playsInline
+        autoPlay
+        loop
+        preload="auto"
+        controls={false}
+      />
+    </div>
+  );
+}
 
 export default function LandingDemoVideo({
   src = "/landing/demo.mp4",
@@ -45,14 +118,7 @@ export default function LandingDemoVideo({
         />
 
         <div className="relative aspect-video w-full overflow-hidden rounded-2xl bg-black shadow-inner">
-          <PlayButtonVideo
-            src={src}
-            poster={poster}
-            title={title}
-            autoPlayOnVisible
-            hidePlayOverlay
-            loop
-          />
+          <AutoplayLandingVideo src={src} poster={poster} title={title} />
           <div
             aria-hidden
             className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/40 via-transparent to-transparent"
@@ -67,4 +133,3 @@ export default function LandingDemoVideo({
     </div>
   );
 }
-

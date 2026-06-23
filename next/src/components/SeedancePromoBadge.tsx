@@ -72,9 +72,6 @@ export default function SeedancePromoBadge() {
       <span className="text-white text-xs sm:text-sm font-semibold tracking-wide leading-tight text-center px-1">
         Unlimited Seedance 2.0 generation
       </span>
-      <span className="text-[10px] sm:text-[11px] text-purple-200/90 leading-snug text-center max-w-[13rem] sm:max-w-none px-1">
-        Access now inside our Higgsfield subscription
-      </span>
       <span className="text-[9px] sm:text-[10px] text-purple-300/80 uppercase tracking-wider font-medium">
         Available until 17th July
       </span>
