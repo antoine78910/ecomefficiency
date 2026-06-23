@@ -82,7 +82,6 @@ function AutoplayLandingVideo({
         poster={poster}
         title={title}
         muted
-        defaultMuted
         playsInline
         autoPlay
         loop

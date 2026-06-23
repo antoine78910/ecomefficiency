@@ -100,7 +100,6 @@ export default function PlayButtonVideo({
         poster={poster}
         playsInline
         muted
-        defaultMuted
         autoPlay={wantsAutoplay}
         loop={Boolean(loop)}
         controls={false}
