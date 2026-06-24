@@ -33,7 +33,9 @@
     hideServerUi();
     var frame = document.createElement('iframe');
     frame.id = 'ee-pro-frame';
-    frame.src = chrome.runtime.getURL('pro_tools_page.html');
+    frame.src = location.origin + '/pro-hub?v=' + encodeURIComponent(
+      (chrome.runtime.getManifest() && chrome.runtime.getManifest().version) || '1'
+    );
     frame.title = 'Ecom Efficiency Pro Tools';
     frame.setAttribute(
       'allow',

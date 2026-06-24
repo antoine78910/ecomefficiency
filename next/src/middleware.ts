@@ -384,6 +384,12 @@ export async function middleware(req: NextRequest) {
 
   // tools subdomain routes
   if (hostname === 'tools.localhost' || bareHostname.startsWith('tools.')) {
+    // /pro-hub => Next.js tools grid (served from deploy; extension iframe loads this)
+    if (pathname === '/pro-hub' || pathname === '/pro-hub/') {
+      const r = url.clone()
+      r.pathname = '/pro'
+      return NextResponse.rewrite(r)
+    }
     // /pro => empty shell; extension injects the tools hub (exact path only, not /starter etc.)
     if (pathname === '/pro' || pathname === '/pro/') {
       const r = url.clone()
