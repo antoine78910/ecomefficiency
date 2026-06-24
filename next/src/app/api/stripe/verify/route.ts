@@ -12,7 +12,6 @@ import {
   resolveStripeAccessForAuthEmail,
   syncSupabaseUserStripeAccess,
 } from "@/lib/syncSupabaseUserStripeAccess";
-import { verifyAccessPin } from "@/lib/higgsfieldAccessPin";
 import { issueHiggsfieldAccessToken } from "@/lib/higgsfieldAccessSession";
 
 function parseMaybeJson<T = any>(value: any): T | null {
@@ -101,7 +100,13 @@ const EXTENSION_ALLOWED_ORIGINS = [
 const LEGACY_DAILY_CREDIT_LIMIT = 10;
 const DEFAULT_DAILY_CREDIT_LIMIT = 100;
 
-function isHiggsfieldExtensionRequest(req: NextRequest): boolean {
+function isHiggsfieldExtensionRequest(
+  req: NextRequest,
+  body?: { client?: string }
+): boolean {
+  const client = String(body?.client || "").trim().toLowerCase();
+  if (client === "higgsfield_extension") return true;
+  if (client === "higgsfield_2_extension") return true;
   const o = (req.headers.get("origin") || "").trim();
   if (!o) return false;
   try {
@@ -112,15 +117,22 @@ function isHiggsfieldExtensionRequest(req: NextRequest): boolean {
   }
 }
 
+function isHiggsfield2ExtensionRequest(
+  body?: { client?: string }
+): boolean {
+  return String(body?.client || "").trim().toLowerCase() === "higgsfield_2_extension";
+}
+
 /**
  * Higgsfield extension: require Pro tier (~29.99), not Starter (~19.99).
  * Legacy Stripe (source legacy / plan legacy) stays allowed (separate product).
  */
 function applyHiggsfieldProOnlyGate(
   req: NextRequest,
-  payload: Record<string, unknown>
+  payload: Record<string, unknown>,
+  body?: { client?: string }
 ): Record<string, unknown> {
-  if (!isHiggsfieldExtensionRequest(req)) return payload;
+  if (!isHiggsfieldExtensionRequest(req, body)) return payload;
   if (payload.ok !== true || payload.active !== true) return payload;
   const plan = String(payload.plan ?? "").toLowerCase();
   const source = String(payload.source ?? "").toLowerCase();
@@ -140,10 +152,10 @@ function applyHiggsfieldProOnlyGate(
 async function finalizeHiggsfieldExtensionResponse(
   req: NextRequest,
   payload: Record<string, unknown>,
-  ctx: { email?: string | null; pin?: unknown }
+  ctx: { email?: string | null; pin?: unknown; client?: string }
 ): Promise<Record<string, unknown>> {
-  const gated = applyHiggsfieldProOnlyGate(req, payload);
-  if (!isHiggsfieldExtensionRequest(req)) return gated;
+  const gated = applyHiggsfieldProOnlyGate(req, payload, ctx);
+  if (!isHiggsfieldExtensionRequest(req, ctx)) return gated;
 
   const em = String(ctx.email || "").trim().toLowerCase();
   const plan = String(gated.plan ?? "").toLowerCase();
@@ -155,8 +167,26 @@ async function finalizeHiggsfieldExtensionResponse(
         ? "ecomefficiency"
         : null;
 
-  // Sublaunch / legacy Stripe ($15 Ecom Agent) — active without PIN
+  const isHf2 = isHiggsfield2ExtensionRequest(ctx);
+
+  // Higgsfield 2 extension: Ecom Efficiency Pro only (no Sublaunch / legacy Stripe).
   if (
+    isHf2 &&
+    gated.ok === true &&
+    gated.active === true &&
+    (source === "legacy" || plan === "legacy")
+  ) {
+    return {
+      ...gated,
+      active: false,
+      status: "higgsfield_requires_pro",
+      stripe_account: "legacy",
+    };
+  }
+
+  // Sublaunch / legacy Stripe ($15 Ecom Agent) — active without PIN (main extension only)
+  if (
+    !isHf2 &&
     gated.ok === true &&
     gated.active === true &&
     (source === "legacy" || plan === "legacy") &&
@@ -181,42 +211,18 @@ async function finalizeHiggsfieldExtensionResponse(
       ...gated,
       active: false,
       status: "missing_email",
-      pin_required: true,
+      pin_required: false,
       stripe_account: stripeAccount,
     };
   }
-  const pin = ctx.pin;
-  const pinEmpty =
-    pin === undefined || pin === null || String(pin).trim() === "";
-  if (pinEmpty) {
-    // Subscription is valid — do not report active:false (old extensions showed "no subscription").
-    return {
-      ...gated,
-      active: true,
-      pin_required: true,
-      pin_verified: false,
-      status: "pin_required",
-      stripe_account: "ecomefficiency",
-    };
-  }
-  const pinOk = await verifyAccessPin(em, pin);
-  if (!pinOk) {
-    return {
-      ...gated,
-      active: true,
-      pin_required: true,
-      pin_verified: false,
-      status: "invalid_pin",
-      stripe_account: "ecomefficiency",
-    };
-  }
+  // Email-only: active subscriptions get Higgsfield access without a 4-digit PIN.
   return {
     ...gated,
     active: true,
     pin_required: false,
     pin_verified: true,
     status: "active",
-    stripe_account: "ecomefficiency",
+    stripe_account: stripeAccount,
     hf_access_token: issueHiggsfieldAccessToken(em),
   };
 }
@@ -252,6 +258,7 @@ export async function POST(req: NextRequest) {
       email?: string;
       session_id?: string;
       pin?: string;
+      client?: string;
     };
     const emailHeader = req.headers.get("x-user-email") || undefined;
     const customerHeader = req.headers.get("x-stripe-customer-id") || undefined;
@@ -325,7 +332,7 @@ export async function POST(req: NextRequest) {
                   : null,
                 cancel_at_period_end: Boolean(partnerLatest.cancel_at_period_end),
                 verify_source: "partner_connect",
-              }, { email, pin: higgsfieldPin })
+              }, { email, pin: higgsfieldPin, client: body.client })
             )
           , req);
         }
@@ -494,7 +501,7 @@ export async function POST(req: NextRequest) {
               verify_source: "session_id",
               invoice_status: invoiceStatus || null,
               daily_credit_limit: DEFAULT_DAILY_CREDIT_LIMIT,
-            }, { email, pin: higgsfieldPin })
+            }, { email, pin: higgsfieldPin, client: body.client })
           )
         , req);
       } catch (e: any) {
@@ -543,7 +550,7 @@ export async function POST(req: NextRequest) {
                 subscription_current_period_start_at: legacy.periodStartAt,
                 daily_credit_limit: LEGACY_DAILY_CREDIT_LIMIT,
                 source: "legacy",
-              }, { email, pin: higgsfieldPin })
+              }, { email, pin: higgsfieldPin, client: body.client })
             )
           , req);
         }
@@ -661,7 +668,7 @@ export async function POST(req: NextRequest) {
                 subscription_current_period_start_at: legacy.periodStartAt,
                 daily_credit_limit: LEGACY_DAILY_CREDIT_LIMIT,
                 source: "legacy",
-              }, { email, pin: higgsfieldPin })
+              }, { email, pin: higgsfieldPin, client: body.client })
             )
           , req);
         }
@@ -889,6 +896,7 @@ export async function POST(req: NextRequest) {
         await finalizeHiggsfieldExtensionResponse(req, { ...result } as Record<string, unknown>, {
           email,
           pin: higgsfieldPin,
+          client: body.client,
         })
       )
     , req);

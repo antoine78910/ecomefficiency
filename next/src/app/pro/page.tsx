@@ -426,16 +426,6 @@ button {
             <div className="tool-description">Data analysis platform specialized in TikTok ecommerce.</div>
           </a>
 
-          <a href="https://www.capcut.com/fr-fr/login" className="tool-card" target="_blank" rel="noopener noreferrer">
-            <div className="tool-icon">
-              <img src={`/tools-images/capcut.png?v=${ASSET_VERSION}`} alt="Capcut" />
-            </div>
-            <div className="tool-name">Capcut</div>
-            <div className="tool-description">
-              Create and edit stunning videos for social media and personal projects using CapCut's intuitive interface and advanced editing features.
-            </div>
-          </a>
-
           <a href="https://app.sendshort.ai/en/home" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
               <img src={`/tools-images/sendshort.png?v=${ASSET_VERSION}`} alt="SendShort" />

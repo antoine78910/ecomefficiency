@@ -24,7 +24,9 @@ DISCORD_ANALYTICS_SECRET=ton_secret_pour_l_api
 # ACTIVITY_TRACK_URL=https://ton-domaine.com/api/activity/track-event
 # ACTIVITY_TRACK_BOT_SECRET=exactement_la_meme_que_sur_vercel
 
-# Autres variables existantes
+# ElevenLabs shared account — used by /api/elevenlabs/credits (Pro Extension widget)
+# ELEVENLABS_API_KEY=sk_...
+
 NEXT_PUBLIC_SUPABASE_URL=ton_url_supabase
 SUPABASE_SERVICE_ROLE_KEY=ton_service_role_key
 ADMIN_PASSWORD=ton_mot_de_passe_admin
