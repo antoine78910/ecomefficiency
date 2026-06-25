@@ -19,6 +19,69 @@
     }
   }
 
+  function onMagnificSite() {
+    try {
+      return location.hostname === 'www.magnific.com';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function onMagnificLanding() {
+    return onMagnificSite() && !onTarget();
+  }
+
+  function findMagnificSignInButton() {
+    const selectors = [
+      'a[data-cy="signin-button"]',
+      'a[href*="/log-in"][data-cy="signin-button"]',
+      'a[href*="magnific.com/log-in"]',
+    ];
+    for (const sel of selectors) {
+      const el = document.querySelector(sel);
+      if (el && isVisible(el)) return el;
+    }
+    for (const a of document.querySelectorAll('a[href*="/log-in"]')) {
+      if (!isVisible(a)) continue;
+      const t = String(a.textContent || '').replace(/\s+/g, ' ').trim();
+      if (/^log\s*in$/i.test(t)) return a;
+    }
+    return null;
+  }
+
+  function clickMagnificSignIn() {
+    if (!onMagnificLanding()) return false;
+    const btn = findMagnificSignInButton();
+    if (!btn) return false;
+    if (!once('click_magnific_signin', 2 * 60 * 1000)) return false;
+    console.log('[Magnific] Log in button found → click');
+    return click(btn);
+  }
+
+  function runMagnificSignInFlow() {
+    if (!onMagnificLanding()) return;
+
+    const tick = () => {
+      try { clickMagnificSignIn(); } catch (_) {}
+    };
+
+    tick();
+    const interval = setInterval(() => {
+      if (!onMagnificLanding()) {
+        clearInterval(interval);
+        return;
+      }
+      tick();
+    }, 350);
+
+    const obs = new MutationObserver(() => tick());
+    obs.observe(document.documentElement, { childList: true, subtree: true });
+    setTimeout(() => {
+      try { clearInterval(interval); } catch (_) {}
+      try { obs.disconnect(); } catch (_) {}
+    }, 25000);
+  }
+
   function showLoadingSpinner() {
     if (DISABLE_LOADING_OVERLAY) {
       const existing = document.getElementById(OVERLAY_ID);
@@ -465,10 +528,35 @@
     setTimeout(() => { try { obs.disconnect(); } catch (_) {} }, 30000);
   }
 
+  function bootstrapMagnific() {
+    if (!onMagnificSite()) return;
+
+    if (onTarget()) {
+      run();
+      return;
+    }
+
+    runMagnificSignInFlow();
+  }
+
+  function watchMagnificRoute() {
+    if (!onMagnificSite()) return;
+    let last = location.href;
+    setInterval(() => {
+      if (location.href === last) return;
+      last = location.href;
+      if (onTarget()) run();
+    }, 400);
+  }
+
   if (document.readyState === 'loading') {
-    document.addEventListener('DOMContentLoaded', run, { once: true });
+    document.addEventListener('DOMContentLoaded', () => {
+      bootstrapMagnific();
+      watchMagnificRoute();
+    }, { once: true });
   } else {
-    run();
+    bootstrapMagnific();
+    watchMagnificRoute();
   }
 })();
 

@@ -180,6 +180,57 @@ function scoreEmailForService({ raw, from, subject, to, toAll }, service) {
   return score;
 }
 
+/** support@ inbox (Higgsfield 2) — neo/GPT hosts only, never admin/katabump HIGGSFIELD hosts. */
+function splitImapHosts(raw) {
+  if (!raw || typeof raw !== 'string') return [];
+  return raw.split(',').map((h) => h.trim()).filter(Boolean);
+}
+
+function mergeUniqueImapHosts(...lists) {
+  const seen = new Set();
+  const out = [];
+  for (const list of lists) {
+    if (!Array.isArray(list)) continue;
+    for (const host of list) {
+      const key = String(host || '').trim().toLowerCase();
+      if (!key || seen.has(key)) continue;
+      seen.add(key);
+      out.push(String(host).trim());
+    }
+  }
+  return out;
+}
+
+/** admin@ Higgsfield OTP — always include neo IMAP fallback (imap.katabump.com often invalid). */
+function getAdminHiggsfieldImapHosts() {
+  const primary = splitImapHosts(
+    process.env.IMAP_HIGGSFIELD_HOSTS || process.env.IMAP_HIGGSFIELD_HOST || ''
+  );
+  const neoFallback = splitImapHosts(process.env.IMAP_HOST || 'imap0001.neo.space');
+  return mergeUniqueImapHosts(primary, neoFallback);
+}
+
+function getSupportImapCredentials() {
+  const imapUser = String(process.env.IMAP_GPT_USER || process.env.IMAP_USER1 || '').trim();
+  const imapPass = String(process.env.IMAP_GPT_PASS || process.env.IMAP_PASS1 || '').trim();
+  const hostsRaw =
+    process.env.IMAP_GPT_HOSTS ||
+    process.env.IMAP_GPT_HOST ||
+    process.env.IMAP_HOST;
+  const imapHosts = typeof hostsRaw === 'string' && hostsRaw.trim()
+    ? hostsRaw.split(',').map((h) => h.trim()).filter(Boolean)
+    : [];
+  return { imapUser, imapPass, imapHosts };
+}
+
+async function scanHiggsfieldSupportOtp(client, box) {
+  return scanOtpFromMailbox(client, box, 'higgsfield', {
+    recipientIncludes: 'support@ecomefficiency.com',
+    maxAgeMs: 20 * 60 * 1000,
+    returnNewest: true,
+  });
+}
+
 async function scanOtpFromMailbox(client, mailbox, service, opts = {}) {
   const hasAgeFilter = typeof opts.maxAgeMs === 'number' && opts.maxAgeMs > 0;
   const maxAgeMs = hasAgeFilter ? opts.maxAgeMs : 0;
@@ -479,24 +530,39 @@ app.get('/otp', async (req, res) => {
 });
 
 // Higgsfield OTP (email verification). Use Katabump or dedicated host via IMAP_HIGGSFIELD_HOST(S).
+// ?mailbox=support → support@ (Higgsfield 2 extension) via IMAP_GPT_* / IMAP_USER1.
 app.get('/otp-higgsfield', async (req, res) => {
-  console.log('[imap-higgsfield] OTP-HIGGSFIELD request received at', new Date().toISOString());
+  const mailboxParam = String((req.query && req.query.mailbox) || '').toLowerCase();
+  console.log('[imap-higgsfield] OTP-HIGGSFIELD request received at', new Date().toISOString(), 'mailbox=', mailboxParam || 'default');
   const imapPort = Number(process.env.IMAP_PORT || 993);
   const imapTLS = String(process.env.IMAP_TLS || 'true') === 'true';
   const imapMethod = (process.env.IMAP_METHOD || 'LOGIN').toUpperCase();
-  const imapUser = process.env.IMAP_HIGGSFIELD_USER || process.env.IMAP_USER || process.env.IMAP_GPT_USER;
-  const imapPass = process.env.IMAP_HIGGSFIELD_PASS || process.env.IMAP_PASS || process.env.IMAP_GPT_PASS;
+  const useSupportMailbox = mailboxParam === 'support';
+  const supportCreds = useSupportMailbox ? getSupportImapCredentials() : null;
+  const imapUser = useSupportMailbox
+    ? supportCreds.imapUser
+    : (process.env.IMAP_HIGGSFIELD_USER || process.env.IMAP_USER || process.env.IMAP_GPT_USER);
+  const imapPass = useSupportMailbox
+    ? supportCreds.imapPass
+    : (process.env.IMAP_HIGGSFIELD_PASS || process.env.IMAP_PASS || process.env.IMAP_GPT_PASS);
 
-  // Host(s): IMAP_HIGGSFIELD_HOSTS (katabump,neo,...) or IMAP_HIGGSFIELD_HOST or IMAP_HOST
-  const hostsRaw = process.env.IMAP_HIGGSFIELD_HOSTS || process.env.IMAP_HIGGSFIELD_HOST || process.env.IMAP_HOST;
-  const imapHosts = typeof hostsRaw === 'string' && hostsRaw.trim()
-    ? hostsRaw.split(',').map(h => h.trim()).filter(Boolean)
-    : [];
+  const imapHosts = useSupportMailbox
+    ? mergeUniqueImapHosts(
+        splitImapHosts(process.env.IMAP_GPT_HOSTS || process.env.IMAP_GPT_HOST || ''),
+        splitImapHosts(process.env.IMAP_HOST || 'imap0001.neo.space')
+      )
+    : getAdminHiggsfieldImapHosts();
 
   if (imapHosts.length === 0 || !imapUser || !imapPass) {
-    console.error('[imap-higgsfield] Missing env vars', { hosts: imapHosts.length, user: !!imapUser, pass: !!imapPass });
+    console.error('[imap-higgsfield] Missing env vars', { hosts: imapHosts.length, user: !!imapUser, pass: !!imapPass, mailbox: mailboxParam || 'default' });
     return res.status(500).json({ error: 'Missing IMAP env vars (set IMAP_HIGGSFIELD_HOSTS or IMAP_HIGGSFIELD_HOST for Katabump)' });
   }
+  if (useSupportMailbox && !String(imapUser).toLowerCase().includes('support@')) {
+    console.error('[imap-higgsfield] support mailbox requested but IMAP_GPT_USER is not support@:', imapUser);
+    return res.status(500).json({ error: 'IMAP_GPT_USER must be support@ecomefficiency.com for mailbox=support' });
+  }
+
+  console.log('[imap-higgsfield] Using IMAP user:', imapUser, 'hosts:', imapHosts.join(','));
 
   let code = '';
   let picked = null;
@@ -516,7 +582,9 @@ app.get('/otp-higgsfield', async (req, res) => {
       const mailboxesToTry = ['INBOX', 'Junk', 'Spam', 'Bulk Mail', 'Junk E-mail'];
       for (const box of mailboxesToTry) {
         try {
-          const best = await scanOtpFromMailbox(client, box, 'higgsfield');
+          const best = useSupportMailbox
+            ? await scanHiggsfieldSupportOtp(client, box)
+            : await scanOtpFromMailbox(client, box, 'higgsfield');
           if (best && best.code) {
             picked = { ...best, mailbox: box };
             code = best.code;
@@ -550,6 +618,82 @@ app.get('/otp-higgsfield', async (req, res) => {
     if (lastError) console.error('[imap-higgsfield] Last error:', lastError.message || lastError);
   }
   console.log('[imap-higgsfield] Sending response:', { code });
+  if (code) return res.json({ code });
+  if (lastError) return res.status(500).json({ error: (lastError && lastError.message) ? lastError.message : String(lastError) });
+  res.json({ code: '' });
+});
+
+// Higgsfield OTP for support@ (Higgsfield 2 extension) — uses IMAP_GPT_* / IMAP_USER1 mailbox.
+app.get('/otp-higgsfield-support', async (req, res) => {
+  console.log('[imap-higgsfield-support] OTP request received at', new Date().toISOString());
+  const imapPort = Number(process.env.IMAP_PORT || 993);
+  const imapTLS = String(process.env.IMAP_TLS || 'true') === 'true';
+  const imapMethod = (process.env.IMAP_METHOD || 'LOGIN').toUpperCase();
+  const { imapUser, imapPass, imapHosts } = getSupportImapCredentials();
+
+  if (imapHosts.length === 0 || !imapUser || !imapPass) {
+    console.error('[imap-higgsfield-support] Missing env vars', { hosts: imapHosts.length, user: !!imapUser, pass: !!imapPass });
+    return res.status(500).json({ error: 'Missing IMAP env vars (set IMAP_GPT_USER/IMAP_GPT_PASS for support@)' });
+  }
+  if (!String(imapUser).toLowerCase().includes('support@')) {
+    console.error('[imap-higgsfield-support] IMAP_GPT_USER must be support@, got:', imapUser);
+    return res.status(500).json({ error: 'IMAP_GPT_USER must be support@ecomefficiency.com' });
+  }
+
+  console.log('[imap-higgsfield-support] Using IMAP user:', imapUser, 'hosts:', imapHosts.join(','));
+
+  let code = '';
+  let picked = null;
+  let lastError = null;
+
+  for (const imapHost of imapHosts) {
+    console.log('[imap-higgsfield-support] Trying host:', imapHost);
+    const client = new ImapFlow({
+      host: imapHost,
+      port: imapPort,
+      secure: imapTLS,
+      auth: { user: imapUser, pass: imapPass, method: imapMethod },
+      logger: false
+    });
+    try {
+      await client.connect();
+      const mailboxesToTry = ['INBOX', 'Junk', 'Spam', 'Bulk Mail', 'Junk E-mail'];
+      for (const box of mailboxesToTry) {
+        try {
+          const best = await scanHiggsfieldSupportOtp(client, box);
+          if (best && best.code) {
+            picked = { ...best, mailbox: box };
+            code = best.code;
+            break;
+          }
+        } catch (_) {
+          continue;
+        }
+      }
+      if (code) break;
+    } catch (e) {
+      lastError = e;
+      console.warn('[imap-higgsfield-support] Host failed:', imapHost, (e && e.message) ? e.message : String(e));
+    } finally {
+      try { await client.logout(); } catch (_) {}
+    }
+  }
+
+  if (picked) {
+    console.log('[imap-higgsfield-support] Picked email:', {
+      mailbox: picked.mailbox,
+      uid: picked.uid,
+      from: picked.from,
+      subject: picked.subject,
+      date: picked.date,
+      score: picked.score,
+      code
+    });
+  } else {
+    console.log('[imap-higgsfield-support] No matching OTP email found (code empty)');
+    if (lastError) console.error('[imap-higgsfield-support] Last error:', lastError.message || lastError);
+  }
+  console.log('[imap-higgsfield-support] Sending response:', { code });
   if (code) return res.json({ code });
   if (lastError) return res.status(500).json({ error: (lastError && lastError.message) ? lastError.message : String(lastError) });
   res.json({ code: '' });
@@ -1618,11 +1762,6 @@ function extractFlairMagicLinkFromRaw(raw) {
   return '';
 }
 
-function splitImapHosts(raw) {
-  if (!raw || typeof raw !== 'string') return [];
-  return raw.split(',').map((h) => h.trim()).filter(Boolean);
-}
-
 // AdsPower login OTP.
 // Optional gate: set ADSPOWER_OTP_ENDPOINT_SECRET and pass ?secret= on requests.
 app.get('/otp-adspower', async (req, res) => {
@@ -1637,8 +1776,14 @@ app.get('/otp-adspower', async (req, res) => {
   const imapTLS = String(process.env.IMAP_TLS || 'true') === 'true';
   const imapMethod = (process.env.IMAP_METHOD || 'LOGIN').toUpperCase();
 
-  const adminHosts = splitImapHosts(
-    process.env.IMAP_ADSPOWER_ADMIN_HOSTS || process.env.IMAP_HIGGSFIELD_HOSTS || process.env.IMAP_HOST || ''
+  const adminHosts = mergeUniqueImapHosts(
+    splitImapHosts(
+      process.env.IMAP_ADSPOWER_ADMIN_HOSTS ||
+      process.env.IMAP_HIGGSFIELD_HOSTS ||
+      process.env.IMAP_HIGGSFIELD_HOST ||
+      ''
+    ),
+    splitImapHosts(process.env.IMAP_HOST || 'imap0001.neo.space')
   );
   const adminUser = String(process.env.IMAP_ADSPOWER_ADMIN_USER || 'admin@ecomefficiency.com').trim();
   const adminPass = String(process.env.IMAP_ADSPOWER_ADMIN_PASS || process.env.IMAP_PASS || '').trim();
@@ -1721,7 +1866,7 @@ app.get('/health', (req, res) => {
 app.get('/', (req, res) => {
   res.json({ 
     message: 'IMAP Server is running', 
-    endpoints: ['/otp', '/otp-higgsfield', '/otp-adspower', '/otp-vmake', '/otp-vmake1', '/otp-vmake2', '/otp-vmake3', '/otp-freepik', '/flair-link', '/claude-link', '/health'],
+    endpoints: ['/otp', '/otp-higgsfield', '/otp-higgsfield-support', '/otp-adspower', '/otp-vmake', '/otp-vmake1', '/otp-vmake2', '/otp-vmake3', '/otp-freepik', '/flair-link', '/claude-link', '/health'],
     port: Number(PORT) 
   });
 });

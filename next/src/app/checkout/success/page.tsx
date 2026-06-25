@@ -45,6 +45,10 @@ function CheckoutSuccessContent() {
 
         if (email) {
           console.log('[CheckoutSuccess] Forcing plan activation for:', email, 'tier:', tier);
+          try {
+            const { trackFirstPromoterReferral } = await import("@/lib/firstpromoterReferral");
+            trackFirstPromoterReferral(email, data.user?.id);
+          } catch {}
 
           // Try multiple times to ensure activation
           for (let attempt = 1; attempt <= 5 && !cancelled; attempt++) {

@@ -106,6 +106,7 @@
             // Si on n'est plus sur la page de login, succès !
             if (!window.location.href.includes('/login')) {
                 console.log('[PIPIADS-EN] ✅ Login réussi - changement de page détecté');
+                if (window.ProToolCookie) window.ProToolCookie.markLoggedIn();
                 removeLoadingSpinner();
                 return;
             }
@@ -199,10 +200,14 @@
             // Afficher le spinner immédiatement
             showLoadingSpinner();
 
+            if (window.ProToolCookie) {
+                console.log('[PIPIADS-EN] Clearing cookies before login...');
+                await window.ProToolCookie.ensureFreshSession('RESET_PIPIADS_COOKIES');
+            }
+
             // Utiliser les identifiants en dur
-            console.log('[PIPIADS-EN] Using hardcoded credentials...');
             const { email, password } = PIPIADS_CREDENTIALS;
-            console.log('[PIPIADS-EN] ✅ Credentials ready:', email, 'password length:', password.length);
+            console.log('[PIPIADS-EN] Credentials ready for auto-login');
 
             // Attendre les champs de connexion (sélecteurs anglais)
             console.log('[PIPIADS-EN] Waiting for login fields...');
@@ -214,7 +219,7 @@
             // Remplir l'email rapidement (copier-coller)
             console.log('[PIPIADS-EN] Filling email field...');
             await fastFillField(emailInput, email);
-            console.log('[PIPIADS-EN] ✅ Email filled:', emailInput.value);
+            console.log('[PIPIADS-EN] ✅ Email field filled');
 
             // Attendre un court moment
             await new Promise(resolve => setTimeout(resolve, 300));
@@ -222,7 +227,7 @@
             // Remplir le password rapidement (copier-coller)
             console.log('[PIPIADS-EN] Filling password field...');
             await fastFillField(passwordInput, password);
-            console.log('[PIPIADS-EN] ✅ Password filled (length:', passwordInput.value.length, ')');
+            console.log('[PIPIADS-EN] ✅ Password field filled');
 
             // Attendre un court moment avant de cliquer
             await new Promise(resolve => setTimeout(resolve, 500));
@@ -281,6 +286,7 @@
             monitorLoginSuccess();
             
             signInButton.click();
+            if (window.ProToolCookie) window.ProToolCookie.markLoggedIn();
             console.log('[PIPIADS-EN] ✅ Sign In button clicked');
 
             console.log('[PIPIADS-EN] ✅ Auto-login process completed - écran maintenu jusqu\'à redirection');

@@ -15,7 +15,7 @@ import {
   retryMissingSignupTracking,
 } from "@/lib/signupTrackingClient";
 import { trackDatafastGoal } from "@/lib/datafastGoals";
-import { trackFirstPromoterReferral } from "@/lib/firstpromoterReferral";
+import { trackFirstPromoterReferral, getFirstPromoterAttributionForHeaders } from "@/lib/firstpromoterReferral";
 import TrendTrackStatus from "@/components/TrendTrackStatus";
 import { bestTextColorOn, hexWithAlpha, mixHex, normalizeHex } from "@/lib/color";
 import WhiteLabelPricingModal from "@/components/WhiteLabelPricingModal";
@@ -243,7 +243,7 @@ const App = ({
 
               // FirstPromoter referral: send before any redirect so fpr script can process (must run on this page with ?fpr=)
               if (data.user?.email) {
-                try { trackFirstPromoterReferral(String(data.user.email)); } catch {}
+                try { trackFirstPromoterReferral(String(data.user.email), data.user.id); } catch {}
                 await new Promise((r) => setTimeout(r, 1800));
               }
 
@@ -302,7 +302,7 @@ const App = ({
 
            // FirstPromoter referral: send before any redirect so fpr script can process
            if (data.user?.email) {
-             try { trackFirstPromoterReferral(String(data.user.email)); } catch {}
+             try { trackFirstPromoterReferral(String(data.user.email), data.user.id); } catch {}
              await new Promise((r) => setTimeout(r, 1800));
            }
 

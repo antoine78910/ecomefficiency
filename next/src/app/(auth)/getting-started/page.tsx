@@ -8,7 +8,7 @@ import { useToast } from "@/hooks/use-toast";
 import { Check, ChevronDown, X } from "lucide-react";
 import { seoToolsCatalog } from "@/data/seoToolsCatalog";
 import { postGoal } from "@/lib/analytics";
-import { trackFirstPromoterReferral } from "@/lib/firstpromoterReferral";
+import { trackFirstPromoterReferral, getFirstPromoterAttributionForHeaders } from "@/lib/firstpromoterReferral";
 import { BillingCyberSwitch } from "@/components/BillingCyberSwitch";
 import PricingToolNewBadge from "@/components/PricingToolNewBadge";
 import { hasPricingNewBadge } from "@/lib/pricingToolBadges";
@@ -212,7 +212,7 @@ export default function GettingStartedPage() {
         // FirstPromoter referral: attribute signup when user lands on get-started (after OAuth or email verify).
         if (user?.email && typeof window !== "undefined") {
           try {
-            trackFirstPromoterReferral(String(user.email));
+            trackFirstPromoterReferral(String(user.email), user.id);
           } catch {}
         }
 

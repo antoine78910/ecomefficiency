@@ -7,19 +7,65 @@
 
   const url = location.href;
 
+  function isExplodingTopicsLanding() {
+    try {
+      const u = new URL(url);
+      return u.hostname.replace(/^www\./, '') === 'semrush.com' &&
+        /^\/apps\/exploding-topics\/?$/i.test(u.pathname);
+    } catch {
+      return /^https:\/\/(www\.)?semrush\.com\/apps\/exploding-topics\/?/i.test(url);
+    }
+  }
+
+  function findHeaderLogInButton() {
+    const selectors = [
+      '#snav-header-log-in-button',
+      '#srf-header-log-in-button',
+      'a[data-test="auth-popup__btn-login"]',
+      'a.snav-header__menu-link--login-button',
+      'a.srf-header__menu-link--login-button',
+      'a[href*="/login/"][href*="redirect_to=/apps/exploding-topics"]',
+    ];
+    for (const sel of selectors) {
+      const el = document.querySelector(sel);
+      if (el) return el;
+    }
+    for (const a of document.querySelectorAll('a[href*="/login"]')) {
+      const t = (a.textContent || '').replace(/\s+/g, ' ').trim();
+      if (/^log\s*in$/i.test(t)) return a;
+    }
+    return null;
+  }
+
   /*****************************
-   * 1. Depuis Exploding Topics
+   * 1. Depuis Exploding Topics landing
    *****************************/
-  if (url.startsWith('https://www.semrush.com/apps/exploding-topics/')) {
-    console.log('[Semrush] Sur exploding-topics → recherche bouton Log In');
-    const interval = setInterval(() => {
-      const loginBtn = document.querySelector('#srf-header-log-in-button');
-      if (!loginBtn) return;
-      clearInterval(interval);
-      console.log('[Semrush] Bouton Log In trouvé → clic');
+  if (isExplodingTopicsLanding()) {
+    console.log('[Semrush] On exploding-topics landing → looking for Log In (not Try it free)');
+    let clicked = false;
+    const tryClickLogIn = () => {
+      if (clicked) return true;
+      const loginBtn = findHeaderLogInButton();
+      if (!loginBtn) return false;
+      clicked = true;
+      console.log('[Semrush] Log In button found → click', loginBtn.id || loginBtn.getAttribute('data-test'));
+      loginBtn.scrollIntoView({ block: 'center' });
       loginBtn.click();
-    }, 300);
-    // Rien d’autre à faire sur cette page
+      return true;
+    };
+
+    if (!tryClickLogIn()) {
+      const started = Date.now();
+      const interval = setInterval(() => {
+        if (tryClickLogIn() || Date.now() - started > 20000) {
+          clearInterval(interval);
+          if (!clicked) console.warn('[Semrush] Log In button not found after 20s');
+        }
+      }, 300);
+      const observer = new MutationObserver(() => tryClickLogIn());
+      observer.observe(document.documentElement, { childList: true, subtree: true });
+      setTimeout(() => observer.disconnect(), 20000);
+    }
     return;
   }
 

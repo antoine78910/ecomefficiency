@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Ecom Efficiency",
-  "version": "1.0.1",
+  "version": "1.0.5",
   "description": "Injecte des scripts personnalisés sur des pages spécifiques pour automatiser la connexion.",
   "permissions": [
     "activeTab",
@@ -11,7 +11,8 @@
     "tabs",
     "notifications",
     "webRequest",
-    "webRequestBlocking"
+    "webRequestBlocking",
+    "cookies"
   ],
   "host_permissions": [
     "https://www.pipiads.com/*",
@@ -35,33 +36,65 @@
   "content_scripts": [
     {
       "matches": [
+        "https://www.pipiads.com/*"
+      ],
+      "exclude_matches": [
+        "https://www.pipiads.com/login*",
+        "https://www.pipiads.com/fr/login*"
+      ],
+      "js": ["pro_tool_cookie.js", "pro_tool_logout.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
         "https://www.pipiads.com/login*"
       ],
-      "js": ["auto_login_pipiads.js"],
+      "js": ["pro_tool_cookie.js", "auto_login_pipiads.js"],
       "run_at": "document_end"
     },
     {
       "matches": [
         "https://www.pipiads.com/fr/login*"
       ],
-      "js": ["auto_login_pipiads_fr.js"],
+      "js": ["pro_tool_cookie.js", "auto_login_pipiads_fr.js"],
       "run_at": "document_end"
+    },
+    {
+      "matches": [
+        "https://app.winninghunter.com/dashboard*"
+      ],
+      "js": ["pro_tool_cookie.js", "pro_tool_logout.js"],
+      "run_at": "document_start"
     },
     {
       "matches": [
         "https://app.winninghunter.com/dashboard*",
         "https://app.winninghunter.com/login*"
       ],
-      "js": ["winninghunter_auto_login.js"],
+      "js": ["pro_tool_cookie.js", "winninghunter_auto_login.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://elevenlabs.io/app/*",
+        "https://app.elevenlabs.io/*"
+      ],
+      "exclude_matches": [
+        "https://elevenlabs.io/app/sign-in*",
+        "https://app.elevenlabs.io/sign-in*"
+      ],
+      "js": ["pro_tool_cookie.js", "pro_tool_logout.js"],
       "run_at": "document_start"
     },
     {
       "matches": [
         "https://elevenlabs.io/app/sign-in",
+        "https://elevenlabs.io/app/sign-in/*",
         "https://app.elevenlabs.io/sign-in",
+        "https://app.elevenlabs.io/sign-in/*",
         "https://elevenlabs.io/fr/login"
       ],
-      "js": ["elevenlabs_auto_login.js"],
+      "js": ["pro_tool_cookie.js", "elevenlabs_auto_login.js"],
       "run_at": "document_end"
     },
     {

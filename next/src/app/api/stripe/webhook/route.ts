@@ -413,6 +413,7 @@ export async function POST(req: NextRequest) {
         }
 
         let userEmail = invoice.customer_email;
+        let fpUserId: string | null = null;
         let plan: 'starter' | 'pro' = 'starter';
         let tier = 'starter';
         let fpPlan: string | null = null;
@@ -440,6 +441,7 @@ export async function POST(req: NextRequest) {
                 if (user?.id) targetUserId = user.id;
               } catch {}
             }
+            if (targetUserId) fpUserId = String(targetUserId);
 
             console.log('[webhook][invoice.payment_succeeded]', requestId, 'Subscription metadata:', { clientRef: targetUserId, customerId, tier, plan, priceId: detected.priceId, partnerSlug });
 
@@ -505,28 +507,65 @@ export async function POST(req: NextRequest) {
         }
 
         // Track sale in FirstPromoter (server-side, idempotent via event_id).
-        // If the lead wasn't referred, FirstPromoter returns 204 (safe to ignore).
         try {
+          if (!userEmail && invoice?.customer) {
+            try {
+              const cust = await stripe.customers.retrieve(String(invoice.customer), stripeOpts as any);
+              if (!("deleted" in cust) && cust?.email) userEmail = cust.email;
+            } catch {}
+          }
+
           const invoiceId = invoice?.id ? String(invoice.id) : "";
           const eventId = invoiceId ? `stripe_invoice_${invoiceId}` : "";
-          // Prefer subtotal_excluding_tax/subtotal if available (FirstPromoter expects amount before taxes).
           const amountCents =
             Number(invoice?.subtotal_excluding_tax ?? invoice?.subtotal ?? invoice?.amount_paid ?? 0) || 0;
           const currency = invoice?.currency ? String(invoice.currency).toUpperCase() : null;
-          if (eventId && userEmail && amountCents > 0) {
+          if (eventId && (userEmail || fpUserId) && amountCents > 0) {
             const fpRes = await fpTrackSale({
-              email: String(userEmail),
+              email: userEmail ? String(userEmail) : undefined,
+              uid: fpUserId || undefined,
               eventId,
               amountCents,
               currency,
               plan: fpPlan || tier || plan,
             });
-            console.log(
-              "[webhook][invoice.payment_succeeded]",
-              requestId,
-              "FirstPromoter sale tracked:",
-              { status: fpRes.status, ok: fpRes.ok, eventId }
-            );
+            const logPayload = {
+              status: fpRes.status,
+              ok: fpRes.ok,
+              eventId,
+              email: userEmail || null,
+              uid: fpUserId,
+              body: fpRes.bodyText?.slice(0, 160),
+            };
+            if (fpRes.status === 0) {
+              console.error(
+                "[webhook][invoice.payment_succeeded]",
+                requestId,
+                "FirstPromoter NOT configured (set FIRSTPROMOTER_API_KEY + FIRSTPROMOTER_ACCOUNT_ID):",
+                logPayload
+              );
+            } else if (fpRes.status === 404) {
+              console.log(
+                "[webhook][invoice.payment_succeeded]",
+                requestId,
+                "FirstPromoter sale skipped (not a referral):",
+                logPayload
+              );
+            } else if (!fpRes.ok) {
+              console.warn(
+                "[webhook][invoice.payment_succeeded]",
+                requestId,
+                "FirstPromoter sale tracking issue:",
+                logPayload
+              );
+            } else {
+              console.log(
+                "[webhook][invoice.payment_succeeded]",
+                requestId,
+                "FirstPromoter sale tracked:",
+                logPayload
+              );
+            }
           }
         } catch (e: any) {
           console.error(

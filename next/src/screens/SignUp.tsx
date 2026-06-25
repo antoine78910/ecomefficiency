@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useSessionTracking } from "@/hooks/useSessionTracking";
 import GoogleButton from "@/components/GoogleButton";
-import { trackFirstPromoterReferral } from "@/lib/firstpromoterReferral";
+import { trackFirstPromoterReferral, getFirstPromoterAttributionForHeaders } from "@/lib/firstpromoterReferral";
 import { trackFunnelEvent } from "@/lib/funnelTrackingClient";
 import { fireGoogleAdsSignupConversion } from "@/lib/googleAdsConversions";
 // Discord removed per request
@@ -120,6 +120,8 @@ const SignUp = () => {
             email: user?.email || email,
           });
           if (user?.id) fireGoogleAdsSignupConversion(user.id);
+          // Referral attribution: must happen before any redirect so the FP cookie is still present.
+          try { trackFirstPromoterReferral(user?.email || email, user?.id); } catch {}
           toast({
             title: "Account created!",
             description: "Welcome to Ecom Efficiency",
@@ -129,7 +131,10 @@ const SignUp = () => {
             if (tok) {
               await fetch("/api/firstpromoter/promoter", {
                 method: "GET",
-                headers: { Authorization: `Bearer ${tok}` },
+                headers: {
+                  Authorization: `Bearer ${tok}`,
+                  ...getFirstPromoterAttributionForHeaders(),
+                },
                 cache: "no-store",
               });
             }

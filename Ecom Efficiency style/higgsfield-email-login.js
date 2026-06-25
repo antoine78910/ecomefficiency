@@ -209,17 +209,16 @@
       if (document.getElementById(rootId)) return resolve(false);
       const mount = EE && EE.mount;
       if (!mount) return resolve(false);
-      const codePage = hfCodePageUrl();
       let settled = false;
       mount({
         prefix: 'ee-hf-auth-gate',
         zIndex: 2147483647,
-        onSubmit: async (email, pin) => {
+        onSubmit: async (email) => {
           try {
             const r = await fetch(ECOM_VERIFY_URL, {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ email, pin })
+              body: JSON.stringify({ email, client: 'higgsfield_extension' })
             });
             const data = await r.json().catch(() => null);
             if (data && data.status === 'higgsfield_requires_pro') {
@@ -229,17 +228,7 @@
                 isError: true
               };
             }
-            if (data && data.status === 'invalid_pin') {
-              return { ok: false, message: 'Incorrect code. Copy yours from ' + codePage + '.', isError: true };
-            }
-            if (
-              data &&
-              (data.status === 'pin_required' ||
-                (data.active === true && data.pin_required && !data.hf_access_token))
-            ) {
-              return { ok: false, message: 'Enter your 4-digit code from ' + codePage + '.', isError: true };
-            }
-            const allowed = !!(data && data.ok === true && data.active === true && data.hf_access_token);
+            const allowed = !!(data && data.ok === true && data.active === true);
             if (!allowed) {
               return {
                 ok: false,

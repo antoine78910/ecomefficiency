@@ -1,3 +1,10 @@
+type TrackResult = {
+  status: number;
+  ok: boolean;
+  bodyText?: string;
+  skipped?: boolean;
+};
+
 type TrackSaleInput = {
   email?: string | null;
   uid?: string | null;
@@ -6,27 +13,63 @@ type TrackSaleInput = {
   currency?: string | null;
   plan?: string | null;
   promoCode?: string | null;
+  tid?: string | null;
+  refId?: string | null;
 };
 
-function getTrackingApiKey(): string | null {
-  const key = String(process.env.FIRSTPROMOTER_TRACKING_API_KEY || "").trim();
-  return key ? key : null;
+type TrackSignupInput = {
+  email?: string | null;
+  uid?: string | null;
+  /** Visitor tracking ID from _fprom_tid cookie */
+  tid?: string | null;
+  /** Referral token from ?fpr= query param */
+  refId?: string | null;
+};
+
+const TRACK_BASE = "https://api.firstpromoter.com/api/v2/track";
+
+function getTrackingCredentials(): { apiKey: string; accountId: string } | null {
+  const apiKey = String(
+    process.env.FIRSTPROMOTER_API_KEY ||
+      process.env.FIRSTPROMOTER_TRACKING_API_KEY ||
+      ""
+  ).trim();
+  const accountId = String(process.env.FIRSTPROMOTER_ACCOUNT_ID || "").trim();
+  if (!apiKey || !accountId) return null;
+  return { apiKey, accountId };
+}
+
+async function fpTrackingPost(
+  path: string,
+  body: Record<string, unknown>
+): Promise<TrackResult> {
+  const creds = getTrackingCredentials();
+  if (!creds) {
+    return { status: 0, ok: false, bodyText: "FIRSTPROMOTER_NOT_CONFIGURED" };
+  }
+
+  const res = await fetch(`${TRACK_BASE}${path}`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Account-ID": creds.accountId,
+      Authorization: `Bearer ${creds.apiKey}`,
+    },
+    body: JSON.stringify(body),
+    cache: "no-store" as RequestCache,
+  });
+
+  const bodyText = await res.text().catch(() => "");
+  // 404 = not a referred lead/sale (expected for organic traffic)
+  const ok = res.ok || res.status === 404 || res.status === 204;
+  return { status: res.status, ok, bodyText };
 }
 
 /**
- * Track a sale server-side (recommended by FirstPromoter).
- * Docs: POST https://firstpromoter.com/api/v1/track/sale (query params) with header X-API-KEY.
+ * Track a sale server-side (required for commissions with custom Stripe checkout).
+ * Docs: POST https://api.firstpromoter.com/api/v2/track/sale
  */
-export async function fpTrackSale(input: TrackSaleInput): Promise<{
-  status: number;
-  ok: boolean;
-  bodyText?: string;
-}> {
-  const apiKey = getTrackingApiKey();
-  if (!apiKey) {
-    return { status: 0, ok: false, bodyText: "FIRSTPROMOTER_TRACKING_NOT_CONFIGURED" };
-  }
-
+export async function fpTrackSale(input: TrackSaleInput): Promise<TrackResult> {
   const email = input.email ? String(input.email).trim() : "";
   const uid = input.uid ? String(input.uid).trim() : "";
   if (!email && !uid) {
@@ -41,25 +84,45 @@ export async function fpTrackSale(input: TrackSaleInput): Promise<{
     return { status: 0, ok: false, bodyText: "INVALID_AMOUNT" };
   }
 
-  const url = new URL("https://firstpromoter.com/api/v1/track/sale");
-  if (email) url.searchParams.set("email", email);
-  if (uid) url.searchParams.set("uid", uid);
-  url.searchParams.set("event_id", eventId);
-  url.searchParams.set("amount", String(Math.round(amountCents)));
-  if (input.currency) url.searchParams.set("currency", String(input.currency).toUpperCase());
-  if (input.plan) url.searchParams.set("plan", String(input.plan));
-  if (input.promoCode) url.searchParams.set("promo_code", String(input.promoCode));
+  const body: Record<string, unknown> = {
+    event_id: eventId,
+    amount: Math.round(amountCents),
+  };
+  if (email) body.email = email;
+  if (uid) body.uid = uid;
+  if (input.currency) body.currency = String(input.currency).toUpperCase();
+  if (input.plan) body.plan = String(input.plan);
+  if (input.promoCode) body.promo_code = String(input.promoCode);
+  const tid = input.tid ? String(input.tid).trim() : "";
+  const refId = input.refId ? String(input.refId).trim() : "";
+  if (tid) body.tid = tid;
+  if (refId) body.ref_id = refId;
 
-  const res = await fetch(url.toString(), {
-    method: "POST",
-    headers: {
-      "X-API-KEY": apiKey,
-    },
-    // Do not cache webhooks/tracking calls
-    cache: "no-store" as any,
-  });
-
-  const bodyText = await res.text().catch(() => "");
-  return { status: res.status, ok: res.ok, bodyText };
+  return fpTrackingPost("/sale", body);
 }
 
+/**
+ * Track signup / lead server-side (pairs with fpr("referral") on the client).
+ * Docs: POST https://api.firstpromoter.com/api/v2/track/signup
+ */
+export async function fpTrackSignup(input: TrackSignupInput): Promise<TrackResult> {
+  const email = input.email ? String(input.email).trim() : "";
+  const uid = input.uid ? String(input.uid).trim() : "";
+  if (!email && !uid) {
+    return { status: 0, ok: false, bodyText: "MISSING_EMAIL_OR_UID" };
+  }
+
+  const body: Record<string, unknown> = {};
+  if (email) body.email = email;
+  if (uid) body.uid = uid;
+  const tid = input.tid ? String(input.tid).trim() : "";
+  const refId = input.refId ? String(input.refId).trim() : "";
+  if (tid) body.tid = tid;
+  if (refId) body.ref_id = refId;
+
+  return fpTrackingPost("/signup", body);
+}
+
+export function isFirstPromoterTrackingConfigured(): boolean {
+  return getTrackingCredentials() !== null;
+}

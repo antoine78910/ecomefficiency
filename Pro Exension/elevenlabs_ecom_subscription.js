@@ -1,4 +1,4 @@
-// ElevenLabs EcomEfficiency: subscription verification + 5000 credits/day + multi-feature tracking
+// ElevenLabs EcomEfficiency: subscription verification + daily credits + multi-feature tracking
 // Runs in world:"MAIN" so fetch interceptor catches the page's real API calls.
 (function () {
   'use strict';
@@ -7,13 +7,35 @@
   var host = (location.hostname || '').toLowerCase();
   if (host !== 'elevenlabs.io' && host !== 'www.elevenlabs.io' && host !== 'app.elevenlabs.io') return;
 
+  // Daily limit per user (characters).
+  var EE_EL_DAILY_LIMIT_DEFAULT = 10000;
+
+  function getDailyCreditLimit() {
+    if (window.EE_ELEVENLABS_ECOM_CONFIG && window.EE_ELEVENLABS_ECOM_CONFIG.DAILY_CREDIT_LIMIT > 0) {
+      return window.EE_ELEVENLABS_ECOM_CONFIG.DAILY_CREDIT_LIMIT;
+    }
+    return EE_EL_DAILY_LIMIT_DEFAULT;
+  }
+
   var CONFIG = window.EE_ELEVENLABS_ECOM_CONFIG || {
     API_BASE_URL: 'https://www.ecomefficiency.com',
     VERIFY_SUBSCRIPTION_PATH: '/api/stripe/verify',
     USAGE_LOG_PATH: '/api/usage/elevenlabs',
     CREDITS_PROXY_PATH: '/api/elevenlabs/credits',
-    DAILY_CREDIT_LIMIT: 5000
+    DAILY_CREDIT_LIMIT: getDailyCreditLimit()
   };
+  if (!window.EE_ELEVENLABS_ECOM_CONFIG) {
+    setInterval(function () { CONFIG.DAILY_CREDIT_LIMIT = getDailyCreditLimit(); }, 10000);
+  }
+
+  function getElevenLabsApiKey() {
+    try {
+      if (window.EE_ELEVENLABS_ECOM_CONFIG && window.EE_ELEVENLABS_ECOM_CONFIG.ELEVENLABS_API_KEY) {
+        return String(window.EE_ELEVENLABS_ECOM_CONFIG.ELEVENLABS_API_KEY).trim();
+      }
+    } catch (_) {}
+    return '';
+  }
 
   var STORAGE_PREFIX = 'ee_el_ecom_';
   var SESSION_VERIFIED_EMAIL = STORAGE_PREFIX + 'verified_email';
@@ -23,6 +45,13 @@
 
   var DEBUG = true;
   function log() { if (DEBUG) try { console.log.apply(console, ['[EE-EL-Ecom]'].concat(Array.prototype.slice.call(arguments))); } catch (_) {} }
+
+  function maskEmail(email) {
+    var e = String(email || '').trim();
+    var at = e.indexOf('@');
+    if (at < 1) return '[redacted]';
+    return e.slice(0, 1) + '***' + e.slice(at);
+  }
 
   // ═══════════════════════════════════════════════════════════════════
   //  BLOCKED PAGES & SIDEBAR CLEANUP
@@ -248,7 +277,7 @@
   function setPeriodUsage(u) { try { localStorage.setItem(getUserStorageKey(), JSON.stringify(u)); } catch (_) {} }
   function getUsedThisPeriod() { return getPeriodUsage()[getPeriodKey()] || 0; }
   function addUsedThisPeriod(delta) { var u = getPeriodUsage(); var k = getPeriodKey(); u[k] = (u[k] || 0) + delta; setPeriodUsage(u); }
-  function getRemaining() { return Math.max(0, CONFIG.DAILY_CREDIT_LIMIT - getUsedThisPeriod()); }
+  function getRemaining() { return Math.max(0, getDailyCreditLimit() - getUsedThisPeriod()); }
 
   // ═══════════════════════════════════════════════════════════════════
   //  BACKEND SYNC
@@ -292,15 +321,91 @@
   }
 
   // ═══════════════════════════════════════════════════════════════════
-  //  ELEVENLABS REAL BALANCE (via proxy API)
+  //  ELEVENLABS REAL BALANCE (proxy API, fallback direct ElevenLabs API)
   // ═══════════════════════════════════════════════════════════════════
-  var _elBalance = null; var _elBalanceAt = 0;
+  var _elBalance = null; var _elBalanceAt = 0; var _elBalanceError = false;
+
+  function normalizeElBalance(raw) {
+    if (!raw) return null;
+    if (raw.ok === true && raw.character_limit != null) {
+      return {
+        ok: true,
+        character_count: raw.character_count ?? 0,
+        character_limit: raw.character_limit ?? 0,
+        next_character_count_reset_unix: raw.next_character_count_reset_unix ?? null,
+        tier: raw.tier ?? null,
+        status: raw.status ?? null
+      };
+    }
+    if (raw.character_limit != null) {
+      return {
+        ok: true,
+        character_count: raw.character_count ?? 0,
+        character_limit: raw.character_limit ?? 0,
+        next_character_count_reset_unix: raw.next_character_count_reset_unix ?? null,
+        tier: raw.tier ?? null,
+        status: raw.status ?? null
+      };
+    }
+    return null;
+  }
+
+  function fetchElBalanceDirect() {
+    var apiKey = getElevenLabsApiKey();
+    if (!apiKey) return Promise.resolve(null);
+    return apiFetch('https://api.elevenlabs.io/v1/user/subscription', {
+      method: 'GET',
+      headers: { 'xi-api-key': apiKey, Accept: 'application/json' },
+      credentials: 'omit',
+      cache: 'no-store'
+    })
+      .then(function (r) {
+        if (!r.ok) {
+          log('direct EL API HTTP', r.status);
+          return null;
+        }
+        return r.json();
+      })
+      .then(function (d) {
+        var bal = normalizeElBalance(d);
+        if (bal) {
+          _elBalance = bal;
+          _elBalanceAt = Date.now();
+          _elBalanceError = false;
+          log('EL balance (direct API):', bal.character_count, '/', bal.character_limit);
+        }
+        return bal;
+      })
+      .catch(function (e) {
+        log('direct EL API error', e && e.message);
+        return null;
+      });
+  }
+
   function fetchElBalance(force) {
     if (!force && _elBalance && (Date.now() - _elBalanceAt) < 5000) return Promise.resolve(_elBalance);
-    return apiFetch(CONFIG.API_BASE_URL + CONFIG.CREDITS_PROXY_PATH, { method: 'GET', credentials: 'omit' })
+    return apiFetch(CONFIG.API_BASE_URL + CONFIG.CREDITS_PROXY_PATH, { method: 'GET', credentials: 'omit', cache: 'no-store' })
       .then(function (r) { return r.ok ? r.json() : null; })
-      .then(function (d) { if (d && d.ok) { _elBalance = d; _elBalanceAt = Date.now(); } return _elBalance; })
-      .catch(function () { return _elBalance; });
+      .then(function (d) {
+        var bal = normalizeElBalance(d);
+        if (bal) {
+          _elBalance = bal;
+          _elBalanceAt = Date.now();
+          _elBalanceError = false;
+          log('EL balance (proxy):', bal.character_count, '/', bal.character_limit);
+          return _elBalance;
+        }
+        log('proxy credits failed, trying direct ElevenLabs API');
+        return fetchElBalanceDirect();
+      })
+      .catch(function (e) {
+        log('proxy credits error', e && e.message);
+        return fetchElBalanceDirect();
+      })
+      .then(function (bal) {
+        if (!bal) _elBalanceError = true;
+        return _elBalance;
+      });
   }
 
   // ═══════════════════════════════════════════════════════════════════
@@ -416,7 +521,7 @@
           setUserScope(email);
           setMsg('Subscription found. Syncing\u2026', false);
           Promise.all([syncUsageFromBackend(email), fetchElBalance(true)]).then(function () {
-            setMsg('Access granted. ' + getRemaining() + ' / ' + CONFIG.DAILY_CREDIT_LIMIT + ' credits remaining today.', false);
+            setMsg('Access granted. ' + getRemaining() + ' / ' + getDailyCreditLimit() + ' credits remaining today.', false);
             setTimeout(function () { root.remove(); removeShield(); ensureWidget(); refreshWidget(0); startTracking(); installButtonOverlayLoop(); startCostIndicator(); startBalanceWatcher(); eeFullyInitialized = true; }, 600);
           });
         } else if (res && res.reason === 'no_active_subscription') {
@@ -442,7 +547,7 @@
 
   function refreshWidget(genDelta) {
     var w = ensureWidget(); if (!w) return;
-    var limit = CONFIG.DAILY_CREDIT_LIMIT;
+    var limit = getDailyCreditLimit();
     var used = getUsedThisPeriod(); var remaining = Math.max(0, limit - used);
     var pctEE = limit > 0 ? Math.round((remaining / limit) * 100) : 0;
     var over = used >= limit; var email = getVerifiedEmail();
@@ -461,7 +566,7 @@
     var elAcc = (elRem != null && elRem <= 0) ? '#ef4444' : '#10b981';
     var elSec = elUsed != null
       ? '<div class="ee-section"><div class="ee-lbl">\uD83C\uDFA4 ElevenLabs Account</div><div style="display:flex;justify-content:space-between;align-items:baseline;"><span class="ee-val" style="color:' + elAcc + ';">' + fmtNum(elRem) + '</span><span style="font-size:11px;color:rgba(255,255,255,.35);">/ ' + fmtNum(elLimit) + ' remaining</span></div><div class="ee-bar"><div class="ee-bar-fill" style="width:' + (pctEL || 0) + '%;background:' + elBarC + ';"></div></div></div>'
-      : '<div class="ee-section"><div class="ee-lbl">\uD83C\uDFA4 ElevenLabs Account</div><div style="font-size:11px;color:rgba(255,255,255,.4);">Loading\u2026</div></div>';
+      : '<div class="ee-section"><div class="ee-lbl">\uD83C\uDFA4 ElevenLabs Account</div><div style="font-size:11px;color:rgba(255,255,255,.4);">' + (_elBalanceError ? 'Unable to load credits' : 'Loading\u2026') + '</div></div>';
     var lastH = lastDelta > 0 ? '<div class="ee-section" style="padding-bottom:0;"><div style="display:flex;align-items:center;gap:4px;font-size:11px;color:rgba(255,255,255,.5);"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="' + accent + '" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>Last: \u2212' + fmtNum(lastDelta) + ' credits</div></div>' : '';
     var eeBarC = remaining > 0 ? 'linear-gradient(90deg,#9541e0,#b54af3)' : 'linear-gradient(90deg,#ef4444,#dc2626)';
     var pill = remaining > 999 ? Math.round(remaining / 1000) + 'k' : String(remaining);
@@ -1010,7 +1115,7 @@
     addUsedThisPeriod(cost); lastDelta = cost;
     logUsage(email, cost, getUsedThisPeriod(), source + '_' + ep.name);
     log(ep.name + ' ALLOWED: -' + cost + ' credits');
-    showToast('\u2713 ' + ep.label + '\u2026 <b>\u2212' + fmtNum(cost) + ' credits</b> (' + fmtNum(CONFIG.DAILY_CREDIT_LIMIT - getUsedThisPeriod()) + ' remaining)', 3000);
+    showToast('\u2713 ' + ep.label + '\u2026 <b>\u2212' + fmtNum(cost) + ' credits</b> (' + fmtNum(getDailyCreditLimit() - getUsedThisPeriod()) + ' remaining)', 3000);
     refreshWidget(cost);
     return { blocked: false, cost: cost };
   }
@@ -1185,6 +1290,21 @@
   // ═══════════════════════════════════════════════════════════════════
   //  POPUP FLOW + INIT
   // ═══════════════════════════════════════════════════════════════════
+  function resumeSessionIfVerified() {
+    var email = getVerifiedEmail();
+    if (!email || isSignIn(location.pathname) || eeFullyInitialized) return false;
+    eeFullyInitialized = true;
+    removeShield();
+    ensureWidget();
+    refreshWidget(0);
+    startTracking();
+    installButtonOverlayLoop();
+    startCostIndicator();
+    startBalanceWatcher();
+    log('resumed verified session for', maskEmail(email));
+    return true;
+  }
+
   function runPopupFlow() {
     if (eeFullyInitialized || isSignIn(location.pathname)) return;
     installShield();
@@ -1203,9 +1323,12 @@
     installFetchInterceptor();
     installXhrInterceptor();
     installSpaWatcher();
-    log('init', location.href, 'DAILY_LIMIT=' + CONFIG.DAILY_CREDIT_LIMIT);
+    log('init', location.href, 'DAILY_LIMIT=' + getDailyCreditLimit());
     if (isSignIn(location.pathname)) return;
-    var go = function () { setTimeout(runPopupFlow, 1200); };
+    var go = function () {
+      if (resumeSessionIfVerified()) return;
+      setTimeout(runPopupFlow, 1200);
+    };
     if (document.readyState === 'complete' || document.readyState === 'interactive') go();
     else document.addEventListener('DOMContentLoaded', go);
     // Periodically hide blocked sidebar links

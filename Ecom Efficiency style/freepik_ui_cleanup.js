@@ -36,7 +36,9 @@
       a[href="/pikaso/projects/home"],
       a[href="/pikaso/projects/history"],
       [data-cy="view-project-button"],
-      [data-cy="my-creations-button"] {
+      [data-cy="my-creations-button"],
+      [data-cy="header-upgrade-button"],
+      button[data-cy="header-upgrade-button"] {
         display: none !important;
       }
 
@@ -104,6 +106,12 @@
     return changed;
   }
 
+  function removeUpgradeButton() {
+    const btn = document.querySelector('[data-cy="header-upgrade-button"], button[data-cy="header-upgrade-button"]');
+    if (!btn) return false;
+    return remove(btn);
+  }
+
   function disableAvatarButton() {
     // Make the avatar menu button non-interactive
     const btn =
@@ -125,6 +133,7 @@
     ensureCss();
     removeBuyCredits();
     removePikasoNavButtons();
+    removeUpgradeButton();
     disableAvatarButton();
   }
 

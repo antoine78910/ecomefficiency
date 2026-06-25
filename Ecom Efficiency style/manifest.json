@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Ecom Efficiency",
-  "version": "1.0.6",
+  "version": "1.0.8",
   "description": "Injecte des scripts personnalis\u00e9s sur des pages sp\u00e9cifiques.",
   "permissions": [
     "storage",
@@ -23,7 +23,6 @@
     "https://logindiscord.herokuapp.com/*",
     "*://*.fotor.com/*",
     "https://docs.google.com/*",
-    "chrome://*/*",
     "*://app.afterlib.com/*",
     "https://login.spyessentials.ai/otp.php?email=alishaeys%40gmail.com",
     "https://www.pipiads.com/*",
@@ -253,7 +252,7 @@
       "js": [
         "atria_auto_login.js"
       ],
-      "run_at": "document_idle"
+      "run_at": "document_start"
     },
     {
       "matches": [
@@ -340,8 +339,14 @@
     },
     {
       "matches": [
+        "https://www.semrush.com/apps/exploding-topics",
+        "https://www.semrush.com/apps/exploding-topics/",
         "https://www.semrush.com/apps/exploding-topics/*",
-        "https://www.semrush.com/login*"
+        "https://semrush.com/apps/exploding-topics",
+        "https://semrush.com/apps/exploding-topics/",
+        "https://semrush.com/apps/exploding-topics/*",
+        "https://www.semrush.com/login*",
+        "https://semrush.com/login*"
       ],
       "js": [
         "auto_login_semrush.js"
@@ -421,6 +426,19 @@
       ],
       "js": [
         "nox-runway.js"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://noxtools.com/secure/page/Helium10",
+        "https://tools.noxtools.com/helium10.php",
+        "https://tools.noxtools.com/helium10.php*",
+        "https://*.helium10.com/*",
+        "https://helium10.com/*"
+      ],
+      "js": [
+        "nox-helium.js"
       ],
       "run_at": "document_start"
     },
@@ -850,7 +868,7 @@
     },
     {
       "matches": [
-        "https://www.magnific.com/log-in*"
+        "https://www.magnific.com/*"
       ],
       "js": [
         "auto_login_freepik.js"

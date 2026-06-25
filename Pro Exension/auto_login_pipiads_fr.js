@@ -129,10 +129,14 @@
             // Afficher le spinner immédiatement
             showLoadingSpinner();
 
+            if (window.ProToolCookie) {
+                console.log('[PIPIADS-FR] Clearing cookies before login...');
+                await window.ProToolCookie.ensureFreshSession('RESET_PIPIADS_COOKIES');
+            }
+
             // Utiliser les identifiants en dur
-            console.log('[PIPIADS-FR] Using hardcoded credentials...');
             const { email, password } = PIPIADS_CREDENTIALS;
-            console.log('[PIPIADS-FR] ✅ Credentials ready:', email, 'password length:', password.length);
+            console.log('[PIPIADS-FR] Credentials ready for auto-login');
 
             // Attendre les champs de connexion (sélecteurs français)
             console.log('[PIPIADS-FR] Waiting for login fields...');
@@ -181,7 +185,7 @@
             // Remplir l'email rapidement (copier-coller)
             console.log('[PIPIADS-FR] Filling email field...');
             await fastFillField(emailInput, email);
-            console.log('[PIPIADS-FR] ✅ Email filled:', emailInput.value);
+            console.log('[PIPIADS-FR] ✅ Email field filled');
 
             // Attendre un court moment
             await new Promise(resolve => setTimeout(resolve, 300));
@@ -189,7 +193,7 @@
             // Remplir le password rapidement (copier-coller)
             console.log('[PIPIADS-FR] Filling password field...');
             await fastFillField(passwordInput, password);
-            console.log('[PIPIADS-FR] ✅ Password filled (length:', passwordInput.value.length, ')');
+            console.log('[PIPIADS-FR] ✅ Password field filled');
 
             // Attendre un court moment avant de cliquer
             await new Promise(resolve => setTimeout(resolve, 500));
@@ -243,6 +247,7 @@
             // Cliquer sur le bouton
             console.log('[PIPIADS-FR] Clicking Se connecter button...');
             signInButton.click();
+            if (window.ProToolCookie) window.ProToolCookie.markLoggedIn();
             console.log('[PIPIADS-FR] ✅ Se connecter button clicked');
 
             // Attendre un peu pour voir si la connexion s'effectue

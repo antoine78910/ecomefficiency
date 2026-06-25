@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { fpEnsurePromoter, fpExtractBestRefLink, fpExtractAllRefLinks, fpGetPromoterDetails, fpAffiliateSummaryFromPromoter } from "@/lib/firstpromoter";
+import { fpTrackSignup } from "@/lib/firstpromoterTracking";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -82,6 +83,25 @@ export async function GET(req: NextRequest) {
       profile: firstName || lastName ? { first_name: firstName || undefined, last_name: lastName || undefined } : undefined,
       initial_campaign_id: getInitialCampaignId(),
       drip_emails: getDripEmails(),
+    });
+
+    // Server-side signup tracking: safety net in case client-side fpr("referral") was blocked.
+    const refId = String(
+      req.headers.get("x-fpr-ref") || req.headers.get("x-fpr-tid") || ""
+    ).trim();
+    const tid = String(req.headers.get("x-fpr-visitor-tid") || "").trim();
+    void fpTrackSignup({
+      email,
+      uid: user.id,
+      refId: refId || undefined,
+      tid: tid || undefined,
+    }).then((r) => {
+      if (!r.ok && r.status !== 404) {
+        console.warn("[firstpromoter/promoter] signup track", {
+          status: r.status,
+          body: r.bodyText?.slice(0, 120),
+        });
+      }
     });
 
     let enriched = promoter;

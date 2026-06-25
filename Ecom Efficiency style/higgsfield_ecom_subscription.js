@@ -191,6 +191,78 @@
       sessionStorage.setItem('ee_hf_last_charge_cost', String(cost || 12));
     } catch (_) {}
   }
+
+  var eePendingEcomCharge = null;
+  var eePendingChargeTimer = null;
+  var EE_PENDING_CHARGE_MAX_MS = 90000;
+
+  function loadPendingEcomCharge() {
+    if (eePendingEcomCharge) return eePendingEcomCharge;
+    try {
+      var raw = sessionStorage.getItem('ee_hf_pending_charge');
+      if (raw) eePendingEcomCharge = JSON.parse(raw);
+    } catch (_) {}
+    return eePendingEcomCharge;
+  }
+
+  function reserveEcomCharge(cost, source) {
+    eePendingEcomCharge = {
+      cost: cost,
+      source: source || 'generate',
+      at: Date.now(),
+      email: getVerifiedEmail() || null
+    };
+    try { sessionStorage.setItem('ee_hf_pending_charge', JSON.stringify(eePendingEcomCharge)); } catch (_) {}
+    if (eePendingChargeTimer) clearTimeout(eePendingChargeTimer);
+    eePendingChargeTimer = setTimeout(function () {
+      cancelEcomCharge('timeout_no_network_gen');
+    }, EE_PENDING_CHARGE_MAX_MS);
+    log('ecom charge reserved (debit on successful HF job only)', source, 'cost=' + cost);
+  }
+
+  function cancelEcomCharge(reason) {
+    if (!eePendingEcomCharge) {
+      try {
+        if (sessionStorage.getItem('ee_hf_pending_charge')) {
+          sessionStorage.removeItem('ee_hf_pending_charge');
+          log('ecom charge cancelled', reason || 'unknown');
+        }
+      } catch (_) {}
+      return false;
+    }
+    eePendingEcomCharge = null;
+    if (eePendingChargeTimer) { clearTimeout(eePendingChargeTimer); eePendingChargeTimer = null; }
+    try { sessionStorage.removeItem('ee_hf_pending_charge'); } catch (_) {}
+    log('ecom charge cancelled', reason || 'unknown');
+    return true;
+  }
+
+  function commitEcomCharge(reason) {
+    var pending = loadPendingEcomCharge();
+    if (!pending || !pending.cost) return false;
+    if (Date.now() - pending.at > EE_PENDING_CHARGE_MAX_MS) {
+      cancelEcomCharge('expired');
+      return false;
+    }
+    eePendingEcomCharge = null;
+    if (eePendingChargeTimer) { clearTimeout(eePendingChargeTimer); eePendingChargeTimer = null; }
+    try { sessionStorage.removeItem('ee_hf_pending_charge'); } catch (_) {}
+
+    var cost = pending.cost;
+    addUsedToday(cost);
+    recordChargeMarker(cost);
+    lastDelta = cost;
+    syncEcomBlockFlag();
+    var usedToday = getUsedToday();
+    var email = getVerifiedEmail() || pending.email;
+    logUsage(email, cost, usedToday, pending.source || reason || 'network_gen');
+    try {
+      updateWidget(usedToday, CONFIG.DAILY_CREDIT_LIMIT, usedToday >= CONFIG.DAILY_CREDIT_LIMIT, cost);
+    } catch (_) {}
+    log('ecom charge committed', reason || 'network_gen', 'cost=' + cost, 'usedToday=' + usedToday);
+    return true;
+  }
+
   function shouldSkipDuplicateCharge(cost) {
     if (eePrecheckInFlight) return true;
     // Same physical click must never debit twice (even if cost parsing differs).
@@ -314,7 +386,9 @@
     var u = getDailyUsage();
     var k = getTodayKey();
     var localUsed = u[k] || 0;
-    var nextUsed = Math.max(0, backendUsed);
+    var backendVal = Math.max(0, Number(backendUsed) || 0);
+    // Backend is the source of truth (survives extension reload / profile change).
+    var nextUsed = backendVal;
     if (nextUsed !== localUsed) {
       u[k] = nextUsed;
       setDailyUsage(u);
@@ -323,9 +397,112 @@
         var limit = CONFIG.DAILY_CREDIT_LIMIT;
         updateWidget(nextUsed, limit, nextUsed >= limit, lastDelta);
       } catch (_) {}
-      log('synced usage from backend: local=' + localUsed + ' -> backend=' + nextUsed);
+      log('synced usage from backend: local=' + localUsed + ' -> backend=' + backendVal);
     }
     return nextUsed;
+  }
+
+  var PENDING_USAGE_KEY = 'ee_hf_pending_usage_v1';
+
+  function readPendingUsageQueue() {
+    try {
+      var raw = localStorage.getItem(PENDING_USAGE_KEY);
+      var arr = raw ? JSON.parse(raw) : [];
+      return Array.isArray(arr) ? arr : [];
+    } catch (_) {
+      return [];
+    }
+  }
+
+  function writePendingUsageQueue(arr) {
+    try { localStorage.setItem(PENDING_USAGE_KEY, JSON.stringify(arr || [])); } catch (_) {}
+  }
+
+  function queuePendingUsage(entry) {
+    var q = readPendingUsageQueue();
+    q.push(entry);
+    writePendingUsageQueue(q);
+  }
+
+  function flushPendingUsageQueue(email) {
+    var q = readPendingUsageQueue();
+    if (!q.length) return Promise.resolve();
+    var em = String(email || '').toLowerCase();
+    var kept = [];
+    var chain = Promise.resolve();
+    for (var i = 0; i < q.length; i++) {
+      var entry = q[i];
+      if (em && entry.email && String(entry.email).toLowerCase() !== em) {
+        kept.push(entry);
+        continue;
+      }
+      (function (e) {
+        chain = chain.then(function () {
+          return logUsageAsync(e.email, e.delta, e.usedToday, e.source);
+        });
+      })(entry);
+    }
+    return chain.then(function () {
+      writePendingUsageQueue(kept);
+      if (em) return syncUsageFromBackend(em);
+      return null;
+    });
+  }
+
+  function logUsageAsync(email, delta, usedToday, source) {
+    return new Promise(function (resolve) {
+      try {
+        if (delta === undefined || delta === null) return resolve(false);
+        if (!email) return resolve(false);
+        var url = 'https://www.ecomefficiency.com/api/usage/higgsfield';
+        var headers = { 'Content-Type': 'application/json' };
+        var token = getHfAccessToken();
+        if (token) headers['X-EE-HF-Access-Token'] = token;
+        if (!token && delta > 0) {
+          log('logUsageAsync skipped (no access token)', source, email, delta);
+          return resolve(false);
+        }
+        fetch(url, {
+          method: 'POST',
+          headers: headers,
+          credentials: 'omit',
+          body: JSON.stringify({
+            email: email,
+            delta: delta,
+            usedToday: usedToday,
+            at: new Date().toISOString(),
+            source: source || null
+          })
+        })
+          .then(function (r) {
+            if (DEBUG) log('logUsageAsync response', r.status, source);
+            resolve(!!(r && r.ok));
+          })
+          .catch(function (err) {
+            if (DEBUG) log('logUsageAsync error', err && err.message, source);
+            resolve(false);
+          });
+      } catch (_) {
+        resolve(false);
+      }
+    });
+  }
+
+  function recordUsageDebit(email, delta, source) {
+    if (!email) return Promise.resolve(false);
+    var d = Number(delta) || 0;
+    if (d <= 0) {
+      return logUsageAsync(email, 0, getUsedToday(), source);
+    }
+    var used = getUsedToday();
+    return logUsageAsync(email, d, used, source).then(function (ok) {
+      if (!ok) {
+        queuePendingUsage({ email: email, delta: d, usedToday: used, source: source, at: Date.now() });
+        log('recordUsageDebit: queued pending backend save', d, source);
+        return false;
+      }
+      return syncUsageFromBackend(email).then(function () { return true; });
+    });
   }
 
   function syncUsageFromBackend(email) {
@@ -334,8 +511,11 @@
     return fetch(url, { method: 'GET', credentials: 'omit' })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (data) {
-        if (data && data.ok && typeof data.used_today === 'number') {
-          return applyBackendUsedToday(data.used_today);
+        if (data && data.ok) {
+          if (typeof data.daily_limit === 'number') applyDynamicCreditLimit(data.daily_limit);
+          if (typeof data.used_today === 'number') {
+            return applyBackendUsedToday(data.used_today);
+          }
         }
         return null;
       })
@@ -357,6 +537,17 @@
         log('isUnlimitedMode: unlimited switch', 'aria-checked=' + sw.getAttribute('aria-checked'), 'row=', rowTxt.slice(0, 80));
         return isOn;
       }
+      // Seedance 2.0 / video models: the Generate button itself shows an "Unlimited" badge
+      // (child element inside the button) — no role=switch toggle exists in that UI.
+      // Detect via parent wrapper [data-tour-anchor="tour-generate-button"].
+      try {
+        var genBtn = document.querySelector('[data-tour-anchor="tour-generate-button"] button[type="submit"]');
+        if (!genBtn) genBtn = document.querySelector('button[data-tour-anchor="tour-generate-button"]');
+        if (genBtn && (genBtn.textContent || '').toLowerCase().indexOf('unlimited') !== -1) {
+          log('isUnlimitedMode: generate button shows Unlimited badge (Seedance 2.0)');
+          return true;
+        }
+      } catch (_) {}
       log('isUnlimitedMode: false');
       return false;
     } catch (_) {
@@ -395,6 +586,7 @@
         return;
       }
       if (e.data.type === 'EE_HIGGSFIELD_DAILY_LIMIT_BLOCKED') {
+        cancelEcomCharge('hf_daily_limit_blocked');
         var used = getUsedToday();
         var limit = CONFIG.DAILY_CREDIT_LIMIT;
         showCreditsBlockedPopup('daily', {
@@ -405,7 +597,17 @@
         syncEcomBlockFlag();
         return;
       }
+      if (e.data.type === 'EE_HIGGSFIELD_NETWORK_GEN') {
+        var pg = e.data.payload || {};
+        if (pg.useUnlim) {
+          cancelEcomCharge('hf_unlimited_job');
+        } else {
+          commitEcomCharge('network_gen');
+        }
+        return;
+      }
       if (e.data.type === 'EE_HIGGSFIELD_ECOM_CHARGE') {
+        if (commitEcomCharge('ecom_charge_event')) return;
         var recentAt = 0;
         try { recentAt = Number(sessionStorage.getItem('ee_hf_last_charge_at') || 0); } catch (_) {}
         if (recentAt && Date.now() - recentAt < 12000) {
@@ -695,40 +897,16 @@
   }
 
   function logUsage(email, delta, usedToday, source) {
+    recordUsageDebit(email, delta, source);
     try {
       if (delta === undefined || delta === null) return;
-      const url = 'https://www.ecomefficiency.com/api/usage/higgsfield';
-      const at = new Date().toISOString();
-      const payload = {
-        email: email || null,
-        delta: delta,
-        usedToday: usedToday,
-        at: at,
-        source: source || null
-      };
-      var headers = { 'Content-Type': 'application/json' };
-      var token = getHfAccessToken();
-      if (token) headers['X-EE-HF-Access-Token'] = token;
-      if (!token && delta > 0) {
-        if (DEBUG) log('logUsage skipped (no access token)', source, email, delta);
-        return;
-      }
-      log('logUsage POST', source, email, delta);
-      fetch(url, {
-        method: 'POST',
-        headers: headers,
-        credentials: 'omit',
-        body: JSON.stringify(payload)
-      }).then(function (r) { if (DEBUG) log('logUsage response', r.status, source); }).catch(function (err) { if (DEBUG) log('logUsage error', err && err.message, source); });
-      // Broadcast to safety/logger scripts so they can compare ecom vs network tracking
-      try {
-        window.postMessage({
-          type: 'EE_HIGGSFIELD_ECOM_LOGGED',
-          source: 'ee-ecom-subscription',
-          payload: { email: email || null, delta: delta, source: source || null, at: at }
-        }, '*');
-      } catch (_) {}
-    } catch (e) { if (DEBUG) log('logUsage exception', e && e.message); }
+      var at = new Date().toISOString();
+      window.postMessage({
+        type: 'EE_HIGGSFIELD_ECOM_LOGGED',
+        source: 'ee-ecom-subscription',
+        payload: { email: email || null, delta: delta, source: source || null, at: at }
+      }, '*');
+    } catch (_) {}
   }
 
   // --- Token JWT Higgsfield (Clerk) ---
@@ -1221,14 +1399,14 @@
     return fromQuality;
   }
 
-  // --- Backend: verify subscription ---
-  function verifySubscription(email, pin) {
+  // --- Backend: verify subscription (email only — no 4-digit PIN) ---
+  function verifySubscription(email) {
     const url = 'https://www.ecomefficiency.com/api/stripe/verify';
     return fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       credentials: 'omit',
-      body: JSON.stringify({ email: email, pin: pin || '' })
+      body: JSON.stringify({ email: email, client: 'higgsfield_extension' })
     })
       .then(function (r) {
         if (!r.ok) return { ok: false };
@@ -1241,13 +1419,7 @@
         if (data.status === 'higgsfield_requires_pro') {
           return { allowed: false, reason: 'requires_pro', plan: data.plan || null, status: data.status, daily_credit_limit: null };
         }
-        if (data.status === 'invalid_pin') {
-          return { allowed: false, reason: 'invalid_pin', plan: data.plan || null, status: data.status, daily_credit_limit: null, subscription_active: true };
-        }
-        if (data.status === 'pin_required' || (data.active === true && data.pin_required && !data.hf_access_token)) {
-          return { allowed: false, reason: 'pin_required', plan: data.plan || null, status: data.status, daily_credit_limit: null, subscription_active: true };
-        }
-        if (data.active === true && data.hf_access_token) {
+        if (data.active === true) {
           return {
             allowed: true,
             plan: data.plan || null,
@@ -1256,9 +1428,6 @@
             source: data.source || null,
             hf_access_token: data.hf_access_token || null
           };
-        }
-        if (data.active === true) {
-          return { allowed: false, reason: 'pin_required', plan: data.plan || null, status: 'pin_required', daily_credit_limit: null, subscription_active: true };
         }
         return { allowed: false, reason: 'no_active_subscription', plan: data.plan || null, status: data.status || 'no_active_subscription', daily_credit_limit: null };
       })
@@ -1288,17 +1457,18 @@
       try { console.warn('[EE-HF-Ecom] Verify popup module missing — reload extension v1.0.5+'); } catch (_) {}
       return;
     }
-    var codePage = hfCodePageUrl();
     mount({
       prefix: 'ee-hf-ecom',
       zIndex: 2147483646,
-      onSubmit: function (email, pin) {
-        return verifySubscription(email, pin).then(function (res) {
+      onSubmit: function (email) {
+        return verifySubscription(email).then(function (res) {
           if (res && res.allowed) {
             setVerifiedEmail(email);
             if (res.hf_access_token) setHfAccessToken(res.hf_access_token);
             if (res.daily_credit_limit) applyDynamicCreditLimit(res.daily_credit_limit);
-            return syncUsageFromBackend(email).then(function () {
+            return flushPendingUsageQueue(email).then(function () {
+              return syncUsageFromBackend(email);
+            }).then(function () {
               var used = getUsedToday();
               var limit = CONFIG.DAILY_CREDIT_LIMIT;
               var remaining = Math.max(0, limit - used);
@@ -1307,15 +1477,10 @@
                 message: 'Access granted. ' + remaining + ' / ' + limit + ' credits remaining.',
                 isError: false,
                 _used: used,
-                _limit: limit
+                _limit: limit,
+                raw: res
               };
             });
-          }
-          if (res && res.reason === 'pin_required') {
-            return { ok: false, message: 'Enter your 4-digit code from ' + codePage + '.', isError: true };
-          }
-          if (res && res.reason === 'invalid_pin') {
-            return { ok: false, message: 'Incorrect code. Copy yours from ' + codePage + '.', isError: true };
           }
           if (res && res.reason === 'requires_pro') {
             return { ok: false, message: 'Higgsfield requires Pro ($29.99 / \u20ac29.99). Upgrade at ecomefficiency.com/price', isError: true };
@@ -1711,7 +1876,9 @@
 
     var email = getVerifiedEmail();
     if (email) {
-      syncUsageFromBackend(email).then(function () {
+      flushPendingUsageQueue(email).then(function () {
+        return syncUsageFromBackend(email);
+      }).then(function () {
         var used = getUsedToday();
         var limit = CONFIG.DAILY_CREDIT_LIMIT;
         updateWidget(used, limit, used >= limit, lastDelta);
@@ -1759,6 +1926,12 @@
   // glued to the cost number with no whitespace between spans.
   function eeButtonLooksLikeGenerate(btn) {
     if (!btn || !btn.getAttribute) return false;
+    // Model-preview cards (figure elements, or any element with a <video> child)
+    // share role="button" and may live inside the same form as the Generate button,
+    // but they are never the actual submit action — exclude them unconditionally.
+    var tag = (btn.tagName || '').toLowerCase();
+    if (tag === 'figure') return false;
+    try { if (btn.querySelector && btn.querySelector('video')) return false; } catch (_) {}
     var anchor = String(btn.getAttribute('data-tour-anchor') || '');
     if (anchor === 'tour-generate-button' || anchor === 'tour-image-generate') {
       if (!isUnlimitedGenerateButton(btn)) return true;
@@ -1915,7 +2088,6 @@
         log('document_capture: precheck in flight or already charged, letting click through');
         markGenerationAuthorized(syncCostInfo.cost);
         recordChargeMarker(syncCostInfo.cost); // arm 10s cooldown against rapid double-clicks
-        showGenerateStatus('Generating...', 0);
         return; // no preventDefault → real click flows to React / form submit ✓
       }
 
@@ -1923,25 +2095,15 @@
       var syncLimit = CONFIG.DAILY_CREDIT_LIMIT;
       var syncWallet = getBestKnownWalletCreditsSync();
 
-      // Block: Higgsfield wallet insufficient (only when balance is confidently known)
-      if (syncWallet !== null && isFinite(syncWallet) && syncWallet < syncCostInfo.cost) {
-        try { if (e && e.preventDefault) e.preventDefault(); } catch (_) {}
-        try { if (e && e.stopPropagation) e.stopPropagation(); } catch (_) {}
-        try { if (e && e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch (_) {}
-        showCreditsBlockedPopup('wallet', { cost: syncCostInfo.cost, wallet: syncWallet });
-        trackHiggsfieldActivity('higgsfield_generate_blocked', {
-          reason: 'wallet_insufficient',
-          source: source,
-          cost: syncCostInfo.cost,
-          wallet: syncWallet,
-          used_today: syncUsed,
-          daily_limit: syncLimit,
-        });
+      // Block: Higgsfield wallet insufficient (paid generation only, logged-in session).
+      if (blockHiggsfieldWalletIfNeeded(e, syncCostInfo.cost, syncWallet, source, syncUsed, syncLimit)) {
+        cancelEcomCharge('wallet_blocked');
         return;
       }
 
       // Block: Ecom daily limit exceeded
       if ((syncUsed + syncCostInfo.cost) > syncLimit) {
+        cancelEcomCharge('daily_limit_blocked');
         try { if (e && e.preventDefault) e.preventDefault(); } catch (_) {}
         try { if (e && e.stopPropagation) e.stopPropagation(); } catch (_) {}
         try { if (e && e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch (_) {}
@@ -1961,16 +2123,14 @@
         return;
       }
 
-      // ✅ Credits OK — deduct and let the real click proceed to React
+      // Credits OK — reserve debit until HF job network response confirms generation.
       markGenerationAuthorized(syncCostInfo.cost);
-      addUsedToday(syncCostInfo.cost);
       recordChargeMarker(syncCostInfo.cost);
-      lastDelta = syncCostInfo.cost;
+      reserveEcomCharge(syncCostInfo.cost, source);
       syncEcomBlockFlag();
       var syncEmail   = getVerifiedEmail();
       var syncUsedNow = getUsedToday();
-      logUsage(syncEmail, syncCostInfo.cost, syncUsedNow, source);
-      log('sync generation authorized', source,
+      log('sync generation authorized (pending debit)', source,
           'cost=' + syncCostInfo.cost,
           'usedToday=' + syncUsedNow,
           'remaining=' + getDailyRemaining(),
@@ -1981,9 +2141,9 @@
         used_today: syncUsedNow,
         daily_limit: syncLimit,
         wallet: syncWallet,
+        pending_debit: true,
       });
       updateWidget(syncUsedNow, syncLimit, syncUsedNow >= syncLimit, syncCostInfo.cost);
-      showGenerateStatus('Generating...', 0);
       requestWalletRefresh();
       // DO NOT call preventDefault — the real trusted click flows to React/React Aria ✓
       return;
@@ -2177,10 +2337,22 @@
       return false;
     }
     if (text.indexOf('unlimited') !== -1 && inAside) return true;
+    // Seedance 2.0 / video models: Generate button inside [data-tour-anchor="tour-generate-button"]
+    // shows an "Unlimited" badge as a child element → treat as unlimited.
+    try {
+      var parentAnchor = el.closest ? el.closest('[data-tour-anchor="tour-generate-button"]') : null;
+      if (parentAnchor && text.indexOf('unlimited') !== -1) return true;
+    } catch (_) {}
     return false;
   }
 
   function findUnlimitedGenerateButton() {
+    // Seedance 2.0 / video: Generate button wrapped in [data-tour-anchor="tour-generate-button"]
+    // that shows an "Unlimited" badge inside the button text.
+    try {
+      var videoBtn = document.querySelector('[data-tour-anchor="tour-generate-button"] button[type="submit"]');
+      if (videoBtn && (videoBtn.textContent || '').indexOf('Unlimited') !== -1) return videoBtn;
+    } catch (_) {}
     var sel = document.querySelector('button[data-tour-anchor="tour-image-generate"]');
     if (sel && isUnlimitedGenerateButton(sel)) return sel;
     try {
@@ -2323,16 +2495,21 @@
         'border:1px solid rgba(255,255,255,0.12);box-shadow:0 8px 32px rgba(0,0,0,0.45);';
       document.body.appendChild(el);
     }
+    if (el._eeStatusHide) { clearTimeout(el._eeStatusHide); el._eeStatusHide = null; }
     if (!msg) {
       el.style.display = 'none';
-      if (el._eeStatusHide) { clearTimeout(el._eeStatusHide); el._eeStatusHide = null; }
       return;
     }
     el.textContent = msg;
     el.style.display = '';
-    if (durationMs > 0) {
-      clearTimeout(el._eeStatusHide);
-      el._eeStatusHide = setTimeout(function () { el.style.display = 'none'; }, durationMs);
+    var hideAfter = durationMs;
+    // Transient progress labels must never stick when generation did not start.
+    if (!hideAfter) {
+      var transient = /^(Checking credits|Authorizing|Generating|Unlimited detected)/i.test(String(msg));
+      hideAfter = transient ? 2000 : 0;
+    }
+    if (hideAfter > 0) {
+      el._eeStatusHide = setTimeout(function () { el.style.display = 'none'; }, hideAfter);
     }
   }
 
@@ -2510,13 +2687,63 @@
     } catch (_) {}
   }
 
-  // Legacy alias kept for any remaining callers
+  // Center-screen Higgsfield wallet popup (account credits, not Ecom daily quota).
   function showLowCreditsResetPopup(opts) {
-    showCreditsBlockedPopup('wallet', {
-      cost:   opts && opts.costNeeded,
-      wallet: opts && opts.creditsBalance
-    });
+    try {
+      var existing = document.getElementById('ee-hf-low-credits-popup-root');
+      if (existing) return;
+      var creditsBalance = opts && typeof opts.creditsBalance === 'number' ? opts.creditsBalance : null;
+      var costNeeded = opts && typeof opts.costNeeded === 'number' ? opts.costNeeded : null;
+      var nextReset = getNextHiggsfieldResetDate();
+      var resetCountdown = formatResetCountdown(nextReset);
+      var balanceStr = creditsBalance !== null ? creditsBalance.toFixed(2) + ' cr' : '< 1 credit';
+      var costStr = costNeeded !== null ? costNeeded + ' cr needed' : '';
+      var root = document.createElement('div');
+      root.id = 'ee-hf-low-credits-popup-root';
+      root.style.cssText = 'position:fixed;inset:0;z-index:2147483647;display:flex;align-items:center;justify-content:center;background:rgba(3,6,17,0.58);backdrop-filter:blur(2px);animation:eeLowCreditsFadeIn .18s ease;';
+      var style = document.createElement('style');
+      style.textContent = '@keyframes eeLowCreditsFadeIn{from{opacity:0}to{opacity:1}}';
+      root.appendChild(style);
+      var box = document.createElement('div');
+      box.style.cssText = 'max-width:460px;width:92%;background:linear-gradient(165deg,#101424 0%,#181027 54%,#101424 100%);border:1px solid rgba(239,68,68,0.35);border-radius:18px;padding:22px 20px;color:#fff;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,sans-serif;box-shadow:0 30px 90px rgba(0,0,0,0.55);position:relative;';
+      box.innerHTML =
+        '<div style="position:absolute;top:-1px;left:50%;transform:translateX(-50%);width:68%;height:3px;background:linear-gradient(90deg,transparent,#ef4444,#f97316,#ef4444,transparent);border-radius:0 0 4px 4px;"></div>' +
+        '<div style="font-size:11px;font-weight:700;letter-spacing:1.25px;text-transform:uppercase;color:#fb7185;margin-bottom:10px;">Higgsfield Credits</div>' +
+        '<div style="font-size:20px;font-weight:700;color:#fecaca;line-height:1.25;margin-bottom:8px;">No Higgsfield credits available</div>' +
+        '<div style="font-size:13px;line-height:1.55;color:#e5e7eb;">The connected <b style="color:#fbcfe8;">Higgsfield account</b> has insufficient credits. ' +
+          'Current balance: <b style="color:#fda4af;">' + balanceStr + '</b>' + (costStr ? ' — <b style="color:#fda4af;">' + costStr + '</b>' : '') + '.</div>' +
+        '<div style="margin-top:8px;font-size:12px;line-height:1.55;color:#cbd5e1;">This is related to Higgsfield credits, not your Ecom Efficiency balance.</div>' +
+        '<div style="margin-top:12px;padding:10px 12px;border-radius:12px;background:rgba(30,41,59,0.45);border:1px solid rgba(148,163,184,0.25);">' +
+          '<div style="font-size:12px;line-height:1.55;color:#cbd5e1;">Higgsfield credits reset every 3 days.</div>' +
+          '<div style="font-size:13px;line-height:1.6;color:#e2e8f0;margin-top:4px;">Estimated reset in: <b style="color:#bfdbfe;">' + resetCountdown + '</b></div>' +
+        '</div>' +
+        '<div style="margin-top:16px;text-align:right;">' +
+          '<button id="ee-hf-low-credits-close" type="button" style="padding:9px 13px;border-radius:10px;border:1px solid rgba(255,255,255,0.2);background:linear-gradient(to bottom,#1f2937,#111827);color:#fff;cursor:pointer;font-size:12px;font-weight:600;">OK</button>' +
+        '</div>';
+      root.appendChild(box);
+      document.body.appendChild(root);
+      function closePopup() {
+        try {
+          sessionStorage.setItem('higgsfield_credits_notif_dismissed', JSON.stringify({
+            dismissedAt: Date.now(),
+            creditsAtDismiss: creditsBalance
+          }));
+        } catch (_) {}
+        try { root.remove(); } catch (_) {}
+      }
+      var closeBtn = document.getElementById('ee-hf-low-credits-close');
+      if (closeBtn) closeBtn.addEventListener('click', closePopup);
+      root.addEventListener('click', function (e) {
+        if (e && e.target === root) closePopup();
+      });
+    } catch (_) {}
   }
+
+  try {
+    if (typeof window.__eeShowHiggsfieldLowCreditsPopup !== 'function') {
+      window.__eeShowHiggsfieldLowCreditsPopup = showLowCreditsResetPopup;
+    }
+  } catch (_) {}
 
   function triggerGenerateButtonClick(btn) {
     if (!btn) return;
@@ -2651,6 +2878,77 @@
     return false;
   }
 
+  function headerRingIndicatesLowCredits() {
+    var pct = getHiggsfieldHeaderCreditsPercent();
+    if (pct !== null && pct <= 6) return true;
+    try {
+      var header = document.querySelector('header');
+      if (!header) return false;
+      var circles = header.querySelectorAll('circle[stroke-dasharray][stroke-dashoffset]');
+      for (var i = 0; i < circles.length; i++) {
+        var cls = String(circles[i].getAttribute('class') || '');
+        if (cls.indexOf('brand') === -1) continue;
+        var off = Number(circles[i].getAttribute('stroke-dashoffset') || '');
+        var arr = Number(circles[i].getAttribute('stroke-dasharray') || '');
+        if (!isFinite(off) || !isFinite(arr) || arr <= 0) continue;
+        var remaining = 1 - (off / arr);
+        if (remaining <= 0.06) return true;
+      }
+    } catch (_) {}
+    return false;
+  }
+
+  function isHiggsfieldLoggedIn() {
+    try {
+      if (isAuthPage(location.pathname)) return false;
+      if (document.querySelector('[data-header-menu="profile-menu"]')) return true;
+      if (document.querySelector('img[alt*="profile" i], img[alt*="user profile" i]')) return true;
+      if (getHfAccessToken()) return true;
+      var cookies = document.cookie || '';
+      if (/__session=/.test(cookies) || /__clerk/.test(cookies)) return true;
+    } catch (_) {}
+    return false;
+  }
+
+  /** Red center popup: only on paid Generate when HF session is active and wallet/ring is low. */
+  function shouldShowHiggsfieldLowCreditsPopup(cost) {
+    if (!cost || cost <= 0) return false;
+    if (isUnlimitedMode()) return false;
+    if (!getVerifiedEmail()) return false;
+    if (!isHiggsfieldLoggedIn()) return false;
+    return true;
+  }
+
+  function blockHiggsfieldWalletIfNeeded(e, cost, wallet, source, usedToday, dailyLimit) {
+    if (!shouldShowHiggsfieldLowCreditsPopup(cost)) return false;
+    if (headerRingIndicatesFullCredits()) return false;
+
+    var ringLow = headerRingIndicatesLowCredits();
+    var walletLow = wallet !== null && isFinite(wallet) && wallet < cost;
+    if (!walletLow && !ringLow) return false;
+
+    if (e) {
+      try { if (e.preventDefault) e.preventDefault(); } catch (_) {}
+      try { if (e.stopPropagation) e.stopPropagation(); } catch (_) {}
+      try { if (e.stopImmediatePropagation) e.stopImmediatePropagation(); } catch (_) {}
+    }
+
+    var balance = walletLow ? wallet : (ringLow ? 0 : null);
+    showLowCreditsResetPopup({
+      creditsBalance: typeof balance === 'number' ? balance : 0,
+      costNeeded: cost
+    });
+    trackHiggsfieldActivity('higgsfield_generate_blocked', {
+      reason: walletLow ? 'wallet_insufficient' : 'ring_low',
+      source: source,
+      cost: cost,
+      wallet: wallet,
+      used_today: usedToday,
+      daily_limit: dailyLimit,
+    });
+    return true;
+  }
+
   function readWalletCreditsOnce(cb) {
     var domCredits = readWalletCreditsFromProfileDom();
     var ringFull = headerRingIndicatesFullCredits();
@@ -2722,7 +3020,6 @@
 
   function runPaidGenerationPrecheck(source, buttonFinder) {
     log('verifying generation cost...', source);
-    showGenerateStatus('Checking credits...', 0);
     requestWalletRefresh();
     var actualBtn = buttonFinder ? buttonFinder() : null;
     const costInfo = getGenerationCostInfo(actualBtn);
@@ -2773,29 +3070,17 @@
         walletCredits = Number.POSITIVE_INFINITY;
       }
 
-      // Block if Higgsfield wallet itself is empty — compare actual wallet balance
-      // to the cost of this generation.
-      if (isFinite(walletCredits) && walletCredits < costInfo.cost) {
-        showCreditsBlockedPopup('wallet', {
-          cost:   costInfo.cost,
-          wallet: walletCredits,
-          used:   used,
-          limit:  limit,
-        });
-        trackHiggsfieldActivity('higgsfield_generate_blocked', {
-          reason: 'wallet_insufficient',
-          source: source,
-          cost: costInfo.cost,
-          wallet: walletCredits,
-          used_today: used,
-          daily_limit: limit,
-        });
-        log('generation blocked: wallet credits insufficient', source, 'wallet=' + walletCredits, 'cost=' + costInfo.cost);
+      // Block if Higgsfield wallet / profile ring is too low (paid generation only).
+      if (blockHiggsfieldWalletIfNeeded(null, costInfo.cost, walletCredits, source, used, limit)) {
+        log('generation blocked: Higgsfield wallet/ring low', source, 'wallet=' + walletCredits, 'cost=' + costInfo.cost);
+        cancelEcomCharge('wallet_blocked');
+        showGenerateStatus('', 1);
         return;
       }
 
       // Also enforce our daily limit.
       if ((used + costInfo.cost) > limit) {
+        cancelEcomCharge('daily_limit_blocked');
         var hours = getHoursUntilReset();
         showCreditsBlockedPopup('daily', {
           cost:  costInfo.cost,
@@ -2822,6 +3107,7 @@
           'wallet=' + (isFinite(walletCredits) ? walletCredits : 'unknown'),
           'resetIn=' + hours + 'h'
         );
+        showGenerateStatus('', 1);
         return;
       }
 
@@ -2833,19 +3119,17 @@
         wallet: isFinite(walletCredits) ? walletCredits : null,
       });
       log('authorizing generation...', source);
-      showGenerateStatus('Authorizing...', 0);
       markGenerationAuthorized(costInfo.cost);
-      addUsedToday(costInfo.cost);
       recordChargeMarker(costInfo.cost);
+      reserveEcomCharge(costInfo.cost, source);
       lastDelta = costInfo.cost;
       syncEcomBlockFlag();
       const usedToday = getUsedToday();
-      logUsage(email, costInfo.cost, usedToday, source);
-      log('generation authorized', source, 'cost=' + costInfo.cost, 'usedToday=' + usedToday, 'remaining=' + getDailyRemaining(), 'wallet=' + (isFinite(walletCredits) ? walletCredits : 'unknown'));
+      log('generation authorized (pending debit)', source, 'cost=' + costInfo.cost, 'usedToday=' + usedToday, 'remaining=' + getDailyRemaining(), 'wallet=' + (isFinite(walletCredits) ? walletCredits : 'unknown'));
       updateWidget(usedToday, limit, usedToday >= limit, costInfo.cost);
 
       log('triggering generation...', source);
-      showGenerateStatus('Generating...', 0);
+      showGenerateStatus('', 1);
       setTimeout(function () {
         try {
           // Guard: if the user's real trusted click already fired the generation
@@ -2936,22 +3220,18 @@
       }
       if (isUnlimitedMode()) {
         log('verifying unlimited mode...', 'unlimited_generate');
-        showGenerateStatus('Unlimited detected - no credit deduction.', 0);
         var email = getVerifiedEmail();
         var usedToday = getUsedToday();
         logUsage(email, 0, usedToday, 'unlimited_generate');
         log('unlimited mode detected, tracking only without deduction');
         log('authorizing generation...', 'unlimited_generate');
-        showGenerateStatus('Authorizing...', 0);
         setTimeout(function () {
           log('triggering generation...', 'unlimited_generate');
-          showGenerateStatus('Generating...', 0);
           setTimeout(function () {
             try {
               var unlimitedBtn = findUnlimitedGenerateButton();
               if (unlimitedBtn) triggerGenerateButtonClick(unlimitedBtn);
-              setTimeout(function () { showGenerateStatus('', 1); }, 800);
-            } catch (_) { showGenerateStatus('', 1); }
+            } catch (_) {}
           }, 120);
         }, 150);
         return;
@@ -2962,6 +3242,7 @@
   }
 
   function setupBlockingObserver() {
+    showGenerateStatus('', 1);
     installGenerateClickBlocker();
     installUnlimitedButtonOverlay();
     installStandardGenerateButtonOverlay();

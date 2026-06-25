@@ -119,7 +119,8 @@ if (window.location.href.startsWith('https://app.foreplay.co/manage-subscription
      * @param {Function} callback - La fonction à exécuter après la saisie.
      */
     function typeInFieldWithKeyboard(field, text, callback) {
-        console.log(`🎯 Saisie dans champ ${field.type || 'text'}: "${text}"`);
+        const fieldKind = field && field.type === 'password' ? 'password' : (field && field.type === 'email' ? 'email' : (field && field.type) || 'text');
+        console.log(`[ELEVENLABS] Filling ${fieldKind} field (${(window.ProToolCookie && window.ProToolCookie.secretMeta(text)) || 'hidden'})`);
         
         // Effacer le champ d'abord
         field.focus();
@@ -143,14 +144,14 @@ if (window.location.href.startsWith('https://app.foreplay.co/manage-subscription
             
             // Vérifier que la valeur a bien été définie
             if (field.value !== text) {
-                console.warn(`⚠️ Valeur incorrecte après saisie. Attendu: "${text}", Obtenu: "${field.value}"`);
+                console.warn(`[ELEVENLABS] Field value mismatch after fill (${fieldKind})`);
                 // Tentative de force brute
                 field.value = text;
             }
             
             field.dispatchEvent(new Event('blur', { bubbles: true }));
             
-            console.log(`✅ Saisie terminée. Valeur finale: "${field.value}"`);
+            console.log(`[ELEVENLABS] ${fieldKind} field filled (${(window.ProToolCookie && window.ProToolCookie.secretMeta(field.value)) || 'hidden'})`);
             
             if (callback) {
                 setTimeout(callback, 300);
@@ -294,43 +295,51 @@ if (window.location.href.startsWith('https://app.foreplay.co/manage-subscription
             console.log("Début de l'auto-login ElevenLabs.");
             showLoadingBar();
 
+            if (window.ProToolCookie) {
+                console.log('[ELEVENLABS] Clearing cookies before login...');
+                const wipe = await window.ProToolCookie.ensureFreshSession('RESET_ELEVENLABS_COOKIES');
+                console.log(
+                  '[ELEVENLABS] Cookie wipe result:',
+                  wipe && typeof wipe === 'object'
+                    ? `ok=${wipe.ok} found=${wipe.found} removed=${wipe.removed}${wipe.error ? ' error=' + wipe.error : ''}`
+                    : wipe
+                );
+            }
+
             // Utiliser les identifiants en dur
             const credentials = ELEVENLABS_CREDENTIALS;
-            console.log("📊 ELEVENLABS - Identifiants utilisés :", { 
-                email: credentials.email, 
-                password: '****' + credentials.password.slice(-2) 
-            });
+            console.log('[ELEVENLABS] Credentials loaded for auto-login');
 
             // 1. Attendre le champ d'e-mail
             const emailInput = await waitForElement('input[data-testid="sign-in-email-input"], input[name="email"], input[type="email"]');
             console.log("Champ d'e-mail trouvé.");
 
             // 2. Remplir le champ d'e-mail
-            console.log(`🔤 Tentative de saisie de l'email : "${credentials.email}"`);
+            console.log('[ELEVENLABS] Filling email field');
             await new Promise((resolve) => {
                 typeInFieldWithKeyboard(emailInput, credentials.email, resolve);
             });
-            console.log(`✅ E-mail rempli. Valeur actuelle : "${emailInput.value}"`);
+            console.log('[ELEVENLABS] Email field ready');
 
             // 3. Attendre le champ de mot de passe
             const passwordInput = await waitForElement('input[data-testid="sign-in-password-input"], input[name="password"], input[type="password"]');
             console.log("Champ de mot de passe trouvé.");
 
             // 4. Remplir le champ de mot de passe
-            console.log(`🔐 Tentative de saisie du password : "${credentials.password}"`);
+            console.log('[ELEVENLABS] Filling password field');
             await new Promise((resolve) => {
                 typeInFieldWithKeyboard(passwordInput, credentials.password, resolve);
             });
-            console.log(`✅ Mot de passe rempli. Valeur actuelle : "${passwordInput.value}"`);
+            console.log('[ELEVENLABS] Password field ready');
             
             // Vérification supplémentaire du mot de passe
             if (!passwordInput.value || passwordInput.value !== credentials.password) {
-                console.warn(`⚠️ Problème avec le champ password. Tentative de re-saisie...`);
+                console.warn('[ELEVENLABS] Password field retry');
                 passwordInput.focus();
                 passwordInput.value = credentials.password;
                 passwordInput.dispatchEvent(new Event('input', { bubbles: true }));
                 passwordInput.dispatchEvent(new Event('change', { bubbles: true }));
-                console.log(`🔄 Re-saisie password. Nouvelle valeur : "${passwordInput.value}"`);
+                console.log('[ELEVENLABS] Password field re-filled');
             }
 
             // 5. Attendre que le bouton de connexion soit activé et cliquer dessus
@@ -366,6 +375,7 @@ if (window.location.href.startsWith('https://app.foreplay.co/manage-subscription
                     console.log('[ELEVENLABS] Navigation détectée hors de la page de login - suppression de l’overlay');
                     hideLoadingBar();
                 }
+                if (window.ProToolCookie) window.ProToolCookie.markLoggedIn();
                 clearInterval(urlWatcher);
             }
         }, 500);

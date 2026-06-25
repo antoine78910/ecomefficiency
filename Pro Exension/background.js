@@ -66,7 +66,148 @@ async function closeAdsPowerProfile(userId) {
   return { profileId, apiBase };
 }
 
+async function clearCookiesForSites(urls, domains) {
+  const cookies = [];
+
+  const getAllByDomain = (domain, storeId) =>
+    new Promise((resolve) => {
+      try {
+        const query = storeId != null ? { domain, storeId } : { domain };
+        chrome.cookies.getAll(query, (items) => resolve(items || []));
+      } catch (_) {
+        resolve([]);
+      }
+    });
+
+  const getAllByUrl = (url, storeId) =>
+    new Promise((resolve) => {
+      try {
+        const query = storeId != null ? { url: String(url), storeId } : { url: String(url) };
+        chrome.cookies.getAll(query, (items) => resolve(items || []));
+      } catch (_) {
+        resolve([]);
+      }
+    });
+
+  const getCookieStores = () =>
+    new Promise((resolve) => {
+      try {
+        chrome.cookies.getAllCookieStores((stores) => resolve(stores || [{ id: '0' }]));
+      } catch (_) {
+        resolve([{ id: '0' }]);
+      }
+    });
+
+  const stores = await getCookieStores();
+  const storeIds = [...new Set(stores.map((s) => s.id).filter(Boolean))];
+  if (!storeIds.length) storeIds.push('0');
+
+  for (const storeId of storeIds) {
+    for (const u of urls) {
+      const list = await getAllByUrl(u, storeId);
+      for (const c of list) cookies.push(c);
+    }
+    for (const d of domains) {
+      const list = await getAllByDomain(d, storeId);
+      for (const c of list) cookies.push(c);
+    }
+  }
+
+  const seen = new Set();
+  const uniq = [];
+  for (const c of cookies) {
+    const k = `${c.name}|${c.domain}|${c.path}|${c.storeId}`;
+    if (seen.has(k)) continue;
+    seen.add(k);
+    uniq.push(c);
+  }
+
+  const removeOne = (cookie, protocol) =>
+    new Promise((resolve) => {
+      try {
+        const host = String(cookie.domain || '').replace(/^\./, '');
+        const cookiePath = cookie.path || '/';
+        const url = `${protocol}://${host}${cookiePath}`;
+        const details = { url, name: cookie.name, storeId: cookie.storeId };
+        if (cookie.partitionKey) details.partitionKey = cookie.partitionKey;
+        chrome.cookies.remove(details, (removedDetails) => resolve(!!removedDetails));
+      } catch (_) {
+        resolve(false);
+      }
+    });
+
+  let removed = 0;
+  for (const cookie of uniq) {
+    const protocols = cookie.secure ? ['https'] : ['https', 'http'];
+    let ok = false;
+    for (const p of protocols) {
+      ok = await removeOne(cookie, p);
+      if (ok) break;
+    }
+    if (ok) removed++;
+  }
+
+  return { ok: true, found: uniq.length, removed };
+}
+
+const PRO_COOKIE_RESETS = {
+  RESET_ELEVENLABS_COOKIES: {
+    urls: [
+      'https://elevenlabs.io/',
+      'https://www.elevenlabs.io/',
+      'https://app.elevenlabs.io/',
+      'https://try.elevenlabs.io/',
+      'https://auth.elevenlabs.io/',
+      'https://api.elevenlabs.io/'
+    ],
+    domains: [
+      'elevenlabs.io',
+      '.elevenlabs.io',
+      'www.elevenlabs.io',
+      'app.elevenlabs.io',
+      'try.elevenlabs.io',
+      'auth.elevenlabs.io',
+      'api.elevenlabs.io'
+    ]
+  },
+  RESET_PIPIADS_COOKIES: {
+    urls: [
+      'https://www.pipiads.com/',
+      'https://pipiads.com/'
+    ],
+    domains: [
+      'pipiads.com',
+      '.pipiads.com',
+      'www.pipiads.com'
+    ]
+  },
+  RESET_WINNINGHUNTER_COOKIES: {
+    urls: [
+      'https://app.winninghunter.com/',
+      'https://winninghunter.com/'
+    ],
+    domains: [
+      'winninghunter.com',
+      '.winninghunter.com',
+      'app.winninghunter.com'
+    ]
+  }
+};
+
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+  if (message && message.action && PRO_COOKIE_RESETS[message.action]) {
+    const cfg = PRO_COOKIE_RESETS[message.action];
+    (async () => {
+      try {
+        const result = await clearCookiesForSites(cfg.urls, cfg.domains);
+        sendResponse(result);
+      } catch (e) {
+        sendResponse({ ok: false, error: String(e && e.message ? e.message : e) });
+      }
+    })();
+    return true;
+  }
+
   if (message && message.type === 'WH_CLOSE_ADSPOWER_PROFILE') {
     (async () => {
       try {
@@ -163,7 +304,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               let json = null; let text = '';
               try { 
                 json = await res.json(); 
-                console.log('[EE-BG] JSON response:', json); 
+                console.log('[EE-BG] JSON response received (otp redacted)');
               } catch (_) { 
                 try { 
                   text = await res.text(); 
@@ -181,11 +322,11 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
               // Vérifier que le code existe et n'est pas vide
               const code = (json && json.code) || '';
               if (code && code.toString().length >= 4) {
-                console.log('[EE-BG] Success, sending code:', code);
+                console.log('[EE-BG] Success, OTP ready:', code ? String(code).length + ' digits' : 'empty');
                 sendResponse({ ok: true, code: code });
                 return; // Important: return après sendResponse
               } else {
-                console.log('[EE-BG] Code empty or too short:', code);
+                console.log('[EE-BG] Code empty or too short');
                 lastErr = new Error('Code empty or invalid');
                 continue;
               }

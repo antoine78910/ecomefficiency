@@ -1,10 +1,6 @@
-# Creates an AdsPower-ready ZIP:
-# - manifest.json at ZIP root, UTF-8 without BOM, original JSON preserved
-# - no Chrome Web Store "key", no webRequestBlocking
-# - nox-tools/ex1 + ex2 flattened to ZIP root as e1-* and e2-* (no nox-tools/ folder)
+# AdsPower-ready flat ZIP (manifest + all assets at ZIP root, no subfolders)
 param(
-    [string]$OutName = "Ecom-Efficiency-AdsPower.zip",
-    [switch]$AlsoWriteFolder
+    [string]$OutName = "Ecom-Efficiency-AdsPower.zip"
 )
 
 $ErrorActionPreference = "Stop"
@@ -14,7 +10,7 @@ $tempFolder = Join-Path $root "temp_zip_folder"
 $manifestSrc = Join-Path $root "manifest.json"
 $utf8NoBom = New-Object System.Text.UTF8Encoding $false
 
-Write-Host "Creating AdsPower ZIP: $OutName" -ForegroundColor Green
+Write-Host "Building AdsPower package: $OutName" -ForegroundColor Green
 
 if (-not (Test-Path $manifestSrc)) {
     Write-Host "manifest.json not found in $root" -ForegroundColor Red
@@ -24,6 +20,30 @@ if (-not (Test-Path $manifestSrc)) {
 if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
 if (Test-Path $tempFolder) { Remove-Item $tempFolder -Recurse -Force }
 New-Item -ItemType Directory -Path $tempFolder | Out-Null
+
+function ConvertTo-AdsPowerPaths {
+    param([string]$Content)
+    $Content = $Content.Replace('nox-tools/ex1/', 'e1-')
+    $Content = $Content.Replace('nox-tools/ex2/', 'e2-')
+    $Content = $Content.Replace('nox-tools/', '')
+    return $Content
+}
+
+function Get-AdsPowerRelativePath {
+    param([string]$RelativePath)
+    return ConvertTo-AdsPowerPaths -Content $RelativePath
+}
+
+function Copy-RelativeFile {
+    param([string]$RelativePath)
+    if ([string]::IsNullOrWhiteSpace($RelativePath)) { return $false }
+    $adsPath = Get-AdsPowerRelativePath -RelativePath $RelativePath
+    $src = Join-Path $root $RelativePath
+    if (-not (Test-Path $src)) { return $false }
+    $dst = Join-Path $tempFolder $adsPath
+    Copy-Item $src -Destination $dst -Force
+    return $true
+}
 
 function Get-ManifestFileRefs {
     param([object]$Manifest)
@@ -42,12 +62,8 @@ function Get-ManifestFileRefs {
     }
     if ($Manifest.content_scripts) {
         foreach ($cs in $Manifest.content_scripts) {
-            if ($cs.js) {
-                foreach ($j in $cs.js) { if ($j) { [void]$refs.Add([string]$j) } }
-            }
-            if ($cs.css) {
-                foreach ($c in $cs.css) { if ($c) { [void]$refs.Add([string]$c) } }
-            }
+            if ($cs.js) { foreach ($j in $cs.js) { if ($j) { [void]$refs.Add([string]$j) } } }
+            if ($cs.css) { foreach ($c in $cs.css) { if ($c) { [void]$refs.Add([string]$c) } } }
         }
     }
     if ($Manifest.web_accessible_resources) {
@@ -57,42 +73,18 @@ function Get-ManifestFileRefs {
             }
         }
     }
-
     return @($refs)
-}
-
-function Get-AdsPowerRelativePath {
-    param([string]$RelativePath)
-    if ($RelativePath -match '^nox-tools/ex1/(.+)$') { return "e1-$($matches[1])" }
-    if ($RelativePath -match '^nox-tools/ex2/(.+)$') { return "e2-$($matches[1])" }
-    if ($RelativePath -match '^nox-tools/(.+)$') { return $matches[1] }
-    return $RelativePath
-}
-
-function Copy-RelativeFile {
-    param([string]$RelativePath)
-    $adsPath = Get-AdsPowerRelativePath -RelativePath $RelativePath
-    $src = Join-Path $root $RelativePath
-    if (-not (Test-Path $src)) { return $false }
-    $dst = Join-Path $tempFolder $adsPath
-    $dstDir = Split-Path $dst -Parent
-    if ($dstDir -and -not (Test-Path $dstDir)) {
-        New-Item -ItemType Directory -Path $dstDir -Force | Out-Null
-    }
-    Copy-Item $src -Destination $dst -Force
-    return $true
 }
 
 function Install-FlattenedNoxTools {
     $noxSrc = Join-Path $root "nox-tools"
     if (-not (Test-Path $noxSrc)) { return 0 }
-
     $count = 0
+
     Get-ChildItem $noxSrc -File -ErrorAction SilentlyContinue | ForEach-Object {
         Copy-Item $_.FullName -Destination (Join-Path $tempFolder $_.Name) -Force
         $count++
     }
-
     $ex1 = Join-Path $noxSrc "ex1"
     if (Test-Path $ex1) {
         Get-ChildItem $ex1 -File | ForEach-Object {
@@ -100,7 +92,6 @@ function Install-FlattenedNoxTools {
             $count++
         }
     }
-
     $ex2 = Join-Path $noxSrc "ex2"
     if (Test-Path $ex2) {
         Get-ChildItem $ex2 -File | ForEach-Object {
@@ -108,157 +99,176 @@ function Install-FlattenedNoxTools {
             $count++
         }
     }
-
     return $count
+}
+
+function Copy-RootExtensionAssets {
+    $skip = @('manifest.json', 'package.json', 'package-lock.json', 'ee_check.json')
+    $added = 0
+    foreach ($pattern in @('*.js', '*.html', '*.css', '*.png', '*.json', '*.csv')) {
+        Get-ChildItem $root -File -Filter $pattern -ErrorAction SilentlyContinue | ForEach-Object {
+            if ($skip -contains $_.Name) { return }
+            if ($_.Name -like '.*') { return }
+            if (Copy-RelativeFile -RelativePath $_.Name) { $script:rootAssetsAdded++ }
+        }
+    }
 }
 
 function Write-AdsPowerManifest {
     param([string]$DestPath)
     $content = [System.IO.File]::ReadAllText($manifestSrc, [System.Text.Encoding]::UTF8)
     $content = $content.TrimStart([char]0xFEFF)
+    $content = ConvertTo-AdsPowerPaths -Content $content
 
-    # Flatten nox-tools paths to ZIP root (no nox-tools/ folder in package)
-    $content = $content.Replace('nox-tools/ex1/', 'e1-')
-    $content = $content.Replace('nox-tools/ex2/', 'e2-')
-    $content = $content.Replace('nox-tools/', '')
-
-    # Remove Chrome Web Store public key (last property before closing brace)
+    # AdsPower / Chrome local install fixes
     $content = [regex]::Replace($content, ',\s*\r?\n\s*"key"\s*:\s*"(?:[^"\\]|\\.)*"', '')
-
-    # Remove obsolete MV3 permission
     $content = [regex]::Replace($content, '\r?\n\s*"webRequestBlocking",\s*', "`n")
     $content = [regex]::Replace($content, '"webRequestBlocking",\s*', '')
+    $content = [regex]::Replace($content, '\r?\n\s*"chrome://\*\/\*",\s*', "`n")
+
+    # Bump patch version so AdsPower shows a fresh build
+    $content = [regex]::Replace($content, '"version"\s*:\s*"1\.0\.8"', '"version": "1.0.8"')
 
     [System.IO.File]::WriteAllText($DestPath, $content, $utf8NoBom)
 }
 
-function Test-AdsPowerFolderStructure {
-    param([string]$BaseDir)
-    if (Test-Path (Join-Path $BaseDir "nox-tools")) {
-        Write-Host "Invalid: nox-tools/ folder must not exist in ZIP (files belong at root)" -ForegroundColor Red
-        return $false
-    }
-
-    $rootDirs = Get-ChildItem $BaseDir -Directory
-    if ($rootDirs.Count -gt 3) {
-        Write-Host "Invalid: more than 3 root subfolders ($($rootDirs.Count)):" -ForegroundColor Red
-        $rootDirs | ForEach-Object { Write-Host "  $($_.Name)" }
-        return $false
-    }
-
-    return $true
+function Write-AdsPowerBackground {
+    param([string]$DestPath)
+    $bgSrc = Join-Path $root "background.js"
+    $content = [System.IO.File]::ReadAllText($bgSrc, [System.Text.Encoding]::UTF8)
+    $content = ConvertTo-AdsPowerPaths -Content $content
+    [System.IO.File]::WriteAllText($DestPath, $content, $utf8NoBom)
 }
 
-function Copy-RootExtensionAssets {
-    $patterns = @("*.js", "*.html", "*.css", "*.png", "*.json")
-    $added = 0
-    foreach ($pattern in $patterns) {
-        Get-ChildItem $root -File -Filter $pattern -ErrorAction SilentlyContinue | ForEach-Object {
-            $rel = $_.Name
-            if ($rel -eq "manifest.json") { return }
-            if (Copy-RelativeFile -RelativePath $rel) { $added++ }
+function New-FlatZip {
+    param([string]$SourceDir, [string]$DestinationZip)
+    Add-Type -AssemblyName System.IO.Compression
+    Add-Type -AssemblyName System.IO.Compression.FileSystem
+    if (Test-Path $DestinationZip) { Remove-Item $DestinationZip -Force }
+    $archive = [System.IO.Compression.ZipFile]::Open($DestinationZip, [System.IO.Compression.ZipArchiveMode]::Create)
+    try {
+        Get-ChildItem $SourceDir -File | ForEach-Object {
+            $entryName = $_.Name.Replace('\', '/')
+            [System.IO.Compression.ZipFileExtensions]::CreateEntryFromFile($archive, $_.FullName, $entryName, [System.IO.Compression.CompressionLevel]::Optimal) | Out-Null
         }
+    } finally {
+        $archive.Dispose()
     }
-    return $added
 }
 
 # --- Build ---
 $manifest = Get-Content $manifestSrc -Raw -Encoding UTF8 | ConvertFrom-Json
 $fileRefs = Get-ManifestFileRefs -Manifest $manifest
-Write-Host "Files referenced in manifest.json: $($fileRefs.Count)" -ForegroundColor Cyan
+Write-Host "Manifest references: $($fileRefs.Count) files" -ForegroundColor Cyan
 
-$copied = 0
-$missing = @()
+$missing = [System.Collections.Generic.List[string]]::new()
 foreach ($rel in ($fileRefs | Sort-Object)) {
-    if (Copy-RelativeFile -RelativePath $rel) {
-        $copied++
-    } else {
-        $missing += $rel
-        Write-Host "  MISSING: $rel" -ForegroundColor Red
+    if (-not (Copy-RelativeFile -RelativePath $rel)) {
+        $missing.Add($rel)
+        Write-Host "  MISSING in source: $rel" -ForegroundColor Red
     }
 }
 
 $noxCount = Install-FlattenedNoxTools
-Write-Host "$noxCount nox-tools file(s) copied to ZIP root (e1-*, e2-*, no nox-tools/ folder)" -ForegroundColor Green
+Write-Host "$noxCount nox-tools file(s) flattened to ZIP root" -ForegroundColor Green
 
-foreach ($rel in ($fileRefs | Where-Object { $_ -match '^nox-tools/ex[12]/' })) {
+foreach ($rel in ($fileRefs | Where-Object { $_ -match '^nox-tools/' })) {
     $adsPath = Get-AdsPowerRelativePath -RelativePath $rel
     if (-not (Test-Path (Join-Path $tempFolder $adsPath))) {
-        $missing += $rel
-        Write-Host "  MISSING (flattened): $adsPath" -ForegroundColor Red
+        if (-not $missing.Contains($rel)) { $missing.Add("$rel -> $adsPath") }
+        Write-Host "  MISSING flattened: $adsPath" -ForegroundColor Red
     }
 }
 
-$extras = @(
-    "style.css", "pro_tools_page.html", "ee_check.json", "higgsfield_ecom_config.js",
-    "ee_higgsfield_verify_popup.js", "higgsfield_ecom_subscription.js", "higgsfield_safety.js",
-    "higgsfield_payment_early.js", "higgsfield_otp.js", "higgsfield_credits_notif.js",
-    "ee_guard_bridge.js", "ee_presence_beacon.js", "ee_silence_console.js", "ee_tools_pro.js",
-    "bootstrap_login.js", "blocked_redirect.js", "2fa_live_helper.js"
-)
-foreach ($extra in $extras) {
-    if (Copy-RelativeFile -RelativePath $extra) { $copied++ }
+$rootAssetsAdded = 0
+Copy-RootExtensionAssets
+Write-Host "$rootAssetsAdded extra root asset(s) synced" -ForegroundColor Green
+
+# Runtime assets used by background.js but not always listed in manifest
+$runtimeExtras = @('blocked.html', 'blocked_redirect.js', 'ee_check.json', 'pro_tools_page.html')
+foreach ($extra in $runtimeExtras) {
+    Copy-RelativeFile -RelativePath $extra | Out-Null
 }
 
-$rootAssets = Copy-RootExtensionAssets
-Write-Host "$rootAssets extra root asset(s) synced (js/html/css/png/json)" -ForegroundColor Green
-
 if ($missing.Count -gt 0) {
-    Write-Host "`nABORT: $($missing.Count) file(s) missing." -ForegroundColor Red
+    Write-Host "`nABORT: $($missing.Count) required file(s) missing." -ForegroundColor Red
     Remove-Item $tempFolder -Recurse -Force
     exit 1
 }
 
 Write-AdsPowerManifest -DestPath (Join-Path $tempFolder "manifest.json")
-Write-Host "manifest.json written (UTF-8 no BOM, paths flattened, key removed)" -ForegroundColor Green
+Write-AdsPowerBackground -DestPath (Join-Path $tempFolder "background.js")
+
+$builtManifest = [System.IO.File]::ReadAllText((Join-Path $tempFolder "manifest.json"))
+$builtBackground = [System.IO.File]::ReadAllText((Join-Path $tempFolder "background.js"))
 
 try {
-    Get-Content (Join-Path $tempFolder "manifest.json") -Raw -Encoding UTF8 | ConvertFrom-Json | Out-Null
-    Write-Host "manifest.json JSON validation: OK" -ForegroundColor Green
+    $builtManifest | ConvertFrom-Json | Out-Null
+    Write-Host "manifest.json: valid JSON" -ForegroundColor Green
 } catch {
-    Write-Host "manifest.json JSON validation FAILED: $($_.Exception.Message)" -ForegroundColor Red
+    Write-Host "manifest.json: INVALID JSON - $($_.Exception.Message)" -ForegroundColor Red
+    exit 1
+}
+
+$blockers = @()
+if ($builtManifest -match 'nox-tools/') { $blockers += 'manifest still has nox-tools/' }
+if ($builtManifest -match '"key"\s*:') { $blockers += 'manifest still has key' }
+if ($builtManifest -match 'chrome://') { $blockers += 'manifest still has chrome:// permission' }
+if ($builtBackground -match 'nox-tools/') { $blockers += 'background.js still has nox-tools/' }
+if ($builtBackground -notmatch 'e1-background\.js') { $blockers += 'background.js missing e1-background.js import' }
+
+if ($blockers.Count -gt 0) {
+    Write-Host "ABORT - package blockers:" -ForegroundColor Red
+    $blockers | ForEach-Object { Write-Host "  - $_" -ForegroundColor Red }
     Remove-Item $tempFolder -Recurse -Force
     exit 1
 }
 
-if (-not (Test-AdsPowerFolderStructure -BaseDir $tempFolder)) {
+# Verify every manifest ref exists in temp folder (flattened paths)
+$built = $builtManifest | ConvertFrom-Json
+$verifyRefs = Get-ManifestFileRefs -Manifest $built
+$missingBuilt = @()
+foreach ($rel in $verifyRefs) {
+    if (-not (Test-Path (Join-Path $tempFolder $rel))) { $missingBuilt += $rel }
+}
+if ($missingBuilt.Count -gt 0) {
+    Write-Host "ABORT: $($missingBuilt.Count) file(s) missing from built package:" -ForegroundColor Red
+    $missingBuilt | Select-Object -First 20 | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
     Remove-Item $tempFolder -Recurse -Force
     exit 1
 }
+Write-Host "All $($verifyRefs.Count) manifest files present in package" -ForegroundColor Green
 
-$rootDirCount = (Get-ChildItem $tempFolder -Directory).Count
-Write-Host "Root subfolders: $rootDirCount (AdsPower max: 3)" -ForegroundColor Green
+$rootDirs = Get-ChildItem $tempFolder -Directory
+if ($rootDirs.Count -gt 0) {
+    Write-Host "ABORT: package contains $($rootDirs.Count) subfolder(s) - must be flat" -ForegroundColor Red
+    $rootDirs | ForEach-Object { Write-Host "  $($_.Name)" }
+    exit 1
+}
 
-Write-Host "Building ZIP..." -ForegroundColor Cyan
-Add-Type -AssemblyName System.IO.Compression.FileSystem
-$zipTemp = Join-Path $env:TEMP ("ee-adspower-" + [Guid]::NewGuid().ToString() + ".zip")
-if (Test-Path $zipTemp) { Remove-Item $zipTemp -Force }
-[System.IO.Compression.ZipFile]::CreateFromDirectory($tempFolder, $zipTemp)
-if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
-Move-Item $zipTemp $zipPath -Force
+$fileCount = (Get-ChildItem $tempFolder -File).Count
+Write-Host "Package files at root: $fileCount" -ForegroundColor Green
+
+Write-Host "Creating ZIP..." -ForegroundColor Cyan
+New-FlatZip -SourceDir $tempFolder -DestinationZip $zipPath
+
+$outFolder = Join-Path $root ([System.IO.Path]::GetFileNameWithoutExtension($OutName))
+if (Test-Path $outFolder) { Remove-Item $outFolder -Recurse -Force }
+Copy-Item $tempFolder $outFolder -Recurse -Force
 
 Remove-Item $tempFolder -Recurse -Force
 
-$zipArchive = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
-try { $fileCount = $zipArchive.Entries.Count } finally { $zipArchive.Dispose() }
 $sizeMb = [Math]::Round((Get-Item $zipPath).Length / 1048576, 2)
-Write-Host "`nDone: $OutName - $sizeMb MB ($fileCount files)" -ForegroundColor Green
-Write-Host "ZIP:  $zipPath" -ForegroundColor Cyan
+Add-Type -AssemblyName System.IO.Compression.FileSystem
+$zipArchive = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
+try { $zipEntries = $zipArchive.Entries.Count } finally { $zipArchive.Dispose() }
 
-if ($AlsoWriteFolder) {
-    $outFolderPath = Join-Path $root ([System.IO.Path]::GetFileNameWithoutExtension($OutName))
-    if (Test-Path $outFolderPath) { Remove-Item $outFolderPath -Recurse -Force }
-    Add-Type -AssemblyName System.IO.Compression.FileSystem
-    [System.IO.Compression.ZipFile]::ExtractToDirectory($zipPath, $outFolderPath)
-    Write-Host "Folder: $outFolderPath" -ForegroundColor Cyan
-}
-
-Write-Host @"
-
-AdsPower setup (after changing the extension):
-  1. Extensions (global) -> Developer mode -> remove old Ecom Efficiency import
-  2. Import ZIP: $OutName
-  3. Edit each profile -> Extensions -> enable Ecom Efficiency
-  4. Do NOT point the profile to 'Ecom Efficiency style' (spaces + manifest key break AdsPower)
-
-"@ -ForegroundColor Yellow
+Write-Host ""
+Write-Host "Done: $OutName ($sizeMb MB, $zipEntries entries, v1.0.8)" -ForegroundColor Green
+Write-Host "ZIP:    $zipPath" -ForegroundColor Cyan
+Write-Host "Folder: $outFolder" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "AdsPower:" -ForegroundColor Yellow
+Write-Host "  1. Remove old Ecom Efficiency extension"
+Write-Host "  2. Import ZIP or folder Ecom-Efficiency-AdsPower (NOT 'Ecom Efficiency style')"
+Write-Host "  3. Enable extension on each profile"

@@ -4,7 +4,10 @@
   const STYLE_ID = 'ee-rankerfox-premium-hide-kloow-sections';
 
   /** Elementor top sections: Kloow promo / tool tiles on premium-plan */
-  const HIDE_SECTION_DATA_IDS = ['c30f32e', '45ae63d', '3d70e89', '30c038e', '46e2fab3'];
+  const HIDE_SECTION_DATA_IDS = [
+    'c30f32e', '45ae63d', '3d70e89', '30c038e', '46e2fab3',
+    'a952921', 'f3c4b29'
+  ];
 
   function removeStaticChrome() {
     try {
@@ -30,16 +33,30 @@
     } catch (_) {}
   }
 
+  function sectionShouldHide(sec) {
+    try {
+      const dataId = sec.getAttribute('data-id') || '';
+      if (HIDE_SECTION_DATA_IDS.includes(dataId)) return true;
+      const txt = String(sec.textContent || '').toLowerCase();
+      const hasKloow = txt.includes('kloow');
+      const hasKloowPromo =
+        txt.includes('download kloow') ||
+        txt.includes('kloow desktop app') ||
+        txt.includes('how to activate with kloow') ||
+        txt.includes('download seo spider') ||
+        txt.includes('download log analyser') ||
+        txt.includes('screamingfrog.co.uk');
+      return hasKloow && hasKloowPromo;
+    } catch (_) {
+      return false;
+    }
+  }
+
   function removeKloowPromoSectionsByContent() {
     try {
       const sections = Array.from(document.querySelectorAll('section.elementor-top-section.elementor-element'));
       for (const sec of sections) {
-        const txt = String(sec.textContent || '').toLowerCase();
-        const hasKloowBadge = txt.includes('opens in kloow');
-        const hasKloowBtn = txt.includes('download kloow');
-        if (hasKloowBadge && hasKloowBtn) {
-          sec.remove();
-        }
+        if (sectionShouldHide(sec)) sec.remove();
       }
     } catch (_) {}
   }

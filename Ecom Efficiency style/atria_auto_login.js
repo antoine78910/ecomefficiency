@@ -1,7 +1,6 @@
 // Auto-login script for https://app.tryatria.com/login
 (function () {
-    /** TEMP: set true to re-enable full-screen loading overlay on /login */
-    const ATRIA_LOADING_OVERLAY_ENABLED = false;
+    const ATRIA_LOADING_OVERLAY_ENABLED = true;
 
     console.log('[ATRIA AUTO LOGIN] Script chargé');
 
@@ -251,6 +250,8 @@ function showFullScreenOverlay(attempt = 1) {
         if (overlay) overlay.remove();
     }
 
+    startPasswordRevealBlocker();
+
     if (ATRIA_LOADING_OVERLAY_ENABLED) {
         showLoadingBar();
         try { document.body.style.overflow = 'hidden'; } catch (_) {}
@@ -316,17 +317,86 @@ function showFullScreenOverlay(attempt = 1) {
         return btns.find(b => ((b.textContent || '').trim().toLowerCase() === 'log in') || ((b.textContent || '').trim().toLowerCase() === 'login')) || null;
     }
 
+    function hidePasswordRevealControls() {
+        if (!document.getElementById('atria-hide-pwd-toggle-style')) {
+            const style = document.createElement('style');
+            style.id = 'atria-hide-pwd-toggle-style';
+            style.textContent = `
+                button[aria-label*="show password" i],
+                button[aria-label*="hide password" i],
+                button[aria-label*="toggle password" i],
+                .ant-input-password-icon,
+                span.ant-input-password-icon,
+                input[type="password"] ~ button[type="button"],
+                input[type="password"] + button[type="button"],
+                .relative:has(input[type="password"]) > button[type="button"] {
+                    display: none !important;
+                    visibility: hidden !important;
+                    pointer-events: none !important;
+                    width: 0 !important;
+                    height: 0 !important;
+                    overflow: hidden !important;
+                    opacity: 0 !important;
+                }
+            `;
+            (document.head || document.documentElement).appendChild(style);
+        }
+
+        document.querySelectorAll(
+            'button[aria-label*="show password" i], button[aria-label*="hide password" i], button[aria-label*="toggle password" i]'
+        ).forEach((btn) => {
+            try { btn.remove(); } catch (_) {}
+        });
+
+        const passwordInput = findPasswordInput();
+        if (!passwordInput) return;
+
+        const wrappers = [
+            passwordInput.parentElement,
+            passwordInput.closest('.relative'),
+            passwordInput.closest('[class*="password"]'),
+            passwordInput.closest('div'),
+        ].filter(Boolean);
+
+        for (const wrap of wrappers) {
+            wrap.querySelectorAll('button[type="button"]').forEach((btn) => {
+                const label = `${btn.getAttribute('aria-label') || ''} ${btn.title || ''} ${btn.textContent || ''}`.toLowerCase();
+                const hasEye = !!btn.querySelector('svg, [class*="eye"], [class*="Eye"]');
+                const isReveal =
+                    hasEye ||
+                    /show|hide|visibility|toggle/.test(label) ||
+                    (wrap.contains(passwordInput) && btn !== passwordInput && !/log\s*in|sign\s*up|google|continue|forgot/.test(label));
+                if (!isReveal) return;
+                btn.style.display = 'none';
+                btn.style.visibility = 'hidden';
+                btn.style.pointerEvents = 'none';
+                try { btn.remove(); } catch (_) {}
+            });
+        }
+    }
+
+    function startPasswordRevealBlocker() {
+        hidePasswordRevealControls();
+        if (window.__ATRIA_PWD_TOGGLE_BLOCKER__) return;
+        window.__ATRIA_PWD_TOGGLE_BLOCKER__ = true;
+        const obs = new MutationObserver(() => hidePasswordRevealControls());
+        obs.observe(document.documentElement, { childList: true, subtree: true });
+        setInterval(hidePasswordRevealControls, 400);
+    }
+
     function fillAndLogin(attempt = 1) {
         if (!window.location.href.startsWith('https://app.tryatria.com/login')) {
             console.log('[ATRIA AUTO LOGIN] Plus sur la page de login - suppression de l\'écran noir');
             removeBlackScreen(); // Nous ne sommes plus sur la page de login → retirer l'overlay
             return;
         }
+        hidePasswordRevealControls();
         const emailInput = findEmailInput();
         const passwordInput = findPasswordInput();
         const loginBtn = findLoginButton();
         if (emailInput && passwordInput && loginBtn) {
             console.log('[ATRIA AUTO LOGIN] Champs trouvés, tentative de remplissage');
+            hidePasswordRevealControls();
             reactInput(emailInput, 'admin@ecomefficiency.com');
             reactInput(passwordInput, 'L.AK-r2YZSVWw$?GjJK');
             setTimeout(() => {

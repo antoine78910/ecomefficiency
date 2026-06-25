@@ -231,33 +231,27 @@ if (window.location.href.startsWith('https://app.foreplay.co/manage-subscription
     }
 
     const WIPED_KEY = 'ee_el_just_wiped';
-    const RELOAD_KEY = 'ee_el_login_reload';
+    const LOGOUT_DONE_KEY = 'ee_el_logout_done_v5';
+    const LOGIN_CYCLE_DONE_KEY = 'ee_el_login_cycle_done_v6';
+
+    function markLoginCycleDone() {
+        try {
+            sessionStorage.setItem(LOGIN_CYCLE_DONE_KEY, '1');
+            sessionStorage.setItem(LOGOUT_DONE_KEY, '1');
+            sessionStorage.removeItem(WIPED_KEY);
+        } catch (_) {}
+    }
 
     async function ensureCleanSession() {
         let alreadyWiped = false;
         try { alreadyWiped = sessionStorage.getItem(WIPED_KEY) === '1'; } catch (_) {}
 
-        if (!alreadyWiped) {
-            let alreadyReloaded = false;
-            try { alreadyReloaded = sessionStorage.getItem(RELOAD_KEY) === '1'; } catch (_) {}
-            if (!alreadyReloaded) {
-                console.log('[EL-AUTOLOGIN] Session not wiped — clearing storage and reloading…');
-                wipeLocalSession();
-                const cr = await resetCookiesBg();
-                console.log('[EL-AUTOLOGIN] Cookie reset:', cr);
-                try { sessionStorage.setItem(RELOAD_KEY, '1'); } catch (_) {}
-                location.reload();
-                return false;
-            }
-            console.log('[EL-AUTOLOGIN] Post-reload: session should be clean');
-        } else {
+        if (alreadyWiped) {
             console.log('[EL-AUTOLOGIN] Session wiped by auto_logout — proceeding to login');
+            markLoginCycleDone();
+        } else {
+            console.log('[EL-AUTOLOGIN] Sign-in without prior wipe — skipping extra logout/reload');
         }
-
-        try {
-            sessionStorage.removeItem(WIPED_KEY);
-            sessionStorage.removeItem(RELOAD_KEY);
-        } catch (_) {}
 
         return true;
     }
@@ -787,6 +781,7 @@ if (window.location.href.startsWith('https://app.foreplay.co/manage-subscription
             // Cliquer sur le bouton de connexion
             loginButton.click();
             console.log("Bouton de connexion cliqué.");
+            markLoginCycleDone();
             updateLoadingBar(100);
 
             // Finaliser la barre de chargement

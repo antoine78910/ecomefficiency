@@ -52,9 +52,22 @@
 
     const ENTRY_WIPE_DONE_KEY = 'ee_el_logout_done_v5';
     const WIPED_FLAG_KEY = 'ee_el_just_wiped';
+    const LOGIN_CYCLE_DONE_KEY = 'ee_el_login_cycle_done_v6';
+
+    function isLoginCycleDone() {
+        try { return sessionStorage.getItem(LOGIN_CYCLE_DONE_KEY) === '1'; } catch (_) { return false; }
+    }
+
+    function markLoginCycleDone() {
+        try {
+            sessionStorage.setItem(LOGIN_CYCLE_DONE_KEY, '1');
+            sessionStorage.setItem(ENTRY_WIPE_DONE_KEY, '1');
+        } catch (_) {}
+    }
 
     function shouldEntryWipeOnLoad() {
         try {
+            if (isLoginCycleDone()) return false;
             const p = String(location.pathname || '');
             if (!p.startsWith('/app')) return false;
             if (p.startsWith('/app/sign-in')) return false;
@@ -86,6 +99,7 @@
         try {
             const keep = new Map([
                 [ENTRY_WIPE_DONE_KEY, sessionStorage.getItem(ENTRY_WIPE_DONE_KEY)],
+                [LOGIN_CYCLE_DONE_KEY, sessionStorage.getItem(LOGIN_CYCLE_DONE_KEY)],
                 [WIPED_FLAG_KEY, '1']
             ]);
             sessionStorage.clear();
@@ -316,16 +330,33 @@
         return true;
     }
 
+    let logoutMonitoringStopped = false;
+
+    function stopLogoutMonitoring() {
+        if (logoutMonitoringStopped) return;
+        logoutMonitoringStopped = true;
+        try { if (logoutInterval) clearInterval(logoutInterval); } catch (_) {}
+        try { if (logoutObserver) logoutObserver.disconnect(); } catch (_) {}
+    }
+
     // Decide whether to logout:
     // - logout if a paywall/blocking modal is detected
     // - logout if the current email is NOT in allowed list (CSV), when list is provided
     async function maybeCookieLogoutOnce() {
         try {
             if (!onTarget()) return;
+            if (isSignInPage()) return;
+            if (isLoginCycleDone()) {
+                stopLogoutMonitoring();
+                return;
+            }
             if (isPaywallCooldownActive()) return;
 
             // Once per tab: wipe cookies + localStorage and land on /app/sign-in for auto-login.
-            if (await entrySessionWipe()) return;
+            if (await entrySessionWipe()) {
+                stopLogoutMonitoring();
+                return;
+            }
 
             const allowed = await loadAllowedEmails();
             const currentEmail = findCurrentEmail();
@@ -358,12 +389,17 @@
         }
     }
 
-    // Run ASAP + keep monitoring (paywall can appear after actions without reload)
+    // Run once on load; keep monitoring only until entry wipe / login cycle completes.
+    let logoutInterval = null;
+    let logoutObserver = null;
+
     maybeCookieLogoutOnce();
-    setInterval(() => { maybeCookieLogoutOnce(); }, 1500);
-    try {
-        const mo = new MutationObserver(() => { maybeCookieLogoutOnce(); });
-        mo.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
-    } catch (_) {}
+    if (!isSignInPage() && !isLoginCycleDone()) {
+        logoutInterval = setInterval(() => { maybeCookieLogoutOnce(); }, 1500);
+        try {
+            logoutObserver = new MutationObserver(() => { maybeCookieLogoutOnce(); });
+            logoutObserver.observe(document.documentElement, { childList: true, subtree: true, characterData: true });
+        } catch (_) {}
+    }
 
 })();

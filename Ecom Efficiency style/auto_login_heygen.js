@@ -11,7 +11,6 @@
 
     console.log('[HEYGEN] Loading spinner script started on:', window.location.href);
 
-    // Temporaire: désactiver l'écran de chargement. Remettre à true pour masquer.
     const __DISABLE_HEYGEN_LOADING_OVERLAY = false;
 
     // Fonction pour créer l'écran de chargement simple avec spinner
@@ -199,6 +198,112 @@
         try { return String(el.textContent || '').trim(); } catch (_) { return ''; }
     }
 
+    function isDisplayed(el) {
+        try {
+            if (!el) return false;
+            const cs = window.getComputedStyle(el);
+            if (cs.display === 'none' || cs.visibility === 'hidden' || Number(cs.opacity) === 0) return false;
+            const r = el.getBoundingClientRect();
+            return r.width > 0 && r.height > 0;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    function findUseEmailButton(root = document) {
+        try {
+            const exact = root.querySelector(
+                'button.tw-inline-flex.tw-min-h-11[type="button"], ' +
+                'button.tw-inline-flex[type="button"].hover\\:tw-underline, ' +
+                'button[type="button"].tw-underline-offset-2'
+            );
+            if (exact && isDisplayed(exact) && /^use email$/i.test(getText(exact))) return exact;
+        } catch (_) {}
+
+        const rx = /^\s*use email\s*$/i;
+        const candidates = Array.from(root.querySelectorAll('button[type="button"], button,[role="button"]'));
+        for (const el of candidates) {
+            if (!isDisplayed(el)) continue;
+            const t = getText(el).replace(/\s+/g, ' ');
+            if (t && rx.test(t)) return el;
+        }
+        return null;
+    }
+
+    function waitForUseEmailButton(timeout = 20000) {
+        return new Promise((resolve) => {
+            const started = Date.now();
+            const tick = () => {
+                const btn = findUseEmailButton();
+                if (btn) return resolve(btn);
+                if (Date.now() - started > timeout) return resolve(null);
+                setTimeout(tick, 150);
+            };
+            tick();
+        });
+    }
+
+    function findUsePasswordButton(root = document) {
+        const rx = /^\s*use password\s*$/i;
+        try {
+            const byClass = root.querySelector(
+                'button.tw-inline-flex.tw-min-h-11[type="button"], ' +
+                'button[type="button"].tw-underline-offset-2'
+            );
+            if (byClass && isDisplayed(byClass) && rx.test(getText(byClass))) return byClass;
+        } catch (_) {}
+        const candidates = Array.from(root.querySelectorAll('button[type="button"], button,[role="button"]'));
+        for (const el of candidates) {
+            if (!isDisplayed(el)) continue;
+            const t = getText(el).replace(/\s+/g, ' ');
+            if (t && rx.test(t)) return el;
+        }
+        return null;
+    }
+
+    function waitForUsePasswordButton(timeout = 15000) {
+        return new Promise((resolve) => {
+            const started = Date.now();
+            const tick = () => {
+                const btn = findUsePasswordButton();
+                if (btn) return resolve(btn);
+                if (Date.now() - started > timeout) return resolve(null);
+                setTimeout(tick, 150);
+            };
+            tick();
+        });
+    }
+
+    function findLogInButton(root = document) {
+        try {
+            const primary = root.querySelector(
+                'button.tw-rounded-full.tw-h-12.tw-w-full.tw-bg-textTitle, ' +
+                'button.tw-rounded-full.tw-h-12.tw-w-full.dark\\:tw-bg-brand'
+            );
+            if (primary && isDisplayed(primary) && /log in/i.test(getText(primary))) return primary;
+        } catch (_) {}
+        const candidates = Array.from(root.querySelectorAll('button[type="button"], button'));
+        for (const el of candidates) {
+            if (!isVisible(el)) continue;
+            const t = getText(el).replace(/\s+/g, ' ');
+            if (/^\s*log in\s*$/i.test(t)) return el;
+        }
+        return null;
+    }
+
+    function waitForLogInButton(timeout = 15000) {
+        return new Promise((resolve) => {
+            const started = Date.now();
+            const tick = () => {
+                const btn = findLogInButton();
+                if (btn) return resolve(btn);
+                if (Date.now() - started > timeout) return resolve(null);
+                setTimeout(tick, 150);
+            };
+            tick();
+        });
+    }
+
     function findButtonByText(re, root = document) {
         const rx = re instanceof RegExp ? re : new RegExp(String(re), 'i');
         // buttons + clickable spans/links that look like buttons (e.g. "Use password instead")
@@ -300,12 +405,21 @@
         input.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
     }
 
-    /** Click a button properly (mousedown + mouseup + click) */
+    /** Click a button properly (pointer + mouse) for React / Tailwind UIs */
     function simulateClick(el) {
-        try { el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true })); } catch (_) {}
-        try { el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true })); } catch (_) {}
+        if (!el) return;
+        try { el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'auto' }); } catch (_) {}
+        try { el.focus({ preventScroll: true }); } catch (_) {}
+        const rect = el.getBoundingClientRect ? el.getBoundingClientRect() : null;
+        const cx = rect ? rect.left + rect.width / 2 : 0;
+        const cy = rect ? rect.top + rect.height / 2 : 0;
+        const common = { bubbles: true, cancelable: true, view: window, clientX: cx, clientY: cy };
+        try { el.dispatchEvent(new PointerEvent('pointerdown', Object.assign({ pointerId: 1, pointerType: 'mouse', isPrimary: true }, common))); } catch (_) {}
+        try { el.dispatchEvent(new MouseEvent('mousedown', Object.assign({ button: 0, buttons: 1 }, common))); } catch (_) {}
+        try { el.dispatchEvent(new PointerEvent('pointerup', Object.assign({ pointerId: 1, pointerType: 'mouse', isPrimary: true }, common))); } catch (_) {}
+        try { el.dispatchEvent(new MouseEvent('mouseup', Object.assign({ button: 0, buttons: 0 }, common))); } catch (_) {}
         try { el.click(); } catch (_) {
-            try { el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })); } catch (__) {}
+            try { el.dispatchEvent(new MouseEvent('click', Object.assign({ button: 0, detail: 1 }, common))); } catch (__) {}
         }
     }
 
@@ -387,8 +501,15 @@
         });
     }
 
+    let __heygenAutoLoginInFlight = false;
+
     // Fonction principale d'auto-login (auth.heygen.com/login)
     async function performAutoLogin() {
+        if (__heygenAutoLoginInFlight) {
+            console.log('[HEYGEN] Auto-login already running, skip');
+            return;
+        }
+        __heygenAutoLoginInFlight = true;
         try {
             const host = (window.location.hostname || '').toLowerCase();
             const path = (window.location.pathname || '').toLowerCase();
@@ -400,6 +521,9 @@
 
             const EMAIL = 'ecom.efficiency1@gmail.com';
             const PASSWORD = 'C+N8(%5+3ScL.6S';
+
+            const EMAIL_INPUT_SELECTOR = 'input[type="email"][placeholder="Enter your email"], input[placeholder="Enter your email"][autocomplete="email"]';
+            const PWD_INPUT_SELECTOR = 'input[type="password"][placeholder="Enter password"], input[placeholder="Enter password"][autocomplete="current-password"]';
 
             // ── Helper : trouve un bouton par son texte ───────────────────────────
             function findBtnByText(re) {
@@ -426,20 +550,34 @@
                 });
             }
 
-            function waitForInputInDOM(selector, timeout = 15000) {
+            function findVisibleInput(selectors) {
+                const all = Array.from(document.querySelectorAll(selectors));
+                return all.find(isVisible) || null;
+            }
+
+            function waitForVisibleInput(selectors, timeout = 15000) {
                 return new Promise(resolve => {
-                    const tryFind = () => {
-                        const all = Array.from(document.querySelectorAll(selector));
-                        return all.find(isVisible) || all[0] || null;
-                    };
+                    const tryFind = () => findVisibleInput(selectors);
                     const found = tryFind();
                     if (found) return resolve(found);
                     const obs = new MutationObserver(() => {
                         const el = tryFind();
                         if (el) { obs.disconnect(); resolve(el); }
                     });
-                    obs.observe(document.documentElement, { childList: true, subtree: true });
-                    setTimeout(() => { obs.disconnect(); resolve(tryFind()); }, timeout);
+                    obs.observe(document.documentElement, { childList: true, subtree: true, attributes: true });
+                    const timer = setTimeout(() => {
+                        obs.disconnect();
+                        resolve(tryFind());
+                    }, timeout);
+                    const poll = setInterval(() => {
+                        const el = tryFind();
+                        if (el) {
+                            clearInterval(poll);
+                            clearTimeout(timer);
+                            obs.disconnect();
+                            resolve(el);
+                        }
+                    }, 200);
                 });
             }
 
@@ -456,80 +594,70 @@
                 });
             }
 
-            // ── STEP 1 : Clic "Sign in with email" / "Continue with email" ───────
-            console.log('[HEYGEN] ── STEP 1: looking for email sign-in button…');
-            let emailInput = await waitForInputInDOM('input[placeholder="Enter your email"], input[type="email"]', 1500);
-            if (!emailInput) {
+            // ── STEP 1 : ALWAYS click "Use email" first on /login ─────────────────
+            console.log('[HEYGEN] ── STEP 1: waiting for "Use email" button…');
+            const useEmailBtn = await waitForUseEmailButton(20000);
+            if (useEmailBtn) {
+                console.log('[HEYGEN] ✅ Found "Use email", clicking…', useEmailBtn.className || '');
+                simulateClick(useEmailBtn);
+                await new Promise(r => setTimeout(r, 1200));
+            } else {
+                console.warn('[HEYGEN] ⚠️ "Use email" button not found — trying fallback CTAs');
                 const continueBtn =
-                    (await waitForBtnByText(/sign in with email/i, 12000)) ||
-                    (await waitForBtnByText(/continue with email/i, 1500)) ||
+                    findUseEmailButton() ||
+                    (await waitForBtnByText(/sign in with email/i, 5000)) ||
+                    (await waitForBtnByText(/continue with email/i, 3000)) ||
                     document.querySelector('button.tw-bg-brand');
-
                 if (continueBtn) {
-                    console.log('[HEYGEN] ✅ Found email CTA, clicking…');
-                    try { continueBtn.scrollIntoView({ block: 'center', behavior: 'auto' }); } catch (_) {}
+                    console.log('[HEYGEN] ✅ Found fallback email CTA, clicking…');
                     simulateClick(continueBtn);
-                } else {
-                    console.warn('[HEYGEN] ⚠️ Email CTA not found (Sign in/Continue with email)');
+                    await new Promise(r => setTimeout(r, 1200));
                 }
-                await new Promise(r => setTimeout(r, 900));
-                emailInput = await waitForInputInDOM('input[placeholder="Enter your email"], input[type="email"]', 12000);
             }
-            if (!emailInput) throw new Error('Email input did not appear after email CTA');
+
+            // ── STEP 2 : Email input ───────────────────────────────────────────────
+            console.log('[HEYGEN] ── STEP 2: waiting for email input…');
+            const emailInput = await waitForVisibleInput(EMAIL_INPUT_SELECTOR, 15000);
+            if (!emailInput) throw new Error('Visible email input did not appear after "Use email"');
             console.log('[HEYGEN] ✅ Email input visible');
 
-            // ── STEP 2 : Clic "Use password instead" ──────────────────────────────
-            console.log('[HEYGEN] ── STEP 2: looking for password mode…');
-            let pwdInput = await waitForInputInDOM('input[placeholder="Enter password"], input[type="password"]', 1500);
-            if (!pwdInput) {
-                const pwdInsteadBtn =
-                    (await waitForClickableText(/use password instead/i, 8000)) ||
-                    (await waitForBtnByText(/password instead/i, 1500));
-                if (pwdInsteadBtn) {
-                    console.log('[HEYGEN] ✅ Found "Use password instead", clicking…');
-                    try { pwdInsteadBtn.scrollIntoView({ block: 'center', behavior: 'auto' }); } catch (_) {}
-                    simulateClick(pwdInsteadBtn);
-                } else {
-                    console.warn('[HEYGEN] ⚠️ "Use password instead" not found');
-                }
-                await new Promise(r => setTimeout(r, 900));
-                pwdInput = await waitForInputInDOM('input[placeholder="Enter password"], input[type="password"]', 15000);
-            }
-
-            // ── STEP 3 : Attendre l'input PASSWORD (n'existe que dans le bon panneau) ──
-            console.log('[HEYGEN] ── STEP 3: waiting for password input…');
-            if (!pwdInput) throw new Error('Password input never appeared in DOM');
-            console.log('[HEYGEN] ✅ Password input appeared in DOM!');
-
-            if (!emailInput) throw new Error('Email input not found');
-            // ── STEP 4 : Remplir email ─────────────────────────────────────────────
-            console.log('[HEYGEN] ── STEP 4: filling email…');
+            console.log('[HEYGEN] ── STEP 3: filling email…');
             reactFillInput(emailInput, EMAIL);
-            await new Promise(r => setTimeout(r, 200));
+            await new Promise(r => setTimeout(r, 250));
             if (!emailInput.value || emailInput.value.length < 3) {
                 console.log('[HEYGEN] reactFill insufficient, typing char by char…');
                 await typeIntoInput(emailInput, EMAIL);
             }
             console.log('[HEYGEN] ✅ Email value:', emailInput.value);
-            await new Promise(r => setTimeout(r, 200));
+            await new Promise(r => setTimeout(r, 400));
 
-            // ── STEP 5 : Remplir password ──────────────────────────────────────────
-            console.log('[HEYGEN] ── STEP 5: filling password…');
+            // ── STEP 4 : Click "Use password" ────────────────────────────────────
+            console.log('[HEYGEN] ── STEP 4: clicking "Use password"…');
+            const usePasswordBtn = await waitForUsePasswordButton(15000);
+            if (!usePasswordBtn) throw new Error('"Use password" button not found');
+            console.log('[HEYGEN] ✅ Found "Use password", clicking…');
+            simulateClick(usePasswordBtn);
+            await new Promise(r => setTimeout(r, 1200));
+
+            // ── STEP 5 : Password input ──────────────────────────────────────────
+            console.log('[HEYGEN] ── STEP 5: waiting for password input…');
+            const pwdInput = await waitForVisibleInput(PWD_INPUT_SELECTOR, 15000);
+            if (!pwdInput) throw new Error('Visible password input did not appear after "Use password"');
+            console.log('[HEYGEN] ✅ Password input visible');
+
+            console.log('[HEYGEN] ── STEP 6: filling password…');
             reactFillInput(pwdInput, PASSWORD);
-            await new Promise(r => setTimeout(r, 200));
+            await new Promise(r => setTimeout(r, 250));
             if (!pwdInput.value || pwdInput.value.length < 3) {
                 console.log('[HEYGEN] reactFill insufficient, typing char by char…');
                 await typeIntoInput(pwdInput, PASSWORD);
             }
             console.log('[HEYGEN] ✅ Password length:', pwdInput.value.length);
-            await new Promise(r => setTimeout(r, 400));
+            await new Promise(r => setTimeout(r, 500));
 
-            // ── STEP 6 : Clic "Sign in" ───────────────────────────────────────────
-            console.log('[HEYGEN] ── STEP 6: looking for "Log in" button…');
-            const signInBtn =
-                (await waitForBtnByText(/^\s*log in\s*$/i, 10000)) ||
-                (await waitForBtnByText(/^\s*login\s*$/i, 1500)) ||
-                (await waitForBtnByText(/log in/i, 5000));
+            // ── STEP 7 : Click "Log in" ───────────────────────────────────────────
+            console.log('[HEYGEN] ── STEP 7: looking for "Log in" button…');
+            const signInBtn = await waitForLogInButton(15000);
             if (!signInBtn) throw new Error('"Log in" button not found');
             console.log('[HEYGEN] ✅ Found Sign in button, disabled =', signInBtn.disabled);
 
@@ -547,6 +675,9 @@
 
         } catch (error) {
             console.error('[HEYGEN] ❌ Auto-login error:', error.message);
+            dumpPageState('autologin-error');
+        } finally {
+            __heygenAutoLoginInFlight = false;
         }
     }
 
@@ -596,7 +727,9 @@
 
         if (isLoginPage) {
             scheduleDiagnostic();
-            setTimeout(performAutoLogin, 1800);
+            setTimeout(performAutoLogin, 1200);
+            setTimeout(performAutoLogin, 3500);
+            setTimeout(performAutoLogin, 6000);
         } else {
             console.log('[HEYGEN] Not a login page, skipping. (host=' + host + ', path=' + path + ')');
         }
@@ -646,7 +779,7 @@
                     if (!btn) return;
                     const txt = (btn.textContent || '').trim().replace(/\s+/g, ' ').toLowerCase();
                     if (!txt) return;
-                    if (txt.includes('sign in with email') || txt.includes('continue with email')) {
+                    if (txt.includes('use email') || txt.includes('use password') || txt.includes('sign in with email') || txt.includes('continue with email')) {
                         console.log('[HEYGEN] Detected click on email CTA → restarting autologin');
                         setTimeout(performAutoLogin, 250);
                     }
