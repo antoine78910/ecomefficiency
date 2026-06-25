@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useSessionTracking } from "@/hooks/useSessionTracking";
 import GoogleButton from "@/components/GoogleButton";
-import { trackFirstPromoterReferral, getFirstPromoterAttributionForHeaders } from "@/lib/firstpromoterReferral";
+import { trackFirstPromoterReferral, getFirstPromoterAttributionForHeaders, primeFirstPromoterReferralEmail, appendFirstPromoterToUrl } from "@/lib/firstpromoterReferral";
 import { trackFunnelEvent } from "@/lib/funnelTrackingClient";
 import { fireGoogleAdsSignupConversion } from "@/lib/googleAdsConversions";
 // Discord removed per request
@@ -70,6 +70,9 @@ const SignUp = () => {
         const cleanHost = hostname.replace(/^www\./, '');
         emailRedirectUrl = `${protocol}//app.${cleanHost}${port}/`;
       }
+      emailRedirectUrl = appendFirstPromoterToUrl(emailRedirectUrl);
+
+      primeFirstPromoterReferralEmail(email);
 
       const { data, error } = await supabase.auth.signUp({
         email,
@@ -156,7 +159,7 @@ const SignUp = () => {
           return;
         }
 
-        // Email verification required - email was sent
+        // Email verification required - email was sent (referral tracked after verify on app.*)
         if (user) {
           await trackSession(
             user.id,
@@ -166,10 +169,7 @@ const SignUp = () => {
             lastName || undefined,
           );
         }
-        // Send lead to FirstPromoter for referral attribution.
-        try { trackFirstPromoterReferral(email); } catch {}
-
-        // Show success message
+        // Do not track here — wait until email is verified and session exists on app.*
         toast({
           title: "Check your email",
           description: "We sent a verification link to your email address",
@@ -189,6 +189,7 @@ const SignUp = () => {
           const cleanHost = hostname.replace(/^www\./, '');
           verifyUrl = `${protocol}//app.${cleanHost}${port}/verify-email?email=${encodeURIComponent(email)}`;
         }
+        verifyUrl = appendFirstPromoterToUrl(verifyUrl);
         
         // Use setTimeout to ensure loader is visible before redirect
         // Don't reset isLoading here - let it stay true during redirect
@@ -363,6 +364,8 @@ const SignUp = () => {
               <Button
                 type="submit"
                 disabled={isLoading}
+                onMouseDown={() => primeFirstPromoterReferralEmail(email)}
+                onTouchStart={() => primeFirstPromoterReferralEmail(email)}
                 className="w-full bg-[#9541e0] hover:bg-[#8636d2] disabled:opacity-70 disabled:cursor-not-allowed text-white font-medium py-3 rounded-lg transition-all duration-300 flex items-center justify-center gap-2"
               >
                 {isLoading ? (

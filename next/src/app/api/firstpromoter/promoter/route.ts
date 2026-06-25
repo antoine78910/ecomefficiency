@@ -86,15 +86,18 @@ export async function GET(req: NextRequest) {
     });
 
     // Server-side signup tracking: safety net in case client-side fpr("referral") was blocked.
-    const refId = String(
-      req.headers.get("x-fpr-ref") || req.headers.get("x-fpr-tid") || ""
-    ).trim();
-    const tid = String(req.headers.get("x-fpr-visitor-tid") || "").trim();
+    const refId = String(req.headers.get("x-fpr-ref") || "").trim();
+    const tid = String(req.headers.get("x-fpr-tid") || "").trim();
+    const cookieHeader = req.headers.get("cookie") || "";
+    const readCookie = (name: string) => {
+      const match = cookieHeader.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`));
+      return match?.[1] ? decodeURIComponent(match[1]).trim() : "";
+    };
     void fpTrackSignup({
       email,
       uid: user.id,
-      refId: refId || undefined,
-      tid: tid || undefined,
+      refId: refId || readCookie("_fprom_ref") || undefined,
+      tid: tid || readCookie("_fprom_tid") || readCookie("_fprom_track") || undefined,
     }).then((r) => {
       if (!r.ok && r.status !== 404) {
         console.warn("[firstpromoter/promoter] signup track", {

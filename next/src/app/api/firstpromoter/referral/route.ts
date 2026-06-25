@@ -30,18 +30,32 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "missing_email_or_uid" }, { status: 400 });
     }
 
+    const cookieHeader = req.headers.get("cookie") || "";
+    const readCookie = (name: string) => {
+      const match = cookieHeader.match(new RegExp(`(?:^|;\\s*)${name}=([^;]*)`));
+      return match?.[1] ? decodeURIComponent(match[1]).trim() : "";
+    };
+
+    const tid =
+      String(body.tid || "").trim() ||
+      readCookie("_fprom_tid") ||
+      readCookie("_fprom_track");
+    const refId =
+      String(body.ref_id || "").trim() ||
+      readCookie("_fprom_ref");
+
     const result = await fpTrackSignup({
       email: email || undefined,
       uid: uid || undefined,
-      tid: body.tid || undefined,
-      refId: body.ref_id || undefined,
+      tid: tid || undefined,
+      refId: refId || undefined,
     });
 
     console.log("[firstpromoter/referral]", {
       email: email || null,
       uid: uid || null,
-      has_tid: Boolean(body.tid),
-      has_ref_id: Boolean(body.ref_id),
+      has_tid: Boolean(tid),
+      has_ref_id: Boolean(refId),
       fp_status: result.status,
       fp_ok: result.ok,
     });

@@ -52,7 +52,7 @@ async function fpTrackingPost(
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Account-ID": creds.accountId,
+      "ACCOUNT-ID": creds.accountId,
       Authorization: `Bearer ${creds.apiKey}`,
     },
     body: JSON.stringify(body),

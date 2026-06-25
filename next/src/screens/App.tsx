@@ -350,6 +350,31 @@ const App = ({
     })();
   }, []);
 
+  // FirstPromoter: attribute email signups when the user lands on app.* with a session (post email-verify).
+  React.useEffect(() => {
+    if (typeof window === "undefined") return;
+    (async () => {
+      try {
+        const mod = await import("@/integrations/supabase/client");
+        const { data } = await mod.supabase.auth.getUser();
+        const user = data.user;
+        if (!user?.email) return;
+        trackFirstPromoterReferral(String(user.email), user.id);
+        const tok = (await mod.supabase.auth.getSession()).data.session?.access_token;
+        if (tok) {
+          await fetch("/api/firstpromoter/promoter", {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${tok}`,
+              ...getFirstPromoterAttributionForHeaders(),
+            },
+            cache: "no-store",
+          }).catch(() => null);
+        }
+      } catch {}
+    })();
+  }, []);
+
   // Live-refresh Canva invite every 10s
   React.useEffect(() => {
     let cancelled = false
@@ -1573,9 +1598,16 @@ function CredentialsPanel({
       document.removeEventListener('visibilitychange', onVisible);
       try { authUnsub?.(); } catch {}
     };
-  }, [whiteLabel, partnerSlug, email, customerId, plan]);
+  }, [whiteLabel, partnerSlug, email, customerId]);
 
   // Intentionally left empty: copying handled by CopyButton below
+
+  const billingAutoOpenedRef = React.useRef(false)
+  const openBillingOnce = React.useCallback(() => {
+    if (preview || billingAutoOpenedRef.current) return
+    billingAutoOpenedRef.current = true
+    setShowBilling(true)
+  }, [preview])
 
   // If user clicks "Manage billing" from /subscription while not subscribed, open the paywall in /app.
   React.useEffect(() => {
@@ -1591,8 +1623,14 @@ function CredentialsPanel({
   }, [preview])
   React.useEffect(() => {
     let cancelled = false
-    ;(async () => {
+    let verifyGeneration = 0
+    let authUnsub: (() => void) | null = null
+
+    const runVerify = async () => {
+      const generation = ++verifyGeneration
+
       const tryVerify = async () => {
+        if (cancelled || generation !== verifyGeneration) return false
         try {
           const urlParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null
           const checkoutSessionId = String(urlParams?.get('session_id') || '')
@@ -1622,7 +1660,8 @@ function CredentialsPanel({
                 ? { "x-partner-slug": String(partnerSlug) }
                 : {}),
             },
-            body: JSON.stringify({ email, session_id: checkoutSessionId || undefined })
+            body: JSON.stringify({ email, session_id: checkoutSessionId || undefined }),
+            signal: AbortSignal.timeout(12_000),
           })
           const json = await res.json().catch(() => ({}))
           if (json?.ok && json?.active) {
@@ -1636,55 +1675,71 @@ function CredentialsPanel({
               setBanner(
                 'Legacy billing is not linked to current tool access. Subscribe on the current plans to use AdsPower and the hub.'
               )
-              try { setShowBilling(true) } catch {}
+              openBillingOnce()
               return true
             }
             setPlan(json.plan==='pro' ? 'pro' : 'starter')
             setBanner(null)
             try { setShowBilling(false) } catch {}
+            try { localStorage.removeItem('__ee_pending_checkout') } catch {}
             return true
           }
         } catch {}
         return false
       }
 
-      // If we just signed in, be patient and retry more times before showing billing
       let justSignedIn = false
-      let justPaid = false
+      let stripeReturnFromUrl = false
       try {
         const h = (typeof window !== 'undefined' ? window.location.hash : '') || ''
         const s = (typeof window !== 'undefined' ? new URL(window.location.href).searchParams : null)
         justSignedIn = (/just_signed_in=1/.test(h) || (s && s.get('just') === '1')) || false
-        const hasStripeReturnParams = Boolean(s && (s.get('checkout') === 'success' || s.get('session_id') || s.get('payment_intent') || s.get('redirect_status')))
-        let pendingFresh = false
-        try {
-          const pendingRaw = typeof window !== 'undefined' ? window.localStorage.getItem('__ee_pending_checkout') : null
-          let pendingAt = 0
-          if (pendingRaw) {
-            try { pendingAt = Number(JSON.parse(pendingRaw)?.at || 0) } catch { pendingAt = Number(pendingRaw) || 0 }
-          }
-          pendingFresh = pendingAt > 0 && (Date.now() - pendingAt) < 1000 * 60 * 60 * 6
-        } catch {}
-        justPaid = Boolean(hasStripeReturnParams || pendingFresh)
+        stripeReturnFromUrl = Boolean(s && (s.get('checkout') === 'success' || s.get('session_id') || s.get('payment_intent') || s.get('redirect_status')))
       } catch {}
 
-      const maxAttempts = (justSignedIn || justPaid) ? 15 : 3
-      const delayMs = (justSignedIn || justPaid) ? 1200 : 800
-      for (let i = 0; i < maxAttempts && !cancelled; i++) {
+      // Extended retries only on real Stripe return URLs — not stale localStorage alone.
+      const extendedRetries = justSignedIn || stripeReturnFromUrl
+      const maxAttempts = extendedRetries ? 15 : 3
+      const delayMs = extendedRetries ? 1200 : 800
+      const deadlineMs = extendedRetries ? 30_000 : 12_000
+      const startedAt = Date.now()
+
+      for (let i = 0; i < maxAttempts && !cancelled && generation === verifyGeneration; i++) {
         const ok = await tryVerify()
         if (ok) return
+        if (Date.now() - startedAt >= deadlineMs) break
         await new Promise(r => setTimeout(r, delayMs))
       }
 
-      if (!cancelled) {
-        setPlan('inactive')
-        setBanner('No active subscription. Go to Pricing to subscribe.')
-        // In preview (partners dashboard), NEVER open fixed overlays (they escape the preview frame).
-        if (!preview && !justPaid) setShowBilling(true)
+      if (cancelled || generation !== verifyGeneration) return
+
+      setPlan('inactive')
+      setBanner('No active subscription. Go to Pricing to subscribe.')
+      try { localStorage.removeItem('__ee_pending_checkout') } catch {}
+      openBillingOnce()
+    }
+
+    void runVerify()
+
+    import("@/integrations/supabase/client").then(({ supabase }) => {
+      if (cancelled) return
+      const { data } = supabase.auth.onAuthStateChange((event, session) => {
+        if (cancelled) return
+        if ((event === 'INITIAL_SESSION' || event === 'SIGNED_IN') && session?.user) {
+          void runVerify()
+        }
+      })
+      authUnsub = () => {
+        try { data.subscription.unsubscribe() } catch {}
       }
-    })()
-    return () => { cancelled = true }
-  }, [])
+    }).catch(() => {})
+
+    return () => {
+      cancelled = true
+      verifyGeneration += 1
+      try { authUnsub?.() } catch {}
+    }
+  }, [whiteLabel, partnerSlug, preview, openBillingOnce])
 
   // White-label: remember chosen billing interval from landing (/signup?plan=month|year or localStorage)
   const [wlBilling, setWlBilling] = React.useState<null | 'month' | 'year'>(null)

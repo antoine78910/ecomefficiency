@@ -7,7 +7,7 @@ import { motion, useMotionTemplate, useMotionValue } from 'framer-motion';
 import { Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { postGoal } from "@/lib/analytics";
-import { trackFirstPromoterReferral } from "@/lib/firstpromoterReferral";
+import { trackFirstPromoterReferral, primeFirstPromoterReferralEmail, appendFirstPromoterToUrl } from "@/lib/firstpromoterReferral";
 
 export default function SignUp() {
   const [name, setName] = React.useState("");
@@ -50,12 +50,13 @@ export default function SignUp() {
     try {
       setPending(true);
       try { postGoal('click_sign_up', { surface: 'sign_up', method: 'email' }); } catch {}
+      primeFirstPromoterReferralEmail(email);
       const { data, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
-          // Redirect email verification back to the app workspace route
-          emailRedirectTo: (() => {
+          // Redirect email verification back to the app workspace route (carry ?fpr= for referral tests).
+          emailRedirectTo: appendFirstPromoterToUrl((() => {
             const protocol = window.location.protocol;
             const hostname = window.location.hostname;
             const port = window.location.port ? `:${window.location.port}` : '';
@@ -63,7 +64,7 @@ export default function SignUp() {
             if (hostname === 'localhost' || hostname === '127.0.0.1') return `http://app.localhost${port}/`;
             const clean = hostname.replace(/^www\./, '');
             return `${protocol}//app.${clean}${port}/`;
-          })(),
+          })()),
           data: { name }
         }
       });
@@ -93,10 +94,16 @@ export default function SignUp() {
         return;
       }
 
-      // Track referral with FirstPromoter (best effort, only primitives)
-      try { 
-        if (email) trackFirstPromoterReferral(email);
-      } catch {}
+      // Email signup with verification: attribution runs after the user confirms email on app.* (see App.tsx).
+      // If Supabase auto-confirms (session present), track immediately with uid.
+      if (data.session?.user) {
+        try {
+          trackFirstPromoterReferral(
+            data.session.user.email || email,
+            data.session.user.id
+          );
+        } catch {}
+      }
 
       // Safety: ensure we have a user (required for signup flow that sends verification)
       if (!data || !data.user) {
@@ -121,6 +128,7 @@ export default function SignUp() {
         const cleanHost = hostname.replace(/^www\./, '');
         verifyUrl = `${protocol}//app.${cleanHost}${port}/verify-email?email=${encodeURIComponent(email)}`;
       }
+      verifyUrl = appendFirstPromoterToUrl(verifyUrl);
 
       // Let the loader render for a brief moment before navigating
       setTimeout(() => { window.location.href = verifyUrl; }, 200);
@@ -187,6 +195,8 @@ export default function SignUp() {
               <button
                 type="submit"
                 disabled={!canSubmit}
+                onMouseDown={() => primeFirstPromoterReferralEmail(email)}
+                onTouchStart={() => primeFirstPromoterReferralEmail(email)}
                 className={`w-full rounded-lg py-2 font-medium border flex items-center justify-center ${canSubmit ? 'cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] border-[#9541e0] text-white shadow-[0_8px_40px_rgba(149,65,224,0.35)] hover:brightness-110' : 'bg-white/5 border-white/10 text-white/50 cursor-not-allowed'}`}
               >
                 {pending ? (
