@@ -1,7 +1,5 @@
 "use client";
 import React, { useState } from 'react';
-import ReactDOM from 'react-dom';
-import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Search, ArrowLeft } from "lucide-react";
 import Link from "next/link";
@@ -10,7 +8,6 @@ import Footer from "@/components/Footer";
 import NewNavbar from "@/components/NewNavbar";
 import { carouselTools } from "@/data/carouselTools";
 import { resolveToolSlug } from "@/data/toolsCatalog";
-import { seoToolsCatalog } from "@/data/seoToolsCatalog";
 import ToolImage from "@/components/ToolImage";
 
 type GalleryTool = { id: number; name: string; description: string; icon: string };
@@ -35,77 +32,15 @@ const SLUG_OVERRIDES: Record<string, string> = {
 const Tools = () => {
   const [searchTerm, setSearchTerm] = useState("");
   const [tier, setTier] = useState<'starter'|'pro'>("pro");
-  const [seoOpen, setSeoOpen] = useState(false)
-  const [isMounted, setIsMounted] = useState(false)
-
-  const closeSeoModal = React.useCallback(() => {
-    setSeoOpen(false);
-  }, []);
-
-  const normalizeSeoName = React.useCallback((input: string) => {
-    return String(input || "")
-      .toLowerCase()
-      .replace(/&/g, " and ")
-      .replace(/\+/g, " ")
-      .replace(/\./g, " ")
-      .replace(/[^a-z0-9\s-]/g, " ")
-      .replace(/\s+/g, " ")
-      .trim();
-  }, []);
-
-  const seoSlugByName = React.useMemo(() => {
-    const m = new Map<string, string>();
-    for (const t of seoToolsCatalog) {
-      m.set(normalizeSeoName(t.name), t.slug);
-    }
-    return m;
-  }, [normalizeSeoName]);
-
-  React.useEffect(() => {
-    setIsMounted(true);
-  }, []);
-
-  React.useEffect(() => {
-    if (!seoOpen) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") closeSeoModal();
-    };
-    try { document.body.style.overflow = "hidden"; } catch {}
-    window.addEventListener("keydown", onKeyDown);
-    return () => {
-      try { document.body.style.overflow = ""; } catch {}
-      window.removeEventListener("keydown", onKeyDown);
-    };
-  }, [seoOpen, closeSeoModal]);
-
-  // Build list with "+30 SEO Tools" tile replacing Ubersuggest/Semrush
-  const withSeoTile: GalleryTool[] = React.useMemo(() => {
-    const list = galleryTools.filter(t => t.name !== 'Ubersuggest' && t.name !== 'Semrush')
-    const seoTile: GalleryTool = { id: 0, name: '+30 SEO Tools', description: 'Includes: Semrush, Ubersuggest, …', icon: '/tools-logos/seo.png' }
-    const base = [...list, seoTile]
-    const weight = (n: string) => (n === '+30 SEO Tools' ? 9999 : 1)
-    const ordered = base.sort((a, b) => weight(a.name) - weight(b.name))
-    return ordered.map((t, i) => ({ ...t, id: i + 1 }))
-  }, [])
 
   const byTier = React.useMemo(() => {
-    if (tier === 'starter') return withSeoTile.filter(t => t.name === '+30 SEO Tools' || STARTER_NAMES.includes(t.name))
-    // Pro shows everything
-    return withSeoTile
-  }, [tier, withSeoTile])
-
-  const SEO_INCLUDED = [
-    'semrush','ubersuggest','academun','writehuman','seobserver','seranking','flaticon','answerthepublic','123rf','motionarray','artlist','yourtextguru','similarweb','surferlink','ahrefs','alura','spyfu','alsoasked','keywordtool','wincher','serpstat','zonbase','quillbot','haloscan','bypassgpt','seoptimer','amzscout','zikanalytics','niche scraper','dinorank','seozoom','smartscout','freepik','searchatlas','mangools','sistrix','publicwww','hunter','pexda','xovi','smodin.io','ranxplorer','buzzsumo','storyblocks','woorank','iconscout','babbar','moz','one hourindexing','word ai','jungle scout','colinkri','keysearch','textoptimzer','1.fr','domcop','envato elements','quetext','majestic','screaming frog'
-  ]
+    if (tier === 'starter') return galleryTools.filter(t => STARTER_NAMES.includes(t.name))
+    return galleryTools
+  }, [tier])
 
   const filteredTools = byTier.filter(tool => {
     const q = searchTerm.toLowerCase().trim();
-    const matchNameDesc = tool.name.toLowerCase().includes(q) || tool.description.toLowerCase().includes(q);
-    if (matchNameDesc) return true;
-    if (q && tool.name === '+30 SEO Tools') {
-      return SEO_INCLUDED.some(n => n.includes(q));
-    }
-    return false;
+    return tool.name.toLowerCase().includes(q) || tool.description.toLowerCase().includes(q);
   });
 
   // Monthly price indicators per tool
@@ -133,7 +68,6 @@ const Tools = () => {
     'Claude': 200,
     'Semrush': 399,
     'Similarweb': 199,
-    '+30 SEO Tools': 1000,
     
     'Higgsfield': 250,
     'Vmake': 29.99,
@@ -153,8 +87,6 @@ const Tools = () => {
   }
 
   const isProOnly = (name: string) => {
-    if (name === '+30 SEO Tools') return false
-    // Normalize variations for matching
     const normalized = name.replace(/\s+/g, ' ').trim().toLowerCase()
     return (
       PRO_NAMES.map(n => n.replace(/\s+/g, ' ').trim().toLowerCase()).includes(normalized) &&
@@ -232,11 +164,7 @@ const Tools = () => {
               const cardIcon = isFreepik ? '/tools-logos/freepik.png' : tool.icon;
               const card = (
                 <Card
-                  className={`relative p-2.5 md:p-4 bg-gray-900 border border-white/10 rounded-2xl ${
-                    tool.name === '+30 SEO Tools'
-                      ? 'hover:border-white/20 transition-all duration-300 hover:scale-105 group cursor-pointer'
-                      : 'cursor-default'
-                  }`}
+                  className="relative p-2.5 md:p-4 bg-gray-900 border border-white/10 rounded-2xl cursor-default"
                 >
                   {isProOnly(tool.name) && (
                     <span className="absolute -top-2 -left-2 text-[10px] px-2 py-0.5 rounded-full bg-[linear-gradient(135deg,#ffd70055,#ffcc00)] text-white border border-[#ffcc00]/30 shadow-[0_0_12px_rgba(255,215,0,0.45)]">
@@ -259,21 +187,6 @@ const Tools = () => {
                   <p className="text-gray-400 text-xs md:text-sm leading-relaxed">{tool.description}</p>
                 </Card>
               );
-
-              if (tool.name === '+30 SEO Tools') {
-                return (
-                  <button
-                    key={tool.id}
-                    type="button"
-                    onClick={() => setSeoOpen(true)}
-                    className="block w-full text-left"
-                    aria-expanded={seoOpen}
-                    aria-controls="seo-tools-fullscreen-modal"
-                  >
-                    {card}
-                  </button>
-                );
-              }
 
               const rawName = String(tool.name || "");
               const cleanName = rawName.trim();
@@ -302,45 +215,6 @@ const Tools = () => {
               );
             })}
           </div>
-          {seoOpen && isMounted && ReactDOM.createPortal(
-            <div className="fixed inset-0 z-[2147483647] bg-black/70 backdrop-blur-md flex items-center justify-center p-4">
-              <button
-                type="button"
-                aria-label="Close"
-                onClick={closeSeoModal}
-                className="absolute inset-0 cursor-pointer"
-              />
-              <div
-                id="seo-tools-fullscreen-modal"
-                className="relative z-10 bg-[#0b1220] border border-white/20 rounded-2xl p-5 w-[min(980px,95vw)] max-h-[88vh] overflow-auto shadow-2xl"
-                role="dialog"
-                aria-modal="true"
-                aria-label="+30 SEO Tools"
-              >
-                <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-white font-semibold">+30 SEO Tools</h3>
-                  <button onClick={closeSeoModal} className="text-white/70 hover:text-white">✕</button>
-                </div>
-                <p className="text-gray-300 text-sm mb-3">Included tools with short descriptions.</p>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {seoToolsCatalog.map((t) => (
-                    <Link
-                      key={t.slug}
-                      href={`/tools/seo/${t.slug}`}
-                      title={`${t.name} SEO tool page`}
-                      className="block hover:brightness-110 transition"
-                    >
-                      <div className="rounded-lg border border-white/10 p-3 bg-black/25">
-                        <div className="text-white font-medium text-sm">{t.name}</div>
-                        <div className="text-gray-300 text-xs">{t.shortDescription}</div>
-                      </div>
-                    </Link>
-                  ))}
-                </div>
-              </div>
-            </div>,
-            document.body
-          )}
           {/* No Results */}
           {filteredTools.length === 0 && (
             <div className="text-center py-16">

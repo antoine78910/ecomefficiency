@@ -305,7 +305,8 @@ function CheckoutContent() {
     'Dropship.io',
     'Winning Hunter',
     'ShopHunter',
-    '+30 SEO tools',
+    'Ubersuggest',
+    'Semrush',
   ];
   const proToolHighlights = [
     'Pipiads',

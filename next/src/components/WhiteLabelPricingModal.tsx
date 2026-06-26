@@ -59,7 +59,6 @@ export default function WhiteLabelPricingModal({
     "Brain.fm",
     "Capcut",
     "Canva",
-    "+30 SEO tools (Ubersuggest, Semrush, Similarweb, ...)",
     "Pipiads",
     "Atria",
     "Claude",

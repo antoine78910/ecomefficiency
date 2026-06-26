@@ -56,20 +56,6 @@ export async function generateMetadata() {
 
 const TOOLS: ToolCard[] = [
   {
-    href: "https://rankerfox.com/login/",
-    img: "/tools-images/seo.png",
-    fallbackImg: "/tools-logos/seo.png",
-    title: "+30 SEO Tools",
-    description: "Includes:",
-    includes: [
-      { img: "/tools-images/semrush.png", fallbackImg: "/tools-logos/semrush.png", alt: "Semrush" },
-      { img: "/tools-images/ubersuggest.png", fallbackImg: "/tools-logos/ubersuggest.png", alt: "Ubersuggest" },
-      { img: "/tools-images/junglescout.png", fallbackImg: "/tools-logos/junglescout.png", alt: "JungleScout" },
-      { img: "/tools-images/canva.png", fallbackImg: "/tools-logos/canva.png", alt: "Canva" },
-    ],
-    afterIncludesText: "And more ...",
-  },
-  {
     href: "https://app.flair.ai/explore",
     img: "/tools-images/flair.png",
     fallbackImg: "/tools-logos/flair.png",

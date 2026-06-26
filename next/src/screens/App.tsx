@@ -789,7 +789,7 @@ function PlanBadgeInline({ whiteLabel, partnerSlug }: { whiteLabel?: boolean; pa
   )
 }
 
-function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'starter'|'pro', billing: 'monthly'|'yearly', currency: 'EUR'|'USD') => void, onOpenSeoModal?: () => void }) {
+function PricingCardsModal({ onSelect }: { onSelect: (tier: 'starter'|'pro', billing: 'monthly'|'yearly', currency: 'EUR'|'USD') => void }) {
   const [billing, setBilling] = React.useState<'monthly'|'yearly'>('monthly')
   const [expanded, setExpanded] = React.useState<Record<string, boolean>>({})
   const toggleExpand = (key: string) => setExpanded((s) => ({ ...s, [key]: !s[key] }))
@@ -972,20 +972,6 @@ function PricingCardsModal({ onSelect, onOpenSeoModal }: { onSelect: (tier: 'sta
                     <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5" style={{ color: wlAccent }} /><span>Brain.fm</span></li>
                     <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5" style={{ color: wlAccent }} /><span>Capcut</span></li>
                     <li className="flex items-center gap-2"><Check className="w-3.5 h-3.5" style={{ color: wlAccent }} /><span>Canva</span></li>
-                    <li className="col-span-2 flex items-start gap-2">
-                      <Check className="w-3.5 h-3.5 mt-0.5" style={{ color: wlAccent }} />
-                      <span className="text-[11px] text-gray-300">
-                        +30 SEO tools (Ubersuggest, Semrush, Similarweb,...){" "}
-                        <button
-                          type="button"
-                          onClick={()=>onOpenSeoModal?.()}
-                          className="underline cursor-pointer hover:opacity-90"
-                          style={{ color: wlAccent, textDecorationColor: hexWithAlpha(wlAccent, 0.5) }}
-                        >
-                          see all SEO tools
-                        </button>
-                      </span>
-                    </li>
                   </ul>
                   <ul className="grid grid-cols-2 gap-x-3 gap-y-1">
                     {proExtras.map((t) => (
@@ -1351,7 +1337,6 @@ function CredentialsPanel({
   const [customerId, setCustomerId] = React.useState<string | null>(null)
   const [email, setEmail] = React.useState<string | null>(null)
   const [userId, setUserId] = React.useState<string | null>(null)
-  const [seoModalOpen, setSeoModalOpen] = React.useState(false)
   const { showManageBilling, showCancelSubscription } = getBillingControlsVisibility({
     allowStripeCancelFlow,
     showSubscriptionBillingControls,
@@ -2346,7 +2331,7 @@ function CredentialsPanel({
               }
 
               startCheckout(tier, billing, currency) 
-            }} onOpenSeoModal={()=>setSeoModalOpen(true)} />
+            }} />
           ) : (
             <WhiteLabelPricingModal
               billing={wlBilling}
@@ -2390,84 +2375,6 @@ function CredentialsPanel({
       </div>
     ) : null}
     {!preview && showCancelSubscription ? <SubscriptionCancelFlow open={cancelFlowOpen} onOpenChange={setCancelFlowOpen} /> : null}
-    {seoModalOpen && !preview && (
-      <div className="fixed inset-0 z-[60] bg-black/70 flex items-center justify-center p-4" onClick={()=>setSeoModalOpen(false)}>
-        <div className="bg-gray-900 border border-white/10 rounded-2xl p-5 w-full max-w-3xl max-h-[80vh] overflow-auto" onClick={(e)=>e.stopPropagation()}>
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-white font-semibold">+30 SEO Tools</h3>
-            <button onClick={()=>setSeoModalOpen(false)} className="text-white/70 hover:text-white">✕</button>
-          </div>
-          <p className="text-gray-400 text-sm mb-3">Included tools with short descriptions.</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {[
-              { n: 'Semrush', d: 'All‑in‑one SEO & competitive research platform.' },
-              { n: 'Ubersuggest', d: 'Keyword ideas and site SEO audits.' },
-              { n: 'Academun', d: 'Academic writing and research helper.' },
-              { n: 'WriteHuman', d: 'AI writing that preserves human tone.' },
-              { n: 'SEObserver', d: 'Backlink and SERP monitoring insights.' },
-              { n: 'SE Ranking', d: 'Rank tracking and site audit suite.' },
-              { n: 'Flaticon', d: 'Millions of icons for web assets.' },
-              { n: 'AnswerThePublic', d: 'Topic questions mined from searches.' },
-              { n: '123RF', d: 'Stock photos and vectors for creatives.' },
-              { n: 'Motion Array', d: 'Video templates, presets, and assets.' },
-              { n: 'Artlist', d: 'Royalty‑free music and SFX library.' },
-              { n: 'YourTextGuru', d: 'SEO briefs and content optimization.' },
-              { n: 'Similarweb', d: 'Competitive traffic and audience data.' },
-              { n: 'SurferLink', d: 'Internal linking recommendations.' },
-              { n: 'Ahrefs', d: 'Backlinks, keywords, and site explorer.' },
-              { n: 'Alura', d: 'Etsy SEO and product optimization.' },
-              { n: 'SpyFu', d: 'Competitor PPC & SEO keyword intel.' },
-              { n: 'AlsoAsked', d: 'SERP questions and topic clusters.' },
-              { n: 'KeywordTool', d: 'Keyword ideas from multiple engines.' },
-              { n: 'Wincher', d: 'Rank tracking with daily updates.' },
-              { n: 'Serpstat', d: 'All‑in‑one SEO platform and audits.' },
-              { n: 'Zonbase', d: 'Amazon product and keyword research.' },
-              { n: 'QuillBot', d: 'Paraphrasing and grammar tools.' },
-              { n: 'SEOptimer', d: 'On‑page audits and recommendations.' },
-              { n: 'AMZScout', d: 'Amazon product validation and trends.' },
-              { n: 'ZIKAnalytics', d: 'eBay product and market analysis.' },
-              { n: 'Niche Scraper', d: 'Discover trending e‑commerce niches.' },
-              { n: 'Dinorank', d: 'Keyword cannibalization and ranks.' },
-              { n: 'SEOZoom', d: 'Italian SEO suite for rankings.' },
-              { n: 'SmartScout', d: 'Amazon brand and category insights.' },
-              { n: 'Freepik', d: 'Stock graphics for content creation.' },
-              { n: 'SearchAtlas', d: 'SEO content and backlink tools.' },
-              { n: 'Mangools', d: 'KWFinder, SERP, and backlink suite.' },
-              { n: 'Sistrix', d: 'Visibility index and SEO modules.' },
-              { n: 'PublicWWW', d: 'Source code search at scale.' },
-              { n: 'Hunter', d: 'Email discovery and verification.' },
-              { n: 'Pexda', d: 'Winning product research database.' },
-              { n: 'XOVI', d: 'SEO and online marketing suite.' },
-              { n: 'Smodin.io', d: 'AI writing and rewriting tools.' },
-              { n: 'Ranxplorer', d: 'FR market keyword and SEO data.' },
-              { n: 'BuzzSumo', d: 'Content research and influencer data.' },
-              { n: 'Storyblocks', d: 'Stock videos and motion graphics.' },
-              { n: 'WooRank', d: 'Website reviews and SEO checks.' },
-              { n: 'Iconscout', d: 'Icons and illustrations library.' },
-              { n: 'Babbar', d: 'Semantic SEO and internal meshing.' },
-              { n: 'Moz', d: 'Authority metrics and SEO toolkit.' },
-              { n: 'One Hour Indexing', d: 'Fast URL indexing service.' },
-              { n: 'WordAI', d: 'AI rewriter for unique wording.' },
-              { n: 'Jungle Scout', d: 'Amazon research and sales tracker.' },
-              { n: 'Colinkri', d: 'Link prospecting and outreach.' },
-              { n: 'Keysearch', d: 'Affordable keyword research suite.' },
-              { n: 'TextOptimizer', d: 'Content optimization suggestions.' },
-              { n: '1.fr', d: 'Semantic coverage and topic ideas.' },
-              { n: 'DomCop', d: 'Expired domains with SEO metrics.' },
-              { n: 'Envato Elements', d: 'Creative assets: stock, templates.' },
-              { n: 'Quetext', d: 'Plagiarism checker and citations.' },
-              { n: 'Majestic', d: 'Backlink index with TF/CF metrics.' },
-              { n: 'Screaming Frog', d: 'Site crawler for technical SEO.' },
-            ].map(t => (
-              <div key={t.n} className="rounded-lg border border-white/10 p-3 bg-black/30">
-                <div className="text-white font-medium text-sm">{t.n}</div>
-                <div className="text-gray-400 text-xs">{t.d}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    )}
     </>
   );
 }

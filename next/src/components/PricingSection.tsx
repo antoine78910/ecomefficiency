@@ -329,17 +329,6 @@ const PricingSection = ({
                             <li className="flex items-center gap-2 text-gray-300"><Check className="w-3.5 h-3.5 text-purple-400" /><span>Canva</span></li>
                           </ul>
                         </li>
-                        <li>
-                          <div className="text-gray-300 mb-1">+30 SEO tools</div> 
-                          <ul className="ml-3 space-y-1">
-                            <li className="flex items-center gap-2 text-gray-300"><Check className="w-3.5 h-3.5 text-purple-400" /><span>Semrush</span></li>
-                            <li className="flex items-center gap-2 text-gray-300"><Check className="w-3.5 h-3.5 text-purple-400" /><span>Ubersuggest</span></li>
-                            <li className="flex items-center gap-2 text-gray-300"><Check className="w-3.5 h-3.5 text-purple-400" /><span>Similarweb</span></li>
-                            <li>
-                              <a href="/tools/seo" className="text-xs text-purple-300 hover:text-purple-200 underline decoration-purple-500/40">… see the other tools →</a>
-                            </li>
-                          </ul>
-                        </li>
                       </ul>
 								</div>
                     <ul className="space-y-1">

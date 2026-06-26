@@ -346,21 +346,6 @@ button {
         <h1 className="text-center mt-8">Ecom Efficiency</h1>
 
         <div className="tools-grid relative z-10">
-          <a href="https://rankerfox.com/login/" className="tool-card seo-card" target="_blank" rel="noopener noreferrer">
-            <div className="tool-icon">
-              <img src={`/tools-images/seo.png?v=${ASSET_VERSION}`} alt="seo" />
-            </div>
-            <div className="tool-name">+30 SEO Tools</div>
-            <div className="tool-description">Includes:</div>
-            <div className="tool-includes">
-              <img src={`/tools-images/semrush.png?v=${ASSET_VERSION}`} alt="Semrush" />
-              <img src={`/tools-images/ubersuggest.png?v=${ASSET_VERSION}`} alt="Ubersuggest" />
-              <img src={`/tools-images/junglescout.png?v=${ASSET_VERSION}`} alt="JungleScout" />
-              <img src={`/tools-images/canva.png?v=${ASSET_VERSION}`} alt="Canva" />
-            </div>
-            <div className="tool-description">And more ...</div>
-          </a>
-
           <a href="https://app.flair.ai/explore" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
               <img src={`/tools-images/flair.png?v=${ASSET_VERSION}`} alt="Flair AI" />

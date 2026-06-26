@@ -7,9 +7,7 @@ export const dynamic = 'force-static';
 export const revalidate = 86400; // 1 day
 
 export default function ProToolsPage() {
-  const seoTile = { name: '+30 SEO Tools', description: 'Includes: Semrush, Ubersuggest, ...', icon: '/tools-logos/seo.png' } as const;
   const LINK_MAP: Record<string, string> = {
-    '+30 SEO Tools': 'https://rankerfox.com/login/',
     // starter set
     'ChatGPT': 'https://chatgpt.com/',
     'Claude': 'https://claude.ai/',
@@ -43,7 +41,7 @@ export default function ProToolsPage() {
             <img src="/ecomefficiency.png" alt="Ecom Efficiency" className="h-20 w-auto rounded-md" />
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {[seoTile, ...carouselTools
+            {carouselTools
               .filter(t => [
                 'Flair.ai','ChatGPT','Claude','Freepik','TurboScribe','Midjourney','Exploding Topics','Pipiads','Kalodata','WinningHunter','Capcut','SendShort','Helium10','Dropship.io','ShopHunter','Atria','Heygen','Fotor','ForePlay','ElevenLabs','Trendtrack','Higgsfield','Vmake'
               ].includes(t.name))
@@ -82,15 +80,6 @@ export default function ProToolsPage() {
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-yellow-500/15 text-yellow-300 border border-yellow-500/30">$250 Creator plan</span>
                   </div>
                 ) : null}
-                {/* In Pro page, everything is accessible: remove disabled overlay and badges */}
-                {tool.name === '+30 SEO Tools' ? (
-                  <div className="flex items-center gap-3 mt-2 opacity-90">
-                    <img src="/tools-logos/ubersuggest.png" alt="Ubersuggest" className="w-10 h-10 md:w-12 md:h-12 object-contain" />
-                    <img src="/tools-logos/semrush.png" alt="Semrush" className="w-10 h-10 md:w-12 md:h-12 object-contain" />
-                    <span className="text-gray-400 text-base">…</span>
-                  </div>
-                ) : null}
-                {/* extra badges removed for clarity */}
               </a>
             ))}
           </div>

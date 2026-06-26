@@ -6,7 +6,6 @@ import Link from "next/link";
 import { supabase, SUPABASE_CONFIG_OK } from "@/integrations/supabase/client";
 import { useToast } from "@/hooks/use-toast";
 import { Check, ChevronDown, X } from "lucide-react";
-import { seoToolsCatalog } from "@/data/seoToolsCatalog";
 import { postGoal } from "@/lib/analytics";
 import { trackFirstPromoterReferral, getFirstPromoterAttributionForHeaders } from "@/lib/firstpromoterReferral";
 import { BillingCyberSwitch } from "@/components/BillingCyberSwitch";
@@ -163,8 +162,6 @@ export default function GettingStartedPage() {
   const [currency, setCurrency] = React.useState<Currency>("USD");
   const [pricingReady, setPricingReady] = React.useState(false);
   const [starterExpanded, setStarterExpanded] = React.useState(false);
-  const [seoModalOpen, setSeoModalOpen] = React.useState(false);
-
   const debug = React.useMemo(() => {
     try {
       if (typeof window === "undefined") return false;
@@ -326,15 +323,6 @@ export default function GettingStartedPage() {
   React.useEffect(() => {
     try { postGoal('view_getting_started_step', { step: String(step) }); } catch {}
   }, [step]);
-
-  React.useEffect(() => {
-    if (!seoModalOpen) return;
-    const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") setSeoModalOpen(false);
-    };
-    window.addEventListener("keydown", onKeyDown);
-    return () => window.removeEventListener("keydown", onKeyDown);
-  }, [seoModalOpen]);
 
   const getCurrentUser = async () => {
     try {
@@ -755,23 +743,6 @@ export default function GettingStartedPage() {
                                 <li className="flex items-center gap-2 text-gray-300"><Check className="w-3.5 h-3.5 text-purple-400" /><span>Canva</span></li>
                               </ul>
                             </li>
-                            <li>
-                              <div className="text-gray-300 mb-1">+30 SEO tools</div>
-                              <ul className="ml-3 space-y-1">
-                                <li className="flex items-center gap-2 text-gray-300"><Check className="w-3.5 h-3.5 text-purple-400" /><span>Semrush</span></li>
-                                <li className="flex items-center gap-2 text-gray-300"><Check className="w-3.5 h-3.5 text-purple-400" /><span>Ubersuggest</span></li>
-                                <li className="flex items-center gap-2 text-gray-300"><Check className="w-3.5 h-3.5 text-purple-400" /><span>Similarweb</span></li>
-                                <li>
-                                  <button
-                                    type="button"
-                                    onClick={() => setSeoModalOpen(true)}
-                                    className="text-xs text-purple-300 hover:text-purple-200 underline decoration-purple-500/40 cursor-pointer bg-transparent border-none p-0"
-                                  >
-                                    … see the other tools →
-                                  </button>
-                                </li>
-                              </ul>
-                            </li>
                           </ul>
                         </div>
                         <ul className="space-y-1">
@@ -905,36 +876,6 @@ export default function GettingStartedPage() {
       </div>
     </div>
 
-    {seoModalOpen && (
-      <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center">
-        <button
-          type="button"
-          aria-label="Close"
-          onClick={() => setSeoModalOpen(false)}
-          className="absolute inset-0 cursor-pointer"
-        />
-        <div
-          className="relative z-10 bg-gray-900 border border-white/10 rounded-2xl p-5 w-full max-w-3xl max-h-[80vh] overflow-auto mx-4"
-          role="dialog"
-          aria-modal="true"
-          aria-label="+30 SEO Tools"
-        >
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-white font-semibold">+30 SEO Tools</h3>
-            <button type="button" onClick={() => setSeoModalOpen(false)} className="text-white/70 hover:text-white">✕</button>
-          </div>
-          <p className="text-gray-400 text-sm mb-3">Included tools with short descriptions.</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {seoToolsCatalog.map((t) => (
-              <div key={t.slug} className="rounded-lg border border-white/10 p-3 bg-black/30">
-                <div className="text-white font-medium text-sm">{t.name}</div>
-                <div className="text-gray-400 text-xs">{t.shortDescription}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    )}
     </>
   );
 }

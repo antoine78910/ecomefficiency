@@ -522,6 +522,29 @@
       .catch(function (e) { log('sync usage fetch error', e && e.message ? e.message : e); return null; });
   }
 
+  function normalizeUnlimitedText(text) {
+    try {
+      return String(text || '')
+        .toLowerCase()
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .replace(/\s+/g, ' ')
+        .trim();
+    } catch (_) {
+      return String(text || '').toLowerCase().replace(/\s+/g, ' ').trim();
+    }
+  }
+
+  function textIndicatesUnlimited(text) {
+    var t = normalizeUnlimitedText(text);
+    if (!t) return false;
+    return (
+      t.indexOf('unlimited') !== -1 ||
+      t.indexOf('unlim') !== -1 ||
+      t.indexOf('illimite') !== -1
+    );
+  }
+
   function isUnlimitedMode() {
     try {
       // Only the real Unlimited toggle (role=switch). Do NOT use [aria-checked] globally —
@@ -530,11 +553,11 @@
       for (var i = 0; i < switches.length; i++) {
         var sw = switches[i];
         var row = sw.closest ? sw.closest('div, label, li') : sw.parentElement;
-        var rowTxt = (row && row.textContent ? row.textContent : '').toLowerCase().replace(/\s+/g, ' ').trim();
+        var rowTxt = row && row.textContent ? row.textContent : '';
         if (!rowTxt || rowTxt.length > 180) continue;
-        if (rowTxt.indexOf('unlimited') === -1 && rowTxt.indexOf('unlim') === -1) continue;
+        if (!textIndicatesUnlimited(rowTxt)) continue;
         var isOn = (sw.getAttribute('aria-checked') || '').toLowerCase() === 'true';
-        log('isUnlimitedMode: unlimited switch', 'aria-checked=' + sw.getAttribute('aria-checked'), 'row=', rowTxt.slice(0, 80));
+        log('isUnlimitedMode: unlimited switch', 'aria-checked=' + sw.getAttribute('aria-checked'), 'row=', normalizeUnlimitedText(rowTxt).slice(0, 80));
         return isOn;
       }
       // Seedance 2.0 / video models: the Generate button itself shows an "Unlimited" badge
@@ -543,7 +566,7 @@
       try {
         var genBtn = document.querySelector('[data-tour-anchor="tour-generate-button"] button[type="submit"]');
         if (!genBtn) genBtn = document.querySelector('button[data-tour-anchor="tour-generate-button"]');
-        if (genBtn && (genBtn.textContent || '').toLowerCase().indexOf('unlimited') !== -1) {
+        if (genBtn && textIndicatesUnlimited(genBtn.textContent || '')) {
           log('isUnlimitedMode: generate button shows Unlimited badge (Seedance 2.0)');
           return true;
         }
@@ -1936,8 +1959,8 @@
     if (anchor === 'tour-generate-button' || anchor === 'tour-image-generate') {
       if (!isUnlimitedGenerateButton(btn)) return true;
     }
-    var t = (btn.textContent || btn.value || btn.getAttribute('aria-label') || btn.getAttribute('title') || '').toLowerCase();
-    if (t.indexOf('unlimited') !== -1) return false;
+    var t = (btn.textContent || btn.value || btn.getAttribute('aria-label') || btn.getAttribute('title') || '');
+    if (textIndicatesUnlimited(t)) return false;
     if (
       t.indexOf('generate') !== -1 ||
       t.indexOf('g\u00e9n\u00e9rer') !== -1 ||
@@ -2317,7 +2340,7 @@
 
   function isUnlimitedGenerateButton(el) {
     if (!el || !el.getAttribute) return false;
-    var text = (el.textContent || '').trim().toLowerCase();
+    var text = el.textContent || '';
     var inAside = !!(el.closest && el.closest('aside'));
     var path = location.pathname || '';
     var onImagePage = path.indexOf('/ai/image') !== -1;
@@ -2325,23 +2348,23 @@
     // On /ai/image the main CTA has id="hf:image-form-submit" and
     // data-tour-anchor="tour-image-generate" AND sits inside <aside>.
     // It is the STANDARD generate button — never the unlimited tier.
-    if (onImagePage) return false;
+    if (onImagePage && !isUnlimitedMode()) return false;
 
     if (el.getAttribute('data-tour-anchor') === 'tour-image-generate') {
-      if (inAside || text.indexOf('unlimited') !== -1) return true;
+      if (inAside && textIndicatesUnlimited(text)) return true;
       return false;
     }
     var id = el.getAttribute('id') || '';
     if (id.indexOf('hf:image-form-submit') !== -1 || id === 'hf:image-form-submit') {
-      if (inAside || text.indexOf('unlimited') !== -1) return true;
+      if (inAside && textIndicatesUnlimited(text)) return true;
       return false;
     }
-    if (text.indexOf('unlimited') !== -1 && inAside) return true;
+    if (textIndicatesUnlimited(text) && inAside) return true;
     // Seedance 2.0 / video models: Generate button inside [data-tour-anchor="tour-generate-button"]
     // shows an "Unlimited" badge as a child element → treat as unlimited.
     try {
       var parentAnchor = el.closest ? el.closest('[data-tour-anchor="tour-generate-button"]') : null;
-      if (parentAnchor && text.indexOf('unlimited') !== -1) return true;
+      if (parentAnchor && textIndicatesUnlimited(text)) return true;
     } catch (_) {}
     return false;
   }
@@ -2351,7 +2374,7 @@
     // that shows an "Unlimited" badge inside the button text.
     try {
       var videoBtn = document.querySelector('[data-tour-anchor="tour-generate-button"] button[type="submit"]');
-      if (videoBtn && (videoBtn.textContent || '').indexOf('Unlimited') !== -1) return videoBtn;
+      if (videoBtn && textIndicatesUnlimited(videoBtn.textContent || '')) return videoBtn;
     } catch (_) {}
     var sel = document.querySelector('button[data-tour-anchor="tour-image-generate"]');
     if (sel && isUnlimitedGenerateButton(sel)) return sel;
@@ -2361,7 +2384,7 @@
     } catch (_) {}
     var btns = document.querySelectorAll('aside button');
     for (var i = 0; i < btns.length; i++) {
-      if ((btns[i].textContent || '').indexOf('Unlimited') !== -1) return btns[i];
+      if (textIndicatesUnlimited(btns[i].textContent || '')) return btns[i];
     }
     return null;
   }
@@ -2393,7 +2416,7 @@
       var txt = (btn.textContent || btn.value || (btn.getAttribute ? (btn.getAttribute('aria-label') || '') : '') || '').trim();
       var low = txt.toLowerCase();
       var formLooksLikeGenerate = (btn.type === 'submit' || (btn.getAttribute && btn.getAttribute('role') === 'button')) && btn.closest && btn.closest('form') && /generate|g[e\u00e9]n[e\u00e9]rer|create|cr[e\u00e9]er/i.test((btn.closest('form').textContent || ''));
-      if (/^generate$|^g[e\u00e9]n[e\u00e9]rer$/i.test(txt) || (low.indexOf('generate') !== -1 && low.indexOf('unlimited') === -1) || formLooksLikeGenerate) {
+      if (/^generate$|^g[e\u00e9]n[e\u00e9]rer$/i.test(txt) || (low.indexOf('generate') !== -1 && !textIndicatesUnlimited(low)) || formLooksLikeGenerate) {
         filtered.push(btn);
       }
     }
@@ -3019,6 +3042,14 @@
   }
 
   function runPaidGenerationPrecheck(source, buttonFinder) {
+    if (isUnlimitedMode()) {
+      var email = getVerifiedEmail();
+      var usedToday = getUsedToday();
+      logUsage(email, 0, usedToday, source || 'unlimited_generate');
+      log('paid precheck skipped: unlimited mode active', source);
+      showGenerateStatus('', 1);
+      return;
+    }
     log('verifying generation cost...', source);
     requestWalletRefresh();
     var actualBtn = buttonFinder ? buttonFinder() : null;

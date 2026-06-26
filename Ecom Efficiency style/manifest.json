@@ -404,14 +404,6 @@
     },
     {
       "matches": [
-        "https://rankerfox.com/login/"
-      ],
-      "js": [
-        "auto_login_rankerfox.js"
-      ]
-    },
-    {
-      "matches": [
         "https://app.foreplay.co/*"
       ],
       "js": [
@@ -574,23 +566,6 @@
         "runway.js"
       ],
       "run_at": "document_start"
-    },
-    {
-      "matches": [
-        "https://rankerfox.com/premium-plan/"
-      ],
-      "js": [
-        "remove_banner_rankerfox.js"
-      ],
-      "run_at": "document_start"
-    },
-    {
-      "matches": [
-        "https://rankerfox.com/my-account/"
-      ],
-      "js": [
-        "premium_redirect_rankerfox.js"
-      ]
     },
     {
       "matches": [

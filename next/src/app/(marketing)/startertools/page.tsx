@@ -25,13 +25,10 @@ const PRO_ONLY_TOOL_NAMES = [
 ];
 
 export default function StarterToolsPage() {
-  const seoTile = { name: '+30 SEO Tools', description: 'Includes: Semrush, Ubersuggest, …', icon: '/tools-logos/seo.png' } as const;
-  const starterTools = [seoTile, ...carouselTools.filter(t => STARTER_TOOL_NAMES.includes(t.name) && t.name !== 'Ubersuggest' && t.name !== 'Semrush')
-    .filter(t => t.name !== 'Canva' && t.name !== 'Brain.fm')
-  ];
+  const starterTools = carouselTools.filter(t => STARTER_TOOL_NAMES.includes(t.name))
+    .filter(t => t.name !== 'Canva' && t.name !== 'Brain.fm');
   const proOnlyTools = carouselTools.filter(t => PRO_ONLY_TOOL_NAMES.includes(t.name));
   const LINK_MAP: Record<string, string> = {
-    '+30 SEO Tools': 'https://rankerfox.com/login/',
     // starter
     'ChatGPT': 'https://chatgpt.com/',
     'Midjourney': 'https://www.midjourney.com/explore?tab=top',
@@ -82,13 +79,6 @@ export default function StarterToolsPage() {
                 </div>
                 <h3 className="text-white font-semibold text-base mb-2">{tool.name}</h3>
                 <p className="text-gray-400 text-sm leading-relaxed">{tool.description}</p>
-                {tool.name === '+30 SEO Tools' ? (
-                  <div className="flex items-center gap-3 mt-2 opacity-90">
-                    <img src="/tools-logos/ubersuggest.png" alt="Ubersuggest" className="w-10 h-10 md:w-12 md:h-12 object-contain" />
-                    <img src="/tools-logos/semrush.png" alt="Semrush" className="w-10 h-10 md:w-12 md:h-12 object-contain" />
-                    <span className="text-gray-400 text-base">…</span>
-                  </div>
-                ) : null}
               </a>
             ))}
             {proOnlyTools.map((tool) => (
