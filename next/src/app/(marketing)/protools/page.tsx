@@ -13,14 +13,13 @@ export default function ProToolsPage() {
     'Claude': 'https://claude.ai/',
     'Midjourney': 'https://www.midjourney.com/explore?tab=top',
     'SendShort': 'https://app.sendshort.ai/en/home',
-    'Capcut': 'https://www.capcut.com/fr-fr/login',
     'Helium10': 'https://noxtools.com/secure/page/Helium10',
     'Dropship.io': 'https://app.dropship.io/dashboard',
     'ShopHunter': 'https://app.shophunter.io/login',
     'WinningHunter': 'https://app.winninghunter.com/login',
     // new pro set
     'Flair.ai': 'https://app.flair.ai/explore',
-    'Freepik': 'https://www.freepik.com/',
+    'Freepik': 'https://www.magnific.com/log-in?client_id=magnific&lang=en',
     'TurboScribe': 'https://turboscribe.ai/',
     'Exploding Topics': 'https://www.semrush.com/app/exploding-topics/',
     'Pipiads': 'https://www.pipiads.com/login',
@@ -43,10 +42,10 @@ export default function ProToolsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {carouselTools
               .filter(t => [
-                'Flair.ai','ChatGPT','Claude','Freepik','TurboScribe','Midjourney','Exploding Topics','Pipiads','Kalodata','WinningHunter','Capcut','SendShort','Helium10','Dropship.io','ShopHunter','Atria','Heygen','Fotor','ForePlay','ElevenLabs','Trendtrack','Higgsfield','Vmake'
+                'Flair.ai','ChatGPT','Claude','Freepik','TurboScribe','Midjourney','Exploding Topics','Pipiads','Kalodata','WinningHunter','SendShort','Helium10','Dropship.io','ShopHunter','Atria','Heygen','Fotor','ForePlay','ElevenLabs','Trendtrack','Higgsfield','Vmake'
               ].includes(t.name))
               .filter(t => t.name !== 'Canva' && t.name !== 'Brain.fm')
-            ].map((tool) => (
+              .map((tool) => (
               <a
                 key={tool.name}
                 href={LINK_MAP[tool.name] || '#'}
