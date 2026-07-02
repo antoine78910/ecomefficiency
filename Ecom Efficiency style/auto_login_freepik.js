@@ -7,6 +7,7 @@
   const OVERLAY_ID = 'pipiads-loading-overlay'; // keep same id/style as Pipiads (requested)
   const SPIN_STYLE_ID = 'pipiads-spin-style';
   const OVERFLOW_KEY = 'ee_freepik_prev_overflow';
+  const MAGNIFIC_LOGIN_URL = 'https://www.magnific.com/log-in?client_id=magnific&lang=en';
 
   // Temporaire: désactiver l'écran de chargement sur Freepik log-in. Remettre à false pour réafficher.
   const DISABLE_LOADING_OVERLAY = true;
@@ -36,6 +37,7 @@
       'a[data-cy="signin-button"]',
       'a[href*="/log-in"][data-cy="signin-button"]',
       'a[href*="magnific.com/log-in"]',
+      'a[href*="client_id=magnific"][href*="lang=en"]',
     ];
     for (const sel of selectors) {
       const el = document.querySelector(sel);
@@ -52,7 +54,12 @@
   function clickMagnificSignIn() {
     if (!onMagnificLanding()) return false;
     const btn = findMagnificSignInButton();
-    if (!btn) return false;
+    if (!btn) {
+      // Fallback: force the new login URL when no Sign In button is detected.
+      if (!once('goto_magnific_login_fallback', 2 * 60 * 1000)) return false;
+      try { location.href = MAGNIFIC_LOGIN_URL; } catch (_) {}
+      return true;
+    }
     if (!once('click_magnific_signin', 2 * 60 * 1000)) return false;
     console.log('[Magnific] Log in button found → click');
     return click(btn);

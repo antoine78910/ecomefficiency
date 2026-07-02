@@ -519,7 +519,7 @@ button {
             <div className="tool-description">AI talking-head videos, background removal, subtitles, upscaling</div>
           </a>
 
-          <a href="https://www.magnific.com/log-in" className="tool-card" target="_blank" rel="noopener noreferrer">
+          <a href="https://www.magnific.com/log-in?client_id=magnific&lang=en" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
               <img src={`/tools-images/freepik.png?v=${ASSET_VERSION}`} alt="Freepik" />
             </div>
