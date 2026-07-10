@@ -9,7 +9,13 @@ const {
   ButtonStyle,
   ComponentType,
   MessageFlags,
+  SlashCommandBuilder,
+  PermissionFlagsBits,
 } = require('discord.js');
+const {
+  runCancelledAgentsAudit,
+  formatAuditReport,
+} = require('./auditCancelledAgents');
 const { generateSync } = require('otplib');
 const {
   buildOtpAppReply,
@@ -41,7 +47,9 @@ try {
 
 // Variables d'environnement
 const TOKEN = process.env.DISCORD_BOT_TOKEN;
+const GUILD_ID = String(process.env.DISCORD_GUILD_ID || '').trim();
 const CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
+const AUDIT_CANCELLED_AGENTS_COMMAND = 'audit-cancelled-agents';
 const PRO_CHANNEL_ID = process.env.DISCORD_CHANNEL_PRO_ID; // optionnel
 // Role IDs mapping
 const ROLE_IDS = {
@@ -704,8 +712,29 @@ async function postDiscordAnalyticsDaily() {
   }
 }
 
+function getSlashCommands() {
+  return [
+    new SlashCommandBuilder()
+      .setName(AUDIT_CANCELLED_AGENTS_COMMAND)
+      .setDescription('List Ecom Agents with canceled legacy Stripe (Sublaunch) subscriptions.')
+      .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+  ];
+}
+
+async function registerGuildCommands() {
+  if (!GUILD_ID) return;
+  const guild = await client.guilds.fetch(GUILD_ID);
+  await guild.commands.set(getSlashCommands().map((command) => command.toJSON()));
+  console.log('[BOT] Slash commands registered on', guild.name);
+}
+
 client.once(Events.ClientReady, async (c) => {
   console.log(`Bot prêt: ${c.user.tag}`);
+  try {
+    await registerGuildCommands();
+  } catch (e) {
+    console.warn('[BOT] Failed to register slash commands', e);
+  }
   try {
     await ensureAdspowerOtpPanel();
   } catch (e) {
@@ -786,6 +815,29 @@ client.once(Events.ClientReady, async (c) => {
     scheduleNext()
   } catch (e) {
     console.warn('[BOT] Failed to schedule analytics', e)
+  }
+});
+
+client.on(Events.InteractionCreate, async (interaction) => {
+  if (!interaction.isChatInputCommand()) return;
+  if (interaction.commandName !== AUDIT_CANCELLED_AGENTS_COMMAND) return;
+
+  await interaction.deferReply({ flags: MessageFlags.Ephemeral });
+  try {
+    const guild = interaction.guild;
+    if (!guild) {
+      await interaction.editReply({ content: 'This command must be used in a server.' });
+      return;
+    }
+    const result = await runCancelledAgentsAudit(guild);
+    const report = formatAuditReport(result);
+    const content = report.length > 1900 ? `${report.slice(0, 1900)}\n… (truncated)` : report;
+    await interaction.editReply({ content });
+  } catch (e) {
+    console.warn('[BOT] audit-cancelled-agents failed', e);
+    await interaction.editReply({
+      content: `Audit failed: ${e?.message || 'unknown error'}`,
+    });
   }
 });
 
