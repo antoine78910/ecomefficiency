@@ -1,4 +1,4 @@
-export const SEEDANCE_PROMO_END = new Date("2026-07-17T23:59:59");
+export const SEEDANCE_PROMO_END = new Date("2026-08-14T23:59:59.000Z");
 
 export type CountdownParts = {
   days: number;
