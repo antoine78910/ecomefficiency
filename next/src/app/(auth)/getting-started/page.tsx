@@ -10,6 +10,7 @@ import { postGoal } from "@/lib/analytics";
 import { trackFirstPromoterReferral, getFirstPromoterAttributionForHeaders } from "@/lib/firstpromoterReferral";
 import { BillingCyberSwitch } from "@/components/BillingCyberSwitch";
 import PricingToolNewBadge from "@/components/PricingToolNewBadge";
+import SeedancePromoBadge from "@/components/SeedancePromoBadge";
 import { hasPricingNewBadge } from "@/lib/pricingToolBadges";
 
 const DISCORD_COMMUNITY_URL = "https://discord.gg/7UgABk3jKJ";
@@ -648,8 +649,8 @@ export default function GettingStartedPage() {
                 </div>
               ) : (
                 <>
-                  <div className="relative max-w-5xl mx-auto">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                  <div className="relative max-w-5xl mx-auto pt-12 sm:pt-14">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5 items-start">
                     <div className="rounded-2xl border border-white/10 bg-[#0d0e12] p-6 flex flex-col">
                       <div className="text-white text-2xl font-semibold mb-1">Starter</div>
                       <div className="text-sm text-gray-200/90 mb-1">Essential tools for lean eCommerce growth</div>
@@ -759,8 +760,13 @@ export default function GettingStartedPage() {
                     </div>
 
                     <div className="group/pro relative overflow-visible rounded-2xl border border-purple-500/25 bg-[#0d0e12] p-6 flex flex-col shadow-[0_0_0_1px_rgba(139,92,246,0.12)]">
+                      <div className="pointer-events-none absolute left-1/2 top-0 z-[5] -translate-x-1/2 -translate-y-1/2 flex justify-center">
+                        <div className="pointer-events-auto">
+                          <SeedancePromoBadge showNewBadge={false} showDecorations={false} compact />
+                        </div>
+                      </div>
                       <div
-                        className="absolute -top-2 right-3 sm:right-4 z-[2] px-3 py-1 sm:px-3.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-semibold font-mono uppercase tracking-wider text-[rgba(245,243,255,0.98)] bg-[rgba(149,65,224,0.25)] border border-[rgba(171,99,255,0.55)] shadow-[0_0_12px_rgba(171,99,255,0.25),0_2px_8px_rgba(0,0,0,0.3)] backdrop-blur-sm whitespace-nowrap transition-all duration-200 ease-out group-hover/pro:border-[rgba(186,147,255,0.65)] group-hover/pro:bg-[rgba(149,65,224,0.32)] group-hover/pro:shadow-[0_0_18px_rgba(171,99,255,0.35),0_2px_8px_rgba(0,0,0,0.28)]"
+                        className="absolute -top-2 right-3 sm:right-4 z-20 px-3 py-1 sm:px-3.5 sm:py-1 rounded-lg text-[11px] sm:text-xs font-semibold font-mono uppercase tracking-wider text-[rgba(245,243,255,0.98)] bg-[rgba(149,65,224,0.25)] border border-[rgba(171,99,255,0.55)] shadow-[0_0_12px_rgba(171,99,255,0.25),0_2px_8px_rgba(0,0,0,0.3)] backdrop-blur-sm whitespace-nowrap transition-all duration-200 ease-out group-hover/pro:border-[rgba(186,147,255,0.65)] group-hover/pro:bg-[rgba(149,65,224,0.32)] group-hover/pro:shadow-[0_0_18px_rgba(171,99,255,0.35),0_2px_8px_rgba(0,0,0,0.28)]"
                         aria-hidden
                       >
                         Most popular
