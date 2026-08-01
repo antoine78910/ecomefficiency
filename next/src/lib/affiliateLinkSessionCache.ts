@@ -2,7 +2,7 @@
 
 import type { AffiliateSummary } from "./affiliateSummary";
 
-const PREFIX = "ee_fp_affiliate_v2";
+const PREFIX = "ee_fp_affiliate_v3";
 const MAX_AGE_MS = 7 * 24 * 60 * 60 * 1000;
 
 export type CachedAffiliatePayload = {
@@ -13,6 +13,9 @@ export type CachedAffiliatePayload = {
   password_setup_url: string;
   savedAt: number;
   affiliate_summary?: AffiliateSummary | null;
+  ref_token?: string;
+  /** FirstPromoter promoter_campaigns[].id for customizing the primary link */
+  promoter_campaign_id?: number;
 };
 
 function key(userId: string) {
@@ -22,7 +25,7 @@ function key(userId: string) {
 export function readAffiliateSessionCache(userId: string): CachedAffiliatePayload | null {
   if (typeof window === "undefined" || !userId) return null;
   try {
-    const raw = sessionStorage.getItem(key(userId));
+    const raw = sessionStorage.getItem(key(userId)) || sessionStorage.getItem(`ee_fp_affiliate_v2:${userId}`);
     if (!raw) return null;
     const o = JSON.parse(raw) as Partial<CachedAffiliatePayload>;
     if (typeof o.ref_link !== "string") return null;
@@ -34,14 +37,20 @@ export function readAffiliateSessionCache(userId: string): CachedAffiliatePayloa
     const savedAt = typeof o.savedAt === "number" ? o.savedAt : 0;
     if (savedAt && Date.now() - savedAt > MAX_AGE_MS) {
       sessionStorage.removeItem(key(userId));
+      try {
+        sessionStorage.removeItem(`ee_fp_affiliate_v2:${userId}`);
+      } catch {}
       return null;
     }
+    const pcid = Math.trunc(Number(o.promoter_campaign_id ?? 0));
     return {
       ref_link: primary,
       ref_links: links.length ? links : primary ? [primary] : [],
       coupon: typeof o.coupon === "string" ? o.coupon : "",
       password_setup_url: typeof o.password_setup_url === "string" ? o.password_setup_url : "",
       savedAt,
+      ref_token: typeof o.ref_token === "string" ? o.ref_token.trim() : "",
+      promoter_campaign_id: Number.isFinite(pcid) && pcid > 0 ? pcid : undefined,
       affiliate_summary:
         o.affiliate_summary && typeof o.affiliate_summary === "object"
           ? {
@@ -61,6 +70,8 @@ export function writeAffiliateSessionCache(
   userId: string,
   data: Pick<CachedAffiliatePayload, "ref_link" | "ref_links" | "coupon" | "password_setup_url"> & {
     affiliate_summary?: AffiliateSummary | null;
+    ref_token?: string;
+    promoter_campaign_id?: number;
   }
 ) {
   if (typeof window === "undefined" || !userId) return;
@@ -72,6 +83,7 @@ export function writeAffiliateSessionCache(
           ? [data.ref_link.trim()]
           : [];
     const ref_link = ref_links[0] || String(data.ref_link || "").trim();
+    const pcid = Math.trunc(Number(data.promoter_campaign_id ?? 0));
     const payload: CachedAffiliatePayload = {
       ref_link,
       ref_links,
@@ -79,6 +91,8 @@ export function writeAffiliateSessionCache(
       password_setup_url: data.password_setup_url,
       savedAt: Date.now(),
       affiliate_summary: data.affiliate_summary,
+      ref_token: typeof data.ref_token === "string" ? data.ref_token.trim() : "",
+      promoter_campaign_id: Number.isFinite(pcid) && pcid > 0 ? pcid : undefined,
     };
     sessionStorage.setItem(key(userId), JSON.stringify(payload));
   } catch {

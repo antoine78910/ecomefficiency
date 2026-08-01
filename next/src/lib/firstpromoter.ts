@@ -504,6 +504,8 @@ export function fpExtractBestRefLink(promoter: FirstPromoterPromoter | null | un
   ref_token?: string;
   coupon?: string;
   campaign_id?: number;
+  /** FirstPromoter promoter_campaigns[].id (link record), required to customize ref_token */
+  promoter_campaign_id?: number;
 } {
   const raw = promoter as any;
   const s = (v: unknown) => {
@@ -517,6 +519,7 @@ export function fpExtractBestRefLink(promoter: FirstPromoterPromoter | null | un
   let ref_token = s(c?.ref_token);
   let coupon = s(c?.coupon);
   let campaign_id = toNumberOrUndefined(c?.campaign_id);
+  let promoter_campaign_id = toNumberOrUndefined(c?.id);
 
   if (!ref_link) {
     const promos = Array.isArray(raw?.promotions) ? raw.promotions : [];
@@ -526,6 +529,7 @@ export function fpExtractBestRefLink(promoter: FirstPromoterPromoter | null | un
       ref_token = s(p.ref_id) || s(p.ref_token) || ref_token;
       coupon = s(p.promo_code) || s(p.coupon) || coupon;
       campaign_id = toNumberOrUndefined(p.campaign_id) ?? campaign_id;
+      promoter_campaign_id = toNumberOrUndefined(p.id) ?? promoter_campaign_id;
     }
   }
 
@@ -538,8 +542,54 @@ export function fpExtractBestRefLink(promoter: FirstPromoterPromoter | null | un
     ref_token,
     coupon,
     campaign_id,
+    promoter_campaign_id,
   };
 }
+
+/** Normalize a custom affiliate slug (FirstPromoter ref_token). */
+export function normalizeAffiliateRefToken(input: unknown): string | null {
+  const raw = String(input ?? "")
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, "-");
+  if (!raw) return null;
+  // FirstPromoter: lowercase letters, numbers, hyphen, underscore
+  if (!/^[a-z0-9][a-z0-9_-]{1,62}$/.test(raw)) return null;
+  return raw;
+}
+
+/** PUT /promoter_campaigns/{id} — customize the referral token / vanity slug. */
+export async function fpUpdatePromoterCampaignRefToken(
+  promoterCampaignId: number,
+  refToken: string
+): Promise<FirstPromoterPromoterCampaign> {
+  const id = Math.trunc(Number(promoterCampaignId));
+  const token = normalizeAffiliateRefToken(refToken);
+  if (!Number.isFinite(id) || id <= 0) {
+    const err = new Error("FIRSTPROMOTER_INVALID_PROMOTER_CAMPAIGN_ID");
+    (err as any).status = 400;
+    throw err;
+  }
+  if (!token) {
+    const err = new Error("FIRSTPROMOTER_INVALID_REF_TOKEN");
+    (err as any).status = 400;
+    throw err;
+  }
+  const res = await fpFetch(`/promoter_campaigns/${encodeURIComponent(String(id))}`, {
+    method: "PUT",
+    body: JSON.stringify({ ref_token: token }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const detail = formatFpErrorMessage(json);
+    const err = new Error(detail || json?.error || json?.message || "FIRSTPROMOTER_REF_TOKEN_UPDATE_FAILED");
+    (err as any).status = res.status;
+    (err as any).payload = json;
+    throw err;
+  }
+  return json as FirstPromoterPromoterCampaign;
+}
+
 
 /** Every distinct referral URL we can read from the promoter payload (all campaigns / promos). */
 export function fpExtractAllRefLinks(promoter: FirstPromoterPromoter | null | undefined): string[] {

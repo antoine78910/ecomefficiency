@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { Check, Clipboard } from "lucide-react";
+import { Check, Clipboard, Pencil } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import {
   clearAffiliateSessionCacheAll,
@@ -24,6 +24,32 @@ function parseAffiliateSummary(raw: unknown): AffiliateSummary | null {
     active_referrals: Math.max(0, Math.trunc(Number(o.active_referrals ?? 0))),
     total_earnings_display: String(o.total_earnings_display || "$0.00"),
   };
+}
+
+function extractTokenFromLink(url: string): string {
+  try {
+    const u = new URL(url);
+    return (
+      u.searchParams.get("via") ||
+      u.searchParams.get("fpr") ||
+      u.searchParams.get("fp_ref") ||
+      ""
+    ).trim();
+  } catch {
+    return "";
+  }
+}
+
+function linkPrefixHint(url: string, token: string): string {
+  if (token && url.includes(token)) {
+    return url.slice(0, url.indexOf(token));
+  }
+  try {
+    const u = new URL(url);
+    if (u.searchParams.has("via")) return `${u.origin}${u.pathname}?via=`;
+    if (u.searchParams.has("fpr")) return `${u.origin}${u.pathname}?fpr=`;
+  } catch {}
+  return "https://ecomefficiency.com?via=";
 }
 
 function AffiliateStatsRecap({
@@ -69,6 +95,9 @@ function AffiliateStatsRecap({
 
 function buildAffiliateFailureHint(j: Record<string, unknown>, httpStatus: number): string {
   const err = String(j?.error || "");
+  if (err === "invalid_ref_token") {
+    return String(j?.message || "Use 2–63 characters: lowercase letters, numbers, hyphens, or underscores.");
+  }
   if (err === "firstpromoter_not_configured") {
     const hasK = j?.has_api_key === true;
     const hasA = j?.has_account_id === true;
@@ -89,12 +118,16 @@ function buildAffiliateFailureHint(j: Record<string, unknown>, httpStatus: numbe
     const base = `FirstPromoter returned an error${typeof st === "number" ? ` (HTTP ${st})` : ""}.`;
     const keys =
       " Confirm the private API key and Account ID in FirstPromoter → Settings → Integrations match Vercel exactly, then redeploy.";
+    const taken =
+      /taken|exists|unique|already/i.test(detail)
+        ? " That custom slug may already be used — try another one."
+        : "";
     const campaign400 =
       st === 400
         ? " If FIRSTPROMOTER_INITIAL_CAMPAIGN_ID is set, use the numeric ID of an active campaign or remove the variable (invalid IDs often return HTTP 400)."
         : "";
     const tail = detail ? ` ${detail}` : "";
-    return `${base}${keys}${campaign400}${tail}`;
+    return `${base}${keys}${taken}${campaign400}${tail}`;
   }
   if (httpStatus === 401 || err === "unauthorized" || err === "missing_authorization" || err === "missing_token") {
     return "Your session could not be verified for the affiliate service. Refresh the page or sign out and sign in again.";
@@ -110,12 +143,61 @@ export default function AffiliateAppTab({ preview = false }: { preview?: boolean
   const [affiliateRefLinks, setAffiliateRefLinks] = React.useState<string[]>([]);
   const [affiliateCoupon, setAffiliateCoupon] = React.useState("");
   const [affiliateFpPasswordUrl, setAffiliateFpPasswordUrl] = React.useState("");
+  const [affiliateRefToken, setAffiliateRefToken] = React.useState("");
+  const [affiliatePromoterCampaignId, setAffiliatePromoterCampaignId] = React.useState<number | undefined>(undefined);
   const [affiliateLinkStatus, setAffiliateLinkStatus] = React.useState<"idle" | "loading" | "ready" | "unavailable">(
     "idle"
   );
   const [affiliateCopiedIndex, setAffiliateCopiedIndex] = React.useState<number | null>(null);
   const [affiliateErrorHint, setAffiliateErrorHint] = React.useState("");
   const [affiliateSummary, setAffiliateSummary] = React.useState<AffiliateSummary | null>(null);
+  const [editingSlug, setEditingSlug] = React.useState(false);
+  const [slugDraft, setSlugDraft] = React.useState("");
+  const [slugSaving, setSlugSaving] = React.useState(false);
+  const [slugMessage, setSlugMessage] = React.useState("");
+
+  const applyPayload = React.useCallback(
+    (
+      userId: string,
+      j: any,
+      opts?: { persist?: boolean }
+    ) => {
+      const refLinksRaw = Array.isArray(j?.affiliate?.ref_links) ? (j.affiliate.ref_links as unknown[]) : [];
+      const links = refLinksRaw.map((x) => String(x ?? "").trim()).filter(Boolean);
+      const link = links[0] || String(j?.affiliate?.ref_link || "").trim();
+      const finalLinks = links.length ? links : link ? [link] : [];
+      const token =
+        String(j?.affiliate?.ref_token || "").trim() || (link ? extractTokenFromLink(link) : "");
+      const pcid = Math.trunc(Number(j?.affiliate?.promoter_campaign_id ?? 0));
+      const coupon = String(j?.affiliate?.coupon || "").trim();
+      const passwordUrl = String(j?.promoter?.password_setup_url || "").trim();
+      const sum = parseAffiliateSummary(j?.affiliate_summary) ?? ZERO_AFFILIATE_SUMMARY;
+
+      setAffiliateRefLinks(finalLinks);
+      setAffiliateRefLink(link);
+      setAffiliateCoupon(coupon);
+      setAffiliateFpPasswordUrl(passwordUrl);
+      setAffiliateRefToken(token);
+      setAffiliatePromoterCampaignId(Number.isFinite(pcid) && pcid > 0 ? pcid : undefined);
+      setAffiliateErrorHint("");
+      setAffiliateLinkStatus("ready");
+      setAffiliateSummary(sum);
+      setSlugMessage("");
+
+      if (opts?.persist !== false) {
+        writeAffiliateSessionCache(userId, {
+          ref_link: link,
+          ref_links: finalLinks,
+          coupon,
+          password_setup_url: passwordUrl,
+          affiliate_summary: sum,
+          ref_token: token,
+          promoter_campaign_id: Number.isFinite(pcid) && pcid > 0 ? pcid : undefined,
+        });
+      }
+    },
+    []
+  );
 
   const applyCache = React.useCallback((userId: string) => {
     const cached = readAffiliateSessionCache(userId);
@@ -131,6 +213,8 @@ export default function AffiliateAppTab({ preview = false }: { preview?: boolean
     setAffiliateRefLink(links[0] || "");
     setAffiliateCoupon(cached.coupon);
     setAffiliateFpPasswordUrl(cached.password_setup_url);
+    setAffiliateRefToken(cached.ref_token || extractTokenFromLink(links[0] || ""));
+    setAffiliatePromoterCampaignId(cached.promoter_campaign_id);
     setAffiliateErrorHint("");
     setAffiliateLinkStatus("ready");
     setAffiliateSummary(cached.affiliate_summary ?? null);
@@ -142,9 +226,14 @@ export default function AffiliateAppTab({ preview = false }: { preview?: boolean
     setAffiliateRefLinks([]);
     setAffiliateCoupon("");
     setAffiliateFpPasswordUrl("");
+    setAffiliateRefToken("");
+    setAffiliatePromoterCampaignId(undefined);
     setAffiliateErrorHint("");
     setAffiliateSummary(null);
     setAffiliateLinkStatus("idle");
+    setEditingSlug(false);
+    setSlugDraft("");
+    setSlugMessage("");
   }, []);
 
   React.useEffect(() => {
@@ -182,35 +271,26 @@ export default function AffiliateAppTab({ preview = false }: { preview?: boolean
     };
   }, [preview, applyCache, clearAffiliateUi]);
 
-  const generateAffiliateLink = React.useCallback(async () => {
-    let userIdForCatch = "";
-    try {
-      const { data } = await supabase.auth.getSession();
-      const token = data.session?.access_token;
-      const userId = data.session?.user?.id;
-      if (!token || !userId) {
-        setAffiliateErrorHint("Sign in to generate your affiliate link.");
-        setAffiliateLinkStatus("unavailable");
-        return;
-      }
-      userIdForCatch = userId;
+  const generateAffiliateLink = React.useCallback(
+    async (opts?: { force?: boolean }) => {
+      let userIdForCatch = "";
+      try {
+        const { data } = await supabase.auth.getSession();
+        const token = data.session?.access_token;
+        const userId = data.session?.user?.id;
+        if (!token || !userId) {
+          setAffiliateErrorHint("Sign in to generate your affiliate link.");
+          setAffiliateLinkStatus("unavailable");
+          return;
+        }
+        userIdForCatch = userId;
 
-      if (applyCache(userId)) return;
+        if (!opts?.force && applyCache(userId)) return;
 
-      setAffiliateLinkStatus("loading");
-      setAffiliateErrorHint("");
+        setAffiliateLinkStatus("loading");
+        setAffiliateErrorHint("");
 
-      let r = await fetch("/api/firstpromoter/promoter", {
-        method: "GET",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          ...getFirstPromoterAttributionForHeaders(),
-        },
-        cache: "no-store",
-      });
-      if (!r.ok && r.status >= 500) {
-        await new Promise((res) => setTimeout(res, 600));
-        r = await fetch("/api/firstpromoter/promoter", {
+        let r = await fetch("/api/firstpromoter/promoter", {
           method: "GET",
           headers: {
             Authorization: `Bearer ${token}`,
@@ -218,53 +298,98 @@ export default function AffiliateAppTab({ preview = false }: { preview?: boolean
           },
           cache: "no-store",
         });
-      }
-      const j = await r.json().catch(() => ({}));
-      if (r.ok && j?.ok) {
-        const refLinksRaw = Array.isArray(j?.affiliate?.ref_links) ? (j.affiliate.ref_links as unknown[]) : [];
-        const links = refLinksRaw.map((x) => String(x ?? "").trim()).filter(Boolean);
-        const link = links[0] || String(j?.affiliate?.ref_link || "").trim();
-        const finalLinks = links.length ? links : link ? [link] : [];
-        setAffiliateRefLinks(finalLinks);
-        setAffiliateRefLink(link);
-        setAffiliateCoupon(String(j?.affiliate?.coupon || "").trim());
-        setAffiliateFpPasswordUrl(String(j?.promoter?.password_setup_url || "").trim());
-        setAffiliateErrorHint("");
-        setAffiliateLinkStatus("ready");
-        const sum = parseAffiliateSummary(j?.affiliate_summary) ?? ZERO_AFFILIATE_SUMMARY;
-        setAffiliateSummary(sum);
-        writeAffiliateSessionCache(userId, {
-          ref_link: link,
-          ref_links: finalLinks,
-          coupon: String(j?.affiliate?.coupon || "").trim(),
-          password_setup_url: String(j?.promoter?.password_setup_url || "").trim(),
-          affiliate_summary: sum,
-        });
-      } else {
+        if (!r.ok && r.status >= 500) {
+          await new Promise((res) => setTimeout(res, 600));
+          r = await fetch("/api/firstpromoter/promoter", {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              ...getFirstPromoterAttributionForHeaders(),
+            },
+            cache: "no-store",
+          });
+        }
+        const j = await r.json().catch(() => ({}));
+        if (r.ok && j?.ok) {
+          applyPayload(userId, j);
+        } else {
+          setAffiliateRefLink("");
+          setAffiliateRefLinks([]);
+          setAffiliateCoupon("");
+          setAffiliateFpPasswordUrl("");
+          setAffiliateRefToken("");
+          setAffiliatePromoterCampaignId(undefined);
+          setAffiliateSummary(null);
+          setAffiliateErrorHint(buildAffiliateFailureHint(j as Record<string, unknown>, r.status));
+          setAffiliateLinkStatus("unavailable");
+        }
+      } catch {
+        if (userIdForCatch && readAffiliateSessionCache(userIdForCatch)) {
+          applyCache(userIdForCatch);
+          return;
+        }
         setAffiliateRefLink("");
         setAffiliateRefLinks([]);
         setAffiliateCoupon("");
         setAffiliateFpPasswordUrl("");
+        setAffiliateRefToken("");
+        setAffiliatePromoterCampaignId(undefined);
         setAffiliateSummary(null);
-        setAffiliateErrorHint(buildAffiliateFailureHint(j as Record<string, unknown>, r.status));
+        setAffiliateErrorHint(
+          "Network error while loading your affiliate link. Check your connection, disable strict blockers for this site, then try again."
+        );
         setAffiliateLinkStatus("unavailable");
       }
-    } catch {
-      if (userIdForCatch && readAffiliateSessionCache(userIdForCatch)) {
-        applyCache(userIdForCatch);
+    },
+    [applyCache, applyPayload]
+  );
+
+  const startCustomize = React.useCallback(() => {
+    const token = affiliateRefToken || extractTokenFromLink(affiliateRefLink);
+    setSlugDraft(token);
+    setSlugMessage("");
+    setEditingSlug(true);
+  }, [affiliateRefToken, affiliateRefLink]);
+
+  const saveCustomSlug = React.useCallback(async () => {
+    setSlugSaving(true);
+    setSlugMessage("");
+    try {
+      const { data } = await supabase.auth.getSession();
+      const token = data.session?.access_token;
+      const userId = data.session?.user?.id;
+      if (!token || !userId) {
+        setSlugMessage("Sign in to customize your affiliate link.");
         return;
       }
-      setAffiliateRefLink("");
-      setAffiliateRefLinks([]);
-      setAffiliateCoupon("");
-      setAffiliateFpPasswordUrl("");
-      setAffiliateSummary(null);
-      setAffiliateErrorHint(
-        "Network error while loading your affiliate link. Check your connection, disable strict blockers for this site, then try again."
-      );
-      setAffiliateLinkStatus("unavailable");
+
+      const r = await fetch("/api/firstpromoter/promoter", {
+        method: "PATCH",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          ...getFirstPromoterAttributionForHeaders(),
+        },
+        body: JSON.stringify({
+          ref_token: slugDraft,
+          promoter_campaign_id: affiliatePromoterCampaignId,
+        }),
+        cache: "no-store",
+      });
+      const j = await r.json().catch(() => ({}));
+      if (r.ok && j?.ok) {
+        applyPayload(userId, j);
+        setEditingSlug(false);
+        setSlugMessage("Affiliate link updated.");
+        return;
+      }
+      setSlugMessage(buildAffiliateFailureHint(j as Record<string, unknown>, r.status));
+    } catch {
+      setSlugMessage("Network error while updating your affiliate link. Please try again.");
+    } finally {
+      setSlugSaving(false);
     }
-  }, [applyCache]);
+  }, [slugDraft, affiliatePromoterCampaignId, applyPayload]);
 
   const copyAffiliateLinkAt = React.useCallback(async (url: string, index: number) => {
     if (!url) return;
@@ -274,6 +399,8 @@ export default function AffiliateAppTab({ preview = false }: { preview?: boolean
       window.setTimeout(() => setAffiliateCopiedIndex(null), 2000);
     } catch {}
   }, []);
+
+  const prefix = linkPrefixHint(affiliateRefLink, affiliateRefToken || extractTokenFromLink(affiliateRefLink));
 
   return (
     <div>
@@ -366,28 +493,91 @@ export default function AffiliateAppTab({ preview = false }: { preview?: boolean
                         </TooltipProvider>
                       </div>
                       {i === 0 ? (
-                        <a
-                          href={FIRSTPROMOTER_AFFILIATE_DASHBOARD_HREF}
-                          target="_blank"
-                          rel="noreferrer noopener"
-                          className="inline-flex shrink-0 self-center"
-                        >
-                          <span className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-[#9541e0] bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] px-3 py-2 text-xs font-medium text-white shadow-[0_2px_16px_0_rgba(149,65,224,0.45)] transition-[box-shadow] hover:shadow-[0_2px_20px_0_rgba(149,65,224,0.55)] group min-h-[36px]">
-                            <span className="relative block h-4 min-w-[7.75rem] overflow-hidden text-center leading-4">
-                              <span className="block whitespace-nowrap transition-transform duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] group-hover:-translate-y-4">
-                                Affiliate dashboard
-                              </span>
-                              <span className="absolute left-1/2 top-4 w-max -translate-x-1/2 whitespace-nowrap transition-all duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] group-hover:top-0">
-                                Affiliate dashboard
+                        <>
+                          <button
+                            type="button"
+                            onClick={startCustomize}
+                            className="inline-flex shrink-0 self-center items-center gap-1.5 rounded-lg border border-white/15 bg-white/5 px-3 py-2 text-xs font-medium text-gray-200 hover:bg-white/10 hover:text-white min-h-[36px]"
+                          >
+                            <Pencil className="h-3.5 w-3.5" aria-hidden />
+                            Customize
+                          </button>
+                          <a
+                            href={FIRSTPROMOTER_AFFILIATE_DASHBOARD_HREF}
+                            target="_blank"
+                            rel="noreferrer noopener"
+                            className="inline-flex shrink-0 self-center"
+                          >
+                            <span className="inline-flex cursor-pointer items-center justify-center rounded-lg border border-[#9541e0] bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] px-3 py-2 text-xs font-medium text-white shadow-[0_2px_16px_0_rgba(149,65,224,0.45)] transition-[box-shadow] hover:shadow-[0_2px_20px_0_rgba(149,65,224,0.55)] group min-h-[36px]">
+                              <span className="relative block h-4 min-w-[7.75rem] overflow-hidden text-center leading-4">
+                                <span className="block whitespace-nowrap transition-transform duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] group-hover:-translate-y-4">
+                                  Affiliate dashboard
+                                </span>
+                                <span className="absolute left-1/2 top-4 w-max -translate-x-1/2 whitespace-nowrap transition-all duration-[1.125s] ease-[cubic-bezier(0.19,1,0.22,1)] group-hover:top-0">
+                                  Affiliate dashboard
+                                </span>
                               </span>
                             </span>
-                          </span>
-                        </a>
+                          </a>
+                        </>
                       ) : null}
                     </div>
                   </div>
                 ))}
               </div>
+
+              {editingSlug ? (
+                <div className="mt-2 space-y-2 rounded-xl border border-white/10 bg-black/25 p-3 max-w-xl">
+                  <div className="text-xs font-medium text-white">Customize your link slug</div>
+                  <p className="text-[11px] text-gray-400">
+                    Lowercase letters, numbers, hyphens, or underscores (2–63 characters). Old links with the previous
+                    slug will stop tracking.
+                  </p>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                    <div className="flex min-w-0 flex-1 items-center overflow-hidden rounded-lg border border-white/10 bg-black/40">
+                      <span className="shrink-0 px-2 py-2 text-[11px] text-gray-500 font-mono truncate max-w-[45%]">
+                        {prefix}
+                      </span>
+                      <input
+                        value={slugDraft}
+                        onChange={(e) => setSlugDraft(e.target.value.toLowerCase().replace(/\s+/g, "-"))}
+                        className="min-w-0 flex-1 bg-transparent px-2 py-2 text-xs text-white font-mono outline-none"
+                        placeholder="your-name"
+                        maxLength={63}
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        disabled={slugSaving}
+                      />
+                    </div>
+                    <div className="flex gap-2 shrink-0">
+                      <button
+                        type="button"
+                        disabled={slugSaving || !slugDraft.trim()}
+                        onClick={() => void saveCustomSlug()}
+                        className="inline-flex items-center justify-center rounded-lg border border-[#9541e0] bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] px-3 py-2 text-xs font-medium text-white disabled:opacity-60"
+                      >
+                        {slugSaving ? "Saving…" : "Save"}
+                      </button>
+                      <button
+                        type="button"
+                        disabled={slugSaving}
+                        onClick={() => {
+                          setEditingSlug(false);
+                          setSlugMessage("");
+                        }}
+                        className="inline-flex items-center justify-center rounded-lg border border-white/15 px-3 py-2 text-xs font-medium text-gray-300 hover:bg-white/5"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                  {slugMessage ? <p className="text-[11px] text-amber-200/90">{slugMessage}</p> : null}
+                </div>
+              ) : slugMessage ? (
+                <p className="text-[11px] text-emerald-300/90">{slugMessage}</p>
+              ) : null}
+
               {affiliateCoupon ? (
                 <div className="text-xs text-gray-400">
                   Promo code: <span className="text-white font-medium">{affiliateCoupon}</span>
@@ -446,7 +636,7 @@ export default function AffiliateAppTab({ preview = false }: { preview?: boolean
           <div className="flex flex-col sm:flex-row flex-wrap gap-2">
             <button
               type="button"
-              onClick={() => void generateAffiliateLink()}
+              onClick={() => void generateAffiliateLink({ force: true })}
               className="inline-flex items-center justify-center cursor-pointer bg-[linear-gradient(to_bottom,#9541e0,#7c30c7)] shadow-[0_4px_32px_0_rgba(149,65,224,0.70)] px-6 py-3 rounded-xl border border-[#9541e0] text-white font-medium h-[48px] whitespace-nowrap"
             >
               Try again
