@@ -15,7 +15,7 @@ import {
   retryMissingSignupTracking,
 } from "@/lib/signupTrackingClient";
 import { trackDatafastGoal } from "@/lib/datafastGoals";
-import { trackFirstPromoterReferral, getFirstPromoterAttributionForHeaders } from "@/lib/firstpromoterReferral";
+import { trackFirstPromoterReferral } from "@/lib/firstpromoterReferral";
 import TrendTrackStatus from "@/components/TrendTrackStatus";
 import { bestTextColorOn, hexWithAlpha, mixHex, normalizeHex } from "@/lib/color";
 import WhiteLabelPricingModal from "@/components/WhiteLabelPricingModal";
@@ -360,17 +360,6 @@ const App = ({
         const user = data.user;
         if (!user?.email) return;
         trackFirstPromoterReferral(String(user.email), user.id);
-        const tok = (await mod.supabase.auth.getSession()).data.session?.access_token;
-        if (tok) {
-          await fetch("/api/firstpromoter/promoter", {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${tok}`,
-              ...getFirstPromoterAttributionForHeaders(),
-            },
-            cache: "no-store",
-          }).catch(() => null);
-        }
       } catch {}
     })();
   }, []);

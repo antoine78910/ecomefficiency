@@ -209,7 +209,13 @@ const observer = new MutationObserver(() => {
       }
     });
   });
+(function startSemrushOverlayObserver() {
+  if (!document.body) {
+    document.addEventListener('DOMContentLoaded', startSemrushOverlayObserver, { once: true });
+    return;
+  }
   observer.observe(document.body, { childList: true, subtree: true });
+})();
 
 // Suppression de l'upsell sur la page de recherche Pro
 (function removeSearchUpsell() {
@@ -226,5 +232,129 @@ const observer = new MutationObserver(() => {
   }
   const mo = new MutationObserver(remove);
   mo.observe(document.documentElement, { childList: true, subtree: true });
+})();
+
+// Block Semrush Paysol "quick purchase" payment popup (e.g. Buying ET TikTok Insights)
+(function blockPaysolQuickPurchase() {
+  const MARK = 'data-ee-paysol-blocked';
+
+  function injectCss() {
+    if (document.getElementById('ee-semrush-paysol-hide')) return;
+    const style = document.createElement('style');
+    style.id = 'ee-semrush-paysol-hide';
+    style.textContent = `
+[data-qa="paysol-widgets-quick-purchase-wrapper"],
+[data-test="quick-purchase"],
+[data-qa^="paysol-widgets-quick-purchase-"],
+[${MARK}="1"] {
+  display: none !important;
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+}`;
+    (document.head || document.documentElement).appendChild(style);
+  }
+
+  function hideHard(el) {
+    if (!el || el.nodeType !== 1) return;
+    try { el.setAttribute(MARK, '1'); } catch (_) {}
+    try {
+      el.style.setProperty('display', 'none', 'important');
+      el.style.setProperty('visibility', 'hidden', 'important');
+      el.style.setProperty('opacity', '0', 'important');
+      el.style.setProperty('pointer-events', 'none', 'important');
+    } catch (_) {}
+    try { el.setAttribute('aria-hidden', 'true'); } catch (_) {}
+  }
+
+  function restorePageLock() {
+    try {
+      document.documentElement.style.removeProperty('overflow');
+      document.body && document.body.style.removeProperty('overflow');
+      document.documentElement.style.removeProperty('pointer-events');
+      document.body && document.body.style.removeProperty('pointer-events');
+    } catch (_) {}
+  }
+
+  function findPaysolModals() {
+    const found = new Set();
+    const seeds = document.querySelectorAll(
+      '[data-qa="paysol-widgets-quick-purchase-wrapper"],' +
+      '[data-test="quick-purchase"],' +
+      '[data-qa="paysol-widgets-quick-purchase-pay-now"],' +
+      '[data-qa="paysol-widgets-quick-purchase-title"],' +
+      '[data-qa="paysol-widgets-quick-purchase-close-button"]'
+    );
+    seeds.forEach((el) => {
+      const win =
+        (el.closest && (el.closest('[data-qa="paysol-widgets-quick-purchase-wrapper"]') ||
+          el.closest('[data-test="quick-purchase"]') ||
+          el.closest('[role="dialog"]') ||
+          el.closest('[data-ui-name="Modal.Window"]'))) ||
+        el;
+      found.add(win);
+    });
+
+    document.querySelectorAll('[role="dialog"], [data-ui-name="Modal.Window"]').forEach((dialog) => {
+      if (dialog.querySelector && dialog.querySelector('[data-qa^="paysol-widgets-quick-purchase-"]')) {
+        found.add(dialog);
+        return;
+      }
+      const text = (dialog.textContent || '');
+      if (/Pay now/i.test(text) && (/Today.?s charge/i.test(text) || /Buying ET /i.test(text))) {
+        found.add(dialog);
+      }
+    });
+
+    return found;
+  }
+
+  function sweep() {
+    injectCss();
+    const modals = findPaysolModals();
+    if (!modals.size) return;
+
+    modals.forEach((modal) => {
+      try {
+        const closeBtn = modal.querySelector(
+          '[data-qa="paysol-widgets-quick-purchase-close-button"], [data-ui-name="Modal.Close"], button[aria-label="Close"]'
+        );
+        if (closeBtn) closeBtn.click();
+      } catch (_) {}
+
+      hideHard(modal);
+      try {
+        if (modal.parentNode) modal.parentNode.removeChild(modal);
+      } catch (_) {
+        try { modal.remove(); } catch (__) {}
+      }
+    });
+
+    // Drop leftover Semrush modal overlays/scrims tied to paysol
+    document.querySelectorAll('[data-ui-name="Modal.Overlay"]').forEach((overlay) => {
+      hideHard(overlay);
+      try { overlay.remove(); } catch (_) {}
+    });
+
+    restorePageLock();
+  }
+
+  injectCss();
+  sweep();
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', sweep, { once: true });
+  }
+
+  const mo = new MutationObserver(() => {
+    try { sweep(); } catch (_) {}
+  });
+  try {
+    mo.observe(document.documentElement, { childList: true, subtree: true });
+  } catch (_) {}
+
+  setInterval(() => {
+    try { sweep(); } catch (_) {}
+  }, 800);
 })();
   

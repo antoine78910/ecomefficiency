@@ -183,6 +183,155 @@ export async function fpListPromoters(q?: string): Promise<FirstPromoterPromoter
   return data;
 }
 
+export type FpListPromotersPageOptions = {
+  page?: number;
+  perPage?: number;
+  q?: string;
+  /** Filter map, e.g. { clicks_count: { from: 0, to: 0 }, archived: "false" } */
+  filters?: Record<string, unknown>;
+};
+
+function appendFpFilterParams(params: URLSearchParams, filters?: Record<string, unknown>, prefix = "filters") {
+  if (!filters) return;
+  for (const [key, value] of Object.entries(filters)) {
+    const path = `${prefix}[${key}]`;
+    if (value != null && typeof value === "object" && !Array.isArray(value)) {
+      appendFpFilterParams(params, value as Record<string, unknown>, path);
+    } else if (value !== undefined && value !== null) {
+      params.set(path, String(value));
+    }
+  }
+}
+
+/** Paginated promoter list (FirstPromoter v2 GET /promoters). */
+export async function fpListPromotersPage(
+  options: FpListPromotersPageOptions = {}
+): Promise<{ data: FirstPromoterPromoter[]; meta?: Record<string, unknown> }> {
+  const params = new URLSearchParams();
+  const page = Math.max(1, Math.trunc(Number(options.page || 1)));
+  const perPage = Math.min(100, Math.max(1, Math.trunc(Number(options.perPage || 100))));
+  params.set("page", String(page));
+  params.set("per_page", String(perPage));
+  const q = String(options.q || "").trim();
+  if (q) params.set("q", q);
+  appendFpFilterParams(params, options.filters);
+  const res = await fpFetch(`/promoters?${params.toString()}`, { method: "GET" });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const detail = formatFpErrorMessage(json);
+    const err = new Error(detail || json?.error || json?.message || "FIRSTPROMOTER_LIST_FAILED");
+    (err as any).status = res.status;
+    (err as any).payload = json;
+    throw err;
+  }
+  return {
+    data: Array.isArray(json?.data) ? (json.data as FirstPromoterPromoter[]) : [],
+    meta: json?.meta && typeof json.meta === "object" ? (json.meta as Record<string, unknown>) : undefined,
+  };
+}
+
+/** Walk all pages until exhausted (hard cap protects against infinite loops). */
+export async function fpListAllPromoters(
+  options: Omit<FpListPromotersPageOptions, "page"> & { maxPages?: number } = {}
+): Promise<FirstPromoterPromoter[]> {
+  const maxPages = Math.max(1, Math.trunc(Number(options.maxPages || 200)));
+  const out: FirstPromoterPromoter[] = [];
+  for (let page = 1; page <= maxPages; page++) {
+    const { data } = await fpListPromotersPage({ ...options, page });
+    if (!data.length) break;
+    out.push(...data);
+    if (data.length < Math.min(100, Math.max(1, Math.trunc(Number(options.perPage || 100))))) break;
+  }
+  return out;
+}
+
+export function fpPromoterHasAnyActivity(promoter: FirstPromoterPromoter | null | undefined): boolean {
+  const stats = (promoter as any)?.stats || {};
+  const clicks = Math.max(0, Math.trunc(Number(stats.clicks_count ?? 0)));
+  const referrals = Math.max(0, Math.trunc(Number(stats.referrals_count ?? 0)));
+  const sales = Math.max(0, Math.trunc(Number(stats.sales_count ?? 0)));
+  const customers = Math.max(0, Math.trunc(Number(stats.customers_count ?? 0)));
+  const revenue = Math.max(0, Math.trunc(Number(stats.revenue_amount ?? 0)));
+  const active = Math.max(0, Math.trunc(Number(stats.active_customers_count ?? 0)));
+  return clicks >= 1 || referrals >= 1 || sales >= 1 || customers >= 1 || revenue > 0 || active >= 1;
+}
+
+/** POST /promoters/archive — frees quota for idle promoters (sync for ≤5 ids). */
+export async function fpArchivePromoters(ids: number[]): Promise<Record<string, unknown>> {
+  const clean = Array.from(
+    new Set(
+      ids
+        .map((id) => Math.trunc(Number(id)))
+        .filter((id) => Number.isFinite(id) && id > 0)
+    )
+  );
+  if (!clean.length) return { status: "completed", selected_total: 0 };
+  const res = await fpFetch("/promoters/archive", {
+    method: "POST",
+    body: JSON.stringify({ ids: clean }),
+  });
+  const json = await res.json().catch(() => ({}));
+  if (!res.ok && res.status !== 202) {
+    const detail = formatFpErrorMessage(json);
+    const err = new Error(detail || json?.error || json?.message || "FIRSTPROMOTER_ARCHIVE_FAILED");
+    (err as any).status = res.status;
+    (err as any).payload = json;
+    throw err;
+  }
+  return json as Record<string, unknown>;
+}
+
+/**
+ * Archive promoters with zero clicks / zero activity to free FirstPromoter quota.
+ * Never archives anyone with at least one click (or any referral/sale activity).
+ */
+export async function fpArchiveIdlePromoters(options?: {
+  chunkSize?: number;
+  dryRun?: boolean;
+}): Promise<{
+  scanned: number;
+  archivedIds: number[];
+  skippedActive: number;
+  dryRun: boolean;
+}> {
+  const chunkSize = Math.min(5, Math.max(1, Math.trunc(Number(options?.chunkSize || 5))));
+  const dryRun = Boolean(options?.dryRun);
+  const candidates = await fpListAllPromoters({
+    perPage: 100,
+    filters: {
+      archived: "false",
+      clicks_count: { from: 0, to: 0 },
+    },
+  });
+  const archivedIds: number[] = [];
+  let skippedActive = 0;
+  const idleIds: number[] = [];
+  for (const p of candidates) {
+    const id = Math.trunc(Number(p?.id || 0));
+    if (!id) continue;
+    if (fpPromoterHasAnyActivity(p)) {
+      skippedActive += 1;
+      continue;
+    }
+    idleIds.push(id);
+  }
+  if (!dryRun) {
+    for (let i = 0; i < idleIds.length; i += chunkSize) {
+      const chunk = idleIds.slice(i, i + chunkSize);
+      await fpArchivePromoters(chunk);
+      archivedIds.push(...chunk);
+    }
+  } else {
+    archivedIds.push(...idleIds);
+  }
+  return {
+    scanned: candidates.length,
+    archivedIds,
+    skippedActive,
+    dryRun,
+  };
+}
+
 export async function fpFindPromoterByEmail(email: string): Promise<FirstPromoterPromoter | null> {
   const e = String(email || "").trim();
   if (!e) return null;

@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Ecom Efficiency",
-  "version": "1.0.8",
+  "version": "1.1.0",
   "description": "Injecte des scripts personnalis\u00e9s sur des pages sp\u00e9cifiques.",
   "permissions": [
     "storage",
@@ -329,13 +329,16 @@
       "matches": [
         "https://www.semrush.com/app/exploding-topics*",
         "https://semrush.com/app/exploding-topics*",
-        "https://ac.explodingtopics.com/*"
+        "https://ac.explodingtopics.com/*",
+        "https://explodingtopics.com/*",
+        "https://www.explodingtopics.com/*",
+        "*://*.explodingtopics.com/*"
       ],
       "js": [
         "semrush_overlay.js"
       ],
       "all_frames": true,
-      "run_at": "document_end"
+      "run_at": "document_start"
     },
     {
       "matches": [
@@ -1130,6 +1133,21 @@
         "https://www.higgsfield.ai/auth/*"
       ],
       "js": [
+        "higgsfield_supercomputer_rules.js",
+        "higgsfield_url_blocker.js"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://higgsfield.ai/*",
+        "https://www.higgsfield.ai/*"
+      ],
+      "exclude_matches": [
+        "https://higgsfield.ai/auth/*",
+        "https://www.higgsfield.ai/auth/*"
+      ],
+      "js": [
         "higgsfield_payment_early.js"
       ],
       "run_at": "document_start"
@@ -1644,6 +1662,15 @@
       ],
       "js": [
         "nox_tools.js"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://checkout.stripe.com/*"
+      ],
+      "js": [
+        "blocked_redirect.js"
       ],
       "run_at": "document_start"
     }

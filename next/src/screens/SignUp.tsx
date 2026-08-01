@@ -11,7 +11,7 @@ import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { useSessionTracking } from "@/hooks/useSessionTracking";
 import GoogleButton from "@/components/GoogleButton";
-import { trackFirstPromoterReferral, getFirstPromoterAttributionForHeaders, primeFirstPromoterReferralEmail, appendFirstPromoterToUrl } from "@/lib/firstpromoterReferral";
+import { trackFirstPromoterReferral, primeFirstPromoterReferralEmail, appendFirstPromoterToUrl } from "@/lib/firstpromoterReferral";
 import { trackFunnelEvent } from "@/lib/funnelTrackingClient";
 import { fireGoogleAdsSignupConversion } from "@/lib/googleAdsConversions";
 // Discord removed per request
@@ -129,19 +129,6 @@ const SignUp = () => {
             title: "Account created!",
             description: "Welcome to Ecom Efficiency",
           });
-          try {
-            const tok = session.access_token;
-            if (tok) {
-              await fetch("/api/firstpromoter/promoter", {
-                method: "GET",
-                headers: {
-                  Authorization: `Bearer ${tok}`,
-                  ...getFirstPromoterAttributionForHeaders(),
-                },
-                cache: "no-store",
-              });
-            }
-          } catch {}
           // Redirect to app
           const protocol = window.location.protocol;
           const hostname = window.location.hostname;

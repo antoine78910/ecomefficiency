@@ -7,7 +7,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { Crown } from "lucide-react";
 import { hexWithAlpha, normalizeHex } from "@/lib/color";
 import { isMainEcomEfficiencyWorkspaceHost } from "@/lib/eeAppHost";
-import { getFirstPromoterAttributionForHeaders } from "@/lib/firstpromoterReferral";
 import { 
   DropdownMenu,
   DropdownMenuContent,
@@ -120,46 +119,6 @@ export default function AppTopNav({
   }, []);
 
   const pathname = usePathname() || "";
-
-  // Ensure a FirstPromoter promoter exists for this user (new + legacy signups) once per browser session
-  // on any app page, so their referral link is ready when they open Tools or the Affiliate tab.
-  // Main Ecom Efficiency layout uses AppTopNav without `brand.logoUrl`; white-label domains pass a logo — skip FP there.
-  useEffect(() => {
-    if (!email) return;
-    if (brand?.hideAffiliate) return;
-    if (brand?.logoUrl) return;
-    let cancelled = false;
-    (async () => {
-      try {
-        const { data } = await supabase.auth.getUser();
-        const uid = data.user?.id;
-        if (!uid || cancelled) return;
-        try {
-          const key = `ee_fp_promoter_ensured_${uid}`;
-          if (typeof sessionStorage !== "undefined" && sessionStorage.getItem(key) === "1") return;
-        } catch {}
-        const { data: sess } = await supabase.auth.getSession();
-        const token = sess.session?.access_token;
-        if (!token || cancelled) return;
-        const r = await fetch("/api/firstpromoter/promoter", {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-            ...getFirstPromoterAttributionForHeaders(),
-          },
-          cache: "no-store",
-        });
-        if (!cancelled && r.ok) {
-          try {
-            sessionStorage.setItem(`ee_fp_promoter_ensured_${uid}`, "1");
-          } catch {}
-        }
-      } catch {}
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [email, brand?.hideAffiliate]);
 
   const handleLogout = async () => {
     try {
