@@ -1,7 +1,7 @@
 {
   "manifest_version": 3,
   "name": "Ecom Efficiency",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Injecte des scripts personnalisés sur des pages spécifiques pour automatiser la connexion.",
   "permissions": [
     "activeTab",
@@ -103,6 +103,23 @@
       ],
       "js": ["elevenlabs_auto_login.js"],
       "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://elevenlabs.io/app/*",
+        "https://app.elevenlabs.io/*"
+      ],
+      "js": ["elevenlabs_block_api_keys.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://elevenlabs.io/app/*",
+        "https://app.elevenlabs.io/*"
+      ],
+      "js": ["elevenlabs_ecom_config.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
     },
     {
       "matches": [

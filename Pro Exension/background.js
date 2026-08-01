@@ -377,7 +377,10 @@ function blockChromeURLs() {
     'https://app.winninghunter.com/profile',
     'https://www.kalodata.com/me*',
     'https://www.pipiads.com/fr/user-center*',
-    'https://www.pipiads.com/user-center/*'
+    'https://www.pipiads.com/user-center/*',
+    'https://elevenlabs.io/app/api/api-keys*',
+    'https://www.elevenlabs.io/app/api/api-keys*',
+    'https://app.elevenlabs.io/app/api/api-keys*'
     // Vous pouvez ajouter d'autres URLs chrome:// ici
   ];
 
@@ -428,6 +431,9 @@ const blockedAfterlibUrls = [
   'https://www.kalodata.com/me*',
   'https://www.pipiads.com/fr/user-center*',
   'https://www.pipiads.com/user-center/*',
+  'https://elevenlabs.io/app/api/api-keys*',
+  'https://www.elevenlabs.io/app/api/api-keys*',
+  'https://app.elevenlabs.io/app/api/api-keys*',
   // Ajoutez d'autres URLs ici si nécessaire
 ];
 
@@ -545,6 +551,45 @@ chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
   }
 });
 
+/************************************
+ * 9b) BLOCAGE ELEVENLABS API KEYS PAGE
+ ************************************/
+function isElevenLabsApiKeysUrl(url) {
+  if (!url || typeof url !== 'string') return false;
+  try {
+    const u = new URL(url);
+    if (!u.hostname.endsWith('elevenlabs.io')) return false;
+    return u.pathname === '/app/api/api-keys' || u.pathname.startsWith('/app/api/api-keys/');
+  } catch (_) {
+    return /elevenlabs\.io\/app\/api\/api-keys/.test(url);
+  }
+}
+
+chrome.webNavigation.onBeforeNavigate.addListener(
+  function (details) {
+    if (isElevenLabsApiKeysUrl(details.url)) {
+      console.log('Accès bloqué à ElevenLabs API keys : ', details.url);
+      chrome.tabs.update(details.tabId, {
+        url: chrome.runtime.getURL('blocked.html')
+      });
+    }
+  },
+  {
+    url: [
+      { hostSuffix: 'elevenlabs.io', pathContains: '/app/api/api-keys' }
+    ]
+  }
+);
+
+chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
+  if (changeInfo.status === 'complete' && tab.url && isElevenLabsApiKeysUrl(tab.url)) {
+    console.log('Onglet ElevenLabs API keys détecté, blocage:', tab.url);
+    chrome.tabs.update(tabId, {
+      url: chrome.runtime.getURL('blocked.html')
+    });
+  }
+});
+
 
 // background.js
 
@@ -566,6 +611,12 @@ chrome.webRequest.onBeforeRequest.addListener(
       console.log("Blocage Kalodata /me:", url);
       return { cancel: true };
     }
+
+    // Blocage ElevenLabs API keys
+    if (details.type === 'main_frame' && isElevenLabsApiKeysUrl(url)) {
+      console.log('Blocage ElevenLabs API keys:', url);
+      return { redirectUrl: chrome.runtime.getURL('blocked.html') };
+    }
     
     // Annule la requête pour bloquer l'accès aux autres URLs ciblées
     return { cancel: true };
@@ -581,7 +632,10 @@ chrome.webRequest.onBeforeRequest.addListener(
       "https://one.google.com/*",
       "https://www.kalodata.com/me*",
       "https://www.pipiads.com/fr/user-center*",
-      "https://www.pipiads.com/user-center/*"
+      "https://www.pipiads.com/user-center/*",
+      "https://elevenlabs.io/app/api/api-keys*",
+      "https://www.elevenlabs.io/app/api/api-keys*",
+      "https://app.elevenlabs.io/app/api/api-keys*"
     ]
   },
   ["blocking"]

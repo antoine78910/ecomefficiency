@@ -7,7 +7,12 @@ $zipPath = Join-Path $root $OutName
 $temp = Join-Path $root "temp_pro_zip"
 
 $include = @('*.js', '*.html', '*.json', '*.png', '*.svg')
-$exclude = @('manifest_no_icons.json', 'create_pro_zip.ps1', 'create_icons.html', 'test_extension.html')
+$exclude = @('manifest_no_icons.json', 'create_pro_zip.ps1', 'create_icons.html', 'test_extension.html', 'elevenlabs_ecom_config.example.js')
+
+if (-not (Test-Path (Join-Path $root "elevenlabs_ecom_config.js"))) {
+  Write-Host "WARNING: elevenlabs_ecom_config.js missing - copy from elevenlabs_ecom_config.example.js" -ForegroundColor Yellow
+  Write-Host "         ElevenLabs credits widget will fail if the server proxy is down." -ForegroundColor Yellow
+}
 
 if (Test-Path $zipPath) { Remove-Item $zipPath -Force }
 if (Test-Path $temp) { Remove-Item $temp -Recurse -Force }

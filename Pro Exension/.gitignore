@@ -20,3 +20,6 @@ Thumbs.db
 node_modules/
 package-lock.json
 
+# Local secrets (copy from elevenlabs_ecom_config.example.js)
+elevenlabs_ecom_config.js
+
