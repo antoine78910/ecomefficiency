@@ -6,6 +6,7 @@ import {
   SubscriptionCancelFlow,
   openStripeBillingPortal,
 } from "@/components/subscription/SubscriptionCancelFlow";
+import { RewardCreditsCard } from "@/components/subscription/RewardCreditsCard";
 
 function detectCheckoutCurrency(): "EUR" | "USD" {
   try {
@@ -330,6 +331,8 @@ export default function SubscriptionPage() {
           </button>
         )}
       </div>
+
+      {paidPlan ? <RewardCreditsCard /> : null}
     </div>
   );
 }

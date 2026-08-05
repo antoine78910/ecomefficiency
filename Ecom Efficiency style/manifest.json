@@ -980,7 +980,8 @@
     },
     {
       "matches": [
-        "https://www.pipiads.com/login"
+        "https://www.pipiads.com/login*",
+        "https://www.pipiads.com/*/login*"
       ],
       "js": [
         "auto_login_pipiads.js"
@@ -995,15 +996,6 @@
         "pipiads_credits_notif.js",
         "pipiads_block_user_center.js",
         "pipiads_gray_userbox.js"
-      ],
-      "run_at": "document_end"
-    },
-    {
-      "matches": [
-        "https://www.pipiads.com/fr/login"
-      ],
-      "js": [
-        "auto_login_pipiads_fr.js"
       ],
       "run_at": "document_end"
     },

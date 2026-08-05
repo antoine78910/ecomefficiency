@@ -263,8 +263,10 @@ Add-Type -AssemblyName System.IO.Compression.FileSystem
 $zipArchive = [System.IO.Compression.ZipFile]::OpenRead($zipPath)
 try { $zipEntries = $zipArchive.Entries.Count } finally { $zipArchive.Dispose() }
 
+$manifestVersion = ((Get-Content $manifestSrc -Raw) | ConvertFrom-Json).version
+
 Write-Host ""
-Write-Host "Done: $OutName ($sizeMb MB, $zipEntries entries, v1.0.8)" -ForegroundColor Green
+Write-Host "Done: $OutName ($sizeMb MB, $zipEntries entries, v$manifestVersion)" -ForegroundColor Green
 Write-Host "ZIP:    $zipPath" -ForegroundColor Cyan
 Write-Host "Folder: $outFolder" -ForegroundColor Cyan
 Write-Host ""

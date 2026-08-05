@@ -1,15 +1,25 @@
 (function() {
     'use strict';
 
-    console.log('[PIPIADS-EN] Auto-login script started on:', window.location.href);
+    console.log('[PIPIADS] Auto-login script started on:', window.location.href);
+
+    function isPipiadsLoginPage() {
+        try {
+            const path = String(location.pathname || '');
+            // /login, /es/login, /fr/login, /pt/login, etc.
+            return /(?:^|\/)login\/?$/.test(path);
+        } catch (_) {
+            return String(location.href || '').includes('/login');
+        }
+    }
 
     // === SURVEILLANCE URL GLOBALE ===
     // Si l'utilisateur quitte la page de login à tout moment, supprimer l'overlay
     let urlWatcher = setInterval(() => {
-        if (!window.location.href.includes('/login')) {
+        if (!isPipiadsLoginPage()) {
             const overlay = document.getElementById('pipiads-loading-overlay');
             if (overlay) {
-                console.log('[PIPIADS-EN] Navigation détectée hors de /login - suppression de l\'overlay');
+                console.log('[PIPIADS] Navigation detected away from /login - removing overlay');
                 removeLoadingSpinner();
                 clearInterval(urlWatcher);
             }
@@ -73,7 +83,7 @@
 
         overlay.appendChild(spinner);
         document.body.appendChild(overlay);
-        console.log('[PIPIADS-EN] ✅ Loading spinner displayed');
+        console.log('[PIPIADS] ✅ Loading spinner displayed');
     }
 
     // ===== GESTION DE L'ÉCRAN NOIR POUR LE LOGIN =====
@@ -81,17 +91,17 @@
     function removeLoadingSpinner() {
         const overlay = document.getElementById('pipiads-loading-overlay');
         if (overlay) {
-            console.log('[PIPIADS-EN] 🖤➡️ Suppression de l\'écran de chargement');
+            console.log('[PIPIADS] Removing loading overlay');
             overlay.style.opacity = '0';
             overlay.style.transition = 'opacity 0.5s ease';
             setTimeout(() => {
                 if (overlay && overlay.parentNode) {
                     overlay.remove();
-                    console.log('[PIPIADS-EN] ✅ Loading spinner hidden');
+                    console.log('[PIPIADS] ✅ Loading spinner hidden');
                 }
             }, 500);
         } else {
-            console.log('[PIPIADS-EN] 🖤 Aucun écran de chargement à supprimer');
+            console.log('[PIPIADS] No loading overlay to remove');
         }
     }
 
@@ -101,11 +111,11 @@
         
         const checkForPageChange = () => {
             checkCount++;
-            console.log(`[PIPIADS-EN] 👀 Vérification ${checkCount}/${maxChecks} - URL actuelle: ${window.location.href}`);
+            console.log(`[PIPIADS] Check ${checkCount}/${maxChecks} - URL: ${window.location.href}`);
             
             // Si on n'est plus sur la page de login, succès !
-            if (!window.location.href.includes('/login')) {
-                console.log('[PIPIADS-EN] ✅ Login réussi - changement de page détecté');
+            if (!isPipiadsLoginPage()) {
+                console.log('[PIPIADS] ✅ Login succeeded - left login page');
                 removeLoadingSpinner();
                 return;
             }
@@ -113,15 +123,15 @@
             // Vérifier s'il y a des messages d'erreur
             const errorElement = document.querySelector('.error, .alert, .alert-danger, [class*="error"], [class*="invalid"], .el-message--error, .el-notification--error, .login-error, [class*="login-error"]');
             if (errorElement && errorElement.textContent.trim()) {
-                console.log('[PIPIADS-EN] ❌ Message d\'erreur détecté:', errorElement.textContent.trim());
-                console.log('[PIPIADS-EN] 🖤 Écran de chargement maintenu - échec du login');
+                console.log('[PIPIADS] ❌ Error message detected:', errorElement.textContent.trim());
+                console.log('[PIPIADS] Keeping overlay - login failed');
                 return;
             }
             
             // Si on atteint le maximum de vérifications et qu'on est toujours sur la page de login
             if (checkCount >= maxChecks) {
-                console.log('[PIPIADS-EN] ⏰ Timeout - toujours sur la page de login après 15 secondes');
-                console.log('[PIPIADS-EN] 🖤 Écran de chargement maintenu - login probablement échoué');
+                console.log('[PIPIADS] ⏰ Timeout - still on login after 15s');
+                console.log('[PIPIADS] Keeping overlay - login likely failed');
                 return;
             }
             
@@ -141,35 +151,9 @@
             overlay.style.transition = 'opacity 0.5s ease';
             setTimeout(() => {
                 overlay.remove();
-                console.log('[PIPIADS-EN] ✅ Loading spinner hidden');
+                console.log('[PIPIADS] ✅ Loading spinner hidden');
             }, 500);
         }
-    }
-
-    // Fonction utilitaire pour attendre un élément
-    function waitForElement(selector, timeout = 10000) {
-        return new Promise((resolve, reject) => {
-            const element = document.querySelector(selector);
-            if (element) return resolve(element);
-
-            const observer = new MutationObserver(() => {
-                const found = document.querySelector(selector);
-                if (found) {
-                    observer.disconnect();
-                    resolve(found);
-                }
-            });
-
-            observer.observe(document.body, {
-                childList: true,
-                subtree: true
-            });
-
-            setTimeout(() => {
-                observer.disconnect();
-                reject(new Error(`Element "${selector}" not found after ${timeout}ms`));
-            }, timeout);
-        });
     }
 
     // Fonction pour saisie rapide (copier-coller)
@@ -185,6 +169,90 @@
         return Promise.resolve();
     }
 
+    function looksLikeEmailField(el) {
+        if (!el || el.tagName !== 'INPUT') return false;
+        const type = String(el.type || '').toLowerCase();
+        if (type === 'password' || type === 'hidden' || type === 'submit' || type === 'button') return false;
+        const hay = [
+            type,
+            el.name,
+            el.id,
+            el.autocomplete,
+            el.getAttribute('placeholder') || '',
+            el.getAttribute('aria-label') || ''
+        ].join(' ').toLowerCase();
+        return type === 'email'
+            || /email|e-mail|correo|mail|e\.?\s*mail/.test(hay);
+    }
+
+    function findLoginFields() {
+        const passwordInput = document.querySelector('input[type="password"]');
+        if (!passwordInput) return null;
+
+        let emailInput = document.querySelector('input[type="email"]');
+        if (!emailInput) {
+            const candidates = Array.from(document.querySelectorAll('input:not([type="hidden"]):not([type="submit"]):not([type="button"])'));
+            emailInput = candidates.find((el) => el !== passwordInput && looksLikeEmailField(el))
+                || candidates.find((el) => el !== passwordInput && String(el.type || '').toLowerCase() === 'text')
+                || null;
+        }
+
+        if (!emailInput) return null;
+        return { emailInput, passwordInput };
+    }
+
+    function waitForLoginFields(timeout = 15000) {
+        return new Promise((resolve, reject) => {
+            const found = findLoginFields();
+            if (found) return resolve(found);
+
+            const observer = new MutationObserver(() => {
+                const next = findLoginFields();
+                if (next) {
+                    observer.disconnect();
+                    resolve(next);
+                }
+            });
+
+            observer.observe(document.documentElement || document.body, {
+                childList: true,
+                subtree: true
+            });
+
+            setTimeout(() => {
+                observer.disconnect();
+                reject(new Error(`Login fields not found after ${timeout}ms`));
+            }, timeout);
+        });
+    }
+
+    function findSignInButton() {
+        let signInButton = document.querySelector('button.el-button.button-lg.el-button--primary');
+        if (signInButton) return signInButton;
+
+        const patterns = [
+            /sign\s*in/i,
+            /log\s*in/i,
+            /se\s*connecter/i,
+            /connecter|connexion/i,
+            /iniciar\s*sesi[oó]n/i,
+            /acceder|acceso/i,
+            /entrar/i,
+            /anmelden/i,
+            /entrar|acessar|entrar/i,
+            /登录|登錄|登入/
+        ];
+
+        const allButtons = document.querySelectorAll('button');
+        for (const btn of allButtons) {
+            const btnText = (btn.textContent || '').trim();
+            if (patterns.some((re) => re.test(btnText))) {
+                return btn;
+            }
+        }
+        return null;
+    }
+
     // Identifiants en dur pour Pipiads
     const PIPIADS_CREDENTIALS = {
         email: 'ecom.efficiency1@gmail.com',
@@ -194,72 +262,50 @@
     // Fonction principale d'auto-login
     async function performAutoLogin() {
         try {
-            console.log('[PIPIADS-EN] Starting auto-login process...');
+            console.log('[PIPIADS] Starting auto-login process...');
             
             // Afficher le spinner immédiatement
             showLoadingSpinner();
 
             // Utiliser les identifiants en dur
-            console.log('[PIPIADS-EN] Using hardcoded credentials...');
+            console.log('[PIPIADS] Using hardcoded credentials...');
             const { email, password } = PIPIADS_CREDENTIALS;
-            console.log('[PIPIADS-EN] ✅ Credentials ready:', email, 'password length:', password.length);
+            console.log('[PIPIADS] ✅ Credentials ready:', email, 'password length:', password.length);
 
-            // Attendre les champs de connexion (sélecteurs anglais)
-            console.log('[PIPIADS-EN] Waiting for login fields...');
-            const emailInput = await waitForElement('input[placeholder="Please enter your email address"]', 15000);
-            const passwordInput = await waitForElement('input[placeholder="Please enter your password"]', 15000);
+            // Attendre les champs (EN / FR / ES / autres langues)
+            console.log('[PIPIADS] Waiting for login fields (any locale)...');
+            const { emailInput, passwordInput } = await waitForLoginFields(15000);
             
-            console.log('[PIPIADS-EN] ✅ Login fields found');
+            console.log('[PIPIADS] ✅ Login fields found');
 
             // Remplir l'email rapidement (copier-coller)
-            console.log('[PIPIADS-EN] Filling email field...');
+            console.log('[PIPIADS] Filling email field...');
             await fastFillField(emailInput, email);
-            console.log('[PIPIADS-EN] ✅ Email filled:', emailInput.value);
+            console.log('[PIPIADS] ✅ Email filled:', emailInput.value);
 
             // Attendre un court moment
             await new Promise(resolve => setTimeout(resolve, 300));
 
             // Remplir le password rapidement (copier-coller)
-            console.log('[PIPIADS-EN] Filling password field...');
+            console.log('[PIPIADS] Filling password field...');
             await fastFillField(passwordInput, password);
-            console.log('[PIPIADS-EN] ✅ Password filled (length:', passwordInput.value.length, ')');
+            console.log('[PIPIADS] ✅ Password filled (length:', passwordInput.value.length, ')');
 
             // Attendre un court moment avant de cliquer
             await new Promise(resolve => setTimeout(resolve, 500));
 
-            // Chercher le bouton Sign In
-            console.log('[PIPIADS-EN] Looking for Sign In button...');
-            
-            let signInButton = null;
-
-            // D'abord essayer le sélecteur spécifique fourni
-            signInButton = document.querySelector('button.el-button.button-lg.el-button--primary');
-            
-            if (!signInButton) {
-                // Fallback: rechercher par contenu texte
-                const allButtons = document.querySelectorAll('button');
-                console.log('[PIPIADS-EN] Found', allButtons.length, 'buttons on page');
-                
-                for (const btn of allButtons) {
-                    const btnText = btn.textContent.trim().toLowerCase();
-                    
-                    if (btnText.includes('sign in') || btnText.includes('signin') || btnText.includes('login')) {
-                        signInButton = btn;
-                        console.log('[PIPIADS-EN] ✅ Sign In button found by text content:', btnText);
-                        break;
-                    }
-                }
-            } else {
-                console.log('[PIPIADS-EN] ✅ Sign In button found by CSS selector');
-            }
+            // Chercher le bouton Sign In (tous locales)
+            console.log('[PIPIADS] Looking for Sign In button...');
+            const signInButton = findSignInButton();
 
             if (!signInButton) {
                 throw new Error('Sign In button not found');
             }
+            console.log('[PIPIADS] ✅ Sign In button found:', (signInButton.textContent || '').trim());
 
             // Vérifier si le bouton est activé
             if (signInButton.disabled) {
-                console.log('[PIPIADS-EN] Button is disabled, waiting for it to be enabled...');
+                console.log('[PIPIADS] Button is disabled, waiting for it to be enabled...');
                 
                 // Attendre que le bouton soit activé (max 5 secondes)
                 let attempts = 0;
@@ -274,38 +320,38 @@
             }
 
             // Cliquer sur le bouton
-            console.log('[PIPIADS-EN] Clicking Sign In button...');
-            console.log('[PIPIADS-EN] 🖤 Écran de chargement maintenu - surveillance du changement de page...');
+            console.log('[PIPIADS] Clicking Sign In button...');
+            console.log('[PIPIADS] Keeping overlay until redirect...');
             
             // Surveiller le changement de page après le login
             monitorLoginSuccess();
             
             signInButton.click();
-            console.log('[PIPIADS-EN] ✅ Sign In button clicked');
+            console.log('[PIPIADS] ✅ Sign In button clicked');
 
-            console.log('[PIPIADS-EN] ✅ Auto-login process completed - écran maintenu jusqu\'à redirection');
+            console.log('[PIPIADS] ✅ Auto-login process completed - overlay kept until redirect');
 
         } catch (error) {
-            console.error('[PIPIADS-EN] ❌ Auto-login failed:', error);
-            console.log('[PIPIADS-EN] 🖤 Écran de chargement maintenu suite à l\'erreur');
+            console.error('[PIPIADS] ❌ Auto-login failed:', error);
+            console.log('[PIPIADS] Keeping overlay after error');
             // Ne pas masquer le spinner en cas d'erreur - rester sur la page de login
         }
     }
 
     // Fonction principale d'initialisation
     function initialize() {
-        console.log('[PIPIADS-EN] Initializing auto-login for Pipiads...');
+        console.log('[PIPIADS] Initializing auto-login for Pipiads...');
         
-        // Vérifier qu'on est bien sur la page de login
-        if (window.location.href.includes('/login')) {
+        // Vérifier qu'on est bien sur la page de login (toutes langues)
+        if (isPipiadsLoginPage()) {
             // Démarrer l'auto-login après un court délai
             setTimeout(performAutoLogin, 1000);
         } else {
-            console.log('[PIPIADS-EN] Not on login page, skipping auto-login');
+            console.log('[PIPIADS] Not on login page, skipping auto-login');
             // Si on n'est pas sur la page de login mais qu'il y a un spinner, le supprimer
             const existingOverlay = document.getElementById('pipiads-loading-overlay');
             if (existingOverlay) {
-                console.log('[PIPIADS-EN] Suppression de l\'overlay existant (pas sur page login)');
+                console.log('[PIPIADS] Removing existing overlay (not on login page)');
                 removeLoadingSpinner();
             }
         }

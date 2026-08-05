@@ -184,13 +184,84 @@
         const s = String(t || '').toLowerCase();
         if (!s) return false;
         return (
+            s.includes('not enough credits') ||
             s.includes('not enough premium credits') ||
+            s.includes("don't have enough credits") ||
+            s.includes('do not have enough credits') ||
             s.includes('insufficient credits') ||
             s.includes('no credits left') ||
             s.includes('you have 0 credit') ||
             s.includes('0 credits remaining') ||
             (s.includes('premium credits') && (s.includes('used up') || s.includes('run out') || s.includes('exhausted')))
         );
+    }
+
+    function isHeygenUpsellModal(el) {
+        if (!el || el.nodeType !== 1) return false;
+        try {
+            if (el.querySelector && el.querySelector('[data-pacific-component="UpsellModalContent"]')) return true;
+        } catch (_) {}
+        const txt = String(el.textContent || '').toLowerCase();
+        return (
+            txt.includes('upgrade for more credits') ||
+            txt.includes('unlock more video translation') ||
+            txt.includes('upgrade your plan') ||
+            txt.includes('buy one-time credits') ||
+            (txt.includes('used your monthly credits') && txt.includes('upgrade'))
+        );
+    }
+
+    function removeGetCreditsButtons() {
+        let removed = 0;
+        try {
+            const buttons = Array.from(document.querySelectorAll('button'));
+            for (const btn of buttons) {
+                const label = String(btn.textContent || '').trim().toLowerCase();
+                if (label !== 'get credits') continue;
+                const container =
+                    (btn.closest && btn.closest('[data-radix-popper-content-wrapper]')) ||
+                    (btn.closest && btn.closest('[role="tooltip"]')) ||
+                    (btn.closest && btn.closest('.tw-stack-tooltip')) ||
+                    (btn.closest && btn.closest('h3') && btn.closest('h3').closest('div'));
+                if (!container) continue;
+                const ctxt = String(container.textContent || '').toLowerCase();
+                if (!textIndicatesNoCreditsLeft(ctxt)) continue;
+                if (hideElementHard(btn, 'get-credits-btn')) removed++;
+                try {
+                    const row = btn.closest('div.tw-flex.tw-items-center.tw-gap-2');
+                    if (row && row.querySelectorAll('button').length === 1) hideElementHard(row, 'get-credits-row');
+                } catch (_) {}
+            }
+        } catch (_) {}
+        return removed > 0;
+    }
+
+    function hideHeygenUpsellModals() {
+        let hidden = 0;
+        try {
+            const dialogs = Array.from(document.querySelectorAll(
+                'div[role="dialog"][data-state="open"], div[role="dialog"]'
+            )).slice(0, 40);
+            for (const dlg of dialogs) {
+                if (!dlg || dlg.id === RESET_POPUP_ID) continue;
+                if (dlg.getAttribute && dlg.getAttribute('data-ee-hidden')) continue;
+                if (!isHeygenUpsellModal(dlg)) continue;
+                if (hideElementHard(dlg, 'heygen-upsell-modal')) hidden++;
+                try {
+                    const portal = dlg.closest('[data-radix-portal]');
+                    if (portal) hideElementHard(portal, 'heygen-upsell-portal');
+                } catch (_) {}
+            }
+            Array.from(document.querySelectorAll('[data-radix-dialog-overlay]')).slice(0, 20).forEach((o) => {
+                try {
+                    const txt = String((o.parentElement && o.parentElement.textContent) || '').toLowerCase();
+                    if (isHeygenUpsellModal(o.parentElement || o) || txt.includes('upgrade for more credits')) {
+                        hideElementHard(o, 'heygen-upsell-overlay');
+                    }
+                } catch (_) {}
+            });
+        } catch (_) {}
+        return hidden > 0;
     }
 
     function textLooksLikeCreditsPopup(t) {
@@ -278,6 +349,13 @@
             if (isLanguageOrNormalUI(txt)) continue;
             if (isAvatarUploadOrLegitimatePopup(txt)) continue;
 
+            if (isHeygenUpsellModal(n)) {
+                const root = n.closest ? (n.closest('[role="dialog"],[data-radix-portal],div.fixed') || n) : n;
+                if (hideElementHard(root, 'heygen-upsell-modal')) removed++;
+                confirmedNoCredits = true;
+                continue;
+            }
+
             // Ne masquer que si le texte indique clairement "plus de crédits" (pas les simples CTAs upgrade)
             if (textIndicatesNoCreditsLeft(txt)) {
                 confirmedNoCredits = true;
@@ -311,6 +389,11 @@
                     if (looksOverlay) hideElementHard(o, 'overlay');
                 });
             }
+        } catch (_) {}
+
+        try {
+            removeGetCreditsButtons();
+            hideHeygenUpsellModals();
         } catch (_) {}
 
         if (confirmedNoCredits) {
@@ -500,6 +583,8 @@
                     setTimeout(() => {
                         removeUpgradeButton();
                         removeAddOnsPopup();
+                        removeGetCreditsButtons();
+                        hideHeygenUpsellModals();
                         removePopupsAndMaybeShowReset();
                     }, 100);
                 }
@@ -525,6 +610,8 @@
         removeAddOnsPopup();
         // Supprimer tout popup / credits popups
         removePopupsAndMaybeShowReset();
+        removeGetCreditsButtons();
+        hideHeygenUpsellModals();
 
         // Créer les rectangles de blocage
         createBlockingRectangles();
@@ -536,6 +623,8 @@
         setInterval(() => {
             removeUpgradeButton();
             removeAddOnsPopup();
+            removeGetCreditsButtons();
+            hideHeygenUpsellModals();
             removePopupsAndMaybeShowReset();
         }, 2000);
 
@@ -564,7 +653,11 @@
     document.addEventListener('click', () => {
         const delays = [50, 150, 300, 600, 1000, 1600];
         delays.forEach((d) => setTimeout(() => {
-            try { removePopupsAndMaybeShowReset(); } catch (_) {}
+            try {
+                removeGetCreditsButtons();
+                hideHeygenUpsellModals();
+                removePopupsAndMaybeShowReset();
+            } catch (_) {}
         }, d));
     }, true);
 

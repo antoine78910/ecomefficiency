@@ -19,6 +19,7 @@
     '/supercomputer-intro',
     '/marketing-studio',
     '/marketing-studio-community',
+    '/plugins',
   ];
 
   function pathMatchesBlockedPrefix(pathname, prefix) {
@@ -45,10 +46,17 @@
       'a[href="/supercomputer"]',
       'a[href="/supercomputer-intro"]',
       'a[data-header-active-on*="/supercomputer"]',
+      'a[href="/plugins"]',
+      'a[data-header-active-on*="/plugins"]',
+      '[data-nav-trigger="Plugins"]',
+      'button[id*="trigger-Plugins"]',
+      'button[aria-controls*="content-Plugins"]',
     ],
     card: [
       'a[href^="https://higgsfield.ai/supercomputer"]',
       'a[href^="https://www.higgsfield.ai/supercomputer"]',
+      'a[href^="https://higgsfield.ai/plugins"]',
+      'a[href^="https://www.higgsfield.ai/plugins"]',
     ],
     banner: [
       'img[src*="spc-desktop-banner.png"]',

@@ -430,11 +430,63 @@
     }
 
     function setInputValue(input, value) {
+        if (!input) return;
         input.focus();
-        input.value = value;
+        const proto = window.HTMLInputElement.prototype;
+        const desc =
+            Object.getOwnPropertyDescriptor(proto, 'value') ||
+            Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
+        if (desc && desc.set) {
+            desc.set.call(input, value);
+        } else {
+            input.value = value;
+        }
         input.dispatchEvent(new Event('input', { bubbles: true }));
         input.dispatchEvent(new Event('change', { bubbles: true }));
+        input.dispatchEvent(new InputEvent('input', { bubbles: true, data: value, inputType: 'insertText' }));
         input.blur();
+    }
+
+    function findSignInButton() {
+        const buttons = Array.from(document.querySelectorAll('button[type="button"]'));
+        const exact = buttons.find((btn) => {
+            const span = btn.querySelector('span');
+            const label = String(span?.textContent || btn.textContent || '').trim();
+            if (!/^sign\s*in$/i.test(label)) return false;
+            const cls = String(btn.className || '');
+            return cls.includes('from-blue-600') && cls.includes('to-blue-700');
+        });
+        if (exact) return exact;
+
+        const bySpan = buttons.find((btn) => {
+            const span = btn.querySelector('span');
+            return span && /^sign\s*in$/i.test(String(span.textContent || '').trim());
+        });
+        if (bySpan) return bySpan;
+
+        return buttons.find((btn) => /sign\s*in/i.test(String(btn.textContent || '').trim())) || null;
+    }
+
+    async function waitForEnabledButton(button, timeoutMs = 8000) {
+        const start = Date.now();
+        while (Date.now() - start < timeoutMs) {
+            if (button && !button.disabled) return button;
+            await new Promise((r) => setTimeout(r, 150));
+        }
+        return button;
+    }
+
+    function clickSignInButton(button) {
+        if (!button) return;
+        try { button.scrollIntoView({ block: 'center', inline: 'center' }); } catch (_) {}
+        try { button.focus({ preventScroll: true }); } catch (_) {}
+        const events = ['pointerdown', 'mousedown', 'mouseup', 'click'];
+        for (const type of events) {
+            try {
+                button.dispatchEvent(new MouseEvent(type, { bubbles: true, cancelable: true, view: window }));
+            } catch (_) {}
+        }
+        try { button.click(); } catch (_) {}
     }
 
     function deleteAllCookies() {
@@ -483,66 +535,45 @@
         // Don't auto-login if we're not on the login page
         if (!location.href.includes('/login')) return;
 
+        let loginStarted = false;
         try {
-            // Show overlay and set up safety timeouts
             showLoadingOverlay();
-            let cleared = false;
-            const clearOverlay = () => { if (!cleared) { cleared = true; hideLoadingOverlay(); } };
 
-            // Ensure overlay disappears if we navigate away from login
+            // Hide overlay only after successful navigation away from /login
             const navWatcher = setInterval(() => {
                 if (!location.href.includes('/login')) {
                     clearInterval(navWatcher);
-                    clearOverlay();
+                    hideLoadingOverlay();
                 }
             }, 400);
 
-            // Hard timeout (15s)
-            const timeoutId = setTimeout(() => {
-                clearOverlay();
-            }, 15000);
-
-            // Target inputs by placeholder as provided
-            const emailInput = await waitForElement('input[type="email"][placeholder="Enter your email"]');
-            const passwordInput = await waitForElement('input[type="password"][placeholder="Enter your password"]');
+            const emailInput = await waitForElement('input[type="email"][placeholder="Enter your email"], input[type="email"]');
+            const passwordInput = await waitForElement('input[type="password"][placeholder="Enter your password"], input[type="password"]');
 
             setInputValue(emailInput, EMAIL);
-            await new Promise(r => setTimeout(r, 200));
+            await new Promise((r) => setTimeout(r, 250));
             setInputValue(passwordInput, PASSWORD);
+            await new Promise((r) => setTimeout(r, 350));
 
-            // Find Sign In button
-            let signInBtn = document.querySelector('button[type="button"] span, button span');
-            let button = null;
-            if (signInBtn && /sign\s*in/i.test(signInBtn.textContent || '')) {
-                button = signInBtn.closest('button');
-            }
+            let button = findSignInButton();
             if (!button) {
-                const candidates = Array.from(document.querySelectorAll('button'));
-                button = candidates.find(b => /sign\s*in|log\s*in/i.test((b.textContent || '').trim()));
+                button = await waitForElement('button[type="button"]', 10000).then(() => findSignInButton());
             }
             if (!button) throw new Error('Sign In button not found');
 
-            if (button.disabled) {
-                let tries = 0;
-                while (button.disabled && tries < 20) {
-                    await new Promise(r => setTimeout(r, 150));
-                    tries++;
-                }
-            }
+            button = await waitForEnabledButton(button, 10000);
+            if (!button || button.disabled) throw new Error('Sign In button stayed disabled');
 
-            // Observe URL change to hide overlay after click
-            const afterClickWatcher = setInterval(() => {
-                if (!location.href.includes('/login')) {
-                    clearInterval(afterClickWatcher);
-                    clearOverlay();
-                    clearTimeout(timeoutId);
-                }
-            }, 300);
+            loginStarted = true;
+            clickSignInButton(button);
 
-            button.click();
+            // Keep loading overlay visible while ShopHunter processes login.
+            setInterval(() => {
+                if (!location.href.includes('/login')) hideLoadingOverlay();
+            }, 500);
         } catch (e) {
             console.error('[SHOPHUNTER] Auto-login failed:', e);
-            hideLoadingOverlay();
+            if (!loginStarted) hideLoadingOverlay();
         }
     }
 

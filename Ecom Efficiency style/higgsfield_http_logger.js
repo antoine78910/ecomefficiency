@@ -3,6 +3,19 @@
 // v2: intercepte aussi POST /jobs/* pour tracker le coût réel HF (cost/100), per-user JWT, behavior trail anti-abus.
 (function () {
   'use strict';
+
+  if (window.__eeHiggsfieldLoggerInstalled) return;
+  window.__eeHiggsfieldLoggerInstalled = true;
+
+  var EE_HTTP_DEBUG = false;
+  function eeHttpLog() {
+    if (!EE_HTTP_DEBUG) return;
+    try { console.log.apply(console, arguments); } catch (_) {}
+  }
+
+  // Do not patch Function.prototype.toString — that itself is a common bot-detection signal.
+  var eeMarkNative = function (fn) { return fn; };
+
   var lastKnownCredits = null; // from GET workspaces/wallet
   var MAX_DAILY_CREDITS = (window.EE_HIGGSFIELD_ECOM_CONFIG && window.EE_HIGGSFIELD_ECOM_CONFIG.DAILY_CREDIT_LIMIT) || 100;
   // Bearer token captured from intercepted Higgsfield requests — used to authenticate
@@ -398,13 +411,39 @@
       } catch (_) {}
     }).catch(function () {});
   }
-  var origFetch = window.fetch;
+  var origFetch = null;
+  var hooksInstalled = false;
+
+  function fetchWalletNow() {
+    if (!hooksInstalled || !origFetch) return;
+    try {
+      var walletFetchHeaders = {};
+      if (_capturedBearerToken) walletFetchHeaders['Authorization'] = _capturedBearerToken;
+      origFetch.call(window, 'https://fnf.higgsfield.ai/workspaces/wallet', { credentials: 'include', headers: walletFetchHeaders })
+        .then(function (r) { return r.ok ? r.json() : null; })
+        .then(function (data) {
+          if (!data) return;
+          var walletPayloadFetch = buildTrustedWalletPayload(data, 'workspaces/wallet');
+          if (!walletPayloadFetch) return;
+          walletPayloadFetch.afterGen = false;
+          lastKnownCredits = walletPayloadFetch.creditsRemaining;
+          try {
+            window.postMessage({ type: 'EE_HIGGSFIELD_WALLET', source: 'ee-logger', payload: walletPayloadFetch }, '*');
+          } catch (_) {}
+        }).catch(function () {});
+    } catch (_) {}
+  }
+
+  function installNetworkHooks() {
+    if (hooksInstalled || !window.fetch) return;
+    hooksInstalled = true;
+    origFetch = window.fetch;
   window.fetch = function (input, init) {
     init = init || {};
     var url = typeof input === 'string' ? input : (input && input.url) || '';
     url = resolveUrl(url);
     var method = (init.method || (input && input.method) || 'GET').toUpperCase();
-    console.log('[EE][HIGGSFIELD][HTTP][fetch]', method, url);
+    eeHttpLog('[EE][HIGGSFIELD][HTTP][fetch]', method, url);
     if (isFnf(url)) {
       console.log('[EE][HIGGSFIELD][WALLET]', method, url);
       var auth = getAuthHeader(init) || (input && getAuthHeader(input));
@@ -422,6 +461,20 @@
     if (method === 'POST' && isGenerationEndpoint(url)) {
       var reqBodyStrGate = null;
       try { if (init && typeof init.body === 'string') reqBodyStrGate = init.body; } catch (_) {}
+      var isUnlimPost = false;
+      try {
+        if (reqBodyStrGate) {
+          var rbGate = JSON.parse(reqBodyStrGate);
+          isUnlimPost = !!(rbGate && (rbGate.use_unlim || rbGate.useUnlim));
+        }
+      } catch (_) {}
+      // Unlimited jobs: pass through immediately — no gate delay, no abuse scan before fetch.
+      if (isUnlimPost) {
+        return origFetch.apply(this, arguments).then(function (response) {
+          recordGenTimestamp();
+          return response;
+        });
+      }
       if (!applyGenerationGate(reqBodyStrGate, url)) {
         return Promise.reject(new Error('Daily credit limit reached (' + getEcomDailyLimit() + ' credits).'));
       }
@@ -475,6 +528,8 @@
                   at: new Date().toISOString()
                 }
               }, '*');
+              // Skip aggressive wallet refresh right after unlimited-style jobs.
+              if (useUnlim) return;
               // Auto-refresh wallet 3s after generation so the balance is up to date
               setTimeout(function () {
                 try {
@@ -504,6 +559,9 @@
       return response;
     });
   };
+  try { Object.defineProperty(window.fetch, 'name', { value: 'fetch', configurable: true }); } catch (_) {}
+  eeMarkNative(window.fetch, 'fetch');
+
   var OrigXHR = window.XMLHttpRequest;
   window.XMLHttpRequest = function () {
     var xhr = new OrigXHR();
@@ -533,6 +591,16 @@
       if (_method === 'POST' && isGenerationEndpoint(_url)) {
         var xhrBodyStr = null;
         try { xhrBodyStr = typeof body === 'string' ? body : null; } catch (_) {}
+        var xhrIsUnlim = false;
+        try {
+          if (xhrBodyStr) {
+            var rbX = JSON.parse(xhrBodyStr);
+            xhrIsUnlim = !!(rbX && (rbX.use_unlim || rbX.useUnlim));
+          }
+        } catch (_) {}
+        if (xhrIsUnlim) {
+          return origSend.apply(this, arguments);
+        }
         if (!applyGenerationGate(xhrBodyStr, _url)) {
           xhr.dispatchEvent(new Event('error'));
           return;
@@ -598,52 +666,55 @@
     });
     return xhr;
   };
-  // Proactive wallet fetch on page load so the balance is known from the start,
-  // without waiting for the user to navigate to Settings > Billing.
-  function fetchWalletNow() {
-    try {
-      // Include captured Bearer token — fnf.higgsfield.ai requires Authorization header
-      // and returns 401 when credentials:'include' is used without it.
-      var walletFetchHeaders = {};
-      if (_capturedBearerToken) walletFetchHeaders['Authorization'] = _capturedBearerToken;
-      origFetch.call(window, 'https://fnf.higgsfield.ai/workspaces/wallet', { credentials: 'include', headers: walletFetchHeaders })
-        .then(function (r) { return r.ok ? r.json() : null; })
-        .then(function (data) {
-          if (!data) return;
-          var walletPayloadFetch = buildTrustedWalletPayload(data, 'workspaces/wallet');
-          if (!walletPayloadFetch) return;
-          walletPayloadFetch.afterGen = false;
-          lastKnownCredits = walletPayloadFetch.creditsRemaining;
-          try {
-            window.postMessage({ type: 'EE_HIGGSFIELD_WALLET', source: 'ee-logger', payload: walletPayloadFetch }, '*');
-          } catch (_) {}
-        }).catch(function () {});
-    } catch (_) {}
-  }
-  // Delay slightly so the page has loaded its Clerk session cookie before we fetch
-  setTimeout(fetchWalletNow, 3000);
-  // Also refresh every 5 minutes passively
+  try { Object.defineProperty(window.XMLHttpRequest, 'name', { value: 'XMLHttpRequest', configurable: true }); } catch (_) {}
+  eeMarkNative(window.XMLHttpRequest, 'XMLHttpRequest');
+
+  setTimeout(fetchWalletNow, 2000);
   setInterval(fetchWalletNow, 5 * 60 * 1000);
-  // When we capture a Bearer token for the first time, immediately retry the wallet
-  // fetch — the proactive 3-second fetch above may have run before auth was ready.
   var _walletFetchedWithToken = false;
-  var _origCaptureToken = Object.getOwnPropertyDescriptor ? null : null;
-  // Poll until token is available, then do one authenticated fetch
+  var _awaitTokenAttempts = 0;
   (function _awaitToken() {
     if (_capturedBearerToken && !_walletFetchedWithToken) {
       _walletFetchedWithToken = true;
-      setTimeout(fetchWalletNow, 200);
+      setTimeout(fetchWalletNow, 400);
       return;
     }
-    if (!_capturedBearerToken) setTimeout(_awaitToken, 800);
+    _awaitTokenAttempts += 1;
+    if (_awaitTokenAttempts < 12 && !_capturedBearerToken) setTimeout(_awaitToken, 2000);
   })();
+  }
+
+  function scheduleNetworkHooks() {
+    var path = location.pathname || '';
+    var delay = path.indexOf('/ai/image') !== -1 ? 7000 : 5000;
+    var armed = false;
+    function arm() {
+      if (armed) return;
+      armed = true;
+      installNetworkHooks();
+    }
+    function afterLoad() {
+      setTimeout(arm, delay);
+      function onUserGesture() {
+        document.removeEventListener('pointerdown', onUserGesture, true);
+        document.removeEventListener('keydown', onUserGesture, true);
+        setTimeout(arm, 900);
+      }
+      document.addEventListener('pointerdown', onUserGesture, true);
+      document.addEventListener('keydown', onUserGesture, true);
+    }
+    if (document.readyState === 'complete') afterLoad();
+    else window.addEventListener('load', afterLoad, { once: true });
+  }
 
   window.addEventListener('message', function (ev) {
     try {
       if (!ev || !ev.data || ev.data.type !== 'EE_HIGGSFIELD_FETCH_WALLET_NOW') return;
+      if (!hooksInstalled) scheduleNetworkHooks();
       fetchWalletNow();
     } catch (_) {}
   });
 
-  console.log('[EE][HIGGSFIELD] Network logger injected in PAGE context');
+  scheduleNetworkHooks();
+  eeHttpLog('[EE][HIGGSFIELD] Network logger loaded (hooks deferred)');
 })();

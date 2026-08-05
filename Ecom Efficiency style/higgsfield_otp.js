@@ -30,18 +30,37 @@
     }
   }
 
+  function getLoginMailbox() {
+    try {
+      const raw = sessionStorage.getItem('HF_LOGIN_EMAIL') || '';
+      const email = String(raw).trim().toLowerCase();
+      if (email.includes('support@')) return 'support';
+      if (email.includes('admin@')) return 'admin';
+    } catch (_) {}
+    return 'admin';
+  }
+
+  function getOtpHelpUrl() {
+    const mailbox = getLoginMailbox();
+    const base = 'http://51.83.103.21:20016';
+    if (mailbox === 'support') return base + '/otp-higgsfield-support';
+    return base + '/otp-higgsfield';
+  }
+
   function findOtpInput() {
     // Priority: specific Higgsfield code input
     const specificInput = document.querySelector('input[name="code"][placeholder="Code"]');
     if (specificInput && isVisible(specificInput)) return specificInput;
 
     const selectors = [
-      'input[autocomplete="one-time-code"]',
       'input[name="code"]',
-      'input[name*="code" i]',
+      'input[autocomplete="one-time-code"]',
       'input[inputmode="numeric"]',
+      'input[type="tel"]',
       'input[placeholder*="code" i]',
-      'input[aria-label*="code" i]'
+      'input[aria-label*="code" i]',
+      'input[data-testid*="otp" i]',
+      'input[data-testid*="code" i]'
     ];
     for (const sel of selectors) {
       const el = document.querySelector(sel);
@@ -110,8 +129,14 @@
   const MAX_MS = 60000;
 
   function ensureOverlay() {
-    if (document.getElementById('hf-otp-overlay')) return;
-    const overlay = document.createElement('div');
+    let overlay = document.getElementById('hf-otp-overlay');
+    if (overlay) {
+      overlay.style.display = 'flex';
+      const help = document.getElementById('hf-otp-help');
+      if (help) help.href = getOtpHelpUrl();
+      return;
+    }
+    overlay = document.createElement('div');
     overlay.id = 'hf-otp-overlay';
     Object.assign(overlay.style, {
       position: 'fixed',
@@ -202,7 +227,7 @@
     const help = document.createElement('a');
     help.id = 'hf-otp-help';
     help.textContent = "If you don't have any code, open the OTP page";
-    help.href = 'http://51.83.103.21:20016/otp-higgsfield';
+    help.href = getOtpHelpUrl();
     help.target = '_blank';
     Object.assign(help.style, {
       display: 'block',
@@ -277,7 +302,10 @@
     inFlight = true;
     try {
       const resp = await new Promise((resolve) => {
-        chrome.runtime.sendMessage({ type: 'FETCH_HIGGSFIELD_OTP' }, (r) => resolve(r));
+        chrome.runtime.sendMessage({
+          type: 'FETCH_HIGGSFIELD_OTP',
+          mailbox: getLoginMailbox()
+        }, (r) => resolve(r));
       });
       if (resp && resp.ok && resp.code) {
         const code = String(resp.code || '').trim();
@@ -287,8 +315,17 @@
             setCode(code);
           }
         }
+      } else if (resp && resp.error) {
+        log('OTP fetch failed:', resp.error, resp.tried || []);
+        const label = document.getElementById('hf-otp-label');
+        const spinner = document.getElementById('hf-otp-spinner');
+        if (label && !lastCode) {
+          if (spinner) spinner.style.display = 'none';
+          label.textContent = 'OTP server error — check extension service worker console.';
+        }
       }
-    } catch (_) {
+    } catch (err) {
+      log('OTP request exception:', err && err.message ? err.message : err);
     } finally {
       inFlight = false;
     }
@@ -309,7 +346,6 @@
     setLabelCountdown();
     pollTimer = setInterval(async () => {
       if (!onTarget()) return;
-      if (!findOtpInput()) return;
       const elapsed = Date.now() - startedAt;
       if (elapsed > MAX_MS) {
         stopPolling();
@@ -384,24 +420,23 @@
   }
 
   function isOtpContextReady() {
-    // Avoid relying on exact marketing copy (it changes often).
-    // We only need: OTP input visible on /auth/*
-    return !!findOtpInput();
+    if (findOtpInput()) return true;
+    try {
+      const body = (document.body && document.body.innerText) || '';
+      if (/verification\s+code|enter.*code|one[-\s]?time\s+code|check your email/i.test(body)) return true;
+      if (sessionStorage.getItem('HF_LOGIN_SUBMITTED') === '1') return true;
+    } catch (_) {}
+    return false;
   }
 
   function run() {
-    if (!ensureNotStuckDisabled()) return; // disabled (or waiting to auto-recover)
+    if (!ensureNotStuckDisabled()) return;
     if (!onTarget()) return;
-    
-    if (!isOtpContextReady()) return;
-    
-    const otpInput = findOtpInput();
-    if (!otpInput) {
-      return;
-    }
 
-    // Start immediately once the OTP input is visible.
-    // (We previously waited a few seconds, but that felt like "it doesn't work".)
+    if (!isOtpContextReady()) return;
+
+    ensureOverlay();
+
     if (timedOut && !lastCode) return;
     if (!pollTimer) startPolling();
   }
@@ -423,8 +458,7 @@
     try {
       if (!onTarget()) return;
       if (!ensureNotStuckDisabled()) return;
-      // Keep it cheap: only rerun when OTP input exists.
-      if (findOtpInput()) run();
+      if (findOtpInput() || isOtpContextReady()) run();
     } catch (_) {}
   }, 4000);
 

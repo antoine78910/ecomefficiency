@@ -1,5 +1,5 @@
 // higgsfield_url_blocker.js - Block access to specific Higgsfield pages
-// Blocks: /cli, /canvas, /mcp, /supercomputer, /marketing-studio
+// Blocks: /cli, /canvas, /mcp, /supercomputer, /marketing-studio, /plugins
 
 (function () {
   'use strict';
@@ -18,6 +18,7 @@
             '/supercomputer-intro',
             '/marketing-studio',
             '/marketing-studio-community',
+            '/plugins',
           ];
           return prefixes.some((prefix) => {
             if (p === prefix) return true;

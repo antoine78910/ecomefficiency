@@ -519,14 +519,6 @@ button {
             <div className="tool-description">AI talking-head videos, background removal, subtitles, upscaling</div>
           </a>
 
-          <a href="https://www.magnific.com/log-in?client_id=magnific&lang=en" className="tool-card" target="_blank" rel="noopener noreferrer">
-            <div className="tool-icon">
-              <img src={`/tools-images/freepik.png?v=${ASSET_VERSION}`} alt="Freepik" />
-            </div>
-            <div className="tool-name">Freepik</div>
-            <div className="tool-description">AI tools, smart features, and high-quality stock assets to design and create without ever leaving Freepik</div>
-          </a>
-
           <a href="https://turboscribe.ai/login" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
               <img src={`/tools-images/turboscribe.png?v=${ASSET_VERSION}`} alt="Turboscribe" />

@@ -1,12 +1,8 @@
 (function () {
   'use strict';
 
-  // Injection du logger via le background (executeScript world: MAIN) pour ne jamais toucher au DOM = pas de #418.
-  function injectNetworkLogger() {
-    try {
-      chrome.runtime.sendMessage({ type: 'INJECT_HIGGSFIELD_LOGGER' });
-    } catch (_) {}
-  }
+  // Injection deferred by higgsfield_ecom_subscription.js to avoid early MAIN-world fetch hooks.
+  function injectNetworkLogger() {}
 
   // Credit tracking: wallet (workspaces/wallet), generation start/end, daily limit 100, reset at midnight.
   var MAX_DAILY_CREDITS = (window.EE_HIGGSFIELD_ECOM_CONFIG && window.EE_HIGGSFIELD_ECOM_CONFIG.DAILY_CREDIT_LIMIT) || 100;
@@ -368,17 +364,49 @@
     const p = String(pathname || '');
     if (p === '/@ecomefficiency') return true;
     if (p === '/me' || p.startsWith('/me/')) return true;
+    try {
+      const shared = globalThis.EE_HIGGSFIELD_SUPERCOMPUTER_RULES;
+      if (shared && typeof shared.shouldBlockHiggsfieldPath === 'function' && shared.shouldBlockHiggsfieldPath(p)) {
+        return true;
+      }
+    } catch (_) {}
     return false;
+  }
+
+  function isSharedBlockedPath(pathname) {
+    try {
+      const shared = globalThis.EE_HIGGSFIELD_SUPERCOMPUTER_RULES;
+      const p = String(pathname || '');
+      return !!(shared && typeof shared.shouldBlockHiggsfieldPath === 'function' && shared.shouldBlockHiggsfieldPath(p));
+    } catch (_) {
+      return false;
+    }
+  }
+
+  function redirectBlockedPage() {
+    try {
+      window.location.replace(chrome.runtime.getURL('blocked.html'));
+    } catch (_) {
+      redirectHome();
+    }
   }
 
   const DEFAULT_SUPERCOMPUTER_HIDE_SELECTORS = {
     nav: [
       'a[href="/supercomputer"]',
+      'a[href="/supercomputer-intro"]',
       'a[data-header-active-on*="/supercomputer"]',
+      'a[href="/plugins"]',
+      'a[data-header-active-on*="/plugins"]',
+      '[data-nav-trigger="Plugins"]',
+      'button[id*="trigger-Plugins"]',
+      'button[aria-controls*="content-Plugins"]',
     ],
     card: [
       'a[href^="https://higgsfield.ai/supercomputer"]',
       'a[href^="https://www.higgsfield.ai/supercomputer"]',
+      'a[href^="https://higgsfield.ai/plugins"]',
+      'a[href^="https://www.higgsfield.ai/plugins"]',
     ],
     banner: [
       'img[src*="spc-desktop-banner.png"]',
@@ -504,12 +532,20 @@
         visibility: hidden !important;
         pointer-events: none !important;
       }
+
+      footer#footer-landing,
+      .ee-landing-explore-hidden {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+        pointer-events: none !important;
+      }
     `;
     document.documentElement.appendChild(style);
 
     // Add :has()-based rules separately so older engines don't drop the whole block
     try {
-      const supercomputerCardContainers = supercomputerSelectors.card
+      const supercomputerCardContainers = [...supercomputerSelectors.card, ...supercomputerSelectors.nav]
         .map((selector) => `li:has(${selector})`)
         .join(',\n        ');
       const supercomputerBannerContainers = supercomputerSelectors.banner
@@ -1035,16 +1071,45 @@
       dialogs = Array.from(document.querySelectorAll('div[role="dialog"][data-state="open"], [data-radix-portal] div[role="dialog"]'));
     } catch (_) {}
 
+    // Model / search pickers (Featured models, All models, …) must never be treated as payment nags.
+    const isLegitimatePickerDialog = (dlg) => {
+      try {
+        const txt = String(dlg.textContent || '').toLowerCase();
+        if (txt.includes('featured models') || txt.includes('all models')) return true;
+        if (txt.includes('search...') || txt.includes('search models')) return true;
+        if (dlg.querySelector('input[placeholder*="Search" i], input[placeholder="Search..."]')) return true;
+        // Model rows: many model cards with short descriptions, no billing copy.
+        if (
+          (txt.includes('seedream') || txt.includes('nano banana') || txt.includes('flux') || txt.includes('soul')) &&
+          !txt.includes('payment') &&
+          !txt.includes('billing') &&
+          !txt.includes('upgrade')
+        ) {
+          return true;
+        }
+      } catch (_) {}
+      return false;
+    };
+
     const dialogHasPaymentCta = (dlg) => {
       try {
         const nodes = Array.from(dlg.querySelectorAll('a,button,[role="button"]')).slice(0, 40);
         for (const n of nodes) {
           const href = String(n.getAttribute && n.getAttribute('href') ? n.getAttribute('href') : '').toLowerCase();
-          const t = String(n.textContent || '').trim().toLowerCase();
+          const t = String(n.textContent || '').replace(/\s+/g, ' ').trim().toLowerCase();
           if (!t && !href) continue;
-          // Strong signals for billing/pricing CTAs
+          // Strong URL signals for billing/pricing CTAs
           if (href.includes('/pricing') || href.includes('billing') || href.includes('payment')) return true;
-          if (/(upgrade|subscribe|pricing|billing|payment|plan|pro\b|premium|manage billing|update payment)/i.test(t)) return true;
+          // Exact-ish CTA phrases only.
+          // Do NOT match bare "pro" / "plan" — those appear in model names
+          // ("Nano Banana Pro", "Seedream 5.0 Pro", "FLUX.2 Pro") and were
+          // closing the model picker popup.
+          if (
+            /^(upgrade|subscribe|manage billing|update payment|view pricing|see pricing|go to billing)$/i.test(t) ||
+            /\b(upgrade now|subscribe now|manage billing|update payment method|view plans|see plans|buy credits)\b/i.test(t)
+          ) {
+            return true;
+          }
         }
       } catch (_) {}
       return false;
@@ -1052,6 +1117,7 @@
 
     for (const dlg of dialogs) {
       if (!dlg || dlg.nodeType !== 1) continue;
+      if (isLegitimatePickerDialog(dlg)) continue;
 
       let txt = '';
       try { txt = String(dlg.textContent || '').toLowerCase(); } catch (_) {}
@@ -1063,20 +1129,20 @@
         txt.includes('update payment method') ||
         txt.includes('on-demand usage is currently suspended') ||
         txt.includes("couldn't collect") ||
-        txt.includes('on-demand');
-
-      const hasCenteredFixedClass = (() => {
-        try {
-          const cn = dlg.className;
-          return typeof cn === 'string' && cn.includes('fixed') && cn.includes('left-1/2') && cn.includes('top-1/2');
-        } catch (_) { return false; }
-      })();
+        (txt.includes('on-demand') && (txt.includes('suspend') || txt.includes('payment') || txt.includes('billing')));
 
       // IMPORTANT:
-      // Do NOT hide all Radix dialogs. Many legitimate UI controls (e.g. "Duration") use Radix portals.
-      // We only hide dialogs that look like payment/billing nags (by content and/or CTA).
+      // Do NOT hide all Radix dialogs. Many legitimate UI controls (model picker,
+      // Duration, quality) use Radix portals. Only hide real payment/billing nags.
       const hasPaymentCta = dialogHasPaymentCta(dlg);
-      const shouldHide = looksLikePayment || hasPaymentCta;
+      const shouldHide = looksLikePayment || (hasPaymentCta && (
+        txt.includes('payment') ||
+        txt.includes('billing') ||
+        txt.includes('upgrade') ||
+        txt.includes('subscribe') ||
+        txt.includes('credits are running low') ||
+        txt.includes('all credits used')
+      ));
       if (!shouldHide) continue;
 
       // If this looks like a real payment failure, show credits reset timer popup.
@@ -1104,11 +1170,17 @@
     }
 
     // Hide overlays that might still block clicks / blur the page (even if dialog already hidden)
+    // ONLY when we actually hid a payment dialog — never blanket-hide every Radix overlay
+    // (that closes the model picker as soon as it opens).
     if (removedAny) {
       try {
         const overlays = document.querySelectorAll('[data-radix-dialog-overlay], [data-radix-dialog-overlay=""], [data-radix-portal] [data-radix-dialog-overlay]');
         overlays.forEach((el) => {
           try {
+            // Keep overlays that belong to a still-visible legitimate picker.
+            const portal = el.closest && el.closest('[data-radix-portal]');
+            const siblingDialog = portal && portal.querySelector('div[role="dialog"]');
+            if (siblingDialog && isLegitimatePickerDialog(siblingDialog)) return;
             if (!__eeSeen.overlay.has(el)) {
               __eeSeen.overlay.add(el);
               eeLog('[EE][HIGGSFIELD] Overlay detected -> hiding (radix)', el);
@@ -1117,31 +1189,31 @@
           hideElementHard(el, 'payment-overlay');
         });
       } catch (_) {}
+
+      // Additional fullscreen overlays used by Higgsfield payment modals only.
+      try {
+        const extra = document.querySelectorAll(
+          'div.fixed.inset-0[data-state="open"], div.fixed.inset-0[aria-hidden="true"], div.fixed.inset-0[data-aria-hidden="true"]'
+        );
+        extra.forEach((el) => {
+          try {
+            const cn = String(el.className || '');
+            const looksLikeBlurOverlay =
+              cn.includes('backdrop-blur') ||
+              cn.includes('bg-black') ||
+              cn.includes('bg-slate') ||
+              cn.includes('bg-neutral');
+            if (!looksLikeBlurOverlay) return;
+
+            if (!__eeSeen.overlay.has(el)) {
+              __eeSeen.overlay.add(el);
+              eeLog('[EE][HIGGSFIELD] Overlay detected -> hiding (fullscreen blur)', el);
+            }
+          } catch (_) {}
+          hideElementHard(el, 'fullscreen-overlay');
+        });
+      } catch (_) {}
     }
-
-    // Additional fullscreen overlays used by Higgsfield (ex: <div class="fixed inset-0 bg-black/80 backdrop-blur-sm ...">)
-    try {
-      const extra = document.querySelectorAll(
-        'div.fixed.inset-0[data-state="open"], div.fixed.inset-0[aria-hidden="true"], div.fixed.inset-0[data-aria-hidden="true"]'
-      );
-      extra.forEach((el) => {
-        try {
-          const cn = String(el.className || '');
-          const looksLikeBlurOverlay =
-            cn.includes('backdrop-blur') ||
-            cn.includes('bg-black') ||
-            cn.includes('bg-slate') ||
-            cn.includes('bg-neutral');
-          if (!looksLikeBlurOverlay) return;
-
-          if (!__eeSeen.overlay.has(el)) {
-            __eeSeen.overlay.add(el);
-            eeLog('[EE][HIGGSFIELD] Overlay detected -> hiding (fullscreen blur)', el);
-          }
-        } catch (_) {}
-        hideElementHard(el, 'fullscreen-overlay');
-      });
-    } catch (_) {}
   }
 
   function removeBlockedPromoLinks() {
@@ -1167,6 +1239,13 @@
         'a[href^="https://www.higgsfield.ai/mcp"]',
         'a[href^="https://higgsfield.ai/marketing-studio"]',
         'a[href^="https://www.higgsfield.ai/marketing-studio"]',
+        'a[href="/plugins"]',
+        'a[data-header-active-on*="/plugins"]',
+        'a[href^="https://higgsfield.ai/plugins"]',
+        'a[href^="https://www.higgsfield.ai/plugins"]',
+        '[data-nav-trigger="Plugins"]',
+        'button[id*="trigger-Plugins"]',
+        'button[aria-controls*="content-Plugins"]',
         ...supercomputerSelectors.nav,
         ...supercomputerSelectors.card,
       ].join(',');
@@ -1366,6 +1445,26 @@
     } catch (_) {}
   }
 
+  function removeLandingFooterAndExploreSection() {
+    try {
+      const footer = document.getElementById('footer-landing');
+      if (footer) hideElementHard(footer, 'landing-footer');
+
+      const sections = Array.from(document.querySelectorAll('section')).slice(0, 400);
+      for (const sec of sections) {
+        try {
+          if (!sec || sec.hasAttribute('data-ee-hidden')) continue;
+          const heading = sec.querySelector('h2');
+          const title = String((heading && heading.textContent) || '').trim().toLowerCase();
+          if (title.includes('explore more ai features')) {
+            sec.classList.add('ee-landing-explore-hidden');
+            hideElementHard(sec, 'explore-more-features');
+          }
+        } catch (_) {}
+      }
+    } catch (_) {}
+  }
+
   function runUiBlockers() {
     removePromoBanner();
     // IMPORTANT: detect "Payment required" BEFORE we hide dialogs/portals (otherwise they can be marked data-ee-hidden too early).
@@ -1379,6 +1478,7 @@
     removeSupercomputerBanners();
     removeHomeMarketingStudioSections();
     removeHomeMarketingBlocks();
+    removeLandingFooterAndExploreSection();
   }
 
   function installPaymentRequiredWatchers() {
@@ -1418,7 +1518,8 @@
   function handleRoute() {
     if (!onTarget()) return;
     if (isBlockedPath(location.pathname)) {
-      redirectHome();
+      if (isSharedBlockedPath(location.pathname)) redirectBlockedPage();
+      else redirectHome();
       return;
     }
     // Ne jamais toucher au DOM avant load + 1,2s (évite React #418)
@@ -1476,9 +1577,9 @@
         removePaymentNagDialogs();
         var t0 = Date.now();
         var iv = setInterval(function () {
-          if (Date.now() - t0 > 4000) return clearInterval(iv);
+          if (Date.now() - t0 > 3000) return clearInterval(iv);
           removePaymentNagDialogs();
-        }, 450);
+        }, 1200);
       } else {
         setTimeout(runPaymentRemovalImmediate, 150);
       }
@@ -1501,13 +1602,13 @@
     window.addEventListener('popstate', scheduleHandleRoute, true);
   } catch (_) {}
 
-  // Réappliquer sur re-renders DOM (60s)
+  // Réappliquer sur re-renders DOM (short window only — avoid long-lived mutation loops)
   try {
     const mo = new MutationObserver(() => {
       try { scheduleHandleRoute(); } catch (_) {}
     });
     mo.observe(document.documentElement, { childList: true, subtree: true });
-    setTimeout(() => { try { mo.disconnect(); } catch (_) {} }, 60000);
+    setTimeout(() => { try { mo.disconnect(); } catch (_) {} }, 30000);
   } catch (_) {}
 })();
 

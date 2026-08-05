@@ -6,6 +6,9 @@
       if (location.hostname !== 'www.magnific.com') return false;
       // Don't touch the login flow (handled by auto_login_freepik.js)
       if (String(location.pathname || '').startsWith('/log-in')) return false;
+      // Don't touch OTP verify page (handled by freepik_otp.js)
+      if (/^\/verify-account/i.test(String(location.pathname || ''))) return false;
+      if (/^\/verify-accoun/i.test(String(location.pathname || ''))) return false;
       return true;
     } catch (_) {
       return false;

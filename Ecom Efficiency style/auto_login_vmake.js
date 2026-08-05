@@ -1458,7 +1458,7 @@
 
       if (response && response.ok && response.code) {
         const rawCode = String(response.code || '').trim();
-        const code = (/^\d{4}$/.test(rawCode) ? rawCode : '');
+        const code = (/^\d{6}$/.test(rawCode) ? rawCode : '');
         if (code) {
           // Keep polling and always keep the latest code on screen.
           if (!lastOtpCode || code !== lastOtpCode) {

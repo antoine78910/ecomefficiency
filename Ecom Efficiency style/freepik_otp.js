@@ -1,11 +1,18 @@
-try { console.log('%c[EE-Magnific-OTP] Script loaded on ' + location.href, 'color:#b54af3;font-weight:bold;font-size:14px;'); } catch (_) {}
-
 (function () {
   'use strict';
 
-  var _c = (typeof console !== 'undefined' && console.__ee_original__) ? console.__ee_original__ : console;
+  var DEBUG = true;
+  var KATABUMP_OTP_URL = 'http://51.83.103.21:20016/otp-freepik';
+  var OVERLAY_ID = 'ee-freepik-otp-overlay';
+  var POLL_MS = 2500;
+  var MAX_MS = 3 * 60 * 1000;
+
   function log() {
-    try { _c.log.apply(_c, ['%c[EE-Magnific-OTP]', 'color:#b54af3;font-weight:bold;'].concat(Array.prototype.slice.call(arguments))); } catch (_) {}
+    if (!DEBUG) return;
+    try {
+      var args = ['%c[EE-Magnific-OTP]', 'color:#b54af3;font-weight:bold;'].concat(Array.prototype.slice.call(arguments));
+      console.log.apply(console, args);
+    } catch (_) {}
   }
 
   function onTarget() {
@@ -22,83 +29,117 @@ try { console.log('%c[EE-Magnific-OTP] Script loaded on ' + location.href, 'colo
     }
   }
 
-  var watcherTimer = null;
+  function isValidOtpCode(code) {
+    var c = String(code || '').trim();
+    if (!/^\d{4,8}$/.test(c)) return false;
+    // Reject placeholders / junk like 00000, 000000, 111111
+    if (/^0+$/.test(c)) return false;
+    if (/^(\d)\1+$/.test(c)) return false;
+    return true;
+  }
+
+  function isVisible(el) {
+    try {
+      if (!el) return false;
+      var cs = window.getComputedStyle(el);
+      if (cs.display === 'none' || cs.visibility === 'hidden' || Number(cs.opacity) === 0) return false;
+      var r = el.getBoundingClientRect();
+      return r.width > 0 && r.height > 0;
+    } catch (_) {
+      return true;
+    }
+  }
+
+  function findOtpInput() {
+    var selectors = [
+      'input[autocomplete="one-time-code"]',
+      'input[name*="otp" i]',
+      'input[name*="code" i]',
+      'input[placeholder*="code" i]',
+      'input[aria-label*="code" i]',
+      'input[inputmode="numeric"]',
+      'input[type="tel"]',
+      'input[type="text"][maxlength="6"]',
+      'input[type="text"][maxlength="5"]',
+      'input[type="text"][maxlength="8"]'
+    ];
+    for (var i = 0; i < selectors.length; i++) {
+      var el = document.querySelector(selectors[i]);
+      if (!el || !isVisible(el)) continue;
+      var meta = String(el.name || '') + ' ' + String(el.id || '') + ' ' + String(el.placeholder || '');
+      if (/email|password|search|user/i.test(meta)) continue;
+      return el;
+    }
+    return null;
+  }
+
+  function setNativeValue(input, value) {
+    try {
+      var desc = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
+      if (desc && desc.set) desc.set.call(input, value);
+      else input.value = value;
+    } catch (_) {
+      input.value = value;
+    }
+    try { input.dispatchEvent(new Event('input', { bubbles: true })); } catch (_) {}
+    try { input.dispatchEvent(new Event('change', { bubbles: true })); } catch (_) {}
+  }
+
+  function fillOtpIntoInputs(code) {
+    var c = String(code || '').trim();
+    if (!isValidOtpCode(c)) return false;
+
+    var single = findOtpInput();
+    if (single) {
+      try { single.focus(); } catch (_) {}
+      setNativeValue(single, c);
+      return true;
+    }
+
+    var boxes = Array.from(document.querySelectorAll(
+      'input[maxlength="1"], input[autocomplete="one-time-code"], input[inputmode="numeric"]'
+    )).filter(isVisible);
+    if (boxes.length >= 4 && boxes.length <= 8) {
+      for (var i = 0; i < boxes.length && i < c.length; i++) {
+        setNativeValue(boxes[i], c[i]);
+      }
+      try { boxes[0].focus(); } catch (_) {}
+      return true;
+    }
+    return false;
+  }
+
+  var pollTimer = null;
+  var inFlight = false;
+  var lastCode = null;
+  var startedAt = 0;
   var watcherStarted = false;
   var runStartedForPath = '';
 
   function currentPathKey() {
-    try { return String(location.origin || '') + String(location.pathname || '') + String(location.search || ''); } catch (_) { return ''; }
-  }
-
-  var POLL_MS = 4000;
-  var MAX_MS = 3 * 60 * 1000;
-  var OVERLAY_ID = 'ee-freepik-otp-overlay';
-  var STYLE_ID = 'ee-freepik-otp-style';
-  var DIAG_ID = 'ee-fp-diag-log';
-
-  var pollTimer = null;
-  var startedAt = 0;
-  var lastCode = '';
-  var inFlight = false;
-  var codeFound = false;
-  var pollCount = 0;
-
-  // Diagnostic log entries (displayed in the overlay)
-  var diagEntries = [];
-
-  function addDiag(msg, type) {
-    var ts = new Date().toLocaleTimeString();
-    var entry = { ts: ts, msg: msg, type: type || 'info' };
-    diagEntries.push(entry);
-    log('[DIAG][' + type + '] ' + msg);
-    renderDiag();
-  }
-
-  function renderDiag() {
-    var el = document.getElementById(DIAG_ID);
-    if (!el) return;
-    var html = '';
-    for (var i = diagEntries.length - 1; i >= 0; i--) {
-      var e = diagEntries[i];
-      var color = '#aaa';
-      if (e.type === 'error') color = '#f87171';
-      else if (e.type === 'success') color = '#86efac';
-      else if (e.type === 'warn') color = '#fbbf24';
-      else if (e.type === 'step') color = '#93c5fd';
-      html += '<div style="margin-bottom:3px;"><span style="color:#666;font-size:10px;">' + e.ts + '</span> <span style="color:' + color + ';">' + escHtml(e.msg) + '</span></div>';
+    try {
+      return String(location.origin || '') + String(location.pathname || '') + String(location.search || '');
+    } catch (_) {
+      return '';
     }
-    el.innerHTML = html;
-    el.scrollTop = 0;
   }
 
-  function escHtml(s) {
-    return String(s || '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
-  }
+  function ensureOverlay() {
+    var overlay = document.getElementById(OVERLAY_ID);
+    if (overlay) {
+      overlay.style.display = 'flex';
+      return;
+    }
 
-  function ensureStyle() {
-    if (document.getElementById(STYLE_ID)) return;
-    var s = document.createElement('style');
-    s.id = STYLE_ID;
-    s.textContent = '@keyframes eeFreepikSpin{to{transform:rotate(360deg)}}';
-    (document.head || document.documentElement).appendChild(s);
-  }
-
-  function buildOverlay() {
-    if (document.getElementById(OVERLAY_ID)) return;
-    ensureStyle();
-    var ov = document.createElement('div');
-    ov.id = OVERLAY_ID;
-    Object.assign(ov.style, {
+    overlay = document.createElement('div');
+    overlay.id = OVERLAY_ID;
+    Object.assign(overlay.style, {
       position: 'fixed',
       top: '12px',
       right: '12px',
       zIndex: '2147483647',
-      width: '220px',
-      minHeight: '80px',
+      width: '240px',
+      minHeight: '90px',
       background: 'rgba(0,0,0,0.7)',
       color: '#fff',
       borderRadius: '10px',
@@ -114,48 +155,39 @@ try { console.log('%c[EE-Magnific-OTP] Script loaded on ' + location.href, 'colo
     var spinner = document.createElement('div');
     spinner.id = 'ee-fp-spinner';
     Object.assign(spinner.style, {
-      width: '28px',
-      height: '28px',
+      width: '24px',
+      height: '24px',
       border: '3px solid rgba(255,255,255,0.3)',
       borderTopColor: '#fff',
       borderRadius: '50%',
       animation: 'eeFreepikSpin 1s linear infinite'
     });
 
-    var searching = document.createElement('div');
-    searching.id = 'ee-fp-searching';
-    Object.assign(searching.style, { textAlign: 'center' });
+    var style = document.createElement('style');
+    style.textContent = '@keyframes eeFreepikSpin{to{transform:rotate(360deg)}}';
 
     var label = document.createElement('div');
     label.id = 'ee-fp-label';
-    label.textContent = 'loading for your code';
-    Object.assign(label.style, { fontSize: '12px', opacity: '0.9' });
-    searching.appendChild(label);
+    label.textContent = 'Looking for your code…';
+    Object.assign(label.style, { fontSize: '12px', opacity: '0.9', textAlign: 'center' });
 
-    var codeContainer = document.createElement('div');
-    codeContainer.id = 'ee-fp-code-container';
-    codeContainer.style.display = 'none';
-
-    var codeText = document.createElement('div');
-    codeText.id = 'ee-fp-code-text';
-    Object.assign(codeText.style, {
-      fontSize: '16px',
+    var result = document.createElement('div');
+    result.id = 'ee-fp-result';
+    Object.assign(result.style, {
+      fontSize: '18px',
       fontWeight: 'bold',
+      letterSpacing: '0.18em',
       textAlign: 'center'
     });
 
-    var copyStatus = document.createElement('div');
-    copyStatus.id = 'ee-fp-copy-status';
-    Object.assign(copyStatus.style, { fontSize: '12px', textAlign: 'center', marginTop: '4px', opacity: '0.9' });
-
     var copyBtn = document.createElement('button');
+    copyBtn.id = 'ee-fp-copy';
     copyBtn.type = 'button';
-    copyBtn.id = 'ee-fp-copy-btn';
     copyBtn.textContent = 'Copy code';
     Object.assign(copyBtn.style, {
       display: 'none',
       fontSize: '12px',
-      padding: '6px 10px',
+      padding: '5px 10px',
       borderRadius: '6px',
       border: '1px solid #888',
       background: '#222',
@@ -164,124 +196,115 @@ try { console.log('%c[EE-Magnific-OTP] Script loaded on ' + location.href, 'colo
     });
 
     var retryBtn = document.createElement('button');
+    retryBtn.id = 'ee-fp-retry';
     retryBtn.type = 'button';
-    retryBtn.id = 'ee-fp-retry-btn';
     retryBtn.textContent = 'Retry';
     Object.assign(retryBtn.style, {
       display: 'none',
-      fontSize: '12px',
-      padding: '6px 10px',
+      fontSize: '11px',
+      padding: '4px 8px',
       borderRadius: '6px',
       border: '1px solid #888',
       background: '#222',
       color: '#fff',
       cursor: 'pointer'
     });
+    retryBtn.addEventListener('click', function () {
+      lastCode = null;
+      var res = document.getElementById('ee-fp-result');
+      var lab = document.getElementById('ee-fp-label');
+      var spin = document.getElementById('ee-fp-spinner');
+      if (res) res.textContent = '';
+      if (lab) lab.textContent = 'Looking for your code…';
+      if (spin) spin.style.display = 'block';
+      retryBtn.style.display = 'none';
+      startPolling();
+    });
 
-    codeContainer.appendChild(codeText);
-    codeContainer.appendChild(copyStatus);
-    ov.appendChild(spinner);
-    ov.appendChild(searching);
-    ov.appendChild(codeContainer);
-    ov.appendChild(copyBtn);
-    ov.appendChild(retryBtn);
-    document.documentElement.appendChild(ov);
-    log('Overlay injected into page');
-    addDiag('Overlay created. Polling will start...', 'step');
+    var help = document.createElement('a');
+    help.id = 'ee-fp-help';
+    help.textContent = "If the code doesn't show, click here";
+    help.href = KATABUMP_OTP_URL;
+    help.target = '_blank';
+    Object.assign(help.style, {
+      display: 'block',
+      fontSize: '10px',
+      color: '#888',
+      textDecoration: 'underline',
+      cursor: 'pointer',
+      textAlign: 'center',
+      marginTop: '6px',
+      wordBreak: 'break-word',
+      opacity: '0.8'
+    });
+    help.addEventListener('click', function (e) {
+      try { e.preventDefault(); e.stopPropagation(); } catch (_) {}
+      var opened = false;
+      try {
+        var w = window.open(KATABUMP_OTP_URL, '_blank', 'noopener,noreferrer');
+        opened = !!w;
+      } catch (_) {}
+      if (!opened) {
+        try { chrome.runtime.sendMessage({ type: 'OPEN_TAB', url: KATABUMP_OTP_URL }, function () {}); } catch (_) {}
+      }
+    }, true);
 
-    if (retryBtn) {
-      retryBtn.addEventListener('click', function () {
-        retryBtn.style.display = 'none';
-        if (spinner) spinner.style.display = '';
-        if (searching) searching.style.display = '';
-        if (label) { label.textContent = 'Retrying\u2026'; }
-        codeFound = false;
-        pollCount = 0;
-        addDiag('Manual retry triggered', 'step');
-        startPolling();
-      });
-    }
-
-    if (copyBtn) {
-      copyBtn.addEventListener('click', function () {
-        var code = lastCode;
-        if (!code) return;
-        try {
-          navigator.clipboard.writeText(code).then(function () {
-            if (copyStatus) {
-              copyStatus.textContent = 'Copied!';
-              copyStatus.style.color = '#86efac';
-            }
-            setTimeout(function () {
-              if (copyStatus) {
-                copyStatus.textContent = 'Paste this code in the input field';
-                copyStatus.style.color = '';
-              }
-            }, 2000);
-          }).catch(function () { fallbackCopy(code); });
-        } catch (_) {
-          fallbackCopy(code);
-        }
-      });
-    }
-  }
-
-  function fallbackCopy(text) {
-    try {
-      var ta = document.createElement('textarea');
-      ta.value = text;
-      ta.style.cssText = 'position:fixed;left:-9999px;top:-9999px;opacity:0;';
-      document.body.appendChild(ta);
-      ta.select();
-      document.execCommand('copy');
-      ta.remove();
-      var st = document.getElementById('ee-fp-copy-status');
-      if (st) { st.textContent = 'Copied!'; st.style.color = '#86efac'; }
-      setTimeout(function () { if (st) { st.textContent = 'Paste this code in the input field'; st.style.color = ''; } }, 2000);
-    } catch (_) {}
-  }
-
-  function showCode(code) {
-    var container = document.getElementById('ee-fp-code-container');
-    var searching = document.getElementById('ee-fp-searching');
-    var spinner = document.getElementById('ee-fp-spinner');
-    var codeEl = document.getElementById('ee-fp-code-text');
-    var statusEl = document.getElementById('ee-fp-copy-status');
-    var copyBtn = document.getElementById('ee-fp-copy-btn');
-    var retryBtn = document.getElementById('ee-fp-retry-btn');
-    var label = document.getElementById('ee-fp-label');
-
-    if (container) container.style.display = '';
-    if (searching) searching.style.display = 'none';
-    if (spinner) spinner.style.display = 'none';
-    if (codeEl) codeEl.textContent = code;
-    if (copyBtn) copyBtn.style.display = 'inline-block';
-    if (retryBtn) retryBtn.style.display = 'none';
-    if (label) label.textContent = 'code received';
-    if (statusEl) { statusEl.textContent = 'Paste this code in the input field'; statusEl.style.color = ''; }
+    overlay.appendChild(style);
+    overlay.appendChild(spinner);
+    overlay.appendChild(label);
+    overlay.appendChild(result);
+    overlay.appendChild(copyBtn);
+    overlay.appendChild(retryBtn);
+    overlay.appendChild(help);
+    document.documentElement.appendChild(overlay);
   }
 
   function setLabelCountdown() {
+    var el = document.getElementById('ee-fp-label');
+    if (!el || lastCode) return;
+    var remaining = Math.max(0, MAX_MS - (Date.now() - startedAt));
+    var sec = Math.ceil(remaining / 1000);
+    el.textContent = 'Looking for your code… (' + sec + 's)';
+  }
+
+  function setCode(code) {
+    var result = document.getElementById('ee-fp-result');
+    var copyBtn = document.getElementById('ee-fp-copy');
+    var spinner = document.getElementById('ee-fp-spinner');
     var label = document.getElementById('ee-fp-label');
-    if (!label) return;
-    var elapsed = Date.now() - startedAt;
-    var remaining = Math.max(0, Math.ceil((MAX_MS - elapsed) / 1000));
-    label.textContent = 'Searching for OTP code\u2026 (' + remaining + 's) — poll #' + pollCount;
+    var retryBtn = document.getElementById('ee-fp-retry');
+    if (!result || !copyBtn || !spinner || !label) return;
+
+    spinner.style.display = 'none';
+    label.textContent = 'Code received:';
+    result.textContent = code;
+    copyBtn.style.display = 'inline-block';
+    if (retryBtn) retryBtn.style.display = 'none';
+
+    copyBtn.onclick = function () {
+      try {
+        navigator.clipboard.writeText(code).then(function () {
+          copyBtn.textContent = 'Copied';
+          setTimeout(function () { copyBtn.textContent = 'Copy code'; }, 1200);
+        }).catch(function () {});
+      } catch (_) {}
+    };
+
+    setTimeout(function () {
+      try {
+        var ok = fillOtpIntoInputs(code);
+        log('Auto-fill:', ok ? 'ok' : 'no input found');
+      } catch (_) {}
+    }, 100);
   }
 
   function requestOnce() {
-    if (inFlight) {
-      addDiag('Skipped: previous request still in-flight', 'warn');
-      return;
-    }
+    if (inFlight) return;
     inFlight = true;
-    pollCount++;
-    addDiag('Poll #' + pollCount + ': requesting OTP from server\u2026', 'step');
-
     try {
       if (!chrome || !chrome.runtime || !chrome.runtime.sendMessage) {
         inFlight = false;
-        addDiag('CRITICAL: chrome.runtime.sendMessage not available! Extension context lost.', 'error');
+        log('chrome.runtime unavailable');
         return;
       }
 
@@ -289,57 +312,32 @@ try { console.log('%c[EE-Magnific-OTP] Script loaded on ' + location.href, 'colo
         inFlight = false;
 
         if (chrome.runtime.lastError) {
-          var errMsg = chrome.runtime.lastError.message || String(chrome.runtime.lastError);
-          addDiag('chrome.runtime.lastError: ' + errMsg, 'error');
-          log('runtime.lastError:', errMsg);
+          log('runtime.lastError:', chrome.runtime.lastError.message || chrome.runtime.lastError);
           return;
         }
 
         if (!resp) {
-          addDiag('Background returned null/undefined response', 'error');
+          log('Empty background response');
           return;
         }
 
-        log('Background response:', JSON.stringify(resp));
-
-        // Show diagnostic steps from background
-        if (resp.diagSteps && resp.diagSteps.length) {
-          for (var i = 0; i < resp.diagSteps.length; i++) {
-            var step = resp.diagSteps[i];
-            var detail = 'Server #' + step.attempt + ' → ';
-            if (step.status != null) detail += 'HTTP ' + step.status;
-            else detail += '(no response)';
-            if (step.codeFound) detail += ' → CODE: ' + step.codeFound;
-            if (step.error) detail += ' → ERR: ' + step.error;
-            if (step.bodyPreview) detail += ' | body: ' + step.bodyPreview.slice(0, 120);
-            addDiag(detail, step.codeFound ? 'success' : (step.error ? 'error' : 'info'));
-          }
-        }
+        log('Response:', JSON.stringify({ ok: resp.ok, code: resp.code, error: resp.error, sourceUrl: resp.sourceUrl }));
 
         if (resp.ok && resp.code) {
           var code = String(resp.code || '').trim();
-          if (code && code.length >= 4) {
-            if (!lastCode || lastCode !== code) {
-              lastCode = code;
-              codeFound = true;
-              addDiag('OTP CODE FOUND: ' + code + (resp.sourceUrl ? ' (from ' + resp.sourceUrl.split('?')[0] + ')' : ''), 'success');
-              showCode(code);
-              stopPolling();
-            }
-          } else {
-            addDiag('Code too short or empty: "' + code + '"', 'warn');
+          if (!isValidOtpCode(code)) {
+            log('Rejected invalid OTP:', code);
+            return;
           }
-        } else {
-          var reason = resp.error || 'no code in response';
-          addDiag('No code yet: ' + reason, 'warn');
-          if (resp.tried && resp.tried.length) {
-            addDiag('URLs tried: ' + resp.tried.map(function(u) { return u.split('?')[0]; }).join(', '), 'info');
+          if (!lastCode || lastCode !== code) {
+            lastCode = code;
+            setCode(code);
+            stopPolling();
           }
         }
       });
     } catch (e) {
       inFlight = false;
-      addDiag('sendMessage exception: ' + (e && e.message ? e.message : String(e)), 'error');
       log('sendMessage error:', e && e.message ? e.message : e);
     }
   }
@@ -348,25 +346,21 @@ try { console.log('%c[EE-Magnific-OTP] Script loaded on ' + location.href, 'colo
     if (pollTimer) {
       clearInterval(pollTimer);
       pollTimer = null;
-      addDiag('Polling stopped', 'step');
     }
   }
 
   function startPolling() {
-    addDiag('startPolling() — interval=' + POLL_MS + 'ms, max=' + (MAX_MS / 1000) + 's', 'step');
-    buildOverlay();
+    ensureOverlay();
     stopPolling();
     startedAt = Date.now();
     setLabelCountdown();
     requestOnce();
     pollTimer = setInterval(function () {
       if (!onTarget()) {
-        addDiag('No longer on /verify-account, stopping.', 'warn');
         stopPolling();
         return;
       }
-      if (codeFound) {
-        addDiag('Code already found, stopping poll.', 'success');
+      if (lastCode) {
         stopPolling();
         return;
       }
@@ -374,13 +368,12 @@ try { console.log('%c[EE-Magnific-OTP] Script loaded on ' + location.href, 'colo
       if (elapsed > MAX_MS) {
         stopPolling();
         var label = document.getElementById('ee-fp-label');
-        var retryBtn = document.getElementById('ee-fp-retry-btn');
+        var retryBtn = document.getElementById('ee-fp-retry');
         var spinner = document.getElementById('ee-fp-spinner');
         if (!lastCode) {
           if (spinner) spinner.style.display = 'none';
-          if (label) label.textContent = 'No code found after ' + (MAX_MS / 1000) + 's. Click Retry.';
-          if (retryBtn) retryBtn.style.display = 'block';
-          addDiag('Timeout reached (' + (MAX_MS / 1000) + 's). No OTP found.', 'error');
+          if (label) label.textContent = 'No code yet. Click Retry or open the OTP page.';
+          if (retryBtn) retryBtn.style.display = 'inline-block';
         }
         return;
       }
@@ -394,30 +387,24 @@ try { console.log('%c[EE-Magnific-OTP] Script loaded on ' + location.href, 'colo
     var key = currentPathKey();
     if (runStartedForPath === key) return;
     runStartedForPath = key;
-    addDiag('Page: ' + location.href, 'step');
-    addDiag('Extension ID: ' + (chrome && chrome.runtime && chrome.runtime.id ? chrome.runtime.id : 'UNKNOWN'), 'info');
-    addDiag('Starting OTP polling now\u2026', 'step');
-    setTimeout(startPolling, 0);
+    log('Start polling on', location.href, '→', KATABUMP_OTP_URL);
+    startPolling();
   }
 
   function startWatcher() {
     if (watcherStarted) return;
     watcherStarted = true;
-    watcherTimer = setInterval(function () {
-      try {
-        if (onTarget()) run();
-      } catch (_) {}
+    setInterval(function () {
+      try { if (onTarget()) run(); } catch (_) {}
     }, 500);
   }
 
   if (document.readyState === 'loading') {
-    log('readyState=loading, waiting for DOMContentLoaded');
     document.addEventListener('DOMContentLoaded', function () {
       startWatcher();
       run();
     }, { once: true });
   } else {
-    log('readyState=' + document.readyState + ', running immediately');
     startWatcher();
     run();
   }

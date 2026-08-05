@@ -89,13 +89,27 @@ function extractOtpFromRaw(raw, { preferLength } = {}) {
     text.match(/dynamic\s+(?:login\s+)?password\s+is\s+(\d{4,8})\b/i);
   if (adsLogin && adsLogin[1]) return adsLogin[1];
 
+  // Freepik / Magnific explicit phrases (prefer before generic digit grabs).
+  const freepikCtx =
+    text.match(/one[-\s]?time\s+(?:verification|login)\s+code[\s\S]{0,80}?(\d{4,8})\b/i) ||
+    text.match(/(?:your\s+)?(?:verification|security|login)\s+code(?:\s+is)?[\s:]*(\d{4,8})\b/i) ||
+    text.match(/(?:code|otp)[\s:]*<\/?(?:b|strong|span|td|p|div)[^>]*>[\s:]*(\d{4,8})\b/i) ||
+    text.match(/font-size\s*:\s*(?:2|3)\d(?:px)?[^>]*>[\s\n]*(\d{4,8})\b/i) ||
+    text.match(/letter-spacing[^>]*>[\s\n]*(\d{4,8})\b/i) ||
+    text.match(/\b(\d{4,8})\b[\s\S]{0,40}(?:is\s+your\s+(?:verification|security|login)\s+code)/i);
+  if (freepikCtx && freepikCtx[1]) return freepikCtx[1];
+
   const prefer = preferLength || 6;
 
   // 1) Prefer exact length first
   if (prefer && Number(prefer) > 0) {
     const re = new RegExp(`\\b(\\d{${prefer}})\\b`);
     const m = text.match(re);
-    if (m && m[1]) return m[1];
+    if (m && m[1]) {
+      const n = Number(m[1]);
+      // Avoid grabbing years from HTML metadata
+      if (!(m[1].length === 4 && n >= 1990 && n <= 2099)) return m[1];
+    }
   }
 
   // 2) Common patterns near "code"
@@ -145,6 +159,8 @@ function scoreEmailForService({ raw, from, subject, to, toAll }, service) {
     if (/info@magnific\.com/i.test(fromL)) score += 10;
     if (/noreply@magnific\.com/i.test(fromL)) score += 7;
     if (/noreply@freepik\.com/i.test(fromL)) score += 6;
+    if (/no-?reply@/i.test(fromL) && /(freepik|magnific)/i.test(fromL + ' ' + subjectL)) score += 8;
+    if (/accounts?@|security@|auth@/i.test(fromL) && /(freepik|magnific)/i.test(fromL + ' ' + subjectL + ' ' + text)) score += 6;
     if (/freepik/i.test(subjectL)) score += 6;
     if (/magnific/i.test(subjectL)) score += 8;
     if (/verif|code|confirm|one[-\s]?time/i.test(subjectL)) score += 3;
@@ -224,11 +240,54 @@ function getSupportImapCredentials() {
 }
 
 async function scanHiggsfieldSupportOtp(client, box) {
-  return scanOtpFromMailbox(client, box, 'higgsfield', {
-    recipientIncludes: 'support@ecomefficiency.com',
-    maxAgeMs: 20 * 60 * 1000,
+  // Already connected to support@ INBOX — do not require To: header to repeat the address
+  // (some providers omit or alias it; messages in this mailbox are for support@).
+  const recent = await scanOtpFromMailbox(client, box, 'higgsfield', {
+    maxAgeMs: 60 * 60 * 1000,
     returnNewest: true,
   });
+  if (recent && recent.code) return recent;
+  return scanOtpFromMailbox(client, box, 'higgsfield', {
+    returnNewest: true,
+  });
+}
+
+/** Log recent Higgsfield-like subjects when OTP scan returns empty (debug). */
+async function logHiggsfieldMailboxHints(client, mailbox, logPrefix) {
+  const lock = await client.getMailboxLock(mailbox);
+  try {
+    const all = await client.search({}, { uid: true });
+    const seq = all.slice(-20).reverse();
+    const hints = [];
+    for (const uid of seq) {
+      try {
+        // eslint-disable-next-line no-await-in-loop
+        const msg = await client.fetchOne(uid, { envelope: true }, { uid: true });
+        const env = msg && msg.envelope ? msg.envelope : null;
+        const fromAddress = pickFirstAddress(env && env.from);
+        const toAddress = pickFirstAddress(env && env.to);
+        const toAllRecipients = envelopeRecipientsAllText(env);
+        const subject = envelopeSubject(env);
+        const meta = `${fromAddress} ${subject} ${toAddress} ${toAllRecipients}`.toLowerCase();
+        if (!/higgsfield|verification|verify|otp|one[-\s]?time/i.test(meta)) continue;
+        hints.push({
+          uid,
+          from: fromAddress,
+          to: toAddress || toAllRecipients.slice(0, 80),
+          subject,
+          date: env && env.date ? String(env.date) : '',
+        });
+        if (hints.length >= 5) break;
+      } catch (_) {
+        continue;
+      }
+    }
+    console.log(`[${logPrefix}] Higgsfield-like messages in ${mailbox} (last 20 scanned):`, hints.length ? hints : '(none)');
+  } catch (e) {
+    console.warn(`[${logPrefix}] Could not list mailbox hints for ${mailbox}:`, e && e.message ? e.message : e);
+  } finally {
+    lock.release();
+  }
 }
 
 async function scanOtpFromMailbox(client, mailbox, service, opts = {}) {
@@ -236,6 +295,7 @@ async function scanOtpFromMailbox(client, mailbox, service, opts = {}) {
   const maxAgeMs = hasAgeFilter ? opts.maxAgeMs : 0;
   const recipientIncludes = safeStr(opts.recipientIncludes).toLowerCase().trim();
   const returnNewest = !!opts.returnNewest;
+  const requireDate = !!opts.requireDate;
   const lock = await client.getMailboxLock(mailbox);
   try {
     let seq;
@@ -257,7 +317,13 @@ async function scanOtpFromMailbox(client, mailbox, service, opts = {}) {
         const msg = await client.fetchOne(uid, { envelope: true }, { uid: true });
         const env = msg && msg.envelope ? msg.envelope : null;
         const dt = env && env.date ? new Date(env.date).getTime() : 0;
-        if (hasAgeFilter && dt && (NOW - dt) > maxAgeMs) continue;
+        if (hasAgeFilter) {
+          if (!dt) {
+            if (requireDate) continue;
+          } else if ((NOW - dt) > maxAgeMs) {
+            continue;
+          }
+        }
 
         const fromAddress = pickFirstAddress(env && env.from);
         const toAddress = pickFirstAddress(env && env.to);
@@ -272,7 +338,7 @@ async function scanOtpFromMailbox(client, mailbox, service, opts = {}) {
         // Avoid downloading full MIME bodies for clearly unrelated messages.
         if (service === 'freepik') {
           const meta = `${safeStr(fromAddress)} ${safeStr(subject)}`.toLowerCase();
-          const likelyFreepikOtp = /(freepik|magnific|verif|otp|one[-\s]?time|security\s+code|confirm)/i.test(meta);
+          const likelyFreepikOtp = /(freepik|magnific|verif|otp|one[-\s]?time|security\s+code|confirm|login\s+code|account)/i.test(meta);
           if (!likelyFreepikOtp) continue;
         }
 
@@ -296,6 +362,14 @@ async function scanOtpFromMailbox(client, mailbox, service, opts = {}) {
           const sub = subject.trim();
           const m = sub.match(/(\d{6})\s+is\s+your\s+verification\s+code/i) ||
             (/\bverification\s*code\b/i.test(sub) && sub.match(/\b(\d{6})\b/));
+          if (m && m[1]) code = m[1];
+        }
+        if (service === 'freepik' && !code) {
+          const sub = subject.trim();
+          const m =
+            sub.match(/(\d{4,8})\s+is\s+your\s+(?:verification|security|login)\s+code/i) ||
+            sub.match(/(?:verification|security|login)\s+code[\s:]+(\d{4,8})\b/i) ||
+            (/\b(?:verification|security|login)\s*code\b/i.test(sub) && sub.match(/\b(\d{4,8})\b/));
           if (m && m[1]) code = m[1];
         }
         if (!code) code = extractOtpFromRaw(raw, { preferLength: 6 }) || '';
@@ -670,6 +744,9 @@ app.get('/otp-higgsfield-support', async (req, res) => {
           continue;
         }
       }
+      if (!code) {
+        try { await logHiggsfieldMailboxHints(client, 'INBOX', 'imap-higgsfield-support'); } catch (_) {}
+      }
       if (code) break;
     } catch (e) {
       lastError = e;
@@ -692,6 +769,7 @@ app.get('/otp-higgsfield-support', async (req, res) => {
   } else {
     console.log('[imap-higgsfield-support] No matching OTP email found (code empty)');
     if (lastError) console.error('[imap-higgsfield-support] Last error:', lastError.message || lastError);
+    console.log('[imap-higgsfield-support] Hint: Higgsfield 2 auto-login uses admin@ecomefficiency.com — OTP is in /otp-higgsfield (admin inbox), not support@ unless login email is support@');
   }
   console.log('[imap-higgsfield-support] Sending response:', { code });
   if (code) return res.json({ code });
@@ -885,20 +963,31 @@ async function handleOtpVmake(accountId, req, res) {
                     .replace(/\s+/g, ' ')
                     .trim();
                   const normalizeDigits = (value) => String(value || '').replace(/[^\d]/g, '');
+                  // Vmake login codes are now 6 boxed digits (was 4). Prefer 6 when available.
+                  const joinBoxedDigits = (digits) => {
+                    if (!digits || !digits.length) return '';
+                    if (digits.length >= 6) return digits.slice(0, 6).join('');
+                    if (digits.length >= 4) return digits.slice(0, 4).join('');
+                    return '';
+                  };
 
-                  // A0. Template Vmake actuel (2026): 4 <td> avec style contenant #0F23370D (boîtes 83×44px, login code).
-                  // Lookahead: la balise peut avoir align= avant style= ; [^>]*style= seul est fragile.
+                  // A0. Template Vmake actuel: 6 <span>/<td> avec #0F23370D (boîtes 83×44px, login code).
+                  // Lookahead: la balise peut avoir align=/display= avant style= ; [^>]*style= seul est fragile.
                   const tdByVmakeBg = Array.from(
                     compact.matchAll(
-                      /<td(?=[^>]*\bstyle="[^"]*#0f23370d[^"]*")[^>]*>[\s\r\n]*(\d)[\s\r\n]*<\/td>/gi
+                      /<(?:td|span|div)(?=[^>]*\bstyle="[^"]*#0f23370d[^"]*")[^>]*>[\s\r\n]*(\d)[\s\r\n]*<\/(?:td|span|div)>/gi
                     )
                   ).map((mm) => (mm && mm[1] ? String(mm[1]) : '')).filter(Boolean);
-                  if (tdByVmakeBg.length >= 4) return tdByVmakeBg.slice(0, 4).join('');
+                  {
+                    const joined = joinBoxedDigits(tdByVmakeBg);
+                    if (joined) return joined;
+                  }
 
                   // A. New Vmake template: digits rendered in separate boxes
                   const scopedHtml =
                     (compact.match(/We received a request to log in to Vmake[\s\S]{0,12000}/i) || [])[0] ||
                     (compact.match(/log in to Vmake[\s\S]{0,12000}/i) || [])[0] ||
+                    (compact.match(/following login code[\s\S]{0,12000}/i) || [])[0] ||
                     (compact.match(/verification code[\s\S]{0,12000}/i) || [])[0] ||
                     compact;
 
@@ -907,73 +996,74 @@ async function handleOtpVmake(accountId, req, res) {
                       /<(?:td|div|span)\b[^>]*style="[^"]*background(?:-color)?\s*:\s*#0f23370d[^"]*"[^>]*>\s*(\d)\s*<\/(?:td|div|span)>/gi
                     )
                   ).map((mm) => mm && mm[1] ? String(mm[1]) : '').filter(Boolean);
-                  if (tdDigitsStrong.length >= 4) return tdDigitsStrong.slice(0, 4).join('');
+                  {
+                    const joined = joinBoxedDigits(tdDigitsStrong);
+                    if (joined) return joined;
+                  }
 
                   const tdDigitsWindow = Array.from(
                     scopedHtml.matchAll(/<(?:td|div|span)\b[^>]*>\s*(\d)\s*<\/(?:td|div|span)>/gi)
                   ).map((mm) => mm && mm[1] ? String(mm[1]) : '').filter(Boolean);
-                  if (tdDigitsWindow.length >= 4) return tdDigitsWindow.slice(0, 4).join('');
+                  {
+                    const joined = joinBoxedDigits(tdDigitsWindow);
+                    if (joined) return joined;
+                  }
 
                   const tdDigitsNested = Array.from(
                     scopedHtml.matchAll(
                       /<(?:td|div|span)\b[^>]*>(?:\s|&nbsp;|<[^>]+>)*(\d)(?:\s|&nbsp;|<[^>]+>)*<\/(?:td|div|span)>/gi
                     )
                   ).map((mm) => mm && mm[1] ? String(mm[1]) : '').filter(Boolean);
-                  if (tdDigitsNested.length >= 4) return tdDigitsNested.slice(0, 4).join('');
+                  {
+                    const joined = joinBoxedDigits(tdDigitsNested);
+                    if (joined) return joined;
+                  }
 
                   // B. Common textual variants
                   const exactPatterns = [
-                    /your\s+verification\s+code\s+is[\s:.-]*([0-9]{4,8})/i,
-                    /verification\s+code[\s:.-]*([0-9]{4,8})/i,
-                    /login\s+code[\s:.-]*([0-9]{4,8})/i,
-                    /code\s+below[\s:.-]*([0-9]{4,8})/i,
-                    /enter\s+the\s+following\s+code[\s:.-]*([0-9]{4,8})/i,
-                    /one[-\s]?time\s+(?:passcode|password|code)[\s:.-]*([0-9]{4,8})/i,
-                    /otp[\s:.-]*([0-9]{4,8})/i
+                    /your\s+verification\s+code\s+is[\s:.-]*([0-9]{6})/i,
+                    /verification\s+code[\s:.-]*([0-9]{6})/i,
+                    /login\s+code[\s:.-]*([0-9]{6})/i,
+                    /code\s+below[\s:.-]*([0-9]{6})/i,
+                    /enter\s+the\s+following\s+(?:login\s+)?code[\s:.-]*([0-9]{6})/i,
+                    /one[-\s]?time\s+(?:passcode|password|code)[\s:.-]*([0-9]{6})/i,
+                    /otp[\s:.-]*([0-9]{6})/i
                   ];
                   for (const re of exactPatterns) {
                     const m = textOnly.match(re) || compact.match(re);
                     if (m && m[1]) return m[1];
                   }
 
-                  // C. Code digits separated by spaces in text version: "7 3 3 9"
+                  // C. Code digits separated by spaces in text version: "3 7 1 7 2 1"
                   const splitDigits =
-                    textOnly.match(/(?:verification|login)\s+code[\s\S]{0,120}?((?:\d[\s-]*){4,8})/i) ||
-                    textOnly.match(/(?:use|enter)[\s\S]{0,120}?((?:\d[\s-]*){4,8})[\s\S]{0,120}?(?:code|otp)/i);
+                    textOnly.match(/(?:verification|login)\s+code[\s\S]{0,160}?((?:\d[\s-]*){6})/i) ||
+                    textOnly.match(/(?:use|enter)[\s\S]{0,160}?((?:\d[\s-]*){6})[\s\S]{0,120}?(?:code|otp)/i);
                   if (splitDigits && splitDigits[1]) {
                     const normalized = normalizeDigits(splitDigits[1]);
-                    if (/^\d{4,8}$/.test(normalized)) return normalized;
+                    if (/^\d{6}$/.test(normalized)) return normalized;
                   }
 
                   // D. Old fallback patterns
-                  let m = compact.match(/<div[^>]*style="[^"]*font-size:\s*40px[^"]*"[^>]*>[\s\r\n]*(\d{4,8})[\s\r\n]*<\/div>/i);
+                  let m = compact.match(/<div[^>]*style="[^"]*font-size:\s*40px[^"]*"[^>]*>[\s\r\n]*(\d{6})[\s\r\n]*<\/div>/i);
                   if (!m) {
-                    m = compact.match(/font-size:\s*40px[^>]*>[\s\r\n]*(\d{4,8})[\s\r\n]*<\/div>/i);
+                    m = compact.match(/font-size:\s*40px[^>]*>[\s\r\n]*(\d{6})[\s\r\n]*<\/div>/i);
                   }
                   if (m && m[1]) return m[1];
 
-                  // E. Last resort: any 4-8 digits near "Vmake" / "verification"
+                  // E. Last resort: any 6 digits near "Vmake" / "verification" / "login code"
                   const contextual =
-                    textOnly.match(/vmake[\s\S]{0,180}?(\d{4,8})/i) ||
-                    textOnly.match(/verification[\s\S]{0,180}?(\d{4,8})/i);
-                  if (contextual && contextual[1]) {
-                    const candidate = contextual[1];
-                    const n = parseInt(candidate, 10);
-                    if (!(candidate.length === 4 && n >= 2020 && n <= 2030)) return candidate;
-                  }
+                    textOnly.match(/vmake[\s\S]{0,180}?(\d{6})/i) ||
+                    textOnly.match(/login\s+code[\s\S]{0,180}?(\d{6})/i) ||
+                    textOnly.match(/verification[\s\S]{0,180}?(\d{6})/i);
+                  if (contextual && contextual[1]) return contextual[1];
 
-                  // F. Last fallback on a fresh Vmake email: take the first reasonable 4-8 digit candidate in text.
+                  // F. Last fallback on a fresh Vmake email: prefer a 6-digit candidate in text.
                   const fallbackCandidates = Array.from(
                     new Set(
-                      (textOnly.match(/\b\d{4,8}\b/g) || [])
-                        .concat(compact.match(/\b\d{4,8}\b/g) || [])
+                      (textOnly.match(/\b\d{6}\b/g) || [])
+                        .concat(compact.match(/\b\d{6}\b/g) || [])
                         .map(normalizeDigits)
-                        .filter((candidate) => {
-                          if (!/^\d{4,8}$/.test(candidate)) return false;
-                          const n = parseInt(candidate, 10);
-                          if (candidate.length === 4 && n >= 2020 && n <= 2030) return false;
-                          return true;
-                        })
+                        .filter((candidate) => /^\d{6}$/.test(candidate))
                     )
                   );
                   if (fallbackCandidates.length) return fallbackCandidates[0];
@@ -982,7 +1072,7 @@ async function handleOtpVmake(accountId, req, res) {
               };
 
               const extracted = extractVmakeCode(raw);
-              if (extracted && /^\d{4}$/.test(extracted)) {
+              if (extracted && /^\d{6}$/.test(extracted)) {
                 code = extracted;
                 matchedEmailTs = message && message.envelope && message.envelope.date
                   ? new Date(message.envelope.date).getTime()
@@ -1070,12 +1160,12 @@ app.get('/otp-freepik', async (req, res) => {
     }
   }
 
-  const imapHost = process.env.IMAP_FREEPIK_HOST || 'imap.gmail.com';
-  const imapPort = Number(process.env.IMAP_FREEPIK_PORT || 993);
-  const imapTLS  = String(process.env.IMAP_FREEPIK_TLS || 'true') === 'true';
+  const imapHost = process.env.IMAP_FREEPIK_HOST || process.env.IMAP_HOST || 'imap0001.neo.space';
+  const imapPort = Number(process.env.IMAP_FREEPIK_PORT || process.env.IMAP_PORT || 993);
+  const imapTLS  = String(process.env.IMAP_FREEPIK_TLS || process.env.IMAP_TLS || 'true') === 'true';
   const imapMethod = (process.env.IMAP_FREEPIK_METHOD || process.env.IMAP_METHOD || 'LOGIN').toUpperCase();
-  const imapUser = process.env.IMAP_FREEPIK_USER;
-  const imapPass = process.env.IMAP_FREEPIK_PASS;
+  const imapUser = process.env.IMAP_FREEPIK_USER || 'johny@deepfoot.io';
+  const imapPass = process.env.IMAP_FREEPIK_PASS || 'Zjhfc82005??';
 
   console.log('[imap-freepik] Config:', {
     host: imapHost,
@@ -1087,7 +1177,7 @@ app.get('/otp-freepik', async (req, res) => {
 
   if (!imapHost || !imapUser || !imapPass) {
     console.error('[imap-freepik] Missing env vars', { host: !!imapHost, user: !!imapUser, pass: !!imapPass });
-    return res.status(500).json({ error: 'Missing IMAP_FREEPIK_* env vars (set IMAP_FREEPIK_USER and IMAP_FREEPIK_PASS for Gmail app password)' });
+    return res.status(500).json({ error: 'Missing IMAP Freepik credentials (IMAP_FREEPIK_USER / IMAP_FREEPIK_PASS or defaults)' });
   }
 
   const workPromise = (async () => {
@@ -1104,7 +1194,9 @@ app.get('/otp-freepik', async (req, res) => {
     let picked = null;
 
     try {
+      console.log('[imap-freepik] Connecting to IMAP…');
       await client.connect();
+      console.log('[imap-freepik] Connected. Scanning mailboxes…');
       const mailboxesToTry = [
         'INBOX',
         '[Gmail]/All Mail',
@@ -1115,15 +1207,24 @@ app.get('/otp-freepik', async (req, res) => {
         'Junk',
         'Spam'
       ];
+      // Only accept Freepik/Magnific OTP emails younger than 1 minute.
+      // Never fall back to older emails — that would show a stale code.
+      const FREEPIK_MAX_AGE_MS = 60 * 1000;
       for (const box of mailboxesToTry) {
         try {
-          const best = await scanOtpFromMailbox(client, box, 'freepik');
+          console.log('[imap-freepik] Scanning mailbox (<1min):', box);
+          const best = await scanOtpFromMailbox(client, box, 'freepik', {
+            maxAgeMs: FREEPIK_MAX_AGE_MS,
+            returnNewest: true,
+            requireDate: true,
+          });
           if (best && best.code) {
             picked = { ...best, mailbox: box };
             code = best.code;
             break;
           }
-        } catch (_) {
+        } catch (e) {
+          console.warn('[imap-freepik] Recent scan failed for', box, e && e.message ? e.message : e);
           continue;
         }
       }
@@ -1132,20 +1233,27 @@ app.get('/otp-freepik', async (req, res) => {
     }
 
     if (picked) {
+      const ageSec = picked.date ? Math.round((Date.now() - new Date(picked.date).getTime()) / 1000) : null;
       console.log('[imap-freepik] Picked email:', {
         mailbox: picked.mailbox,
         uid: picked.uid,
         from: picked.from,
         subject: picked.subject,
         date: picked.date,
+        ageSec,
         score: picked.score,
         code
       });
     } else {
-      console.log('[imap-freepik] No matching OTP email found (code empty)');
+      console.log('[imap-freepik] No matching OTP email found in last 60s (code empty)');
     }
 
-    return { code: code || '' };
+    // Never return placeholder / junk codes
+    const clean = String(code || '').trim();
+    if (!/^\d{4,8}$/.test(clean) || /^0+$/.test(clean) || /^(\d)\1+$/.test(clean)) {
+      return { code: '' };
+    }
+    return { code: clean };
   })();
 
   freepikInflight.set('freepik', { ts: now, promise: workPromise });
@@ -1329,45 +1437,106 @@ app.get('/flair-link', async (req, res) => handleFlairMagicLink(req, res));
 // =======================
 // Claude magic-link (email sign-in)
 // =======================
+function normalizeClaudeEmailHtml(raw) {
+  return decodeHtmlEntitiesMinimal(String(raw || ''))
+    .replace(/<wbr\b[^>]*>/gi, '')
+    .replace(/<\/wbr>/gi, '')
+    .replace(/[\u200B-\u200D\uFEFF]/g, '');
+}
+
+function cleanClaudeMagicLinkCandidate(url) {
+  let u = safeStr(url).trim();
+  // Soft-break leftovers or trailing punctuation from HTML/MIME wrapping.
+  u = u.replace(/=\r?\n/g, '').replace(/[=]+$/g, '');
+  u = u.replace(/[),.;]+$/g, '');
+  return u;
+}
+
+function isCompleteClaudeMagicLink(url) {
+  const u = cleanClaudeMagicLinkCandidate(url);
+  if (!/^https:\/\/claude\.ai\/magic-link#/i.test(u)) return false;
+  const hash = u.split('#')[1] || '';
+  // Current Claude emails use: <token>:<base64(email)>
+  // Reject truncated QP leftovers like "...d2=" / short hashes.
+  if (hash.length < 40) return false;
+  if (!/^[A-Za-z0-9+/=:_-]+$/.test(hash)) return false;
+  if (hash.indexOf(':') === -1) return false;
+  return true;
+}
+
 function extractClaudeMagicLinkFromRaw(raw) {
   const original = safeStr(raw);
   if (!original) return '';
 
-  const variants = [original, decodeQuotedPrintable(original)];
-  for (const v of variants) {
-    const s = decodeHtmlEntitiesMinimal(String(v || ''))
-      .replace(/<wbr\b[^>]*>/gi, '')
-      .replace(/<\/wbr>/gi, '')
-      .replace(/[\u200B-\u200D\uFEFF]/g, '');
+  // Decode QP first: Claude wraps long hrefs with soft breaks (...d2=\r\n1be6...),
+  // and matching the raw MIME first used to return a truncated "...d2=" link.
+  const variants = [decodeQuotedPrintable(original), original];
+  const candidates = [];
 
-    // Primary strategy: extract the explicit href from Claude sign-in CTA.
-    const hrefMatch = s.match(
-      /<a\b[^>]*\bhref=["'](https:\/\/claude\.ai\/magic-link#[^"']+)["'][^>]*>\s*Sign in to Claude\.ai\s*<\/a>/i
-    );
-    if (hrefMatch && hrefMatch[1] && isClaudeMagicLink(hrefMatch[1])) {
-      return String(hrefMatch[1]).trim();
+  for (const v of variants) {
+    const s = normalizeClaudeEmailHtml(v);
+
+    // 1) Prefer the Sign-in CTA button href (current copy is just "Sign in").
+    const ctaPatterns = [
+      /<a\b[^>]*\bhref=["'](https:\/\/claude\.ai\/magic-link#[^"']+)["'][^>]*>\s*Sign in(?:\s+to\s+Claude\.ai)?\s*<\/a>/i,
+      /<a\b[^>]*\btitle=["'](https:\/\/claude\.ai\/magic-link#[^"']+)["'][^>]*>\s*Sign in(?:\s+to\s+Claude\.ai)?\s*<\/a>/i,
+      /<a\b[^>]*\bhref=["'](https:\/\/claude\.ai\/magic-link#[^"']+)["'][^>]*\btitle=["']https:\/\/claude\.ai\/magic-link#[^"']+["']/i,
+    ];
+    for (const re of ctaPatterns) {
+      const hrefMatch = s.match(re);
+      if (hrefMatch && hrefMatch[1]) {
+        const cleaned = cleanClaudeMagicLinkCandidate(hrefMatch[1]);
+        if (isCompleteClaudeMagicLink(cleaned)) return cleaned;
+        candidates.push(cleaned);
+      }
     }
 
-    const matches = Array.from(
-      s.matchAll(/https:\/\/claude\.ai\/[^\s"'<>\\]+/gi)
-    ).map((m) => String((m && m[0]) || '').trim()).filter(Boolean);
+    // 2) Any complete magic-link href attribute in the email HTML.
+    const hrefMatches = Array.from(
+      s.matchAll(/\bhref=["'](https:\/\/claude\.ai\/magic-link#[^"']+)["']/gi)
+    );
+    for (const m of hrefMatches) {
+      const cleaned = cleanClaudeMagicLinkCandidate(m[1]);
+      if (isCompleteClaudeMagicLink(cleaned)) return cleaned;
+      candidates.push(cleaned);
+    }
 
-    for (const url of matches) {
+    // 3) Fallback: bare URLs in body (only accept complete hashes).
+    const bareMatches = Array.from(
+      s.matchAll(/https:\/\/claude\.ai\/magic-link#[^\s"'<>\\]+/gi)
+    );
+    for (const m of bareMatches) {
+      const cleaned = cleanClaudeMagicLinkCandidate(m[0]);
+      if (isCompleteClaudeMagicLink(cleaned)) return cleaned;
+      candidates.push(cleaned);
+    }
+
+    // Legacy non-hash auth links (kept as last resort).
+    const legacy = Array.from(
+      s.matchAll(/https:\/\/claude\.ai\/(?:auth\/(?:magic-)?link|auth\/verify)[^\s"'<>\\]*/gi)
+    ).map((m) => cleanClaudeMagicLinkCandidate(m[0]));
+    for (const url of legacy) {
       if (isClaudeMagicLink(url)) return url;
     }
   }
 
+  // Last pass: if we only saw truncated candidates, do not return them.
+  for (const c of candidates) {
+    if (isCompleteClaudeMagicLink(c)) return c;
+  }
   return '';
 }
 
 function isClaudeMagicLink(url) {
-  const u = safeStr(url).trim();
+  const u = cleanClaudeMagicLinkCandidate(url);
   if (!/^https:\/\/claude\.ai\//i.test(u)) return false;
+
+  // Prefer the complete current magic-link format.
+  if (/\/magic-link#/i.test(u)) return isCompleteClaudeMagicLink(u);
 
   // Anthropic has changed sign-in URLs over time. Keep this broad enough to
   // catch current and legacy email login links while avoiding unrelated URLs.
   return (
-    /\/magic-link#/i.test(u) ||
     /\/magic-link\?/i.test(u) ||
     /\/auth\/(magic-)?link/i.test(u) ||
     /\/auth\/verify/i.test(u) ||

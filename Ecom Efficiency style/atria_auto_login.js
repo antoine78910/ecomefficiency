@@ -277,44 +277,118 @@ function showFullScreenOverlay(attempt = 1) {
         clearAtriaOverlays();
     }
 
-    function reactInput(element, value) {
-        try {
-            const proto = Object.getPrototypeOf(element);
-            const desc =
-                Object.getOwnPropertyDescriptor(proto, 'value') ||
-                Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value');
-            if (desc && typeof desc.set === 'function') {
-                desc.set.call(element, value);
-            } else {
-                element.value = value;
-            }
-        } catch (_) {
-            try { element.value = value; } catch (__) {}
+    function delay(ms) {
+        return new Promise((resolve) => setTimeout(resolve, ms));
+    }
+
+    function reactFillInput(input, value) {
+        if (!input) return;
+        try { input.scrollIntoView({ block: 'center', behavior: 'auto' }); } catch (_) {}
+        input.focus();
+        input.dispatchEvent(new MouseEvent('mousedown', { bubbles: true }));
+        input.dispatchEvent(new MouseEvent('mouseup', { bubbles: true }));
+        input.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+
+        try { input.select(); } catch (_) {}
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'a', ctrlKey: true, bubbles: true }));
+        input.dispatchEvent(new KeyboardEvent('keyup', { key: 'a', ctrlKey: true, bubbles: true }));
+
+        const nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
+        if (nativeInputValueSetter && nativeInputValueSetter.set) {
+            nativeInputValueSetter.set.call(input, value);
+        } else {
+            input.value = value;
         }
-        try { element.dispatchEvent(new Event('input', { bubbles: true })); } catch (_) {}
-        try { element.dispatchEvent(new Event('change', { bubbles: true })); } catch (_) {}
+
+        input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+        input.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, data: value, inputType: 'insertText' }));
+        input.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+        input.dispatchEvent(new FocusEvent('focus', { bubbles: true }));
+        input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+    }
+
+    async function typeIntoInput(input, value) {
+        if (!input) return;
+        try { input.scrollIntoView({ block: 'center', behavior: 'auto' }); } catch (_) {}
+        input.focus();
+
+        const nativeSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
+        let current = '';
+
+        for (const char of value) {
+            current += char;
+            if (nativeSetter && nativeSetter.set) nativeSetter.set.call(input, current);
+            else input.value = current;
+
+            input.dispatchEvent(new KeyboardEvent('keydown', { key: char, bubbles: true }));
+            input.dispatchEvent(new KeyboardEvent('keypress', { key: char, bubbles: true }));
+            input.dispatchEvent(new Event('input', { bubbles: true, cancelable: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true, cancelable: true }));
+            input.dispatchEvent(new KeyboardEvent('keyup', { key: char, bubbles: true }));
+            await delay(16);
+        }
+        input.dispatchEvent(new FocusEvent('blur', { bubbles: true }));
+    }
+
+    async function fillAtriaField(input, value) {
+        reactFillInput(input, value);
+        await delay(120);
+        if (String(input.value || '') === String(value)) return;
+
+        await typeIntoInput(input, value);
+        await delay(120);
+        if (String(input.value || '') !== String(value)) {
+            console.warn('[ATRIA AUTO LOGIN] Field value mismatch after fill:', {
+                expectedLength: String(value).length,
+                actualLength: String(input.value || '').length,
+                id: input.id || '',
+            });
+        }
+    }
+
+    function simulateClick(el) {
+        if (!el) return;
+        try { el.scrollIntoView({ block: 'center', inline: 'center', behavior: 'auto' }); } catch (_) {}
+        try { el.focus({ preventScroll: true }); } catch (_) {}
+        const rect = el.getBoundingClientRect ? el.getBoundingClientRect() : null;
+        const cx = rect ? rect.left + rect.width / 2 : 0;
+        const cy = rect ? rect.top + rect.height / 2 : 0;
+        const common = { bubbles: true, cancelable: true, view: window, clientX: cx, clientY: cy };
+        try { el.dispatchEvent(new PointerEvent('pointerdown', Object.assign({ pointerId: 1, pointerType: 'mouse', isPrimary: true }, common))); } catch (_) {}
+        try { el.dispatchEvent(new MouseEvent('mousedown', Object.assign({ button: 0, buttons: 1 }, common))); } catch (_) {}
+        try { el.dispatchEvent(new PointerEvent('pointerup', Object.assign({ pointerId: 1, pointerType: 'mouse', isPrimary: true }, common))); } catch (_) {}
+        try { el.dispatchEvent(new MouseEvent('mouseup', Object.assign({ button: 0, buttons: 0 }, common))); } catch (_) {}
+        try { el.click(); } catch (_) {
+            try { el.dispatchEvent(new MouseEvent('click', Object.assign({ button: 0, detail: 1 }, common))); } catch (__) {}
+        }
     }
 
     function findEmailInput() {
-        // Current Atria login page: "Email" field with placeholder "Enter your email address"
         return document.querySelector(
-            'input[type="email"], input[name="email"], input[autocomplete="email"], input[placeholder*="email" i], input[aria-label*="email" i]'
+            '#login_email, input#login_email, input[placeholder="Enter your email address"], input.ant-input[placeholder*="email" i]'
         );
     }
 
     function findPasswordInput() {
         return document.querySelector(
-            'input[type="password"], input[name="password"], input[autocomplete="current-password"], input[placeholder*="password" i], input[aria-label*="password" i]'
+            '#login_password, input#login_password, input[type="password"], input[name="password"], input[autocomplete="current-password"], input[placeholder*="password" i]'
         );
     }
 
     function findLoginButton() {
-        // Prefer real submit button
+        const primarySubmit = document.querySelector('button[type="submit"].ant-btn-primary');
+        if (primarySubmit) return primarySubmit;
+
         const byType = document.querySelector('button[type="submit"]');
         if (byType) return byType;
-        // Fallback: button text
+
         const btns = Array.from(document.querySelectorAll('button'));
-        return btns.find(b => ((b.textContent || '').trim().toLowerCase() === 'log in') || ((b.textContent || '').trim().toLowerCase() === 'login')) || null;
+        return btns.find((b) => {
+            const span = b.querySelector('span');
+            const label = String(span?.textContent || b.textContent || '').trim().toLowerCase();
+            return label === 'log in' || label === 'login';
+        }) || null;
     }
 
     function hidePasswordRevealControls() {
@@ -325,10 +399,19 @@ function showFullScreenOverlay(attempt = 1) {
                 button[aria-label*="show password" i],
                 button[aria-label*="hide password" i],
                 button[aria-label*="toggle password" i],
+                span[role="img"][aria-label*="eye" i],
                 .ant-input-password-icon,
                 span.ant-input-password-icon,
+                .ant-input-password .ant-input-suffix,
+                .ant-input-affix-wrapper .ant-input-suffix,
+                .anticon-eye,
+                .anticon-eye-invisible,
                 input[type="password"] ~ button[type="button"],
                 input[type="password"] + button[type="button"],
+                #login_password ~ .ant-input-suffix,
+                #login_password ~ span.ant-input-suffix,
+                .ant-input-password:has(#login_password) .ant-input-suffix,
+                .ant-input-password:has(input[type="password"]) .ant-input-suffix,
                 .relative:has(input[type="password"]) > button[type="button"] {
                     display: none !important;
                     visibility: hidden !important;
@@ -342,14 +425,27 @@ function showFullScreenOverlay(attempt = 1) {
             (document.head || document.documentElement).appendChild(style);
         }
 
+        const removeRevealNode = (node) => {
+            if (!node) return;
+            try {
+                node.style.display = 'none';
+                node.style.visibility = 'hidden';
+                node.style.pointerEvents = 'none';
+                node.remove();
+            } catch (_) {}
+        };
+
         document.querySelectorAll(
-            'button[aria-label*="show password" i], button[aria-label*="hide password" i], button[aria-label*="toggle password" i]'
-        ).forEach((btn) => {
-            try { btn.remove(); } catch (_) {}
-        });
+            'button[aria-label*="show password" i], button[aria-label*="hide password" i], button[aria-label*="toggle password" i], span[role="img"][aria-label*="eye" i], .ant-input-password-icon, .anticon-eye, .anticon-eye-invisible'
+        ).forEach(removeRevealNode);
 
         const passwordInput = findPasswordInput();
         if (!passwordInput) return;
+
+        const antPasswordWrap = passwordInput.closest('.ant-input-password, .ant-input-affix-wrapper');
+        if (antPasswordWrap) {
+            antPasswordWrap.querySelectorAll('.ant-input-suffix, .ant-input-password-icon, [class*="anticon-eye"]').forEach(removeRevealNode);
+        }
 
         const wrappers = [
             passwordInput.parentElement,
@@ -359,18 +455,15 @@ function showFullScreenOverlay(attempt = 1) {
         ].filter(Boolean);
 
         for (const wrap of wrappers) {
-            wrap.querySelectorAll('button[type="button"]').forEach((btn) => {
-                const label = `${btn.getAttribute('aria-label') || ''} ${btn.title || ''} ${btn.textContent || ''}`.toLowerCase();
-                const hasEye = !!btn.querySelector('svg, [class*="eye"], [class*="Eye"]');
+            wrap.querySelectorAll('button[type="button"], span[role="img"], .ant-input-suffix').forEach((node) => {
+                const label = `${node.getAttribute?.('aria-label') || ''} ${node.title || ''} ${node.textContent || ''}`.toLowerCase();
+                const hasEye = !!node.querySelector?.('svg, [class*="eye"], [class*="Eye"]') || /anticon-eye|ant-input-password-icon/.test(String(node.className || ''));
                 const isReveal =
                     hasEye ||
-                    /show|hide|visibility|toggle/.test(label) ||
-                    (wrap.contains(passwordInput) && btn !== passwordInput && !/log\s*in|sign\s*up|google|continue|forgot/.test(label));
+                    /show|hide|visibility|toggle|eye/.test(label) ||
+                    (wrap.contains(passwordInput) && node !== passwordInput && !/log\s*in|sign\s*up|google|continue|forgot/.test(label));
                 if (!isReveal) return;
-                btn.style.display = 'none';
-                btn.style.visibility = 'hidden';
-                btn.style.pointerEvents = 'none';
-                try { btn.remove(); } catch (_) {}
+                removeRevealNode(node);
             });
         }
     }
@@ -384,10 +477,10 @@ function showFullScreenOverlay(attempt = 1) {
         setInterval(hidePasswordRevealControls, 400);
     }
 
-    function fillAndLogin(attempt = 1) {
+    async function fillAndLogin(attempt = 1) {
         if (!window.location.href.startsWith('https://app.tryatria.com/login')) {
             console.log('[ATRIA AUTO LOGIN] Plus sur la page de login - suppression de l\'écran noir');
-            removeBlackScreen(); // Nous ne sommes plus sur la page de login → retirer l'overlay
+            removeBlackScreen();
             return;
         }
         hidePasswordRevealControls();
@@ -397,40 +490,48 @@ function showFullScreenOverlay(attempt = 1) {
         if (emailInput && passwordInput && loginBtn) {
             console.log('[ATRIA AUTO LOGIN] Champs trouvés, tentative de remplissage');
             hidePasswordRevealControls();
-            reactInput(emailInput, 'admin@ecomefficiency.com');
-            reactInput(passwordInput, 'L.AK-r2YZSVWw$?GjJK');
+
+            await fillAtriaField(emailInput, 'admin@ecomefficiency.com');
+            await delay(300);
+            await fillAtriaField(passwordInput, 'L.AK-r2YZSVWw$?GjJK');
+            await delay(350);
+
+            console.log('[ATRIA AUTO LOGIN] Clic sur le bouton login');
+            console.log('[ATRIA AUTO LOGIN] 🖤 Écran noir maintenu - surveillance du changement de page...');
+
+            monitorLoginSuccess();
+            simulateClick(loginBtn);
+
+            const form = loginBtn.closest('form');
+            if (form) {
+                try { form.requestSubmit(loginBtn); } catch (_) {
+                    try { form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })); } catch (__) {}
+                }
+            }
+
+            updateLoadingBar(100);
             setTimeout(() => {
-                console.log('[ATRIA AUTO LOGIN] Clic sur le bouton login');
-                console.log('[ATRIA AUTO LOGIN] 🖤 Écran noir maintenu - surveillance du changement de page...');
-                
-                // Surveiller le changement de page après le login
-                monitorLoginSuccess();
-                
-                loginBtn.click();
-                
-                // progression finale et maintenir overlay jusqu'au redirect
-                updateLoadingBar(100);
-                setTimeout(() => {
-                    startFinalAnimation();
-                    console.log('[ATRIA AUTO LOGIN] 🖤 Écran de chargement maintenu jusqu\'au changement d\'URL');
-                }, 800);
-    
-            }, 400);
+                startFinalAnimation();
+                console.log('[ATRIA AUTO LOGIN] 🖤 Écran de chargement maintenu jusqu\'au changement d\'URL');
+            }, 800);
         } else {
             if (attempt < 30) {
-                console.log(`[ATRIA AUTO LOGIN] Attente des champs... (tentative ${attempt})`);
-                setTimeout(() => fillAndLogin(attempt + 1), 250);
+                console.log(`[ATRIA AUTO LOGIN] Attente des champs... (tentative ${attempt})`, {
+                    email: !!emailInput,
+                    password: !!passwordInput,
+                    loginBtn: !!loginBtn,
+                });
+                setTimeout(() => { void fillAndLogin(attempt + 1); }, 250);
             } else {
                 console.warn('[ATRIA AUTO LOGIN] Impossible de trouver les champs après plusieurs tentatives.');
                 console.log('[ATRIA AUTO LOGIN] 🖤 Écran noir maintenu - champs de login introuvables');
-                // Ne pas supprimer l'écran noir car on est probablement encore sur la page de login
             }
         }
     }
     // Attendre que le DOM soit prêt
     if (document.readyState === 'loading') {
-        document.addEventListener('DOMContentLoaded', () => setTimeout(fillAndLogin, 200));
+        document.addEventListener('DOMContentLoaded', () => setTimeout(() => { void fillAndLogin(); }, 200));
     } else {
-        setTimeout(fillAndLogin, 200);
+        setTimeout(() => { void fillAndLogin(); }, 200);
     }
 })();

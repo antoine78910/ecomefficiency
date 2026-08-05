@@ -192,76 +192,65 @@
     } catch (_) {}
   }
 
-  var eePendingEcomCharge = null;
-  var eePendingChargeTimer = null;
-  var EE_PENDING_CHARGE_MAX_MS = 90000;
+  // --- Immediate, durable credit debit ----------------------------------
+  // Simple rule (as requested): the instant the user's click on Generate is
+  // authorized, we deduct the exact cost shown on the button from today's
+  // usage and persist it to localStorage right away (addUsedToday writes
+  // synchronously). We never wait for a network "job created" confirmation
+  // before saving the debit.
+  //
+  // Why: the previous design only "reserved" the debit and waited up to 90s
+  // for a network confirmation event before actually saving it — if that
+  // confirmation never arrived (missed message, or a video generation that
+  // simply takes longer than 90s) the reservation silently expired and the
+  // debit was lost, which is exactly the "-1 forgotten" / "switches between
+  // 85 and 100 while generating" bug. Committing synchronously on click
+  // removes that whole race entirely: the balance can only go down when a
+  // Generate click is authorized, and the persisted value never reverts.
+  //
+  // If a later signal tells us the click should NOT have been charged after
+  // all (Higgsfield reports the job actually ran on the Unlimited plan, or
+  // the request got blocked before it reached the network), we refund the
+  // exact amount via refundLastCharge().
+  var EE_REFUND_WINDOW_MS = 5 * 60 * 1000; // safety cap: only refund a very recent charge
+  var eeLastCommittedCharge = null; // { cost, source, at, refunded }
 
-  function loadPendingEcomCharge() {
-    if (eePendingEcomCharge) return eePendingEcomCharge;
-    try {
-      var raw = sessionStorage.getItem('ee_hf_pending_charge');
-      if (raw) eePendingEcomCharge = JSON.parse(raw);
-    } catch (_) {}
-    return eePendingEcomCharge;
-  }
-
-  function reserveEcomCharge(cost, source) {
-    eePendingEcomCharge = {
-      cost: cost,
-      source: source || 'generate',
-      at: Date.now(),
-      email: getVerifiedEmail() || null
-    };
-    try { sessionStorage.setItem('ee_hf_pending_charge', JSON.stringify(eePendingEcomCharge)); } catch (_) {}
-    if (eePendingChargeTimer) clearTimeout(eePendingChargeTimer);
-    eePendingChargeTimer = setTimeout(function () {
-      cancelEcomCharge('timeout_no_network_gen');
-    }, EE_PENDING_CHARGE_MAX_MS);
-    log('ecom charge reserved (debit on successful HF job only)', source, 'cost=' + cost);
-  }
-
-  function cancelEcomCharge(reason) {
-    if (!eePendingEcomCharge) {
-      try {
-        if (sessionStorage.getItem('ee_hf_pending_charge')) {
-          sessionStorage.removeItem('ee_hf_pending_charge');
-          log('ecom charge cancelled', reason || 'unknown');
-        }
-      } catch (_) {}
-      return false;
-    }
-    eePendingEcomCharge = null;
-    if (eePendingChargeTimer) { clearTimeout(eePendingChargeTimer); eePendingChargeTimer = null; }
-    try { sessionStorage.removeItem('ee_hf_pending_charge'); } catch (_) {}
-    log('ecom charge cancelled', reason || 'unknown');
-    return true;
-  }
-
-  function commitEcomCharge(reason) {
-    var pending = loadPendingEcomCharge();
-    if (!pending || !pending.cost) return false;
-    if (Date.now() - pending.at > EE_PENDING_CHARGE_MAX_MS) {
-      cancelEcomCharge('expired');
-      return false;
-    }
-    eePendingEcomCharge = null;
-    if (eePendingChargeTimer) { clearTimeout(eePendingChargeTimer); eePendingChargeTimer = null; }
-    try { sessionStorage.removeItem('ee_hf_pending_charge'); } catch (_) {}
-
-    var cost = pending.cost;
-    addUsedToday(cost);
-    recordChargeMarker(cost);
-    lastDelta = cost;
+  function chargeEcomCreditsNow(cost, source) {
+    var normalizedCost = Number(cost) || 0;
+    if (normalizedCost <= 0) return getUsedToday();
+    addUsedToday(normalizedCost);
+    recordChargeMarker(normalizedCost);
+    eeLastCommittedCharge = { cost: normalizedCost, source: source || 'generate', at: Date.now(), refunded: false };
+    lastDelta = normalizedCost;
     syncEcomBlockFlag();
     var usedToday = getUsedToday();
-    var email = getVerifiedEmail() || pending.email;
-    logUsage(email, cost, usedToday, pending.source || reason || 'network_gen');
-    try {
-      updateWidget(usedToday, CONFIG.DAILY_CREDIT_LIMIT, usedToday >= CONFIG.DAILY_CREDIT_LIMIT, cost);
-    } catch (_) {}
-    log('ecom charge committed', reason || 'network_gen', 'cost=' + cost, 'usedToday=' + usedToday);
+    var email = getVerifiedEmail();
+    logUsage(email, normalizedCost, usedToday, source || 'generate');
+    log('ecom charge debited immediately on click', source, 'cost=' + normalizedCost, 'usedToday=' + usedToday);
+    return usedToday;
+  }
+  // Kept for existing call sites: the "reservation" step now debits immediately.
+  function reserveEcomCharge(cost, source) { return chargeEcomCreditsNow(cost, source); }
+
+  function refundLastCharge(reason) {
+    var c = eeLastCommittedCharge;
+    if (!c || c.refunded) return false;
+    if (Date.now() - c.at > EE_REFUND_WINDOW_MS) return false;
+    c.refunded = true;
+    addUsedToday(-c.cost);
+    syncEcomBlockFlag();
+    log('ecom charge refunded', reason || 'unknown', 'cost=' + c.cost);
+    try { refreshCreditsWidget(); } catch (_) {}
     return true;
   }
+  // Kept for existing call sites (fires when a block happens before any
+  // charge was made — safe no-op — or to refund a just-applied charge that
+  // turned out to be unlimited/blocked at the network level).
+  function cancelEcomCharge(reason) { return refundLastCharge(reason); }
+
+  // The debit already happened synchronously on click (see chargeEcomCreditsNow).
+  // This is now a no-op kept only so late "confirmation" events don't double-charge.
+  function commitEcomCharge(reason) { return false; }
 
   function shouldSkipDuplicateCharge(cost) {
     if (eePrecheckInFlight) return true;
@@ -378,8 +367,29 @@
   function addUsedToday(delta) {
     const u = getDailyUsage();
     const k = getTodayKey();
-    u[k] = (u[k] || 0) + delta;
+    // Clamp at 0: a refund can never push usage negative (defensive, in case
+    // of an unexpected double-refund or a delta computed from stale state).
+    u[k] = Math.max(0, (u[k] || 0) + (Number(delta) || 0));
     setDailyUsage(u);
+    try { window.__eeLastLocalUsageWriteAt = Date.now(); } catch (_) {}
+  }
+
+  /**
+   * Usage used for widget display. There is no more "pending, not yet
+   * committed" charge to add on top of: chargeEcomCreditsNow() persists the
+   * debit synchronously the moment a Generate click is authorized, so
+   * getUsedToday() is always already up to date. The `includePending` arg is
+   * kept only for call-site compatibility.
+   */
+  function getEffectiveUsedToday(includePending) {
+    return getUsedToday();
+  }
+
+  function refreshCreditsWidget(lastDeltaOverride) {
+    var used = getEffectiveUsedToday(true);
+    var limit = CONFIG.DAILY_CREDIT_LIMIT;
+    var delta = lastDeltaOverride != null ? lastDeltaOverride : lastDelta;
+    updateWidget(used, limit, used >= limit, delta);
   }
 
   function applyBackendUsedToday(backendUsed) {
@@ -387,17 +397,16 @@
     var k = getTodayKey();
     var localUsed = u[k] || 0;
     var backendVal = Math.max(0, Number(backendUsed) || 0);
-    // Backend is the source of truth (survives extension reload / profile change).
-    var nextUsed = backendVal;
+    // Merge: backend wins on reload; keep local optimistic total while POST sync catches up.
+    var nextUsed = Math.max(localUsed, backendVal);
     if (nextUsed !== localUsed) {
       u[k] = nextUsed;
       setDailyUsage(u);
       syncEcomBlockFlag();
       try {
-        var limit = CONFIG.DAILY_CREDIT_LIMIT;
-        updateWidget(nextUsed, limit, nextUsed >= limit, lastDelta);
+        refreshCreditsWidget();
       } catch (_) {}
-      log('synced usage from backend: local=' + localUsed + ' -> backend=' + backendVal);
+      log('synced usage from backend: local=' + localUsed + ' -> merged=' + nextUsed + ' (backend=' + backendVal + ')');
     }
     return nextUsed;
   }
@@ -501,20 +510,23 @@
         log('recordUsageDebit: queued pending backend save', d, source);
         return false;
       }
-      return syncUsageFromBackend(email).then(function () { return true; });
+      refreshCreditsWidget(lastDelta);
+      return true;
     });
   }
 
   function syncUsageFromBackend(email) {
     if (!email) return Promise.resolve();
     var url = 'https://www.ecomefficiency.com/api/usage/higgsfield?email=' + encodeURIComponent(email);
-    return fetch(url, { method: 'GET', credentials: 'omit' })
+    return fetch(url, { method: 'GET', credentials: 'omit', cache: 'no-store' })
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (data) {
         if (data && data.ok) {
           if (typeof data.daily_limit === 'number') applyDynamicCreditLimit(data.daily_limit);
           if (typeof data.used_today === 'number') {
-            return applyBackendUsedToday(data.used_today);
+            applyBackendUsedToday(data.used_today);
+          } else {
+            try { refreshCreditsWidget(); } catch (_) {}
           }
         }
         return null;
@@ -644,7 +656,7 @@
         var usedToday = getUsedToday();
         var email = getVerifiedEmail();
         logUsage(email, cost, usedToday, p.source || 'network_leak');
-        updateWidget(usedToday, CONFIG.DAILY_CREDIT_LIMIT, usedToday >= CONFIG.DAILY_CREDIT_LIMIT, cost);
+        refreshCreditsWidget(cost);
         trackHiggsfieldActivity('higgsfield_generate_network', {
           cost: cost,
           reason: p.reason || 'leak',
@@ -911,12 +923,27 @@
   }
 
   function requestWalletRefresh() {
-    try {
-      chrome.runtime.sendMessage({ type: 'INJECT_HIGGSFIELD_LOGGER' });
-    } catch (_) {}
-    try {
-      window.postMessage({ type: 'EE_HIGGSFIELD_FETCH_WALLET_NOW' }, '*');
-    } catch (_) {}
+    scheduleHiggsfieldLoggerInjection('wallet_refresh');
+    setTimeout(function () {
+      try { window.postMessage({ type: 'EE_HIGGSFIELD_FETCH_WALLET_NOW' }, '*'); } catch (_) {}
+    }, getLoggerInjectionDelayMs() + 2500);
+  }
+
+  var eeLoggerInjectionArmed = false;
+  function isHiggsfieldImagePage() {
+    return (location.pathname || '').indexOf('/ai/image') !== -1;
+  }
+  function getLoggerInjectionDelayMs() {
+    return isHiggsfieldImagePage() ? 6500 : 4500;
+  }
+  function scheduleHiggsfieldLoggerInjection(reason) {
+    if (eeLoggerInjectionArmed) return;
+    eeLoggerInjectionArmed = true;
+    var delay = getLoggerInjectionDelayMs();
+    log('schedule logger injection', reason || 'unknown', 'delayMs=' + delay);
+    setTimeout(function () {
+      try { chrome.runtime.sendMessage({ type: 'INJECT_HIGGSFIELD_LOGGER' }); } catch (_) {}
+    }, delay);
   }
 
   function logUsage(email, delta, usedToday, source) {
@@ -1540,9 +1567,7 @@
           finishUi(result._used, result._limit != null ? result._limit : CONFIG.DAILY_CREDIT_LIMIT);
         } else {
           syncUsageFromBackend(email).then(function () {
-            var used = getUsedToday();
-            var limit = CONFIG.DAILY_CREDIT_LIMIT;
-            finishUi(used, limit);
+            finishUi(getUsedToday(), CONFIG.DAILY_CREDIT_LIMIT);
           }).catch(function () {
             finishUi(getUsedToday(), CONFIG.DAILY_CREDIT_LIMIT);
           });
@@ -1902,17 +1927,13 @@
       flushPendingUsageQueue(email).then(function () {
         return syncUsageFromBackend(email);
       }).then(function () {
-        var used = getUsedToday();
-        var limit = CONFIG.DAILY_CREDIT_LIMIT;
-        updateWidget(used, limit, used >= limit, lastDelta);
-        log('initial widget updated after backend sync: used=' + used + ' limit=' + limit);
+        refreshCreditsWidget();
+        log('initial widget updated after backend sync: used=' + getUsedToday() + ' limit=' + CONFIG.DAILY_CREDIT_LIMIT);
       });
     }
 
     function refreshWidgetFromState() {
-      const used = getUsedToday();
-      const limit = CONFIG.DAILY_CREDIT_LIMIT;
-      updateWidget(used, limit, used >= limit, lastDelta);
+      refreshCreditsWidget();
     }
 
     refreshWidgetFromState();
@@ -1947,6 +1968,38 @@
   // Loose match: handles concatenated text like "GENERATE4840" (Marketing Studio
   // button), where word-boundary regexes (\bgenerate\b) fail because the word is
   // glued to the cost number with no whitespace between spans.
+  function eeIsModelPickerControl(btn) {
+    if (!btn || !btn.getAttribute) return false;
+    try {
+      var t = String(btn.textContent || btn.getAttribute('aria-label') || '')
+        .replace(/\s+/g, ' ')
+        .trim()
+        .toLowerCase();
+      // Real generate CTAs always say generate/create — never treat those as pickers.
+      if (/generate|g[eé]n[eé]rer|create|cr[eé]er/.test(t)) return false;
+      var anchor = String(btn.getAttribute('data-tour-anchor') || '');
+      if (anchor === 'tour-generate-button' || anchor === 'tour-image-generate') return false;
+      var id = String(btn.getAttribute('id') || '');
+      if (id.indexOf('hf:image-form-submit') !== -1) return false;
+
+      // Higgsfield model selector: <fieldset><label><button>Seedream 4.5 …</button>
+      var inFieldset = !!(btn.closest && btn.closest('fieldset'));
+      var looksLikeModelName =
+        /seedream|seedance|kling|veo|runway|hailuo|minimax|luma|wan|hunyuan|flux|gpt.?image|nano.?banana|soul|sora|model/i.test(t);
+      var hasChevron = false;
+      try {
+        hasChevron = !!(
+          btn.querySelector &&
+          btn.querySelector('svg.-rotate-90, svg[class*="-rotate"], svg[class*="rotate-"]')
+        );
+      } catch (_) {}
+      if (inFieldset && (looksLikeModelName || hasChevron)) return true;
+      // Model name alone on a non-generate button (image/video model dropdown trigger).
+      if (looksLikeModelName && hasChevron) return true;
+    } catch (_) {}
+    return false;
+  }
+
   function eeButtonLooksLikeGenerate(btn) {
     if (!btn || !btn.getAttribute) return false;
     // Model-preview cards (figure elements, or any element with a <video> child)
@@ -1955,8 +2008,14 @@
     var tag = (btn.tagName || '').toLowerCase();
     if (tag === 'figure') return false;
     try { if (btn.querySelector && btn.querySelector('video')) return false; } catch (_) {}
+    // Model dropdown triggers (Seedream / Seedance / …) must never be treated as Generate.
+    if (eeIsModelPickerControl(btn)) return false;
     var anchor = String(btn.getAttribute('data-tour-anchor') || '');
     if (anchor === 'tour-generate-button' || anchor === 'tour-image-generate') {
+      if (!isUnlimitedGenerateButton(btn)) return true;
+    }
+    var id = String(btn.getAttribute('id') || '');
+    if (id.indexOf('hf:image-form-submit') !== -1) {
       if (!isUnlimitedGenerateButton(btn)) return true;
     }
     var t = (btn.textContent || btn.value || btn.getAttribute('aria-label') || btn.getAttribute('title') || '');
@@ -1969,10 +2028,9 @@
     ) {
       return true;
     }
-    try {
-      if (btn.querySelector && btn.querySelector('div.flex.items-center.gap-1, div.flex.items-center')) return true;
-    } catch (_) {}
-    if ((btn.type === 'submit' || btn.getAttribute('role') === 'button') && btn.closest && btn.closest('form')) {
+    // Only the real form submit CTA — never every button living inside the same form
+    // (model pickers, quality chips, etc. also sit in that form).
+    if (btn.type === 'submit' && btn.closest && btn.closest('form')) {
       var formTxt = (btn.closest('form').textContent || '').toLowerCase();
       if (/generate|g\u00e9n\u00e9rer|create|cr\u00e9er/.test(formTxt)) return true;
     }
@@ -2149,11 +2207,13 @@
       // Credits OK — reserve debit until HF job network response confirms generation.
       markGenerationAuthorized(syncCostInfo.cost);
       recordChargeMarker(syncCostInfo.cost);
+      // Debit happens synchronously inside reserveEcomCharge() now — syncUsedNow
+      // below already reflects it, so it must NOT be added again for display.
       reserveEcomCharge(syncCostInfo.cost, source);
       syncEcomBlockFlag();
       var syncEmail   = getVerifiedEmail();
       var syncUsedNow = getUsedToday();
-      log('sync generation authorized (pending debit)', source,
+      log('sync generation authorized (debited)', source,
           'cost=' + syncCostInfo.cost,
           'usedToday=' + syncUsedNow,
           'remaining=' + getDailyRemaining(),
@@ -2164,7 +2224,7 @@
         used_today: syncUsedNow,
         daily_limit: syncLimit,
         wallet: syncWallet,
-        pending_debit: true,
+        pending_debit: false,
       });
       updateWidget(syncUsedNow, syncLimit, syncUsedNow >= syncLimit, syncCostInfo.cost);
       requestWalletRefresh();
@@ -2269,7 +2329,18 @@
       var nodes = document.querySelectorAll('button,[role="button"],input[type="submit"],input[type="button"]');
       for (var i = 0; i < nodes.length; i++) {
         var b = nodes[i];
-        if (!b || !eeButtonLooksLikeGenerate(b) || isUnlimitedGenerateButton(b)) continue;
+        if (!b) continue;
+        // Clear stale arming on model dropdowns that older builds wrongly flagged.
+        if (eeIsModelPickerControl(b)) {
+          try {
+            if (b.getAttribute('data-ee-direct-armed') === '1' || b.getAttribute('data-ee-generate-armed') === '1') {
+              b.removeAttribute('data-ee-direct-armed');
+              b.removeAttribute('data-ee-generate-armed');
+            }
+          } catch (_) {}
+          continue;
+        }
+        if (!eeButtonLooksLikeGenerate(b) || isUnlimitedGenerateButton(b)) continue;
         if (!eeIsButtonVisibleAndEnabled(b)) continue;
         eeArmGenerateButtonDirect(b, reason);
         found += 1;
@@ -2300,6 +2371,9 @@
     generateClickBlockerInstalled = true;
     function handleGenerateIntent(e) {
       if (!eeIsPrimaryClick(e, 'document_capture')) return;
+      // Unlimited: never intercept — let the real trusted click reach Higgsfield.
+      // Synthetic re-clicks / wallet prechecks here trigger Cloudflare bot challenges.
+      if (isUnlimitedMode()) return;
       var el = e.target;
       if (!el) return;
       if (el.closest && (el.closest('#ee-hf-ecom-popup-root') || el.closest('#ee-hf-ecom-widget') || el.closest('#ee-hf-ecom-overlay-root'))) return;
@@ -2314,6 +2388,7 @@
       eeInterceptGenerateButton(btn, e, 'document_capture');
     }
     function handleSubmitIntent(e) {
+      if (isUnlimitedMode()) return;
       var form = e.target;
       if (!form || !form.querySelector) return;
       var btn =
@@ -2772,13 +2847,6 @@
     if (!btn) return;
     if (syntheticGenerateButtons) syntheticGenerateButtons.add(btn);
 
-    // React Aria's usePress calls document.elementFromPoint(clientX, clientY) to
-    // check isOverTarget on pointerdown and pointerup. If our overlay sits on top
-    // of the real button with pointer-events:auto, elementFromPoint returns the
-    // overlay and React Aria silently discards the press — generation never starts
-    // even though credits were already debited.
-    // Fix: temporarily set pointer-events:none on all EE overlays so
-    // elementFromPoint sees the real button during synthetic dispatch.
     var _overlaysDisabled = [];
     try {
       ['ee-hf-ecom-overlay-standard', 'ee-hf-ecom-overlay-unlimited',
@@ -2801,64 +2869,20 @@
       } catch (_) {}
     }
 
-    function safeDispatch(target, EventCtor, type, init) {
-      try { target.dispatchEvent(new EventCtor(type, init)); } catch (_) {}
-    }
-
     try {
-      var rect = (btn.getBoundingClientRect && btn.getBoundingClientRect()) || null;
-      var cx = rect ? Math.round(rect.left + rect.width / 2) : 0;
-      var cy = rect ? Math.round(rect.top + rect.height / 2) : 0;
-      var pointerId = 1;
-
-      var mouseDown = { bubbles: true, cancelable: true, composed: true, view: window, button: 0, buttons: 1, detail: 1, clientX: cx, clientY: cy, screenX: cx, screenY: cy };
-      var mouseUp   = { bubbles: true, cancelable: true, composed: true, view: window, button: 0, buttons: 0, detail: 1, clientX: cx, clientY: cy, screenX: cx, screenY: cy };
-      var mouseHover = Object.assign({}, mouseUp, { detail: 0 });
-
-      var pointerCommon = { pointerId: pointerId, pointerType: 'mouse', isPrimary: true, width: 1, height: 1 };
-      var pointerDown = Object.assign({}, mouseDown, pointerCommon, { pressure: 0.5 });
-      var pointerUp   = Object.assign({}, mouseUp,   pointerCommon, { pressure: 0 });
-      var pointerHover = Object.assign({}, mouseHover, pointerCommon, { pressure: 0 });
-
       try { btn.focus({ preventScroll: true }); } catch (_) {}
-
-      safeDispatch(btn, PointerEvent, 'pointerover',  pointerHover);
-      safeDispatch(btn, PointerEvent, 'pointerenter', Object.assign({}, pointerHover, { bubbles: false }));
-      safeDispatch(btn, MouseEvent,   'mouseover',    mouseHover);
-      safeDispatch(btn, MouseEvent,   'mouseenter',   Object.assign({}, mouseHover, { bubbles: false }));
-
-      safeDispatch(btn, PointerEvent, 'pointerdown', pointerDown);
-      safeDispatch(btn, MouseEvent,   'mousedown',   mouseDown);
-
-      safeDispatch(btn, PointerEvent, 'pointerup', pointerUp);
-      safeDispatch(btn, MouseEvent,   'mouseup',   mouseUp);
-
-      // Synthetic click for plain onClick handlers (non-React-Aria buttons).
-      safeDispatch(btn, MouseEvent, 'click', mouseUp);
-
-      // Form submission fallback: React's onSubmit handler fires when the browser
-      // dispatches a native submit event, bypassing React Aria's usePress check.
-      // We fire it after a short delay so React Aria's pointer flow runs first.
-      setTimeout(function () {
-        try {
-          if (btn.type === 'submit' && btn.form) {
-            log('triggerGenerate: requestSubmit fallback fired');
-            try {
-              btn.form.requestSubmit(btn);
-            } catch (_) {
-              try { btn.click(); } catch (_) {}
-            }
-          } else {
-            // No form — try a direct .click() as last resort
-            try { btn.click(); } catch (_) {}
-          }
-        } catch (_) {}
-      }, 80);
+      // Native activation only. Synthetic pointer/mouse bursts trigger
+      // "Rapid taps or clicks" / bot activity blocks on Higgsfield.
+      if (btn.type === 'submit' && btn.form) {
+        try { btn.form.requestSubmit(btn); } catch (_) { try { btn.click(); } catch (_) {} }
+      } else {
+        try { btn.click(); } catch (_) {}
+      }
     } finally {
       setTimeout(function () {
         try { if (syntheticGenerateButtons) syntheticGenerateButtons.delete(btn); } catch (_) {}
         _restoreOverlays();
-      }, 800);
+      }, 450);
     }
   }
 
@@ -3046,27 +3070,26 @@
       var email = getVerifiedEmail();
       var usedToday = getUsedToday();
       logUsage(email, 0, usedToday, source || 'unlimited_generate');
-      log('paid precheck skipped: unlimited mode active', source);
+      log('paid precheck skipped: unlimited mode active (no synthetic click)', source);
       showGenerateStatus('', 1);
       return;
     }
     log('verifying generation cost...', source);
-    requestWalletRefresh();
+    // Do NOT call requestWalletRefresh() here — extra API calls around Generate
+    // look like bot traffic and can trigger Cloudflare "Access restricted".
     var actualBtn = buttonFinder ? buttonFinder() : null;
     const costInfo = getGenerationCostInfo(actualBtn);
     if (shouldSkipDuplicateCharge(costInfo.cost)) {
       log('duplicate charge skipped — generation already in flight', source, 'cost=' + costInfo.cost);
       markGenerationAuthorized(costInfo.cost);
       showGenerateStatus('', 1);
-      // Generation was already triggered by the user's real trusted click (sync gate).
-      // Do NOT call triggerGenerateButtonClick here; that would create a duplicate.
+      // Real trusted click already owns generation — never re-click.
       return;
     }
     eePrecheckInFlight = true;
     const limit = CONFIG.DAILY_CREDIT_LIMIT;
     const used = getUsedToday();
     const remaining = getDailyRemaining();
-    const email = getVerifiedEmail();
     log('generation cost resolved', source, 'cost=' + costInfo.cost, 'used=' + used, 'remaining=' + remaining, 'limit=' + limit);
     trackHiggsfieldActivity('higgsfield_generate_click', {
       source: source,
@@ -3077,8 +3100,9 @@
       used_fallback_cost: !!costInfo.usedFallback,
     });
 
-    // Allow wallet API + DOM to settle; stale storage could still show 0.02 cr.
-    waitForWalletCredits(1800, function (walletCredits) {
+    // Prefer sync wallet cache / DOM — avoid waiting ~1.8s then firing a synthetic click
+    // (that pattern is exactly what Higgsfield/Cloudflare flags as automated activity).
+    waitForWalletCredits(400, function (walletCredits) {
       eePrecheckInFlight = false;
       var domCredits = readWalletCreditsFromProfileDom();
       var ringFull = headerRingIndicatesFullCredits();
@@ -3149,40 +3173,32 @@
         daily_limit: limit,
         wallet: isFinite(walletCredits) ? walletCredits : null,
       });
-      log('authorizing generation...', source);
+      log('authorizing generation (no synthetic click)...', source);
       markGenerationAuthorized(costInfo.cost);
       recordChargeMarker(costInfo.cost);
       reserveEcomCharge(costInfo.cost, source);
       lastDelta = costInfo.cost;
       syncEcomBlockFlag();
       const usedToday = getUsedToday();
-      log('generation authorized (pending debit)', source, 'cost=' + costInfo.cost, 'usedToday=' + usedToday, 'remaining=' + getDailyRemaining(), 'wallet=' + (isFinite(walletCredits) ? walletCredits : 'unknown'));
-      updateWidget(usedToday, limit, usedToday >= limit, costInfo.cost);
-
-      log('triggering generation...', source);
+      log('generation authorized (debited)', source, 'cost=' + costInfo.cost, 'usedToday=' + usedToday, 'remaining=' + getDailyRemaining(), 'wallet=' + (isFinite(walletCredits) ? walletCredits : 'unknown'));
+      refreshCreditsWidget(costInfo.cost);
+      // NEVER call triggerGenerateButtonClick here — synthetic clicks after async
+      // wallet checks trigger Cloudflare "Access is temporarily restricted".
+      // Generation must come from the user's real trusted click (document_capture).
       showGenerateStatus('', 1);
-      setTimeout(function () {
-        try {
-          // Guard: if the user's real trusted click already fired the generation
-          // (sync gate in document_capture), recordChargeMarker was already called
-          // and shouldSkipDuplicateCharge returns true here. Skip synthetic trigger
-          // to avoid a duplicate generation request.
-          if (shouldSkipDuplicateCharge(costInfo.cost)) {
-            log('trigger skipped — generation already in flight from sync gate', source);
-            showGenerateStatus('', 1);
-            return;
-          }
-          var btn = buttonFinder();
-          if (btn) triggerGenerateButtonClick(btn);
-          setTimeout(function () { showGenerateStatus('', 1); }, 800);
-        } catch (_) {
-          showGenerateStatus('', 1);
-        }
-      }, 120);
     });
   }
 
   function installStandardGenerateButtonOverlay() {
+    // When Unlimited is on, stay completely out of the way (no overlays / no credit gate).
+    if (isUnlimitedMode()) {
+      if (lastStandardBtn) { restoreButton(lastStandardBtn); lastStandardBtn = null; }
+      var elOff = document.getElementById('ee-hf-ecom-overlay-standard');
+      if (elOff) elOff.remove();
+      var veOff = document.getElementById('ee-hf-ecom-overlay-verify');
+      if (veOff) veOff.remove();
+      return;
+    }
     var btn = findStandardGenerateButton();
     if (!btn) {
       if (lastStandardBtn) { restoreButton(lastStandardBtn); lastStandardBtn = null; }
@@ -3210,31 +3226,35 @@
     var ve = document.getElementById('ee-hf-ecom-overlay-verify');
     if (ve) ve.remove();
     function onOurButtonClick() {
-      log('overlay click', 'standard_generate');
-      if (!getVerifiedEmail() && shouldShowPopup()) {
-        log('no verified email, showing popup first');
-        createPopup();
-        return;
-      }
-      runPaidGenerationPrecheck('standard_generate', findStandardGenerateButton);
+      // Overlay is pointer-events:none — this path should rarely run.
+      // Never async-validate then synthetic-click (Cloudflare bot flag).
+      log('overlay click ignored (passthrough); document_capture owns paid generate');
     }
     placeOurButtonOver('ee-hf-ecom-overlay-standard', btn, onOurButtonClick);
   }
 
   function installUnlimitedButtonOverlay() {
-    var btn = findUnlimitedGenerateButton();
-    if (!btn) {
-      if (lastUnlimitedBtn) { restoreButton(lastUnlimitedBtn); lastUnlimitedBtn = null; }
-      var el = document.getElementById('ee-hf-ecom-overlay-unlimited');
-      if (el) el.remove();
+    // Unlimited must stay fully passive: no overlay, no credit precheck, no synthetic click.
+    // Re-clicking Generate after setTimeout was flagged as bot activity by Cloudflare.
+    if (lastUnlimitedBtn) { restoreButton(lastUnlimitedBtn); lastUnlimitedBtn = null; }
+    var el = document.getElementById('ee-hf-ecom-overlay-unlimited');
+    if (el) el.remove();
+
+    if (isUnlimitedMode()) {
+      // Also clear the standard overlay so it cannot intercept the unlimited Generate CTA.
+      var std = document.getElementById('ee-hf-ecom-overlay-standard');
+      if (std) std.remove();
+      var ve = document.getElementById('ee-hf-ecom-overlay-verify');
+      if (ve) ve.remove();
+      log('unlimited mode: overlays removed, native Generate only');
       return;
     }
-    if (lastUnlimitedBtn && lastUnlimitedBtn !== btn) restoreButton(lastUnlimitedBtn);
+
+    var btn = findUnlimitedGenerateButton();
+    if (!btn) return;
     lastUnlimitedBtn = btn;
 
     if (!getVerifiedEmail() && shouldShowPopup()) {
-      var el = document.getElementById('ee-hf-ecom-overlay-unlimited');
-      if (el) el.remove();
       placeVerifyOverlayOver(btn, function () {
         log('verify overlay clicked (unlimited btn) – opening popup');
         createPopup();
@@ -3242,34 +3262,11 @@
       return;
     }
 
-    function onOurButtonClick() {
-      log('overlay click', 'unlimited_generate');
-      if (!getVerifiedEmail() && shouldShowPopup()) {
-        log('no verified email, showing popup first');
-        createPopup();
-        return;
-      }
-      if (isUnlimitedMode()) {
-        log('verifying unlimited mode...', 'unlimited_generate');
-        var email = getVerifiedEmail();
-        var usedToday = getUsedToday();
-        logUsage(email, 0, usedToday, 'unlimited_generate');
-        log('unlimited mode detected, tracking only without deduction');
-        log('authorizing generation...', 'unlimited_generate');
-        setTimeout(function () {
-          log('triggering generation...', 'unlimited_generate');
-          setTimeout(function () {
-            try {
-              var unlimitedBtn = findUnlimitedGenerateButton();
-              if (unlimitedBtn) triggerGenerateButtonClick(unlimitedBtn);
-            } catch (_) {}
-          }, 120);
-        }, 150);
-        return;
-      }
-      runPaidGenerationPrecheck('unlimited_generate', findUnlimitedGenerateButton);
-    }
-    placeOurButtonOver('ee-hf-ecom-overlay-unlimited', btn, onOurButtonClick);
+    // Verified + not currently in unlimited toggle: transparent passthrough overlay only
+    // (pointer-events:none). Never re-trigger Generate programmatically.
+    placeOurButtonOver('ee-hf-ecom-overlay-unlimited', btn, function () {
+      log('overlay click ignored for unlimited btn (passthrough only)');
+    });
   }
 
   function setupBlockingObserver() {
@@ -3277,12 +3274,10 @@
     installGenerateClickBlocker();
     installUnlimitedButtonOverlay();
     installStandardGenerateButtonOverlay();
+    var onImagePage = isHiggsfieldImagePage();
+    var overlayDebounceMs = onImagePage ? 1400 : 500;
     if (!generateOverlayObserverInstalled && typeof MutationObserver !== 'undefined') {
       generateOverlayObserverInstalled = true;
-      // Debounced re-placement: Higgsfield's React tree mutates almost every frame
-      // (analytics, animations, hover states). 500ms is plenty: the underlying
-      // button rarely moves more than once per second, and clicks/scrolls already
-      // trigger an immediate kick() outside of this debounce.
       var t = null;
       var kick = function () {
         if (t) return;
@@ -3291,33 +3286,32 @@
           try { installUnlimitedButtonOverlay(); } catch (_) {}
           try { installStandardGenerateButtonOverlay(); } catch (_) {}
           eeScanAndArmGenerateButtons('dom_mutation');
-        }, 500);
+        }, overlayDebounceMs);
       };
       var mo = new MutationObserver(function () { kick(); });
       try { mo.observe(document.documentElement, { childList: true, subtree: true }); } catch (_) {}
-      // Click + scroll are the only realistic cases where the button needs an
-      // immediate re-place outside of DOM mutations (scroll moves the rect).
-      document.addEventListener('click', function () { kick(); }, true);
       window.addEventListener('scroll', function () { kick(); }, { passive: true, capture: true });
-      // Long safety net (10s) in case the MutationObserver missed a layout shift
-      // that didn't change the DOM tree (e.g. CSS-only transition).
-      setInterval(function () { kick(); }, 10000);
+      if (!onImagePage) {
+        document.addEventListener('click', function () { kick(); }, true);
+      }
+      setInterval(function () { kick(); }, onImagePage ? 15000 : 10000);
     } else {
-      setInterval(installUnlimitedButtonOverlay, 5000);
-      setInterval(installStandardGenerateButtonOverlay, 5000);
+      setInterval(installUnlimitedButtonOverlay, onImagePage ? 8000 : 5000);
+      setInterval(installStandardGenerateButtonOverlay, onImagePage ? 8000 : 5000);
     }
   }
 
   function scheduleBlockingObserver() {
     installGenerateClickBlocker();
+    var delay = isHiggsfieldImagePage() ? 2800 : 400;
     setTimeout(function () {
       setupBlockingObserver();
       eeScanAndArmGenerateButtons('blocking_observer_start');
-    }, 400);
+    }, delay);
     setInterval(function () {
       if (isAuthPage(location.pathname)) return;
       eeScanAndArmGenerateButtons('interval_safety');
-    }, 4000);
+    }, isHiggsfieldImagePage() ? 8000 : 4000);
   }
 
   // --- Shield ---
@@ -3558,7 +3552,7 @@
     log('init', location.href, 'SIMULATE_CONNECTED=', SIMULATE_CONNECTED, 'DAILY_CREDIT_LIMIT=', CONFIG.DAILY_CREDIT_LIMIT);
 
     try {
-      chrome.runtime.sendMessage({ type: 'INJECT_HIGGSFIELD_LOGGER' });
+      scheduleHiggsfieldLoggerInjection('init');
     } catch (_) {}
 
     installSpaWatcher();
@@ -3569,7 +3563,7 @@
     if (!isAuthPage(location.pathname)) {
       setTimeout(function () {
         eeOnAppRouteChange('', location.pathname || '');
-      }, 1500);
+      }, isHiggsfieldImagePage() ? 3000 : 1500);
     }
 
     if (isAuthPage(location.pathname)) {

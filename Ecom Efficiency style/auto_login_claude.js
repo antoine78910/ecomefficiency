@@ -213,10 +213,13 @@
   }
 
   function isValidClaudeLink(link) {
-    const u = String(link || "").trim();
+    const u = String(link || "").trim().replace(/[=]+$/g, "");
     if (!/^https:\/\/claude\.ai\//i.test(u)) return false;
+    if (/\/magic-link#/i.test(u)) {
+      const hash = u.split("#")[1] || "";
+      return hash.length >= 40 && hash.indexOf(":") !== -1;
+    }
     return (
-      /\/magic-link#/i.test(u) ||
       /\/magic-link\?/i.test(u) ||
       /\/auth\/(magic-)?link/i.test(u) ||
       /\/auth\/verify/i.test(u) ||

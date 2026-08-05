@@ -9,6 +9,13 @@ try {
   console.error('[EE] NoxTools backgrounds failed to load', e);
 }
 
+if (!globalThis.__eeHfLoggerInjectedTabs) globalThis.__eeHfLoggerInjectedTabs = new Set();
+try {
+  chrome.tabs.onRemoved.addListener((tabId) => {
+    globalThis.__eeHfLoggerInjectedTabs.delete(tabId);
+  });
+} catch (_) {}
+
 // Silence most console output from the service worker.
 // Keep originals for targeted diagnostic logging (Freepik OTP, etc.)
 const __bgConsole = {
@@ -117,9 +124,29 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
   // Higgsfield: inject logger in page context without adding a script tag (avoids React #418).
   if (message && message.type === 'INJECT_HIGGSFIELD_LOGGER' && sender && sender.tab && sender.tab.id) {
-    chrome.scripting.executeScript({ target: { tabId: sender.tab.id }, files: ['higgsfield_http_logger.js'], world: 'MAIN' })
-      .then(() => { sendResponse({ ok: true }); })
-      .catch(() => { sendResponse({ ok: false }); });
+    const tabId = sender.tab.id;
+    const delayMs = Math.max(0, Number(message.delayMs) || 0);
+    if (!globalThis.__eeHfLoggerInjectedTabs) globalThis.__eeHfLoggerInjectedTabs = new Set();
+    const injected = globalThis.__eeHfLoggerInjectedTabs;
+    if (injected.has(tabId)) {
+      sendResponse({ ok: true, skipped: true });
+      return true;
+    }
+    const run = () => {
+      if (injected.has(tabId)) {
+        sendResponse({ ok: true, skipped: true });
+        return;
+      }
+      chrome.scripting
+        .executeScript({ target: { tabId }, files: ['higgsfield_http_logger.js'], world: 'MAIN' })
+        .then(() => {
+          injected.add(tabId);
+          sendResponse({ ok: true });
+        })
+        .catch(() => { sendResponse({ ok: false }); });
+    };
+    if (delayMs > 0) setTimeout(run, delayMs);
+    else run();
     return true;
   }
 
@@ -779,7 +806,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                       }
                     }
 
-                    if (code && /^\d{4}$/.test(code)) {
+                    if (code && /^\d{6}$/.test(code)) {
                       console.log('[EE-BG-VMAKE] Success, sending code:', code, 'from', url);
                       sendResponse({ ok: true, code: code, sourceUrl: url, sinceTs });
                       return;
@@ -1012,10 +1039,14 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   }
 
   function isValidClaudeLink(link) {
-    const u = String(link || '').trim();
+    const u = String(link || '').trim().replace(/[=]+$/g, '');
     if (!/^https:\/\/claude\.ai\//i.test(u)) return false;
+    if (/\/magic-link#/i.test(u)) {
+      const hash = u.split('#')[1] || '';
+      // Require the full Claude token:base64email hash (reject QP truncations like "...d2=")
+      return hash.length >= 40 && hash.indexOf(':') !== -1;
+    }
     return (
-      /\/magic-link#/i.test(u) ||
       /\/magic-link\?/i.test(u) ||
       /\/auth\/(magic-)?link/i.test(u) ||
       /\/auth\/verify/i.test(u) ||
@@ -1029,63 +1060,86 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
     (async () => {
       try {
+        const mailbox = String((message && message.mailbox) || 'admin').toLowerCase();
         const baseUrls = [
-          'http://51.83.103.21:20016/otp-higgsfield',
-          'http://46.224.61.179:20016/otp-higgsfield'
+          'http://51.83.103.21:20016',
+          'http://127.0.0.1:20016',
+          'http://localhost:20016',
+          'http://46.224.61.179:20016',
         ];
         let lastErr = null;
         const tried = [];
 
+        function pathsForAttempt(attempt) {
+          const paths = [];
+          if (mailbox === 'support') {
+            paths.push('/otp-higgsfield-support', '/otp-higgsfield?mailbox=support');
+            if (attempt >= 1) paths.push('/otp-higgsfield');
+          } else {
+            paths.push('/otp-higgsfield');
+            if (attempt >= 1) paths.push('/otp-higgsfield-support', '/otp-higgsfield?mailbox=support');
+          }
+          const seen = new Set();
+          return paths.filter((p) => {
+            if (seen.has(p)) return false;
+            seen.add(p);
+            return true;
+          });
+        }
+
         for (let attempt = 0; attempt < 3; attempt++) {
-          for (const baseUrl of baseUrls) {
-            const urlVariants = [baseUrl + '?t=' + Date.now(), baseUrl];
-            for (const url of urlVariants) {
-              tried.push(url);
-              try {
-                console.log('[EE-BG][HIGGSFIELD] Trying URL:', url);
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 8000);
-                const res = await fetch(url, {
-                  cache: 'no-store',
-                  credentials: 'omit',
-                  redirect: 'follow',
-                  headers: {
-                    'Accept': 'application/json,text/plain,*/*',
-                    'Cache-Control': 'no-cache',
-                    'Pragma': 'no-cache'
-                  },
-                  signal: controller.signal
-                }).finally(() => {
-                  try { clearTimeout(timeoutId); } catch (_) {}
-                });
+          const paths = pathsForAttempt(attempt);
+          for (const base of baseUrls) {
+            for (const path of paths) {
+              const urlVariants = [base + path + (path.indexOf('?') === -1 ? '?t=' + Date.now() : '&t=' + Date.now()), base + path];
+              for (const url of urlVariants) {
+                tried.push(url);
+                try {
+                  console.log('[EE-BG][HIGGSFIELD] Trying URL:', url);
+                  const controller = new AbortController();
+                  const timeoutId = setTimeout(() => controller.abort(), 12000);
+                  const res = await fetch(url, {
+                    cache: 'no-store',
+                    credentials: 'omit',
+                    redirect: 'follow',
+                    headers: {
+                      'Accept': 'application/json,text/plain,*/*',
+                      'Cache-Control': 'no-cache',
+                      'Pragma': 'no-cache'
+                    },
+                    signal: controller.signal
+                  }).finally(() => {
+                    try { clearTimeout(timeoutId); } catch (_) {}
+                  });
 
-                const text = await res.text().catch(() => '');
-                let json = null;
-                try { json = text ? JSON.parse(text) : null; } catch (_) {}
+                  const text = await res.text().catch(() => '');
+                  let json = null;
+                  try { json = text ? JSON.parse(text) : null; } catch (_) {}
 
-                if (!res.ok) {
-                  const msg =
-                    (json && (json.error || json.message)) ||
-                    (text && text.slice(0, 240)) ||
-                    `HTTP ${res.status}`;
-                  lastErr = new Error(msg);
-                  continue;
+                  if (!res.ok) {
+                    const msg =
+                      (json && (json.error || json.message)) ||
+                      (text && text.slice(0, 240)) ||
+                      `HTTP ${res.status}`;
+                    lastErr = new Error(msg);
+                    continue;
+                  }
+
+                  let code = (json && json.code) ? String(json.code).trim() : '';
+                  if (!code && text) {
+                    const m = String(text).match(/\b\d{4,8}\b/);
+                    if (m) code = String(m[0]).trim();
+                  }
+
+                  if (code && code.length >= 4) {
+                    console.log('[EE-BG][HIGGSFIELD] ✓ Code received:', code, 'from', url, 'mailbox=', mailbox);
+                    sendResponse({ ok: true, code, sourceUrl: url, mailbox });
+                    return;
+                  }
+                  lastErr = new Error('Code empty or invalid');
+                } catch (e) {
+                  lastErr = e;
                 }
-
-                let code = (json && json.code) ? String(json.code).trim() : '';
-                if (!code && text) {
-                  const m = String(text).match(/\b\d{4,8}\b/);
-                  if (m) code = String(m[0]).trim();
-                }
-
-                if (code && code.length >= 4) {
-                  console.log('[EE-BG][HIGGSFIELD] ✓ Code received:', code, 'from', url);
-                  sendResponse({ ok: true, code, sourceUrl: url });
-                  return;
-                }
-                lastErr = new Error('Code empty or invalid');
-              } catch (e) {
-                lastErr = e;
               }
             }
           }
@@ -1108,40 +1162,40 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
 
 
   // ============================================
-  // FREEPIK OTP (account verification) — verbose diagnostics
+  // FREEPIK / MAGNIFIC OTP — fetch from Katabump only
+  // URL: http://51.83.103.21:20016/otp-freepik  →  { "code": "123456" }
   // ============================================
   if (message && message.type === 'FETCH_FREEPIK_OTP') {
     const _log = __bgConsole.log;
     const _err = __bgConsole.error;
     _log('[EE-BG][FREEPIK] FETCH_FREEPIK_OTP request received');
 
+    function isValidFreepikCode(code) {
+      const c = String(code || '').trim();
+      if (!/^\d{4,8}$/.test(c)) return false;
+      if (/^0+$/.test(c)) return false; // reject 00000 / 000000
+      if (/^(\d)\1+$/.test(c)) return false; // reject 111111 etc.
+      return true;
+    }
+
     (async () => {
-      const diagSteps = []; // collect step-by-step info for the content script overlay
       try {
+        // Katabump first (the live OTP page), then one fallback IP.
         const baseUrls = [
-          // Local first (most reliable during local debugging / development)
-          'http://127.0.0.1:20016/otp-freepik',
-          'http://localhost:20016/otp-freepik',
-          'http://127.0.0.1:3005/otp-freepik',
-          'http://127.0.0.1:3000/otp-freepik',
-          'http://localhost:3005/otp-freepik',
-          'http://localhost:3000/otp-freepik',
-          // Remote fallbacks
           'http://51.83.103.21:20016/otp-freepik',
           'http://46.224.61.179:20016/otp-freepik'
         ];
         let lastErr = null;
         const tried = [];
 
-        for (let attempt = 0; attempt < 3; attempt++) {
+        for (let attempt = 0; attempt < 4; attempt++) {
           for (const baseUrl of baseUrls) {
             const url = baseUrl + '?t=' + Date.now();
             tried.push(url);
-            const stepInfo = { attempt: attempt + 1, url, status: null, bodyPreview: null, error: null, codeFound: null };
             try {
-              _log('[EE-BG][FREEPIK] Trying URL:', url);
+              _log('[EE-BG][FREEPIK] Trying:', url);
               const controller = new AbortController();
-              const timeoutId = setTimeout(() => controller.abort(), 12000);
+              const timeoutId = setTimeout(() => controller.abort(), 25000);
               const res = await fetch(url, {
                 cache: 'no-store',
                 credentials: 'omit',
@@ -1156,9 +1210,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                 try { clearTimeout(timeoutId); } catch (_) {}
               });
 
-              stepInfo.status = res.status;
               const text = await res.text().catch(() => '');
-              stepInfo.bodyPreview = text ? text.slice(0, 500) : '(empty body)';
               let json = null;
               try { json = text ? JSON.parse(text) : null; } catch (_) {}
 
@@ -1167,49 +1219,42 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
                   (json && (json.error || json.message)) ||
                   (text && text.slice(0, 240)) ||
                   `HTTP ${res.status}`;
-                stepInfo.error = 'HTTP ' + res.status + ': ' + msg;
                 lastErr = new Error(msg);
                 _err('[EE-BG][FREEPIK] HTTP error', res.status, msg);
-                diagSteps.push(stepInfo);
                 continue;
               }
 
-              let code = (json && json.code) ? String(json.code).trim() : '';
-              if (!code && text) {
-                const m = String(text).match(/\b\d{4,8}\b/);
-                if (m) code = String(m[0]).trim();
+              // Only trust explicit JSON { code: "..." } from Katabump.
+              let code = (json && json.code != null) ? String(json.code).trim() : '';
+              if (!isValidFreepikCode(code)) {
+                lastErr = new Error(code ? ('invalid_code:' + code) : 'empty_code');
+                _err('[EE-BG][FREEPIK] No valid code yet', { code: code || '', body: (text || '').slice(0, 120) });
+                continue;
               }
 
-              if (code && code.length >= 4) {
-                stepInfo.codeFound = code;
-                diagSteps.push(stepInfo);
-                _log('[EE-BG][FREEPIK] ✓ Code received:', code, 'from', url);
-                sendResponse({ ok: true, code, sourceUrl: url, diagSteps });
-                return;
-              }
-              stepInfo.error = 'Server responded OK but code is empty/invalid. JSON code field: ' + JSON.stringify(json && json.code) + '. Raw body starts: ' + (text || '').slice(0, 120);
-              lastErr = new Error(stepInfo.error);
-              _err('[EE-BG][FREEPIK] Code empty', stepInfo.error);
+              _log('[EE-BG][FREEPIK] ✓ Code received:', code, 'from', url);
+              sendResponse({ ok: true, code, sourceUrl: url });
+              return;
             } catch (e) {
-              stepInfo.error = (e && e.name ? e.name + ': ' : '') + (e && e.message ? e.message : String(e));
               lastErr = e;
-              _err('[EE-BG][FREEPIK] fetch error', stepInfo.error);
+              _err('[EE-BG][FREEPIK] fetch error', e && e.message ? e.message : e);
             }
-            diagSteps.push(stepInfo);
           }
-          if (attempt < 2) await new Promise(r => setTimeout(r, 1500));
+          if (attempt < 3) await new Promise((r) => setTimeout(r, 1200));
         }
 
-        _err('[EE-BG][FREEPIK] ✗ All attempts failed', { lastErr: lastErr ? lastErr.message : 'unknown', triedCount: tried.length });
+        _err('[EE-BG][FREEPIK] ✗ All attempts failed', {
+          lastErr: lastErr ? (lastErr.message || String(lastErr)) : 'unknown',
+          triedCount: tried.length
+        });
         sendResponse({
           ok: false,
-          error: lastErr ? (lastErr.message || String(lastErr)) : 'Failed after 3 attempts',
-          tried: tried.slice(-12),
-          diagSteps
+          error: lastErr ? (lastErr.message || String(lastErr)) : 'Failed after retries',
+          tried: tried.slice(-8)
         });
       } catch (e) {
         _err('[EE-BG][FREEPIK] Outer catch', e && e.message ? e.message : e);
-        sendResponse({ ok: false, error: String(e && e.message ? e.message : e), diagSteps });
+        sendResponse({ ok: false, error: String(e && e.message ? e.message : e) });
       }
     })();
 
@@ -1248,7 +1293,7 @@ function blockChromeURLs() {
     'https://myaccount.google.com/*',
     'https://app.winninghunter.com/profile',
     'https://www.kalodata.com/me*',
-    'https://checkout.stripe.com/c/pay/*'
+    'https://checkout.stripe.com/*'
     // Vous pouvez ajouter d'autres URLs chrome:// ici
   ];
 
@@ -1401,7 +1446,7 @@ chrome.webRequest.onBeforeRequest.addListener(
     }
 
     // Bloquer/rediriger Stripe Checkout pay page
-    if (details.type === 'main_frame' && /^https:\/\/checkout\.stripe\.com\/c\/pay\/.*/.test(url)) {
+    if (details.type === 'main_frame' && /^https:\/\/checkout\.stripe\.com\//.test(url)) {
       return { redirectUrl: chrome.runtime.getURL('blocked.html') };
     }
     
@@ -1423,7 +1468,7 @@ chrome.webRequest.onBeforeRequest.addListener(
       "https://claude.ai/settings*",
       "https://app.winninghunter.com/profile",
       "https://billing.stripe.com/",
-      "https://checkout.stripe.com/c/pay/*",
+      "https://checkout.stripe.com/*",
       "https://one.google.com/*",
       "https://www.kalodata.com/me*"
     ]

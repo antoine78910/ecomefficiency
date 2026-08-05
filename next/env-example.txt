@@ -65,3 +65,6 @@ FIRSTPROMOTER_DRIP_EMAILS=false
 #
 # Katabump / imap_server.js (optional — other tools may still use IMAP env vars on the mail server):
 # IMAP_ADSPOWER_ADMIN_HOSTS=...
+
+# EE LTV balance: +$5 on each monthly paid invoice only (yearly excluded). Always USD.
+# REWARD_CREDITS_START_AT=2026-08-04T00:00:00.000Z

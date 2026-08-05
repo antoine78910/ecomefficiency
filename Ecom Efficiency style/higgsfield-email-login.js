@@ -6,6 +6,7 @@
   window.__EE_HIGGSFIELD_EMAIL_SIGNIN_ACTIVE = true;
 
   const EMAIL = 'admin@ecomefficiency.com';
+  const HF_LOGIN_EMAIL_KEY = 'HF_LOGIN_EMAIL';
   const PASSWORD = 'JHvtviciyz?75jhbe3!';
   const ECOM_VERIFY_URL = 'https://www.ecomefficiency.com/api/stripe/verify';
   const ECOM_VERIFIED_EMAIL_KEY = 'EE_HF_AUTH_VERIFIED_EMAIL';
@@ -82,6 +83,14 @@
     try { input.dispatchEvent(new Event('input', { bubbles: true })); } catch (_) {}
   }
 
+  function jitterMs(min, max) { return min + Math.random() * (max - min); }
+
+  /**
+   * Spreads the synthetic pointerdown → mouseup → click sequence over small,
+   * randomized delays instead of firing everything in the same tick.
+   * Zero-latency event bursts are a classic "Rapid taps or clicks" bot-detection
+   * signal and can trigger Higgsfield's access-restriction page.
+   */
   function safeClick(el) {
     try {
       if (!el) return false;
@@ -90,9 +99,11 @@
       try { el.focus && el.focus(); } catch (_) {}
       try { el.dispatchEvent(new MouseEvent('pointerdown', { bubbles: true, cancelable: true })); } catch (_) {}
       try { el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true })); } catch (_) {}
-      try { el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true })); } catch (_) {}
-      try { el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })); } catch (_) {}
-      try { el.click && el.click(); } catch (_) {}
+      setTimeout(function () {
+        try { el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true })); } catch (_) {}
+        try { el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true })); } catch (_) {}
+        try { el.click && el.click(); } catch (_) {}
+      }, jitterMs(50, 130));
       return true;
     } catch (_) {
       return false;
@@ -151,8 +162,6 @@
     try {
       sessionStorage.setItem(DISABLE_KEY, '1');
       sessionStorage.setItem(DISABLE_UNTIL_KEY, String(Date.now() + Number(disableMs || DISABLE_MS)));
-      const otpOverlay = document.getElementById('hf-otp-overlay');
-      if (otpOverlay) otpOverlay.style.display = 'none';
     } catch (_) {}
 
     // Best-effort clear in the same document; still safe if page navigates
@@ -376,7 +385,10 @@
         await new Promise((r) => setTimeout(r, 800));
         const submit = findLoginSubmitControl();
         if (submit) {
-          try { sessionStorage.setItem('HF_LOGIN_SUBMITTED', '1'); } catch (_) {}
+          try {
+            sessionStorage.setItem('HF_LOGIN_SUBMITTED', '1');
+            sessionStorage.setItem(HF_LOGIN_EMAIL_KEY, EMAIL);
+          } catch (_) {}
           autoDisableExtension(DISABLE_MS);
           safeClick(submit);
         }
@@ -412,7 +424,10 @@
     await new Promise((r) => setTimeout(r, 900));
     const submit = findLoginSubmitControl();
     if (submit) {
-      try { sessionStorage.setItem('HF_LOGIN_SUBMITTED', '1'); } catch (_) {}
+      try {
+        sessionStorage.setItem('HF_LOGIN_SUBMITTED', '1');
+        sessionStorage.setItem(HF_LOGIN_EMAIL_KEY, EMAIL);
+      } catch (_) {}
       autoDisableExtension(DISABLE_MS);
       safeClick(submit);
     }
@@ -435,7 +450,10 @@
         await new Promise((r) => setTimeout(r, 800));
         const submit = findLoginSubmitControl();
         if (submit) {
-          try { sessionStorage.setItem('HF_LOGIN_SUBMITTED', '1'); } catch (_) {}
+          try {
+            sessionStorage.setItem('HF_LOGIN_SUBMITTED', '1');
+            sessionStorage.setItem(HF_LOGIN_EMAIL_KEY, EMAIL);
+          } catch (_) {}
           autoDisableExtension(DISABLE_MS);
           safeClick(submit);
         }
@@ -471,7 +489,10 @@
       await new Promise((r) => setTimeout(r, 900));
       const submit = findLoginSubmitControl();
       if (submit) {
-        try { sessionStorage.setItem('HF_LOGIN_SUBMITTED', '1'); } catch (_) {}
+        try {
+        sessionStorage.setItem('HF_LOGIN_SUBMITTED', '1');
+        sessionStorage.setItem(HF_LOGIN_EMAIL_KEY, EMAIL);
+      } catch (_) {}
         autoDisableExtension(DISABLE_MS);
         safeClick(submit);
       }

@@ -19,7 +19,6 @@ export default function ProToolsPage() {
     'WinningHunter': 'https://app.winninghunter.com/login',
     // new pro set
     'Flair.ai': 'https://app.flair.ai/explore',
-    'Freepik': 'https://www.magnific.com/log-in?client_id=magnific&lang=en',
     'TurboScribe': 'https://turboscribe.ai/',
     'Exploding Topics': 'https://www.semrush.com/app/exploding-topics/',
     'Pipiads': 'https://www.pipiads.com/login',
@@ -42,7 +41,7 @@ export default function ProToolsPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
             {carouselTools
               .filter(t => [
-                'Flair.ai','ChatGPT','Claude','Freepik','TurboScribe','Midjourney','Exploding Topics','Pipiads','Kalodata','WinningHunter','SendShort','Helium10','Dropship.io','ShopHunter','Atria','Heygen','Fotor','ForePlay','ElevenLabs','Trendtrack','Higgsfield','Vmake'
+                'Flair.ai','ChatGPT','Claude','TurboScribe','Midjourney','Exploding Topics','Pipiads','Kalodata','WinningHunter','SendShort','Helium10','Dropship.io','ShopHunter','Atria','Heygen','Fotor','ForePlay','ElevenLabs','Trendtrack','Higgsfield','Vmake'
               ].includes(t.name))
               .filter(t => t.name !== 'Canva' && t.name !== 'Brain.fm')
               .map((tool) => (

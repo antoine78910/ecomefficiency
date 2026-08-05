@@ -5,6 +5,7 @@ import { supabaseAdmin } from "@/integrations/supabase/server";
 import { fpTrackSale } from "@/lib/firstpromoterTracking";
 import { trackSubscriptionCancelScheduled } from "@/lib/subscriptionCancelEvents";
 import { recordFunnelConversion } from "@/lib/funnelTracking";
+import { grantMonthlyReward, isMonthlyStripeSubscription } from "@/lib/rewardCredits";
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -499,6 +500,31 @@ export async function POST(req: NextRequest) {
               const userName = updateData.user_metadata?.first_name || 'Valued Customer';
               const invoiceUrl = invoice.hosted_invoice_url; // Link to the PDF invoice
               
+              // LTV balance: +$5 per paid monthly invoice only (no yearly, no separate currency).
+              try {
+                if (!isMonthlyStripeSubscription(subscription)) {
+                  console.log('[webhook][invoice.payment_succeeded]', requestId, 'reward_credits_skipped_yearly');
+                } else {
+                  const rewardRes = await grantMonthlyReward({
+                    userId: String(targetUserId),
+                    email: userEmail || null,
+                    meta: {
+                      source: "invoice.payment_succeeded",
+                      invoice_id: invoice?.id ? String(invoice.id) : null,
+                      subscription_id: String(subscriptionId),
+                      plan,
+                    },
+                  });
+                  console.log('[webhook][invoice.payment_succeeded]', requestId, 'reward_credits', {
+                    granted: rewardRes.granted,
+                    ok: rewardRes.ok,
+                    error: rewardRes.error || null,
+                  });
+                }
+              } catch (rewardErr: any) {
+                console.error('[webhook][invoice.payment_succeeded]', requestId, 'reward_credits_error', rewardErr?.message || rewardErr);
+              }
+
               // Proceed with tracking using the resolved email
             }
           } catch (err: any) {

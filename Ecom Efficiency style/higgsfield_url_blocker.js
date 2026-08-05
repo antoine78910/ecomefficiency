@@ -1,5 +1,5 @@
 // higgsfield_url_blocker.js - Block access to specific Higgsfield pages
-// Blocks: /cli, /canvas, /mcp, /supercomputer, /marketing-studio
+// Blocks: /cli, /canvas, /mcp, /supercomputer, /marketing-studio, /plugins
 
 (function () {
   'use strict';
@@ -10,16 +10,22 @@
     : function (pathname) {
         try {
           const p = String(pathname || '');
-          return [
+          const prefixes = [
             '/cli',
             '/canvas',
             '/mcp',
             '/supercomputer',
+            '/supercomputer-intro',
             '/marketing-studio',
             '/marketing-studio-community',
-          ].some(
-            (prefix) => p === prefix || p.startsWith(prefix + '/')
-          );
+            '/plugins',
+          ];
+          return prefixes.some((prefix) => {
+            if (p === prefix) return true;
+            if (p.startsWith(prefix + '/')) return true;
+            if (p.startsWith(prefix + '-')) return true;
+            return false;
+          });
         } catch {
           return false;
         }
@@ -108,4 +114,3 @@
     true
   );
 })();
-
