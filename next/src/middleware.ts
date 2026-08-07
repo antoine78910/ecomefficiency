@@ -396,6 +396,7 @@ export async function middleware(req: NextRequest) {
       r.pathname = '/tools-pro-shell'
       return NextResponse.rewrite(r)
     }
+    // /prop => full demo tools hub (all tools). Served as-is from app/prop — do not rewrite to shell.
     // /starter => marketing starter tools page
     if (pathname === '/starter') {
       const r = url.clone(); r.pathname = '/startertools';
