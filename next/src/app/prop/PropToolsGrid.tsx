@@ -5,6 +5,75 @@ import { seoToolsCatalog } from "@/data/seoToolsCatalog";
 
 const RANKERFOX_LOGIN = "https://rankerfox.com/login/";
 
+/** SEO tools to hide from the /prop demo hub. */
+const SEO_TOOLS_HIDDEN = new Set([
+  "academun",
+  "writehuman",
+  "seobserver",
+  "yourtextguru",
+  "surferlink",
+  "spyfu",
+  "wincher",
+  "serpstat",
+  "zonbase",
+  "haloscan",
+  "seoptimer",
+  "niche-scraper",
+  "amzscout",
+  "seozoom",
+  "smartscout",
+  "searchatlas",
+  "publicwww",
+  "pexda",
+  "xovi",
+  "smodin",
+  "sistrix",
+  "ranxplorer",
+  "buzzsumo",
+  "storyblocks",
+  "babbar",
+  "moz",
+  "wordai",
+  "one-hour-indexing",
+  "colinkri",
+  "keysearch",
+  "textoptimizer",
+  "1fr",
+  "domcop",
+  "quetext",
+  "screaming-frog",
+  // Already shown in the main tools grid
+  "freepik",
+]);
+
+/** Preferred order for remaining SEO tools (Semrush / Ubersuggest / Similarweb first). */
+const SEO_TOOLS_ORDER = [
+  "semrush",
+  "ubersuggest",
+  "similarweb",
+  "ahrefs",
+  "mangools",
+  "se-ranking",
+  "majestic",
+  "jungle-scout",
+  "alsoasked",
+  "answerthepublic",
+  "keywordtool",
+  "hunter",
+  "woorank",
+  "quillbot",
+  "alura",
+  "dinorank",
+  "bypassgpt",
+  "zikanalytics",
+  "flaticon",
+  "iconscout",
+  "123rf",
+  "motion-array",
+  "artlist",
+  "envato-elements",
+];
+
 /** Domains used for favicon fallback when local logos are missing. */
 const SEO_ICON_DOMAIN: Record<string, string> = {
   semrush: "semrush.com",
@@ -319,61 +388,49 @@ export default function PropToolsGrid({ assetVersion }: { assetVersion: string }
   const v = encodeURIComponent(assetVersion);
   const seoFallback = `/tools-images/seo.png?v=${v}`;
 
-  // Dedicated main cards already cover Freepik (Magnific). Still list all SEO catalog tools via Rankerfox.
-  const seoTools = seoToolsCatalog;
+  const seoTools = seoToolsCatalog
+    .filter((t) => !SEO_TOOLS_HIDDEN.has(t.slug))
+    .slice()
+    .sort((a, b) => {
+      const ia = SEO_TOOLS_ORDER.indexOf(a.slug);
+      const ib = SEO_TOOLS_ORDER.indexOf(b.slug);
+      const ra = ia === -1 ? 999 : ia;
+      const rb = ib === -1 ? 999 : ib;
+      if (ra !== rb) return ra - rb;
+      return a.name.localeCompare(b.name);
+    });
+
+  const renderSeoCard = (tool: (typeof seoToolsCatalog)[number]) => {
+    const domain = SEO_ICON_DOMAIN[tool.slug];
+    const localKnown: Record<string, string> = {
+      "jungle-scout": `/tools-images/junglescout.png?v=${v}`,
+      semrush: `/tools-images/semrush.png?v=${v}`,
+      ubersuggest: `/tools-images/ubersuggest.png?v=${v}`,
+      similarweb: `/tools-images/similarweb.png?v=${v}`,
+    };
+    const local = localKnown[tool.slug] || `/tools-images/${tool.slug}.png?v=${v}`;
+    const favicon = domain ? faviconUrl(domain) : null;
+    const primary = localKnown[tool.slug] ? local : favicon || local;
+    const fallbacks = [
+      ...(primary === local ? [] : [local]),
+      ...(favicon && primary !== favicon ? [favicon] : []),
+      seoFallback,
+    ];
+
+    return (
+      <ToolCard
+        key={`seo-${tool.slug}`}
+        href={RANKERFOX_LOGIN}
+        name={tool.name}
+        description={tool.shortDescription}
+        imgSrc={primary}
+        fallbackSrcs={fallbacks}
+      />
+    );
+  };
 
   return (
     <div className="tools-grid relative z-10">
-      <a href={RANKERFOX_LOGIN} className="tool-card seo-card" target="_blank" rel="noopener noreferrer">
-        <div className="tool-icon">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={`/tools-images/seo.png?v=${v}`} alt="SEO" />
-        </div>
-        <div className="tool-name">+30 SEO Tools</div>
-        <div className="tool-description">Includes:</div>
-        <div className="tool-includes">
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={`/tools-images/semrush.png?v=${v}`} alt="Semrush" />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={`/tools-images/ubersuggest.png?v=${v}`} alt="Ubersuggest" />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={`/tools-images/junglescout.png?v=${v}`} alt="JungleScout" />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={`/tools-images/canva.png?v=${v}`} alt="Canva" />
-        </div>
-        <div className="tool-description">And more ...</div>
-      </a>
-
-      {seoTools.map((tool) => {
-        const domain = SEO_ICON_DOMAIN[tool.slug];
-        const localKnown: Record<string, string> = {
-          "jungle-scout": `/tools-images/junglescout.png?v=${v}`,
-          semrush: `/tools-images/semrush.png?v=${v}`,
-          ubersuggest: `/tools-images/ubersuggest.png?v=${v}`,
-          freepik: `/tools-images/freepik.png?v=${v}`,
-        };
-        const local = localKnown[tool.slug] || `/tools-images/${tool.slug}.png?v=${v}`;
-        const favicon = domain ? faviconUrl(domain) : null;
-        // Prefer real brand favicon for SEO tools without a polished local logo
-        const primary = localKnown[tool.slug] ? local : favicon || local;
-        const fallbacks = [
-          ...(primary === local ? [] : [local]),
-          ...(favicon && primary !== favicon ? [favicon] : []),
-          seoFallback,
-        ];
-
-        return (
-          <ToolCard
-            key={`seo-${tool.slug}`}
-            href={RANKERFOX_LOGIN}
-            name={tool.name}
-            description={tool.shortDescription}
-            imgSrc={primary}
-            fallbackSrcs={fallbacks}
-          />
-        );
-      })}
-
       {MAIN_TOOLS.map((tool) => (
         <ToolCard
           key={`main-${tool.name}`}
@@ -387,6 +444,10 @@ export default function PropToolsGrid({ assetVersion }: { assetVersion: string }
           group={tool.name === "ElevenLabs"}
         />
       ))}
+
+      <div className="tools-section-title">SEO Tools</div>
+
+      {seoTools.map(renderSeoCard)}
     </div>
   );
 }

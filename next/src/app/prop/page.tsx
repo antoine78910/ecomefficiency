@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 };
 
 export default function PropToolsHubDemoPage() {
-  const ASSET_VERSION = "20260807-prop-seo-v1";
+  const ASSET_VERSION = "20260808-prop-seo-filter-v1";
   return (
     <>
       {/* Font Awesome (as in legacy HTML) */}
@@ -325,6 +325,19 @@ button {
   0% { transform: scale(1); }
   50% { transform: scale(1.1); }
   100% { transform: scale(1); }
+}
+
+.tools-section-title {
+  grid-column: 1 / -1;
+  width: 100%;
+  margin: 28px 0 4px;
+  padding: 0 8px;
+  box-sizing: border-box;
+  text-align: left;
+  font-family: 'Kanit', sans-serif;
+  font-weight: 700;
+  font-size: 22px;
+  color: #333;
 }
       `}</style>
 
