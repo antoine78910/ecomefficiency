@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 };
 
 export default function PropToolsHubDemoPage() {
-  const ASSET_VERSION = "20260808-prop-logos-v2";
+  const ASSET_VERSION = "20260808-logos-v5";
   return (
     <>
       {/* Font Awesome (as in legacy HTML) */}
@@ -180,6 +180,12 @@ h1 {
 
 .brain-logo {
   transform: scale(1.55);
+  max-width: 100%;
+  max-height: 100%;
+}
+
+.logo-xl {
+  transform: scale(1.5);
   max-width: 100%;
   max-height: 100%;
 }

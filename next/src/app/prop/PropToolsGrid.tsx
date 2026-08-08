@@ -429,6 +429,13 @@ export default function PropToolsGrid({ assetVersion }: { assetVersion: string }
       seoFallback,
     ];
 
+    const logoClassBySlug: Record<string, string> = {
+      alsoasked: "logo-xl",
+      "motion-array": "logo-xl",
+      artlist: "logo-xl",
+      answerthepublic: "logo-xl",
+    };
+
     return (
       <ToolCard
         key={`seo-${tool.slug}`}
@@ -437,6 +444,7 @@ export default function PropToolsGrid({ assetVersion }: { assetVersion: string }
         description={tool.shortDescription}
         imgSrc={primary}
         fallbackSrcs={fallbacks}
+        imgClass={logoClassBySlug[tool.slug]}
       />
     );
   };
