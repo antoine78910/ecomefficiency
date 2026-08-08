@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 };
 
 export default function PropToolsHubDemoPage() {
-  const ASSET_VERSION = "20260808-prop-seo-filter-v1";
+  const ASSET_VERSION = "20260808-prop-logos-v2";
   return (
     <>
       {/* Font Awesome (as in legacy HTML) */}
@@ -176,6 +176,12 @@ h1 {
 
 .logo-large {
   transform: scale(1.12);
+}
+
+.brain-logo {
+  transform: scale(1.55);
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .claude-logo {
