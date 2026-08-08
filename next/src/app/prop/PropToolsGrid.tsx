@@ -445,8 +445,6 @@ export default function PropToolsGrid({ assetVersion }: { assetVersion: string }
         />
       ))}
 
-      <div className="tools-section-title">SEO Tools</div>
-
       {seoTools.map(renderSeoCard)}
     </div>
   );

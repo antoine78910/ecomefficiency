@@ -326,19 +326,6 @@ button {
   50% { transform: scale(1.1); }
   100% { transform: scale(1); }
 }
-
-.tools-section-title {
-  grid-column: 1 / -1;
-  width: 100%;
-  margin: 28px 0 4px;
-  padding: 0 8px;
-  box-sizing: border-box;
-  text-align: left;
-  font-family: 'Kanit', sans-serif;
-  font-weight: 700;
-  font-size: 22px;
-  color: #333;
-}
       `}</style>
 
       <div className="relative overflow-hidden">
