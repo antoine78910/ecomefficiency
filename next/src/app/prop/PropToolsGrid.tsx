@@ -305,6 +305,7 @@ const MAIN_TOOLS: MainTool[] = [
     name: "Turboscribe",
     description: "AI audio & video transcription, fast summaries, speaker detection, and export-ready text.",
     img: "turboscribe.png",
+    imgClass: "logo-xl",
   },
   {
     href: "https://www.canva.com/",

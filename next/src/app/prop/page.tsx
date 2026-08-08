@@ -19,7 +19,7 @@ export const metadata: Metadata = {
 };
 
 export default function PropToolsHubDemoPage() {
-  const ASSET_VERSION = "20260808-logos-v5";
+  const ASSET_VERSION = "20260808-logos-v6";
   return (
     <>
       {/* Font Awesome (as in legacy HTML) */}
@@ -168,6 +168,9 @@ h1 {
   flex: 0 0 auto;
   height: 150px; /* consistent logo area across cards */
   padding: 10px;
+  overflow: hidden; /* keep enlarged logos from covering the title */
+  position: relative;
+  z-index: 0;
 }
 
 .logo-small {
@@ -179,13 +182,13 @@ h1 {
 }
 
 .brain-logo {
-  transform: scale(1.55);
+  transform: scale(1.45);
   max-width: 100%;
   max-height: 100%;
 }
 
 .logo-xl {
-  transform: scale(1.5);
+  transform: scale(1.35);
   max-width: 100%;
   max-height: 100%;
 }
@@ -210,6 +213,9 @@ h1 {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  position: relative;
+  z-index: 2;
+  background: #fff;
 }
 
 .tool-description {
@@ -222,6 +228,9 @@ h1 {
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
+  position: relative;
+  z-index: 2;
+  background: #fff;
 }
 
 /* Ensure SEO card shows "Includes" + "And more" fully */

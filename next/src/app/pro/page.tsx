@@ -17,7 +17,7 @@ export const metadata: Metadata = {
 };
 
 export default function ProToolsHubPage() {
-  const ASSET_VERSION = "20260808-logos-v4";
+  const ASSET_VERSION = "20260808-logos-v6";
   return (
     <>
       {/* Font Awesome (as in legacy HTML) */}
@@ -166,6 +166,9 @@ h1 {
   flex: 0 0 auto;
   height: 150px; /* consistent logo area across cards */
   padding: 10px;
+  overflow: hidden;
+  position: relative;
+  z-index: 0;
 }
 
 .logo-small {
@@ -174,6 +177,12 @@ h1 {
 
 .logo-large {
   transform: scale(1.12);
+}
+
+.logo-xl {
+  transform: scale(1.35);
+  max-width: 100%;
+  max-height: 100%;
 }
 
 .claude-logo {
@@ -196,6 +205,9 @@ h1 {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  position: relative;
+  z-index: 2;
+  background: #fff;
 }
 
 .tool-description {
@@ -208,6 +220,9 @@ h1 {
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   overflow: hidden;
+  position: relative;
+  z-index: 2;
+  background: #fff;
 }
 
 /* Ensure SEO card shows "Includes" + "And more" fully */
@@ -521,7 +536,7 @@ button {
 
           <a href="https://turboscribe.ai/login" className="tool-card" target="_blank" rel="noopener noreferrer">
             <div className="tool-icon">
-              <img src={`/tools-images/turboscribe.png?v=${ASSET_VERSION}`} alt="Turboscribe" />
+              <img src={`/tools-images/turboscribe.png?v=${ASSET_VERSION}`} alt="Turboscribe" className="logo-xl" />
             </div>
             <div className="tool-name">Turboscribe</div>
             <div className="tool-description">AI audio &amp; video transcription, fast summaries, speaker detection, and export-ready text.</div>
